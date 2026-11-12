@@ -2,31 +2,379 @@
 id: infoblox
 name: Infoblox NIOS DNS
 short: Infoblox
+aka:
+  - NIOS
+  - Infoblox DDI
+  - Infoblox Grid
+  - vNIOS
+  - Infoblox DNS Firewall (RPZ)
 vendor: Infoblox
 category: dns
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - dns
   - dhcp
   - ipam
+  - ddi
+  - rpz
+  - bind
   - syslog
+  - cef
+summary: Infoblox NIOS is the appliance OS behind Infoblox DDI (DNS, DHCP and IP address management). Grid members run BIND-based DNS and ISC-based DHCP and log every query, lease and admin change over syslog. DNS query logs are among the largest sources in a SOC, and the most useful for spotting DNS tunnelling, DGA and C2 beaconing, and for proving which host held an IP at a given time.
 sourcetypes:
   - st: infoblox:dns
+    desc: Splunk TA sourcetype for named query, response, RPZ and zone-transfer messages
   - st: infoblox:dhcp
+    desc: Splunk TA sourcetype for dhcpd lease messages (DISCOVER/OFFER/REQUEST/ACK/RELEASE)
+  - st: infoblox:audit
+    desc: Splunk TA sourcetype for the Grid audit log (admin logins and object changes)
   - st: infoblox_cef
-    desc: Pack Generator sourcetype
+    desc: NIOS CEF events. DNS Firewall (RPZ) hits and Threat Protection events in CEF
   - st: infoblox_cef_rfc5424
-    desc: Pack Generator sourcetype
+    desc: The same CEF events framed with an RFC 5424 syslog header
   - st: infoblox_dns
-    desc: Pack Generator sourcetype
+    desc: NIOS named (BIND) query and response log lines
   - st: infoblox_leef
-    desc: Pack Generator sourcetype
+    desc: NIOS security events in LEEF (QRadar-oriented output)
   - st: infoblox_leef_rfc5424
-    desc: Pack Generator sourcetype
+    desc: LEEF events framed with an RFC 5424 syslog header
   - st: infoblox_syslog
-    desc: Pack Generator sourcetype
+    desc: Generic NIOS syslog (named, dhcpd, httpd audit, serial_console) with BSD header and priority
   - st: infoblox_syslog_bsd_nopri
-    desc: Pack Generator sourcetype
+    desc: BSD-style NIOS syslog without the <PRI> prefix (relayed or file-collected)
   - st: infoblox_syslog_iso8601
-    desc: Pack Generator sourcetype
-summary: DNS/DHCP/IPAM appliance; query logging is very high volume.
+    desc: NIOS syslog with ISO 8601 timestamps and a facility token, as shown in the NIOS docs
+  - st: INFOBLOX
+    desc: Google SecOps (Chronicle) log type for generic NIOS syslog
+  - st: INFOBLOX_DNS
+    desc: Google SecOps (Chronicle) log type for DNS query/response logs
+  - st: INFOBLOX_DHCP
+    desc: Google SecOps (Chronicle) log type for DHCP logs
+  - st: INFOBLOX_RPZ
+    desc: Google SecOps (Chronicle) log type for DNS Firewall (RPZ) hits
+facts:
+  First released: 2000s (Infoblox founded 1999; NIOS Grid architecture since mid-2000s)
+  OS / engines: NIOS 8.6 / 9.0 trains. BIND 9 for DNS, ISC DHCP (Kea in newer builds)
+  Form factors: Trinzic / X5 / X6 physical appliances, vNIOS for VMware, Hyper-V, KVM, AWS, Azure and GCP
+  Deployment modes: Grid (Grid Master + candidate + members). Members act as authoritative, recursive, DHCP or reporting nodes
+  Log transport: Syslog UDP/TCP 514, Secure TCP (TLS) 6514. Per-member overrides. Optional syslog proxy
+  Log format: BSD or ISO 8601 syslog with BIND-style text, CEF for RPZ / Threat Protection hits
+  DNS logging categories: queries, responses, rpz, query_rewrite, security, xfer_in/xfer_out, dnssec, resolver, client, update
+  Typical EPS: 1k – 50k+ per recursive member with query logging on (10× ordinary syslog)
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - internal
+    - dmz
+    - cloud
+  items:
+    - slot: internal
+      title: Internal recursive / AD-integrated DNS + DHCP
+      desc: Most common. Members serve every client query and hand out leases, so their logs tie IP ↔ MAC ↔ hostname ↔ query. This is where query logging has the most detection value, and produces the most volume.
+    - slot: dmz
+      title: External authoritative DNS
+      desc: Hidden-primary or public authoritative members for the organisation's zones. Logs show zone transfers, DDoS and NXDOMAIN floods, and changes to public records.
+    - slot: cloud
+      title: vNIOS in AWS / Azure / GCP
+      desc: Members in cloud VPCs/VNets resolve for workloads and sync with cloud DNS. Same log formats, shipped to a collector in the cloud region.
+howItWorks:
+  - title: The Grid
+    body: A Grid Master holds the single configuration database and pushes it to every member over an encrypted VPN tunnel (UDP 1194 by default). Admins use the Grid Manager web UI or the WAPI REST API. Every object change is written to the audit log, which can be copied to syslog.
+  - title: DNS service (BIND)
+    body: Each DNS member runs BIND named under NIOS. Logging categories (queries, responses, rpz, xfer, dnssec …) are switched on per Grid or per member. Query logging writes one line per incoming query, with client IP#port, view, qname, class, type and flags. Response logging adds the answer and the rcode.
+  - title: DNS Firewall (RPZ) and Threat Protection
+    body: Response Policy Zones rewrite answers for malicious or policy-blocked domains (NXDOMAIN, NODATA, PASSTHRU or a sinkhole IP). Feeds come from Infoblox Threat Intelligence or local lists. Every RPZ hit can be logged as a CEF event, and DNS-layer Threat Protection (ADP) reports protocol attacks in the same way.
+  - title: DHCP service
+    body: dhcpd logs the DORA exchange (DISCOVER, OFFER, REQUEST, ACK) plus RELEASE, DECLINE and NAK, with IP, MAC, client hostname, relay and lease duration. That makes it the authoritative record of which device held which IP and when.
+  - title: IPAM and Network Insight
+    body: The IPAM database tracks networks, hosts and extensible attributes. Network Insight (discovery) polls switches and routers. Admin actions in IPAM show up as audit log lines ("Created/Modified/Deleted <object>").
+traffic:
+  handles:
+    - DNS over UDP/TCP 53 (recursive and authoritative)
+    - DNSSEC signing and validation
+    - Zone transfers (AXFR/IXFR) and dynamic updates (RFC 2136, GSS-TSIG)
+    - DHCPv4 / DHCPv6 (UDP 67/68, 546/547)
+    - RPZ / DNS Firewall policy rewrites
+    - Grid VPN (UDP 1194, 2114) and WAPI / Grid Manager HTTPS
+  flow:
+    - step: Client query
+      desc: A host asks a DNS member for a name (UDP 53).
+    - step: View + ACL
+      desc: NIOS selects the DNS view by client match list and checks recursion and query ACLs.
+    - step: RPZ check
+      desc: The qname (and response IP / NS) is checked against the RPZ feeds. On a hit the answer is rewritten and a CEF event is logged.
+    - step: Resolve
+      desc: The member answers from authoritative zones or cache, or recurses or forwards to upstream servers.
+    - step: Answer + log
+      desc: The response is returned. A queries line (and a responses line, if enabled) goes to syslog.
+    - step: DHCP correlation
+      desc: The client's IP maps back to a MAC and hostname through the dhcpd ACK lines of the same member or Grid.
+logs:
+  - type: DNS query
+    sourcetype: infoblox:dns
+    format: text
+    share: 80–95 %
+    avg: ~230 B
+    desc: One line per query when the "queries" logging category is enabled. The client IP, qname and qtype are the core of DNS analytics. There is no rcode or answer here; those come from the separate "responses" category.
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) (?<process>named)\[(?<pid>\d+)\]: (?<category>queries): client @(?<client_ptr>0x[0-9a-f]+) (?<src_ip>[\d.:a-fA-F]+)#(?<src_port>\d+) \((?<qname_echo>[^)]+)\): view (?<view>\S+): query: (?<query>\S+) (?<qclass>IN) (?<qtype>\S+) (?<flags>[+\-A-Z]+) \((?<dns_server_ip>[\d.:a-fA-F]+)\)$'
+    key:
+      - src_ip
+      - query
+      - qtype
+      - flags
+      - view
+      - dns_server_ip
+      - host
+    noise:
+      - pri
+      - client_ptr
+      - qname_echo
+      - qclass
+      - pid
+      - category
+    sample: '<30>Nov 12 09:14:22 ns1.example.com named[16041]: queries: client @0x7f92101ae090 10.20.30.44#59775 (www.example.com): view 3: query: www.example.com IN A + (10.0.0.53)'
+  - type: DNS Firewall (RPZ) hit
+    sourcetype: infoblox_cef
+    format: cef
+    share: < 1 %
+    avg: ~380 B
+    desc: Written when a query matches an RPZ rule (malware, phishing, DGA or a policy block list). Low volume and high value, so never sample or drop it.
+    key:
+      - src
+      - dst
+      - signature_id
+      - name
+      - qtype
+      - msg
+      - CAT
+    noise:
+      - cef_version
+      - device_vendor
+      - device_product
+      - app
+    sample: '<30>Nov 12 09:15:02 ns1.example.com named[28468]: CEF:0|Infoblox|NIOS|9.0.6-52345|RPZ-QNAME|NXDOMAIN|7|app=DNS dst=10.0.0.53 src=10.20.30.44 spt=51424 view=_default qtype=A msg="rpz QNAME NXDOMAIN rewrite update-check.example.net [A] via update-check.example.net.threat-feed.example.org" CAT=RPZ'
+  - type: DHCP lease
+    sourcetype: infoblox:dhcp
+    format: text
+    share: 3–10 %
+    avg: ~200 B
+    desc: The DORA exchange and RELEASE/DECLINE/NAK messages. DHCPACK is the line to keep, because it binds IP, MAC and client hostname and is the source of truth for asset attribution.
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) (?<process>dhcpd)\[(?<pid>\d+)\]: (?<dhcp_msg>DHCPACK) on (?<lease_ip>[\d.]+) to (?<mac>[0-9a-f:]{17}) \((?<client_host>[^)]+)\) via (?<via_if>\S+) relay (?<relay>\S+) lease-duration (?<lease_duration>\d+) uid (?<uid>\S+)$'
+    key:
+      - dhcp_msg
+      - lease_ip
+      - mac
+      - client_host
+      - relay
+      - lease_duration
+    noise:
+      - pri
+      - pid
+      - uid
+      - via_if
+    sample: '<30>Nov 12 09:14:25 dhcp1.example.com dhcpd[2567]: DHCPACK on 10.20.30.44 to 00:50:56:aa:bb:cc (LAPTOP-JDOE) via eth1 relay 10.20.30.1 lease-duration 3600 uid 01:00:50:56:aa:bb:cc'
+  - type: Audit (admin change)
+    sourcetype: infoblox_syslog
+    format: text
+    share: < 1 %
+    avg: ~300 B
+    desc: Grid Manager / WAPI audit lines, copied to syslog through "Copy Audit Log Messages to Syslog". They record who created, modified or deleted which DNS, DHCP or IPAM object, plus admin logins.
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) (?<process>httpd): (?<audit_time>[\d-]+ [\d:.]+Z) \[(?<admin>[^\]]+)\]: (?<action>Created|Modified|Deleted|Login_Allowed|Login_Denied) (?<object_type>\S+) (?<object>.+?): (?<change>.*)$'
+    key:
+      - admin
+      - action
+      - object_type
+      - object
+      - change
+    noise:
+      - pri
+      - syslog_time
+    sample: '<29>Nov 12 10:02:11 gm.example.com httpd: 2026-11-12 10:02:11.204Z [jdoe]: Deleted ARecord payroll.corp.example.com DnsView=default: Delete address="10.40.1.20"'
+cves:
+  - id: CVE-2024-37566
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Improper authentication for Grids — unauthorised Grid access / changes to critical files
+    affected: NIOS 8.6.0 through 8.6.4 (9.x not affected)
+    fixed: 8.6.5
+    detect: Grid membership or configuration changes with no matching admin login in the audit log. Unexpected members joining. Audit lines from service accounts outside change windows.
+    avoid: Upgrade to 8.6.5 or 9.x. Restrict Grid VPN (UDP 1194/2114) and management ports to Grid members and admin jump hosts only.
+  - id: CVE-2025-61880
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Insecure deserialization leading to remote code execution
+    affected: NIOS 8.5.2 (FIPS/CC), 8.6.x, 9.0.1 – 9.0.7
+    fixed: 9.0.8 (version-specific hotfixes for 8.5.2, 8.6.5 and 9.0.1 – 9.0.7)
+    detect: Audit-log admin or SSH-key objects whose names contain slashes or shell metacharacters (9.0.8 now rejects these). Unexpected httpd or WAPI activity from non-admin networks. New outbound connections from the appliance.
+    avoid: Upgrade to 9.0.8 or apply the hotfix from the Infoblox KB. Keep Grid Manager / WAPI off user networks and enforce MFA for admins.
+  - id: CVE-2023-37249
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Authenticated Grid Manager input-validation flaw giving shell access (OS command injection)
+    affected: NIOS 8.5.2 and earlier
+    fixed: 8.5.3 (hotfix NIOS-93969 for 8.5.2)
+    detect: Audit log Modified/Created lines with shell metacharacters in field values. Admin logins from unusual sources just before. Unexpected processes or outbound traffic from the appliance.
+    avoid: Patch. Least-privilege admin groups. Restrict UI and WAPI to a management network.
+  - id: CVE-2023-50387
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: traffic
+    title: DNSSEC "KeyTrap" CPU-exhaustion DoS against validating resolvers (protocol-level, affects BIND)
+    affected: DNSSEC-validating resolvers, including BIND 9 as used by NIOS recursive members
+    detect: Spikes in recursive query latency and SERVFAIL responses. dnssec-category messages about validation failures for a small set of zones. Query bursts for those zones.
+    avoid: Apply the NIOS release that carries the patched BIND. Rate-limit recursion. Restrict recursion to internal clients.
+  - id: CVE-2020-1350
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: traffic
+    title: SIGRed — Windows DNS Server RCE via an oversized SIG response (traffic a NIOS resolver may forward)
+    affected: Windows DNS Server 2003 – 2019 (not NIOS itself) that receive responses through or beside Infoblox
+    detect: Queries for SIG (type 24) records of external domains in the query log, especially from Windows DNS servers that forward to NIOS. Large TCP DNS responses.
+    avoid: Patch Windows DNS. Block or alert on SIG queries leaving the network. Limit TCP response size where possible.
+detections:
+  - title: DNS tunnelling / exfiltration via long or high-entropy subdomains
+    severity: high
+    signals:
+      - query length > 60 characters
+      - many unique subdomains under one parent domain
+      - qtype TXT / NULL / CNAME
+    why: Tunnelling tools (iodine, dnscat2, Cobalt Strike DNS beacons) encode data in labels. The query log is the only place this is visible when DNS is the egress path.
+    kql: |-
+      dataset="infoblox_dns" category="queries"
+      | extend parent=extract("([^.]+\\.[^.]+)$", 1, query), qlen=strlen(query)
+      | where qlen > 60 or qtype in ("TXT","NULL")
+      | summarize unique_names=dcount(query), hits=count() by src_ip, parent, bin(_time, 10m)
+      | where unique_names > 50
+    mitre:
+      - T1071.004
+      - T1048
+  - title: DNS Firewall (RPZ) hit — host resolving a known-malicious domain
+    severity: high
+    signals:
+      - CEF signature_id starts with RPZ-
+      - CAT=RPZ
+      - same src repeatedly
+    why: A threat-feed match on the resolver is often the first sign of malware or phishing on a client. Repeated hits from one source suggest beaconing.
+    kql: |-
+      dataset="infoblox_dns" CAT="RPZ"
+      | extend domain=extract("rewrite (\\S+)", 1, msg)
+      | summarize hits=count(), first=min(_time), last=max(_time) by src, domain, name
+      | sort by hits desc
+    mitre:
+      - T1071.004
+      - T1566.002
+  - title: DGA-like query bursts
+    severity: medium
+    signals:
+      - one client queries many distinct random-looking names in minutes
+      - names under many different parent domains
+      - few repeats
+    why: Domain-generation algorithms cycle through hundreds of algorithmic names until one resolves. That pattern stands out per client.
+    kql: |-
+      dataset="infoblox_dns" category="queries" qtype="A"
+      | extend parent=extract("([^.]+\\.[^.]+)$", 1, query)
+      | summarize parents=dcount(parent), queries=count() by src_ip, bin(_time, 5m)
+      | where parents > 100 and queries < parents * 2
+    mitre:
+      - T1568.002
+  - title: Zone transfer requested by a non-secondary
+    severity: medium
+    signals:
+      - qtype AXFR / IXFR
+      - src_ip not in the secondary-server list
+    why: A full zone transfer hands an attacker the internal host inventory. Only configured secondaries should ever ask.
+    kql: |-
+      dataset="infoblox_dns" qtype in ("AXFR","IXFR")
+      | lookup dns_secondaries on src_ip
+      | where isempty(secondary_name)
+      | summarize count() by src_ip, query, host
+    mitre:
+      - T1590.002
+  - title: Destructive or out-of-hours DNS / DHCP changes
+    severity: medium
+    signals:
+      - audit action=Deleted
+      - object_type ARecord / Zone / Network
+      - admin outside change window
+    why: Deleting or repointing records is a quiet way to hijack traffic or disrupt services. A compromised admin account (or one of the Grid CVEs above) shows up here first.
+    kql: |-
+      dataset="infoblox_audit" action in ("Deleted","Modified")
+      | where object_type in ("ARecord","CNAMERecord","AuthZone","Network","MemberDns")
+      | summarize changes=count(), objects=make_set(object) by admin, action, bin(_time, 1h)
+    mitre:
+      - T1078
+      - T1565.001
+  - title: Unknown device obtains a lease (rogue / new MAC)
+    severity: low
+    signals:
+      - dhcp_msg=DHCPACK
+      - mac not in the asset inventory
+    why: New MACs on server or management VLANs are worth checking. Rogue DHCP or MAC spoofing also shows up as unexpected lease churn.
+    kql: |-
+      dataset="infoblox_dhcp" dhcp_msg="DHCPACK"
+      | lookup asset_inventory on mac
+      | where isempty(asset_owner)
+      | summarize first=min(_time), ips=make_set(lease_ip) by mac, client_host, relay
+    mitre:
+      - T1557.003
+      - T1200
+optimizations:
+  - title: Drop internal and infrastructure noise queries
+    saving: 20–45 %
+    fn: Drop
+    how: Queries for your own AD zones (_ldap._tcp, _kerberos, wpad), PTR lookups for RFC1918 space and health-check names repeat millions of times and are seldom searched. Drop them, or send them to Lake only.
+    expr: /\.(in-addr|ip6)\.arpa$/.test(query) || /^_(ldap|kerberos|gc)\./.test(query) || query.endsWith('.corp.example.com')
+  - title: Suppress repeated identical queries
+    saving: 15–30 %
+    fn: Suppress
+    how: Chatty clients repeat the same qname every few seconds (telemetry, NTP, update checks). Keep one per client, qname and qtype per minute, with a count.
+    expr: "key: `${src_ip}:${query}:${qtype}`  allow 1 / 60s"
+  - title: Parse and strip BIND boilerplate
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Extract the fields with Regex Extract, drop the client @0x pointer, the duplicated qname in parentheses, class IN and PRI, then serialise to compact JSON or KV for the SIEM.
+    expr: "remove: client_ptr, qname_echo, qclass, pri, pid"
+  - title: Aggregate DHCP DORA to one record per lease
+    saving: 50–70 % of DHCP volume
+    fn: Drop
+    how: DISCOVER, OFFER and REQUEST are steps towards the ACK. Keeping DHCPACK, RELEASE, DECLINE and NAK preserves IP-to-MAC attribution at a fraction of the volume.
+    expr: '/dhcpd\[\d+\]: DHCP(DISCOVER|OFFER|REQUEST|INFORM) /.test(_raw)'
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: RPZ/CEF hits, audit lines and DHCPACK go to the SIEM at full fidelity. Raw query logs go to Cribl Lake, and a filtered or suppressed copy goes to the SIEM. Replay from Lake during investigations.
+    expr: "/CEF:|httpd:|DHCPACK/.test(_raw) → SIEM  |  queries → Lake + SIEM(optimised)"
+references:
+  - title: Using a Syslog Server — Infoblox NIOS 8.6 (logging categories, samples, transport)
+    url: https://infoblox-docs.atlassian.net/wiki/spaces/nios86/pages/1105004250/Using+a+Syslog+Server
+  - title: Syslog Message Prefixes — Infoblox NIOS 9.0.x
+    url: https://infoblox-docs.atlassian.net/wiki/spaces/nios90/pages/1380844705/Syslog+Message+Prefixes
+  - title: Elastic Infoblox NIOS integration (DNS, DHCP, audit and RPZ CEF samples)
+    url: https://www.elastic.co/docs/reference/integrations/infoblox_nios
+  - title: Infoblox KB — NIOS is vulnerable to CVE-2024-37566
+    url: https://support.infoblox.com/s/article/000010392
+  - title: Infoblox KB — NIOS is vulnerable to CVE-2025-61879 and CVE-2025-61880
+    url: https://support.infoblox.com/s/article/CVE-2025-61879-and-CVE-2025-61880
+  - title: Infoblox Community KB — NIOS is vulnerable to CVE-2023-37249
+    url: https://community.infoblox.com/kb/articles/32190-nios-is-vulnerable-to-cve-2023-37249
+  - title: NVD — CVE-2023-50387 (KeyTrap)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-50387
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - isc-bind
+  - ms-dns-dhcp
+  - umbrella
+  - aws-route53
+  - zeek

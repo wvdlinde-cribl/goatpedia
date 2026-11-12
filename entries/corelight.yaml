@@ -2,14 +2,353 @@
 id: corelight
 name: Corelight Sensor
 short: Corelight
+aka:
+  - Corelight Open NDR
+  - Corelight AP sensors
+  - Corelight Software Sensor
+  - Corelight Fleet Manager
+  - Corelight Investigator
 vendor: Corelight
 category: ndr
-status: stub
-summary: Commercial Zeek-based NDR sensor with Suricata; emits enriched Zeek logs as JSON.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ndr
+  - nsm
+  - zeek
+  - suricata
+  - json
+  - span
+  - tap
+  - smart-pcap
+summary: Corelight is a commercial network detection and response (NDR) sensor from the creators of Zeek. It runs hardened, high-throughput Zeek and Suricata on appliances, VMs, cloud and software sensors, and streams enriched Zeek JSON logs plus Corelight-only logs (ldap_search, smtp_links, conn_long, known_*, CVE packages) to SIEMs and data lakes. The schema is Zeek's, so Zeek detections and parsers carry over, with extra fields (_path, _system_name, _write_ts) for routing.
 sourcetypes:
   - st: corelight_conn
+    desc: conn.log — connection records (also the Corelight App for Splunk sourcetype)
   - st: corelight_dns
+    desc: dns.log — DNS transactions
   - st: corelight_http
+    desc: http.log — HTTP requests/responses with host, URI, user agent, status, MIME
   - st: corelight_ldap
+    desc: ldap.log — LDAP binds and operations other than searches
   - st: corelight_ldap_search
+    desc: ldap_search.log — LDAP searches with base object, scope, filter, attributes and result count
   - st: corelight_smtp_links
+    desc: smtp_links.log — URLs extracted from email bodies seen in SMTP
+  - st: corelight_notice
+    desc: notice.log — Zeek/Corelight package detections (CVE packages, scans, certificates)
+  - st: corelight_suricata_corelight
+    desc: suricata_corelight.log — Suricata alerts from the sensor, linked to Zeek uid
+  - st: CORELIGHT
+    desc: Google SecOps (Chronicle) log type for Corelight
+facts:
+  First released: 2017 (company founded 2013 by Zeek creators Vern Paxson, Robin Sommer, Seth Hall, Greg Bell)
+  Engines: Zeek (Corelight-hardened), Suricata IDS, Smart PCAP, YARA, entity collection, CVE detection bundles
+  Form factors: AP-series appliances (AP 200 → AP 5200), VM sensors, cloud sensors (AWS/Azure/GCP), software sensor
+  Deployment modes: Passive on SPAN/TAP/packet broker or cloud packet mirroring. Managed by Fleet Manager
+  Log transport: Splunk HEC, Kafka, syslog, JSON over TCP, S3/Azure Blob/GCS, Elastic, Sentinel. Several exporters in parallel
+  Log format: Zeek JSON (one object per line) with _path, _system_name and _write_ts metadata
+  Typical volume: 5–20 GB/day per 1 Gbps sustained, depending on enabled logs and packages
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - edge
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: Internet egress / perimeter
+      desc: On a TAP behind the firewall. North-south DNS, HTTP, TLS, SMTP (with smtp_links) and file transfers, plus Suricata alerts on the same flows.
+    - slot: internal
+      title: Data center and AD core
+      desc: East-west LDAP, Kerberos, SMB, DCE-RPC and RDP. This is where ldap_search and CVE packages (Zerologon, PrintNightmare) give the most value.
+    - slot: cloud
+      title: Cloud sensors
+      desc: AWS, Azure and GCP sensors fed by VPC traffic mirroring or gateway load balancers. Same schema as on-prem, so detections are portable.
+howItWorks:
+  - title: Hardened Zeek at line rate
+    body: Corelight packages Zeek with a custom load-balancing and packet-capture stack (FPGA or NIC offload on appliances) and tunes cluster workers, so one sensor covers 1–100 Gbps. Zeek scripting and packages behave as in open-source Zeek.
+  - title: Corelight logs and enrichment
+    body: Beyond the standard Zeek logs, the sensor adds ldap and ldap_search, smtp_links, conn_long (interim records for long-lived flows), known_hosts/known_services/known_certs, and entity data. Every record carries _path, _system_name and _write_ts for routing and fleet-wide correlation.
+  - title: Integrated Suricata
+    body: Suricata runs on the same traffic, and alerts land in suricata_corelight.log with the Zeek uid, so an alert links straight to its conn, http, ssl and files records. community_id is added for joins with EDR, firewall or other Suricata deployments.
+  - title: Detection packages and Smart PCAP
+    body: Corelight-maintained CVE bundles (Log4Shell, Zerologon, ProxyShell …), behavioural packages (C2, encrypted-traffic analytics) and YARA raise notices. Smart PCAP keeps packets selectively for alerted or unusual flows and links them from the logs.
+  - title: Export and fleet management
+    body: Fleet Manager pushes policy, packages and updates to sensors. Each sensor streams logs to one or more exporters (HEC, Kafka, syslog, JSON/TCP, cloud storage), with per-log filters so high-volume logs can go to a lake and the rest to the SIEM.
+traffic:
+  handles:
+    - Full Zeek protocol set — DNS, HTTP, TLS/X.509, QUIC, SSH
+    - AD protocols — LDAP, Kerberos, NTLM, SMB, DCE-RPC, RDP
+    - Email — SMTP with link and attachment extraction
+    - File transfers with hashes (and YARA)
+    - Suricata IDS signatures (ET Pro and others)
+    - ICS/OT protocols via packages
+  flow:
+    - step: Capture
+      desc: Packets mirrored from TAP/SPAN or cloud mirroring into the sensor.
+    - step: Load-balance
+      desc: Flows hashed across Zeek workers and Suricata threads.
+    - step: Protocol analysis
+      desc: Zeek analyzers parse the application layer. Suricata matches signatures.
+    - step: Packages
+      desc: CVE and behaviour packages inspect events and raise notices.
+    - step: Enrich
+      desc: Records get _path, _system_name, community_id and entity context.
+    - step: Export
+      desc: JSON is streamed to HEC, Kafka, syslog or storage per exporter filter.
+logs:
+  - type: Connection (conn.log)
+    sourcetype: corelight_conn
+    format: json
+    share: 35–55 %
+    avg: ~550 B
+    desc: The Zeek conn record plus Corelight metadata. It is the backbone record that every other log joins to on uid, and the main input for beaconing, exfiltration and scan analytics.
+    key:
+      - id.orig_h
+      - id.resp_h
+      - id.resp_p
+      - service
+      - orig_bytes
+      - resp_bytes
+      - conn_state
+      - _system_name
+    noise:
+      - _write_ts
+      - missed_bytes
+      - orig_ip_bytes
+      - resp_ip_bytes
+      - tunnel_parents
+      - corelight_shunted
+    sample: '{"_path":"conn","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:15:24.512031Z","ts":"2026-11-12T09:14:22.401201Z","uid":"CHhAvVGS1DHFjwGM9","id.orig_h":"10.20.30.44","id.orig_p":51544,"id.resp_h":"203.0.113.50","id.resp_p":443,"proto":"tcp","service":"ssl","duration":62.104511,"orig_bytes":3412,"resp_bytes":48210,"conn_state":"SF","local_orig":true,"local_resp":false,"missed_bytes":0,"history":"ShADadFf","orig_pkts":31,"orig_ip_bytes":5024,"resp_pkts":44,"resp_ip_bytes":50510,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","corelight_shunted":false}'
+  - type: DNS (dns.log)
+    sourcetype: corelight_dns
+    format: json
+    share: 15–30 %
+    avg: ~450 B
+    desc: Every DNS transaction seen on the wire, with query, type, rcode and answers. Passive DNS even for clients that bypass the corporate resolver.
+    key:
+      - id.orig_h
+      - query
+      - qtype_name
+      - rcode_name
+      - answers[0]
+    noise:
+      - _write_ts
+      - trans_id
+      - qclass
+      - qclass_name
+      - AA
+      - TC
+      - Z
+    sample: '{"_path":"dns","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:14:22.402003Z","ts":"2026-11-12T09:14:22.390114Z","uid":"Cq9tKD2Ue3Kk1gLqY7","id.orig_h":"10.20.30.44","id.orig_p":61022,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","trans_id":40312,"rtt":0.0121,"query":"cdn-sync.example.org","qclass":1,"qclass_name":"C_INTERNET","qtype":1,"qtype_name":"A","rcode":0,"rcode_name":"NOERROR","AA":false,"TC":false,"RD":true,"RA":true,"Z":0,"answers":["198.51.100.77"],"TTLs":[60.0],"rejected":false}'
+  - type: LDAP search (ldap_search.log)
+    sourcetype: corelight_ldap_search
+    format: json
+    share: 1–5 %
+    avg: ~500 B
+    desc: One record per LDAP search, with base object, scope, filter, requested attributes, result code and result count. This is where AD reconnaissance (BloodHound/SharpHound, SPN enumeration) becomes visible.
+    key:
+      - id.orig_h
+      - id.resp_h
+      - base_object
+      - scope
+      - filter
+      - attributes[0]
+      - result_count
+      - result
+    noise:
+      - _write_ts
+      - message_id
+      - deref_aliases
+      - diagnostic_message
+    sample: '{"_path":"ldap_search","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:20:11.120004Z","ts":"2026-11-12T09:20:10.880211Z","uid":"CmQ1yb3Wf9pJqk0r51","id.orig_h":"10.20.30.61","id.orig_p":50211,"id.resp_h":"10.40.1.5","id.resp_p":389,"proto":"tcp","message_id":4,"scope":"tree","deref_aliases":"always","base_object":"DC=corp,DC=example,DC=com","result_count":1873,"result":"success","diagnostic_message":"","filter":"(&(samAccountType=805306368)(servicePrincipalName=*))","attributes":["sAMAccountName","servicePrincipalName","memberOf"]}'
+  - type: Email links (smtp_links.log)
+    sourcetype: corelight_smtp_links
+    format: json
+    share: < 1 %
+    avg: ~300 B
+    desc: Each URL found in an email body crossing the sensor, linked to smtp.log by uid and fuid. Used to hunt phishing links and correlate clicks in http.log.
+    key:
+      - id.orig_h
+      - id.resp_h
+      - link
+      - uid
+      - fuid
+    noise:
+      - _write_ts
+      - id.orig_p
+    sample: '{"_path":"smtp_links","_system_name":"cl-sensor-edge1","_write_ts":"2026-11-12T08:41:03.004112Z","ts":"2026-11-12T08:41:02.771090Z","uid":"C62txO1FHoJFJpsgP1","fuid":"FhahXA1eJ32gHvNP27","id.orig_h":"198.51.100.25","id.orig_p":62345,"id.resp_h":"10.30.0.25","id.resp_p":25,"link":"http://invoice-portal.example.net/dl.php?id=jdoe37"}'
+cves:
+  - id: CVE-2023-7243
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: ICSNPP EtherCAT Zeek plugin out-of-bounds write — possible RCE on the sensor (optional plugin)
+    affected: Corelight Sensor releases before v27.10 with the EtherCAT plugin enabled (disabled by default). Plugin versions d78dda6 and prior
+    fixed: Corelight Sensor v27.10
+    detect: Zeek worker crashes and gaps in conn.log on OT segments. EtherCAT traffic from unexpected sources. Sensor health alerts in Fleet Manager.
+    avoid: Update to v27.10 or later, or disable the EtherCAT plugin in Fleet Manager until updated.
+  - id: CVE-2023-7244
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: ICSNPP EtherCAT Zeek plugin out-of-bounds write in the primary analysis function
+    affected: Corelight Sensor releases before v27.10 with the EtherCAT plugin enabled. Plugin versions d78dda6 and prior
+    fixed: Corelight Sensor v27.10
+    detect: Same as CVE-2023-7243. Crashes correlated with crafted EtherCAT frames.
+    avoid: Update the sensor. Keep optional ICS plugins off unless required.
+  - id: CVE-2022-0778
+    cvss: 7.5
+    year: 2022
+    kev: false
+    scope: device
+    title: OpenSSL BN_mod_sqrt infinite loop — crafted certificates DoS the sensor's TLS parsing
+    affected: Corelight Sensor and Zeek builds linked against vulnerable OpenSSL (March 2022 bulletin)
+    detect: Workers pegged at 100 % CPU and capture loss while processing TLS with malformed EC certificates. Gaps in ssl.log/x509.log.
+    avoid: Install the patched sensor release from the March 2022 bulletin. Monitor capture_loss and sensor health.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI injection in traffic the sensor inspects (Corelight detection package)
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 on monitored servers (Corelight sensors themselves not affected per bulletin)
+    detect: notice.log LOG4J_ATTEMPT_HEADER, http.log tags LOG4J_RCE, and the log4j log from the corelight/cve-2021-44228 package. Follow-on LDAP (ldap_search) or Java class downloads from the targeted server.
+    avoid: Patch Log4j. Block outbound LDAP/RMI from servers. Keep the CVE bundle enabled.
+  - id: CVE-2020-1472
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: traffic
+    title: Zerologon — Netlogon privilege escalation against domain controllers
+    affected: Windows domain controllers without the August 2020+ Netlogon fixes
+    detect: notice.log Zerologon_Attempt / Zerologon_Password_Change (corelight/zerologon package). dce_rpc bursts of NetrServerAuthenticate3 then NetrServerPasswordSet2.
+    avoid: Patch DCs and enforce secure RPC. Keep the package enabled on sensors covering DC traffic.
+detections:
+  - title: AD reconnaissance via broad LDAP searches (BloodHound / SPN enumeration)
+    severity: high
+    signals:
+      - ldap_search filter contains servicePrincipalName=* or objectClass=*
+      - scope=tree at the domain root
+      - result_count in the thousands from a workstation
+    why: SharpHound, ADFind and Kerberoasting tools enumerate users, groups and SPNs over LDAP. Workstations rarely run domain-wide subtree searches.
+    kql: |-
+      dataset="corelight" _path="ldap_search" scope="tree"
+      | where filter has "servicePrincipalName=*" or filter has "objectClass=*" or result_count > 1000
+      | summarize searches=count(), rows=sum(result_count), filters=make_set(filter) by id.orig_h, id.resp_h, bin(_time, 15m)
+    mitre:
+      - T1087.002
+      - T1069.002
+      - T1558.003
+  - title: Phishing link to a rare domain followed by a click
+    severity: high
+    signals:
+      - smtp_links link domain seen in few emails
+      - http.log request from an internal host to the same host shortly after
+    why: Ties email delivery to the user's click and download on the wire, without mailbox access.
+    kql: |-
+      dataset="corelight" _path="smtp_links"
+      | extend link_host=extract("https?://([^/:]+)", 1, link)
+      | join kind=inner (dataset="corelight" _path="http" | project click_time=_time, clicker=id.orig_h, link_host=host) on link_host
+      | summarize emails=dcount(fuid), clicks=dcount(clicker) by link_host
+      | where emails < 5
+    mitre:
+      - T1566.002
+      - T1204.001
+  - title: Log4Shell attempt raised by the CVE package
+    severity: critical
+    signals:
+      - notice.log note LOG4J_ATTEMPT_HEADER
+      - http.log tags LOG4J_RCE
+      - outbound LDAP/Java download from target
+    why: The package deobfuscates the header payload, so hits are high-confidence. A later outbound connection from the target means the exploit probably succeeded.
+    kql: |-
+      dataset="corelight" _path="notice"
+      | where note has "LOG4J"
+      | summarize n=count(), first=min(_time) by src, dst, note
+    mitre:
+      - T1190
+  - title: Beaconing on long-lived or periodic flows
+    severity: medium
+    signals:
+      - conn / conn_long with constant intervals
+      - low variance orig_bytes
+      - rare destination
+    why: Implants check in on a timer, so the pattern shows even inside TLS. conn_long also captures sessions that stay open for hours (reverse shells, tunnels).
+    kql: |-
+      dataset="corelight" _path="conn" local_orig=true local_resp=false
+      | summarize n=count(), avg_b=avg(orig_bytes), sd_b=stdev(orig_bytes) by id.orig_h, id.resp_h, id.resp_p, bin(_time, 1h)
+      | where n > 30 and sd_b < avg_b * 0.1
+    mitre:
+      - T1071.001
+      - T1029
+  - title: DNS tunnelling / long or TXT queries
+    severity: medium
+    signals:
+      - strlen(query) > 60
+      - qtype_name TXT or NULL
+      - many unique subdomains per parent
+    why: Data encoded in DNS labels. The sensor sees it even when clients talk directly to external resolvers.
+    kql: |-
+      dataset="corelight" _path="dns"
+      | extend parent=extract("([^.]+\\.[^.]+)$", 1, query)
+      | where strlen(query) > 60 or qtype_name in ("TXT","NULL")
+      | summarize names=dcount(query) by id.orig_h, parent, bin(_time, 10m)
+      | where names > 50
+    mitre:
+      - T1071.004
+      - T1048
+optimizations:
+  - title: Use exporter filters to keep operational logs out of the SIEM
+    saving: 10–25 %
+    fn: Routes
+    how: stats, capture_loss, reporter, loaded_scripts and corelight metrics logs belong in a metrics store or Lake. Route on _path.
+    expr: "['stats','capture_loss','reporter','loaded_scripts','corelight_metrics_zeek_doctor'].includes(_path) → Lake"
+  - title: Drop scan noise and zero-byte connections
+    saving: 15–35 % of conn
+    fn: Drop
+    how: Unanswered inbound internet scans (S0/REJ/OTH with zero bytes) are the largest share of conn.log at the edge and almost never investigated individually.
+    expr: _path=='conn' && !local_orig && ['S0','REJ','OTH'].includes(conn_state) && !orig_bytes && !resp_bytes
+  - title: Strip metadata and placeholder fields
+    saving: 8–15 %
+    fn: Eval
+    how: Remove _write_ts (≈ ts), missed_bytes, *_ip_bytes, empty tunnel_parents and corelight_shunted=false before the SIEM. Keep _system_name for sensor attribution.
+    expr: "remove: _write_ts, missed_bytes, orig_ip_bytes, resp_ip_bytes, tunnel_parents, corelight_shunted"
+  - title: Aggregate internal DNS/NTP/Kerberos chatter
+    saving: 30–50 % of conn
+    fn: Aggregations
+    how: Roll internal service flows up to per-minute counts and bytes per src/dst/service. Raw records go to Lake for uid pivots during investigations.
+    expr: _path=='conn' && local_orig && local_resp && ['dns','ntp','krb','ldap'].includes(service)
+  - title: Route by _path
+    saving: SIEM licence
+    fn: Routes
+    how: notice, suricata_corelight, ldap_search, smtp_links, ssl, http, dns and files go to the SIEM. conn and conn_long go to Lake in full, with an aggregated copy in the SIEM.
+    expr: _path in ('conn','conn_long') → Lake + SIEM(aggregated)  |  else → SIEM
+references:
+  - title: Corelight security bulletins (sensor CVEs, EtherCAT plugin, OpenSSL, Log4j)
+    url: https://corelight.com/blog/bulletins
+  - title: Corelight LDAP analyzer — ldap.log and ldap_search.log
+    url: https://corelight.com/blog/ldap-analyzer-expands-visibility
+  - title: Zeek LDAP script reference (ldap_search fields)
+    url: https://docs.zeek.org/en/master/scripts/base/protocols/ldap/main.zeek.html
+  - title: Corelight threat hunting guide (smtp_links, ATT&CK-mapped hunts)
+    url: https://github.com/corelight/threat-hunting-guide
+  - title: corelight/cve-2021-44228 — Log4Shell detection package
+    url: https://github.com/corelight/cve-2021-44228
+  - title: corelight/zerologon — Zerologon detection package
+    url: https://github.com/corelight/zerologon
+  - title: NVD — CVE-2023-7243 (ICSNPP EtherCAT plugin)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-7243
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - zeek
+  - suricata
+  - splunk-stream
+  - active-directory
+  - netflow

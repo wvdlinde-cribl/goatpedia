@@ -2,17 +2,375 @@
 id: suricata
 name: Suricata
 short: Suricata
+aka:
+  - OISF Suricata
+  - Suricata IDS
+  - Suricata IPS
+  - Suricata NSM
 vendor: OISF (open source)
 category: ids
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - ids
   - ips
+  - nsm
   - eve
   - json
   - span
+  - tap
+  - emerging-threats
+summary: Suricata is an open-source, multi-threaded IDS/IPS and network security monitoring engine from the OISF. It matches traffic against Snort-compatible signatures (ET Open/Pro and others) and writes everything to EVE JSON. Alongside alerts it produces flow, DNS, HTTP, TLS, file and anomaly records. It ships inside many commercial products (Corelight, Security Onion, pfSense/OPNsense, AWS Network Firewall, Stamus).
 sourcetypes:
   - st: suricata
+    desc: EVE JSON — every event_type (alert, flow, dns, http, tls, fileinfo, anomaly, stats) in one stream
   - st: suricata_ids
-    desc: Pack Generator sourcetype
-summary: Open-source IDS/IPS emitting EVE JSON (alert, flow, dns, http, tls).
+    desc: Suricata IDS/IPS alerts in EVE JSON (event_type alert)
+  - st: SURICATA_EVE
+    desc: Google SecOps (Chronicle) log type for EVE JSON
+  - st: SURICATA_IDS
+    desc: Google SecOps (Chronicle) log type for Suricata alerts
+facts:
+  First released: 2010 (1.0). OISF project funded by US DHS at launch
+  Current trains: 8.0.x (2025+) and 7.0.x (LTS)
+  Platforms: Linux (primary), FreeBSD, Windows. Packaged in Security Onion, pfSense, OPNsense, SELKS
+  Deployment modes: IDS on SPAN/TAP (AF_PACKET, PF_RING, DPDK, Napatech), inline IPS (NFQUEUE, AF_PACKET IPS), offline PCAP
+  Rules: Snort-compatible syntax plus Suricata keywords. ET Open / ET Pro, Snort Talos (partly), Abuse.ch, custom
+  Log transport: EVE to file, unix socket, syslog or Redis. Usually shipped by Filebeat, Fluent Bit or Cribl Edge
+  Log format: EVE JSON, one object per line, discriminated by event_type
+  Typical volume: 1–10 GB/day per 1 Gbps monitored with full protocol logging. Alerts are < 1 %
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - edge
+    - internal
+    - cloud
+    - dmz
+  items:
+    - slot: edge
+      title: Perimeter TAP / inline IPS
+      desc: Behind the internet firewall on a TAP or SPAN, or inline in IPS mode. Sees all north-south traffic before NAT hides internal hosts (or after it, depending on placement).
+    - slot: internal
+      title: East-west / data-center sensor
+      desc: On core switch SPANs or packet brokers to catch lateral movement, SMB/RDP abuse and internal C2 that perimeter devices never see.
+    - slot: dmz
+      title: DMZ / published services
+      desc: In front of web and mail servers, with HTTP and TLS logging enabled, to catch exploitation of public-facing apps.
+    - slot: cloud
+      title: Cloud traffic mirroring
+      desc: AWS VPC Traffic Mirroring, Azure vTAP or GCP Packet Mirroring sessions feeding a Suricata VM. AWS Network Firewall itself runs Suricata-compatible rules.
+howItWorks:
+  - title: Capture and flow engine
+    body: Worker threads pull packets (AF_PACKET / PF_RING / DPDK), decode L2–L4, defragment IP and reassemble TCP streams. Packets are hashed into flows, and each flow gets a flow_id that ties together every EVE record for that connection.
+  - title: Protocol detection and app-layer parsers
+    body: Protocols are detected by content, not port. Parsers (many written in Rust) handle HTTP/1–2, TLS, DNS, SMB, SSH, SMTP, FTP, Kerberos, DHCP, MQTT, Modbus, DNP3 and others. They feed rule keywords such as http.uri and tls.sni, and write the protocol EVE records.
+  - title: Detection engine
+    body: Rules are grouped and prefiltered with multi-pattern matching (Hyperscan where available). A match emits an alert with gid/sid/rev, signature, category and severity, plus metadata (MITRE tags, CVE references) from the rule. Thresholds and suppressions limit repeats.
+  - title: IPS actions and exception policies
+    body: Inline, a rule with drop or reject blocks the packet or flow (alert.action=blocked). Exception policies decide what happens when the engine runs out of memory or hits a midstream session, which is critical for IPS fail-open/closed behaviour.
+  - title: EVE output
+    body: All event types go to one JSON stream with common keys (timestamp, flow_id, in_iface, event_type, src_ip, src_port, dest_ip, dest_port, proto, community_id). Alerts can embed the HTTP/TLS metadata, payload and the matching packet.
+traffic:
+  handles:
+    - IPv4/IPv6, VLAN, MPLS, GRE/VXLAN/Geneve tunnels
+    - HTTP/1.x, HTTP/2 and DoH, TLS (JA3/JA4, SNI, certs)
+    - DNS (UDP/TCP), DHCP, NTP
+    - SMB, DCERPC, Kerberos, LDAP, RDP, SSH
+    - SMTP, FTP, file extraction with hashes
+    - ICS — Modbus, DNP3, ENIP
+  flow:
+    - step: Capture
+      desc: Packet copied from SPAN/TAP (IDS) or held inline (IPS).
+    - step: Decode + flow
+      desc: L2–L4 decoded, flow looked up or created, flow_id assigned.
+    - step: Stream reassembly
+      desc: TCP segments ordered and reassembled; IP fragments rebuilt.
+    - step: App-layer
+      desc: Protocol detected, parsed into transactions (http, dns, tls …).
+    - step: Detection
+      desc: Signatures evaluated on packet, stream and app-layer buffers.
+    - step: Action
+      desc: Alert, or drop/reject in IPS mode.
+    - step: EVE log
+      desc: Alert and protocol records written live; flow record written at flow timeout.
+logs:
+  - type: Alert
+    sourcetype: suricata_ids
+    format: json
+    share: < 1–3 %
+    avg: ~1.5 KB
+    desc: One record per signature match, carrying the 5-tuple, flow_id and alert block, plus the protocol metadata (http, tls …) when enabled. It is the highest-value record type, so never sample it.
+    key:
+      - src_ip
+      - dest_ip
+      - dest_port
+      - alert.signature_id
+      - alert.signature
+      - alert.category
+      - alert.severity
+      - alert.action
+    noise:
+      - pcap_cnt
+      - in_iface
+      - alert.gid
+      - alert.rev
+      - alert.metadata.created_at[0]
+      - alert.metadata.updated_at[0]
+      - alert.metadata.signature_severity[0]
+    sample: '{"timestamp":"2026-11-12T09:14:22.512031+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"alert","src_ip":"10.20.30.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","pcap_cnt":4471,"alert":{"action":"allowed","gid":1,"signature_id":2024056,"rev":4,"signature":"ET MALWARE Win32/CryptFile2 / Revenge Ransomware Checkin M3","category":"Malware Command and Control Activity Detected","severity":1,"metadata":{"created_at":["2017_03_15"],"updated_at":["2024_02_01"],"signature_severity":["Major"],"mitre_technique_id":["T1071"]}},"http":{"hostname":"update.example.net","url":"/news.php?id=3","http_user_agent":"Mozilla/4.0","http_method":"POST","protocol":"HTTP/1.1","status":200,"length":0},"app_proto":"http","direction":"to_server"}'
+  - type: Flow
+    sourcetype: suricata
+    format: json
+    share: 40–60 %
+    avg: ~600 B
+    desc: Written when a flow ends or times out. Packets and bytes in each direction, start and end times, state, end reason and whether the flow raised an alert. Comparable to NetFlow, but with an app_proto label.
+    key:
+      - src_ip
+      - dest_ip
+      - dest_port
+      - app_proto
+      - flow.bytes_toserver
+      - flow.bytes_toclient
+      - flow.alerted
+    noise:
+      - in_iface
+      - flow.state
+      - flow.reason
+      - tcp.tcp_flags_ts
+      - tcp.tcp_flags_tc
+    sample: '{"timestamp":"2026-11-12T09:15:01.004312+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"flow","src_ip":"10.20.30.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","app_proto":"http","community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","flow":{"pkts_toserver":9,"pkts_toclient":7,"bytes_toserver":1342,"bytes_toclient":2210,"start":"2026-11-12T09:14:22.401201+0000","end":"2026-11-12T09:14:23.110402+0000","age":1,"state":"closed","reason":"timeout","alerted":true},"tcp":{"tcp_flags":"1b","tcp_flags_ts":"1b","tcp_flags_tc":"1b","syn":true,"fin":true,"psh":true,"ack":true,"state":"closed"}}'
+  - type: DNS
+    sourcetype: suricata
+    format: json
+    share: 15–30 %
+    avg: ~450 B
+    desc: Query and answer records (EVE v3 format), with rrname, rrtype, rcode and answers. They give passive DNS for every sensor-visible client without resolver logs.
+    key:
+      - src_ip
+      - dns.queries[0].rrname
+      - dns.queries[0].rrtype
+      - dns.rcode
+      - dns.answers[0].rdata
+    noise:
+      - dns.version
+      - dns.flags
+      - dns.qr
+      - dns.rd
+      - dns.ra
+      - in_iface
+    sample: '{"timestamp":"2026-11-12T09:14:22.390114+0000","flow_id":902114588812031,"in_iface":"eth1","event_type":"dns","src_ip":"10.0.0.53","src_port":53,"dest_ip":"10.20.30.44","dest_port":61022,"proto":"UDP","dns":{"version":3,"type":"response","id":40312,"flags":"8180","qr":true,"rd":true,"ra":true,"opcode":0,"rcode":"NOERROR","queries":[{"rrname":"update.example.net","rrtype":"A"}],"answers":[{"rrname":"update.example.net","rrtype":"A","ttl":300,"rdata":"203.0.113.50"}]}}'
+  - type: TLS
+    sourcetype: suricata
+    format: json
+    share: 5–15 %
+    avg: ~700 B
+    desc: Handshake metadata (SNI, version, certificate subject/issuer, validity, JA3/JA4 fingerprints) for encrypted sessions. It is the main visibility into HTTPS without decryption.
+    key:
+      - src_ip
+      - dest_ip
+      - tls.sni
+      - tls.version
+      - tls.subject
+      - tls.issuerdn
+      - tls.ja3.hash
+    noise:
+      - tls.serial
+      - tls.ja3.string
+      - tls.ja3s.string
+      - in_iface
+    sample: '{"timestamp":"2026-11-12T09:16:40.771002+0000","flow_id":661204889120771,"in_iface":"eth1","event_type":"tls","src_ip":"10.20.30.44","src_port":52011,"dest_ip":"198.51.100.77","dest_port":443,"proto":"TCP","tls":{"subject":"CN=cdn-sync.example.org","issuerdn":"CN=cdn-sync.example.org","serial":"5A:1C:09:3E","fingerprint":"9b:3e:aa:10:44:21:6c:88:0f:12:7d:21:aa:90:3c:11:5e:72:01:a4","sni":"cdn-sync.example.org","version":"TLS 1.2","notbefore":"2026-11-01T00:00:00","notafter":"2027-11-01T00:00:00","ja3":{"hash":"72a589da586844d7f0818ce684948eea","string":"771,49195-49199-52393,0-11-10-35-23,29-23-24,0"},"ja3s":{"hash":"f4febc55ea12b31ae17cfb7e614afda8","string":"771,49199,65281-0-11"}}}'
+cves:
+  - id: CVE-2026-94083
+    cvss: 9.4
+    year: 2026
+    kev: false
+    scope: device
+    title: DoH2 type confusion leading to invalid free (HTTP/1 → HTTP/2 upgrade on a DoH2 request)
+    affected: Suricata 8.0.0 – 8.0.6 with app-layer.protocols.doh2 enabled (the 8.x default)
+    fixed: 8.0.7
+    detect: Sensor crash/restart (gap in EVE output, engine startup messages in suricata.log). stats records with a reset uptime. HTTP Upgrade h2c requests on the monitored links just before the gap.
+    avoid: Upgrade to 8.0.7 or disable app-layer.protocols.doh2. Alert on sensor silence (no EVE events in N minutes).
+  - id: CVE-2026-22262
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Stack overflow when saving a large dataset (rules using dataset save/state)
+    affected: Suricata < 7.0.14 and 8.0.0 – 8.0.2
+    fixed: 7.0.14, 8.0.3
+    detect: Crashes coinciding with traffic that fills dataset-backed rules, visible as EVE gaps. Rules containing dataset save/state in the loaded ruleset.
+    avoid: Upgrade. Do not use rules with the dataset save or state options until patched. Vet third-party rule sources.
+  - id: CVE-2026-45764
+    cvss: 9.1
+    year: 2026
+    kev: false
+    scope: device
+    title: HTTP/2 protocol-change type confusion — crafted traffic crashes the engine (DoS)
+    affected: Suricata < 7.0.16 and 8.0.0 – 8.0.4
+    fixed: 7.0.16, 8.0.5
+    detect: Repeated sensor restarts and EVE gaps. anomaly events for HTTP/2 from the same external sources. An attacker crashing the IDS is an evasion step, so correlate with what happened during the gap.
+    avoid: Upgrade. Monitor sensor health and treat a blind sensor as an incident in IPS deployments (fail-closed vs fail-open).
+  - id: CVE-2021-37592
+    cvss: 9.8
+    year: 2021
+    kev: false
+    scope: device
+    title: TCP evasion — crafted segment sequence bypasses TCP-based signatures
+    affected: Suricata before 5.0.8 and 6.0.0 – 6.0.3
+    fixed: 5.0.8, 6.0.4
+    detect: Mostly invisible by design. Look for flow records with app_proto=failed or unusual tcp_flags combinations, and stream anomaly events toward servers that later show compromise.
+    avoid: Upgrade. Keep stream.midstream and reassembly settings at their defaults. Layer host-based detection.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS against web servers Suricata monitors
+    affected: HTTP/2 servers and proxies behind the sensor
+    detect: Many http2 transactions per flow with RST_STREAM frames. Short flows with low bytes_toclient toward one dest_ip. ET rules for Rapid Reset where available.
+    avoid: Patch the servers. Rate-limit at the load balancer/WAF. Use IPS drop rules for abusive sources.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookup strings in HTTP traffic the sensor inspects
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 on servers behind the sensor
+    detect: 'Alerts with signatures matching "Log4j" / "JNDI". ${jndi: strings in http.http_user_agent or url. Follow-on LDAP or RMI flows from the targeted server to the internet.'
+    avoid: Patch Log4j. Block outbound LDAP/RMI from servers. Keep the ET rules enabled in IPS mode.
+detections:
+  - title: High-severity alert that was not blocked
+    severity: high
+    signals:
+      - event_type=alert
+      - alert.severity=1
+      - alert.action=allowed
+    why: Severity-1 ET signatures (malware C2, exploit) that passed through. In IDS mode every alert is "allowed", so triage by category and repeat count.
+    kql: |-
+      dataset="suricata" event_type="alert" alert.severity=1
+      | summarize hits=count(), first=min(_time), sigs=make_set(alert.signature) by src_ip, dest_ip, alert.action
+      | sort by hits desc
+    mitre:
+      - T1071
+      - T1190
+  - title: Exploitation attempt against a public-facing service
+    severity: high
+    signals:
+      - alert.category contains "Attempted" or "Web Application Attack"
+      - dest_ip in DMZ
+      - followed by an outbound flow from that dest_ip
+    why: A successful exploit is often followed by the server connecting out (reverse shell, payload download). Correlating on flow_id and host isolates the hits that mattered.
+    kql: |-
+      dataset="suricata" event_type="alert"
+      | where alert.category in ("Attempted Administrator Privilege Gain","Web Application Attack","Attempted User Privilege Gain")
+      | summarize attempts=count(), sigs=make_set(alert.signature) by attacker=src_ip, victim=dest_ip, dest_port
+    mitre:
+      - T1190
+  - title: Self-signed or suspicious TLS to rare destinations
+    severity: medium
+    signals:
+      - event_type=tls
+      - tls.subject == tls.issuerdn
+      - rare tls.sni / ja3 hash
+    why: C2 frameworks often use self-signed certificates and distinctive JA3 fingerprints. A rare SNI combined with self-signed is a good hunting pivot.
+    kql: |-
+      dataset="suricata" event_type="tls"
+      | where tls.subject == tls.issuerdn
+      | summarize clients=dcount(src_ip), flows=count() by tls.sni, tls.ja3.hash, dest_ip
+      | where clients < 3
+    mitre:
+      - T1573.002
+      - T1071.001
+  - title: Long-lived or periodic beaconing flows
+    severity: medium
+    signals:
+      - event_type=flow
+      - same src/dest pair at regular intervals
+      - small, consistent byte counts
+    why: Beacons check in on a schedule with near-identical sizes. The flow log is enough to spot this without signatures.
+    kql: |-
+      dataset="suricata" event_type="flow" dest_port in (80,443,8080)
+      | summarize n=count(), avg_bytes=avg(flow.bytes_toserver), sd=stdev(flow.bytes_toserver) by src_ip, dest_ip, bin(_time, 1h)
+      | where n > 30 and sd < avg_bytes * 0.1
+    mitre:
+      - T1071.001
+      - T1029
+  - title: DNS tunnelling / unusual record types
+    severity: medium
+    signals:
+      - event_type=dns
+      - rrtype TXT / NULL
+      - long or high-entropy rrname
+    why: DNS is a common exfiltration and C2 channel when HTTP egress is controlled. The sensor sees queries even when clients bypass the corporate resolver.
+    kql: |-
+      dataset="suricata" event_type="dns"
+      | where strlen(dns.queries[0].rrname) > 60 or dns.queries[0].rrtype in ("TXT","NULL")
+      | summarize names=dcount(dns.queries[0].rrname) by src_ip, bin(_time, 10m)
+      | where names > 50
+    mitre:
+      - T1071.004
+      - T1048
+  - title: Sensor went silent (possible evasion or crash)
+    severity: high
+    signals:
+      - no EVE events from a sensor for > 10 min
+      - stats uptime reset
+    why: Several Suricata CVEs are crash bugs. An attacker who can blind the IDS gets a window, so a silent sensor is a security event, not only an ops one.
+    kql: |-
+      dataset="suricata"
+      | summarize last_seen=max(_time) by host
+      | where last_seen < ago(10m)
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Drop or sample low-value event types
+    saving: 20–40 %
+    fn: Drop
+    how: stats, netflow (unidirectional duplicates of flow) and anomaly events for decoder noise are rarely searched. Keep alert, flow, dns, http, tls and fileinfo. Send the rest to Lake.
+    expr: event_type=='stats' || event_type=='netflow' || (event_type=='anomaly' && anomaly.type=='decode')
+  - title: Remove verbose alert payload and metadata
+    saving: 30–60 % of alert bytes
+    fn: Eval
+    how: payload, payload_printable, packet and large rule metadata arrays can triple alert size. Keep signature, category, severity and MITRE metadata, and drop the rest before the SIEM.
+    expr: "remove: payload, payload_printable, packet, packet_info, alert.metadata.created_at, alert.metadata.updated_at"
+  - title: Suppress repeated alerts per flow
+    saving: 10–30 % of alerts
+    fn: Suppress
+    how: Noisy signatures (policy, info, scan) fire many times per flow or per source. Keep one per signature, source and destination per 5 minutes, with a count.
+    expr: "key: `${alert.signature_id}:${src_ip}:${dest_ip}`  allow 1 / 300s  when event_type=='alert' && alert.severity>=3"
+  - title: Aggregate flows to metrics
+    saving: 40–70 % of flow volume
+    fn: Aggregations
+    how: Roll internal and well-known-service flows up to bytes and counts per src/dest/app_proto per minute. Keep raw flows in Lake for incident replay. Keep flows with flow.alerted=true raw.
+    expr: event_type=='flow' && !flow.alerted && app_proto in ('dns','ntp','smb')
+  - title: Route by event_type
+    saving: SIEM licence
+    fn: Routes
+    how: Alerts and fileinfo go to the SIEM at full fidelity. dns, http and tls get optimised copies in the SIEM. Raw flow goes to Lake only. community_id lets you join with Zeek or EDR data later.
+    expr: event_type=='alert' → SIEM  |  dns/http/tls → SIEM(optimised) + Lake  |  flow → Lake
+references:
+  - title: Suricata docs — EVE JSON format
+    url: https://docs.suricata.io/en/latest/output/eve/eve-json-format.html
+  - title: Suricata docs — EVE JSON output configuration
+    url: https://docs.suricata.io/en/latest/output/eve/eve-json-output.html
+  - title: Suricata 8.0.7 release (CVE-2026-94083 fix)
+    url: https://forum.suricata.io/t/suricata-8-0-7-released/6467
+  - title: GHSA-9qg5-2gwh-xp86 — dataset stack overflow (CVE-2026-22262)
+    url: https://github.com/OISF/suricata/security/advisories/GHSA-9qg5-2gwh-xp86
+  - title: GHSA-5rvq-72r5-rqhr — HTTP/2 type confusion (CVE-2026-45764)
+    url: https://github.com/OISF/suricata/security/advisories/GHSA-5rvq-72r5-rqhr
+  - title: Suricata 6.0.4 and 5.0.8 released (CVE-2021-37592 fix)
+    url: https://forum.suricata.io/t/suricata-6-0-4-and-5-0-8-released/1942
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK T1071.004 — DNS application-layer protocol
+    url: https://attack.mitre.org/techniques/T1071/004/
+related:
+  - snort
+  - zeek
+  - corelight
+  - aws-network-firewall
+  - pfsense
+  - pan-ngfw

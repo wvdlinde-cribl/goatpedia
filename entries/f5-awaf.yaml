@@ -2,20 +2,323 @@
 id: f5-awaf
 name: F5 BIG-IP Advanced WAF
 short: F5 AWAF
-vendor: F5
-category: waf
-status: stub
 aka:
   - ASM
   - BIG-IP ASM
+  - Application Security Manager
+  - F5 Advanced WAF
+  - AWAF
+vendor: F5
+category: waf
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - waf
   - http
   - owasp
   - reverse-proxy
+  - bot-defense
+  - l7-ddos
+  - syslog
+  - cef
+summary: F5 BIG-IP Advanced WAF (formerly Application Security Manager, ASM) is the web application firewall module of BIG-IP TMOS. It sits inline as a full reverse proxy on a virtual server and inspects every HTTP(S), WebSocket and API request against attack signatures, threat campaigns and a positive security model (allowed URLs, parameters, file types). Advanced WAF adds bot defense, L7 behavioural DoS, credential-stuffing and brute-force protection. Each request produces a security event with a support ID that the blocked user sees on the block page.
 sourcetypes:
   - st: f5:bigip:asm:syslog
-summary: Reverse-proxy web application firewall on BIG-IP that inspects HTTP(S) requests against signatures and positive-security policies.
-cveIds:
-  - CVE-2022-1388
-  - CVE-2023-46747
+    desc: Splunk Add-on for F5 BIG-IP — ASM/Advanced WAF request and violation events (Splunk/Reporting Server key="value" format)
+  - st: f5:bigip:syslog
+    desc: Splunk Add-on for F5 BIG-IP — TMOS system and audit syslog (mcpd AUDIT, httpd, restjavad)
+  - st: F5_ASM
+    desc: Google SecOps (Chronicle) log type for F5 ASM / Advanced WAF
+facts:
+  First released: ASM from F5's 2004 MagniFire (TrafficShield) acquisition. Advanced WAF launched April 2018
+  Platform: BIG-IP TMOS (current trains 15.1, 16.1, 17.1, 17.5) on iSeries/rSeries/VELOS appliances, BIG-IP VE, cloud marketplaces
+  Licensing: ASM went end-of-sale April 2021. ASM customers on 14.1+ can reactivate to Advanced WAF
+  Deployment modes: Inline reverse proxy on a virtual server (often with LTM). Transparent or blocking enforcement. Staging for new signatures
+  Log transport: Remote logging profile → syslog UDP/TCP (TCP-RFC3195) to a pool. Also High-Speed Logging, BIG-IQ, Telemetry Streaming (JSON)
+  Log formats: Splunk / Reporting Server key="value", ArcSight CEF, Remote Server (CSV-like), BIG-IQ. Fields are selectable
+  Typical volume: Illegal requests only (default) is low. Logging all requests is roughly one event per HTTP request, 1–3 KB each
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - dmz
+    - edge
+    - cloud
+  items:
+    - slot: dmz
+      title: Reverse proxy in front of published apps
+      desc: The typical deployment. The virtual server terminates TLS, Advanced WAF inspects the request, and LTM load-balances to the pool. All internet traffic to the app passes through it.
+    - slot: edge
+      title: Perimeter ADC tier
+      desc: Combined with LTM, APM (SSO/VPN) and AFM on the same BIG-IP at the internet edge. The management plane must never be reachable from here, as the KEV-listed CVEs below show.
+    - slot: cloud
+      title: BIG-IP VE in AWS / Azure / GCP
+      desc: Virtual editions behind a cloud load balancer, protecting cloud-hosted apps and APIs with the same policies as on-prem.
+howItWorks:
+  - title: Full proxy on a virtual server
+    body: TMM (the traffic microkernel) terminates the client connection, decrypts TLS with the client-SSL profile, and hands the parsed HTTP request to the ASM/bd engine before anything reaches the server. Responses can be inspected too (data guard, error-page cloaking).
+  - title: Negative security — signatures and threat campaigns
+    body: Thousands of attack signatures (SQLi, XSS, command injection, path traversal, server-side code injection, known CVEs), updated through Attack Signature and Threat Campaign updates. New signatures start in staging, where they log but do not block, and are enforced after a staging period.
+  - title: Positive security — the learned policy
+    body: The policy builder learns allowed file types, URLs, parameters (names, types, lengths), methods, headers and cookies. Anything outside it raises violations such as "Illegal URL" or "Illegal parameter value length". Violations add up to a violation_rating from 1 to 5.
+  - title: Advanced protections
+    body: Bot defense (client-side challenges, signatures, mobile SDK), L7 behavioural DoS, brute-force and credential-stuffing protection on login pages, session tracking, DataSafe field encryption, and API (OpenAPI/GraphQL) enforcement.
+  - title: Enforcement and logging
+    body: In blocking mode a violating request gets the block page with its support_id. In transparent mode it is only logged. The security logging profile decides which requests are logged (illegal only, or all) and where. Each event carries request_status, violations, sig_ids/sig_names, attack_type, client IP and the (masked) request.
+traffic:
+  handles:
+    - HTTP/1.1 and HTTP/2 (client side)
+    - TLS termination and re-encryption
+    - WebSocket messages
+    - REST/JSON, XML/SOAP and GraphQL APIs
+    - File uploads (with antivirus via ICAP)
+    - Login flows (brute force / credential stuffing)
+  flow:
+    - step: Connect
+      desc: Client connects to the virtual server. TMM terminates TCP and TLS.
+    - step: Parse
+      desc: HTTP request normalised (decoding, canonical URL, parameters, JSON/XML parsing).
+    - step: Bot / DoS checks
+      desc: Bot defense and L7 DoS profiles evaluate the client and request rate.
+    - step: Policy enforcement
+      desc: Signatures, threat campaigns and positive-model checks produce violations and a rating.
+    - step: Action
+      desc: Blocked (block page with support_id), or passed to the LTM pool member.
+    - step: Log
+      desc: The security event goes to remote syslog / HSL in the chosen storage format.
+logs:
+  - type: Request / violation (Splunk key="value" format)
+    sourcetype: f5:bigip:asm:syslog
+    format: text
+    share: 80–95 %
+    avg: ~1.5 KB
+    desc: One event per logged request, in the "Splunk" / Reporting Server storage format (comma-separated key="value", quotes in values %22-encoded). Includes policy, violations, signatures, attack type, client and server addresses, the support ID and the raw request (masked fields obfuscated).
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) ASM:unit_hostname="(?<unit_hostname>[^"]*)",management_ip_address="(?<management_ip_address>[^"]*)",http_class_name="(?<http_class_name>[^"]*)",policy_name="(?<policy_name>[^"]*)",policy_apply_date="(?<policy_apply_date>[^"]*)",violations="(?<violations>[^"]*)",support_id="(?<support_id>[^"]*)",request_status="(?<request_status>[^"]*)",response_code="(?<response_code>[^"]*)",ip_client="(?<ip_client>[^"]*)",route_domain="(?<route_domain>[^"]*)",method="(?<method>[^"]*)",protocol="(?<protocol>[^"]*)",query_string="(?<query_string>[^"]*)",x_forwarded_for_header_value="(?<x_forwarded_for_header_value>[^"]*)",sig_ids="(?<sig_ids>[^"]*)",sig_names="(?<sig_names>[^"]*)",date_time="(?<date_time>[^"]*)",severity="(?<severity>[^"]*)",attack_type="(?<attack_type>[^"]*)",geo_location="(?<geo_location>[^"]*)",ip_address_intelligence="(?<ip_address_intelligence>[^"]*)",username="(?<username>[^"]*)",session_id="(?<session_id>[^"]*)",src_port="(?<src_port>[^"]*)",dest_port="(?<dest_port>[^"]*)",dest_ip="(?<dest_ip>[^"]*)",sub_violations="(?<sub_violations>[^"]*)",virus_name="(?<virus_name>[^"]*)",violation_rating="(?<violation_rating>[^"]*)",uri="(?<uri>[^"]*)",request="(?<request>[^"]*)"$'
+    key:
+      - ip_client
+      - request_status
+      - violations
+      - attack_type
+      - sig_ids
+      - violation_rating
+      - uri
+      - support_id
+    noise:
+      - pri
+      - management_ip_address
+      - http_class_name
+      - policy_apply_date
+      - route_domain
+      - geo_location
+      - ip_address_intelligence
+      - virus_name
+      - sub_violations
+    sample: '<131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="Attack signature detected,Illegal meta character in value",support_id="18205860747014045721",request_status="blocked",response_code="0",ip_client="198.51.100.23",route_domain="0",method="GET",protocol="HTTPS",query_string="id=1%27%20OR%201%3D1--",x_forwarded_for_header_value="N/A",sig_ids="200002835,200002147",sig_names="SQL-INJ expressions like %22OR 1=1%22 (3),SQL-INJ %22--%22 (comment) (Parameter)",date_time="2026-11-12 09:14:22",severity="Error",attack_type="SQL-Injection",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4958",src_port="51544",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="5",uri="/catalog/item.php",request="GET /catalog/item.php?id=1%27%20OR%201%3D1-- HTTP/1.1\r\nHost: shop.example.com\r\nUser-Agent: sqlmap/1.8\r\nAccept: */*\r\n\r\n"'
+  - type: Request / violation (ArcSight CEF format)
+    sourcetype: f5:bigip:asm:syslog
+    format: cef
+    share: alternative to the above
+    avg: ~1.2 KB
+    desc: The same event when the logging profile uses "Common Event Format (ArcSight)". The signature ID or "Successful Request" goes in the CEF header, and the policy, attack type and geo location go in cs1–cs6 with Label keys.
+    key:
+      - signature_id
+      - name
+      - act
+      - src
+      - request
+      - cs4
+      - externalId
+    noise:
+      - cs1Label
+      - cs2Label
+      - cs4Label
+      - cs5Label
+      - cs6Label
+      - cn1Label
+      - deviceCustomDate1Label
+      - deviceExternalId
+    sample: '<131>Nov 12 09:20:01 waf1.example.com ASM:CEF:0|F5|ASM|17.1.1|200000098|XSS script tag (Parameter)|5|dvchost=waf1.example.com dvc=10.0.0.20 cs1=/Common/shop_waf cs1Label=policy_name cs2=/Common/shop_waf cs2Label=http_class_name deviceCustomDate1=Nov 01 2026 10:12:44 deviceCustomDate1Label=policy_apply_date externalId=18205860747014045799 act=blocked cn1=0 cn1Label=response_code src=198.51.100.23 spt=51600 dst=203.0.113.10 dpt=443 requestMethod=GET app=HTTPS cs5=N/A cs5Label=x_forwarded_for_header_value rt=Nov 12 2026 09:20:01 deviceExternalId=0 cs4=Cross Site Scripting (XSS) cs4Label=attack_type cs6=N/A cs6Label=geo_location msg=N/A suid=86c4f8bf7349cac9 suser=N/A request=/search.php'
+  - type: System audit (mcpd AUDIT)
+    sourcetype: f5:bigip:syslog
+    format: text
+    share: < 1 %
+    avg: ~350 B
+    desc: TMOS audit lines for configuration changes made through tmsh, the Configuration utility or iControl REST (client, user, transaction, command, status). This is the primary log for spotting management-plane exploitation such as new admin users or bash commands after CVE-2022-1388 or CVE-2023-46747.
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) (?<level>\w+) (?<process>mcpd)\[(?<pid>\d+)\]: (?<msg_id>01070417:\d): AUDIT - client (?<client>[^,]+), user (?<user>[^ ]+) - transaction #(?<transaction>[\d-]+) - object (?<object>\d+) - (?<command>.+) \[Status=(?<status>[^\]]+)\]$'
+    key:
+      - client
+      - user
+      - command
+      - status
+      - host
+    noise:
+      - pri
+      - pid
+      - msg_id
+      - object
+    sample: '<85>Nov 12 10:02:11 waf1.example.com notice mcpd[6320]: 01070417:5: AUDIT - client iControl REST, user admin - transaction #48211-3 - object 0 - create { auth user svc_backup { partition-access replace-all-with { all-partitions { role admin } } shell bash } } [Status=Command OK]'
+cves:
+  - id: CVE-2022-1388
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: device
+    title: iControl REST authentication bypass — unauthenticated command execution on the management plane
+    affected: BIG-IP (all modules) 16.1.0 – 16.1.2, 15.1.0 – 15.1.5, 14.1.0 – 14.1.4, 13.1.0 – 13.1.4, 12.1.x and 11.6.x (no fix for 11.x/12.x)
+    fixed: 17.0.0, 16.1.2.2, 15.1.5.1, 14.1.4.6, 13.1.5
+    detect: "AUDIT lines with client iControl REST creating users or running util bash from unexpected sources. POSTs to /mgmt/tm/util/bash with Connection: X-F5-Auth-Token in proxy/IDS logs. Entries in /var/log/restjavad-audit.*."
+    avoid: Patch. Block iControl REST on self IPs and restrict the management interface to a jump-host allow-list. Apply the httpd Connection-header mitigation until patched.
+  - id: CVE-2023-46747
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: device
+    title: Configuration utility (TMUI) authentication bypass via AJP request smuggling — unauthenticated RCE
+    affected: BIG-IP (all modules) 17.1.0 – 17.1.1, 16.1.0 – 16.1.4, 15.1.0 – 15.1.10, 14.1.0 – 14.1.5, 13.1.0 – 13.1.5
+    fixed: 17.1.1.1, 16.1.4.2, 15.1.10.3 (engineering hotfixes for 17.1.0.3, 17.1.1, 16.1.4.1, 15.1.10.2, 14.1.5.6, 13.1.5.1)
+    detect: AUDIT entries creating admin users with no matching TMUI login. Requests to /tmui/login.jsp with Transfer-Encoding smuggling patterns. Often chained with CVE-2023-46748 (SQL injection) for persistence.
+    avoid: Patch or apply the hotfix. Never expose TMUI on self IPs (Port Lockdown "Allow None"). Restrict management to trusted networks.
+  - id: CVE-2020-5902
+    cvss: 9.8
+    year: 2020
+    kev: true
+    scope: device
+    title: TMUI remote code execution via path traversal (..;/) in undisclosed pages
+    affected: BIG-IP 15.0.0 – 15.1.0.3, 14.1.0 – 14.1.2.5, 13.1.0 – 13.1.3.3, 12.1.0 – 12.1.5.1, 11.6.1 – 11.6.5.1
+    fixed: 15.1.0.4, 14.1.2.6, 13.1.3.4, 12.1.5.2, 11.6.5.2
+    detect: Web requests containing /tmui/login.jsp/..;/ (for example to tmshCmd.jsp or fileRead.jsp) in proxy, IDS or Advanced WAF logs of an upstream BIG-IP. AUDIT tmsh commands issued by the TMUI client that no admin ran.
+    avoid: Patch. Keep TMUI off the data plane. Apply F5's httpd LocationMatch mitigation if patching is delayed.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookups in headers/parameters of requests to protected Java apps
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 on applications behind the WAF
+    detect: 'Violation events with attack_type "Server Side Code Injection" / "Remote Code Execution" and Log4j signature names in sig_names. ${jndi: strings in request or query_string. Threat Campaign matches for Log4Shell.'
+    avoid: Patch Log4j. Keep the Log4j signatures and Threat Campaigns enforced (not staged). Block outbound LDAP/RMI from app servers.
+  - id: CVE-2023-34362
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: MOVEit Transfer SQL injection (Cl0p mass exploitation) — the web-app attack class a WAF must stop
+    affected: Progress MOVEit Transfer before 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1 when published behind the WAF
+    detect: attack_type SQL-Injection on MOVEit paths (/moveitisapi/moveitisapi.dll, /guestaccess.aspx, /human.aspx). Threat Campaign matches. Subsequent requests for unusual .aspx files (webshell) with request_status passed.
+    avoid: Patch MOVEit. Enforce SQLi signatures in blocking mode on the policy. Restrict file-transfer apps to known partners.
+detections:
+  - title: Blocked attack followed by a passed request from the same client
+    severity: high
+    signals:
+      - request_status=blocked with attack_type set
+      - later request_status=passed from same ip_client to same uri
+    why: Attackers iterate payloads until one is not caught. A pass after a run of blocks is the request to check first.
+    kql: |-
+      dataset="f5_asm"
+      | summarize blocked=countif(request_status=="blocked"), passed_after=countif(request_status=="passed" and violation_rating >= 3), types=make_set(attack_type) by ip_client, uri, bin(_time, 30m)
+      | where blocked > 10 and passed_after > 0
+    mitre:
+      - T1190
+  - title: High-rating violations in transparent mode or staging
+    severity: high
+    signals:
+      - violation_rating >= 4
+      - request_status=passed
+    why: Rating 4–5 is almost always a real attack. If it passed, the policy is in transparent mode or the signature is still staged, which is a protection gap.
+    kql: |-
+      dataset="f5_asm" violation_rating >= 4 request_status="passed"
+      | summarize n=count(), sigs=make_set(sig_names) by policy_name, attack_type, uri
+    mitre:
+      - T1190
+  - title: Management-plane exploitation (new admin or bash via REST/TMUI)
+    severity: critical
+    signals:
+      - mcpd AUDIT create auth user with role admin
+      - client iControl REST or tmui
+      - user not in admin roster
+    why: CVE-2022-1388, CVE-2023-46747 and CVE-2020-5902 all end in attacker-created accounts or commands. The audit log is where it shows.
+    kql: |-
+      dataset="f5_bigip" process="mcpd" command has "auth user"
+      | where command has "role admin" and client in ("iControl REST","tmui")
+      | summarize n=count(), first=min(_time) by host, user, client, command
+    mitre:
+      - T1190
+      - T1136.001
+      - T1078
+  - title: Credential stuffing / brute force on login pages
+    severity: medium
+    signals:
+      - violations Brute Force / Credential stuffing
+      - many usernames per ip_client
+      - login_result failures
+    why: Advanced WAF's brute-force and leaked-credential checks flag these attacks. Correlating per source and per username shows spraying versus targeted attacks.
+    kql: |-
+      dataset="f5_asm"
+      | where violations has "Brute Force" or attack_type has "Brute Force"
+      | summarize attempts=count(), users=dcount(username) by ip_client, uri, bin(_time, 10m)
+      | where attempts > 50
+    mitre:
+      - T1110.004
+      - T1110.003
+  - title: Scanner / automated tool traffic
+    severity: low
+    signals:
+      - attack_type Non-browser Client / Vulnerability Scan
+      - sig_names with sqlmap, nikto, wget
+    why: Reconnaissance usually comes before targeted exploitation. Scanner sources are good candidates for IP-intelligence blocking.
+    kql: |-
+      dataset="f5_asm"
+      | where attack_type in ("Non-browser Client","Vulnerability Scan") or sig_names has_any ("sqlmap","nikto","Automated client access")
+      | summarize n=count(), uris=dcount(uri) by ip_client, attack_type
+    mitre:
+      - T1595.002
+optimizations:
+  - title: Drop the raw request, or truncate it
+    saving: 40–60 %
+    fn: Eval
+    how: The request field (full headers, sometimes body) is the largest part of each event. Keep uri, method, query_string and the violation details, and keep request only for blocked or rating ≥ 3 events.
+    expr: request_status=='passed' && violation_rating < 3 ? delete request
+  - title: Do not ship legal requests to the SIEM
+    saving: 50–90 % when "log all requests" is on
+    fn: Drop
+    how: With log-all-requests, most events are legal traffic (violations empty, request_status passed). Send them to Lake for forensics and keep illegal requests in the SIEM. Better, use "illegal requests only" on the logging profile.
+    expr: request_status=='passed' && !violations
+  - title: Strip constant and N/A fields
+    saving: 15–25 %
+    fn: Parser → Serialize
+    how: management_ip_address, http_class_name, policy_apply_date, route_domain and the many "N/A" placeholders repeat on every event. Parse the key="value" pairs, drop empties and N/A, and re-serialise.
+    expr: "remove: management_ip_address, http_class_name, policy_apply_date, route_domain; drop value=='N/A' || value==''"
+  - title: Suppress scanner noise
+    saving: 10–30 %
+    fn: Suppress
+    how: One scanner can produce thousands of blocked events. Keep one per ip_client and attack_type per 5 minutes with a count. Never suppress rating-5 events.
+    expr: "key: `${ip_client}:${attack_type}`  allow 1 / 300s  when request_status=='blocked' && violation_rating < 5"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Blocked and high-rating events plus mcpd AUDIT go to the SIEM. All requests go to Lake. Replay by support_id when a user reports a block.
+    expr: request_status=='blocked' || violation_rating>=3 || /AUDIT/.test(_raw) → SIEM  |  else → Lake
+references:
+  - title: F5 — Event Messages and Attack Types (ASM log formats, field reference, CEF/Splunk examples)
+    url: https://techdocs.f5.com/en-us/bigip-16-0-0/external-monitoring-of-big-ip-systems-implementations/event-messages-and-attack-types.html
+  - title: F5 K9435 — Storage Format options for a remote logging profile (all log fields)
+    url: https://my.f5.com/manage/s/article/K9435
+  - title: F5 K37655278 — BIG-IP ASM event logging
+    url: https://my.f5.com/manage/s/article/K37655278
+  - title: F5 K23605346 — iControl REST vulnerability CVE-2022-1388
+    url: https://my.f5.com/manage/s/article/K23605346
+  - title: F5 K000137353 — Configuration utility unauthenticated RCE CVE-2023-46747
+    url: https://my.f5.com/manage/s/article/K000137353
+  - title: F5 K52145254 — TMUI RCE vulnerability CVE-2020-5902
+    url: https://my.f5.com/manage/s/article/K52145254
+  - title: F5 press release — F5 launches Advanced WAF (April 2018)
+    url: https://www.f5.com/company/news/press-releases/f5-launches-advanced-waf-for-multi-cloud-app-security
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - imperva-waf
+  - cloudflare-waf
+  - aws-waf
+  - nginx
+  - ivanti-vtm
