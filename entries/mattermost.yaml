@@ -1,0 +1,71 @@
+id: mattermost
+name: Mattermost
+short: Mattermost
+vendor: Mattermost
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mattermost
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Mattermost is logged by the Elastic integrations package mattermost. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mattermost_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mattermost/data_stream/audit/_dev/test/pipeline/test-audit.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: mattermost
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: timestamp, event, status, user_id, session_id, ip_address
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mattermost events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, event, status, user_id, session_id, ip_address. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads mattermost and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: mattermost_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"2021-12-04 23:19:32.051 Z","event":"updateConfig","status":"success","user_id":"ag99yu4i1if63jrui63tsmq57y","session_id":"pjh4n69j3p883k7hhzippskcba","ip_address":"198.51.100.15","api_path":"/api/v4/config","cluster_id":"jq3utry71f8a7q9qgebmjccf4r","client":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"}'
+    key:
+      - timestamp
+      - event
+      - status
+      - user_id
+cves: []
+detections:
+  - title: Mattermost events arriving
+    severity: low
+    signals:
+      - timestamp
+      - event
+      - status
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mattermost_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations mattermost/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mattermost/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample mattermost_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mattermost_audit.json

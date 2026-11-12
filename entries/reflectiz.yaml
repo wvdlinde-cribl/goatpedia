@@ -1,0 +1,71 @@
+id: reflectiz
+name: Reflectiz
+short: Reflectiz
+vendor: Reflectiz
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - reflectiz
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Reflectiz is logged by the Datadog integrations-extras package reflectiz. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: reflectiz
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: reflectiz/assets/logs/reflectiz_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: reflectiz
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: ddsource, ddtags, message, service, timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Reflectiz events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries ddsource, ddtags, message, service, timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads reflectiz and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Reflectiz
+    sourcetype: reflectiz
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"ddsource":"reflectiz","ddtags":"reflectiz.site:test,reflectiz.scan:test,reflectiz.scan.number:1","message":"Scan Data Sent to Datadog","service":"reflectiz.v1.scan","timestamp":1737876493000}'
+    key:
+      - ddsource
+      - ddtags
+      - message
+      - service
+cves: []
+detections:
+  - title: Reflectiz events arriving
+    severity: low
+    signals:
+      - ddsource
+      - ddtags
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "reflectiz"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras reflectiz/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/reflectiz/assets/logs/reflectiz_tests.yaml
+  - title: Pack Generator sample reflectiz.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/reflectiz.json

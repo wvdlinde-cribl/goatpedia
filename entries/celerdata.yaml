@@ -1,0 +1,67 @@
+id: celerdata
+name: Celerdata
+short: Celerdata
+vendor: Celerdata
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - celerdata
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - text
+summary: Celerdata is logged by the Datadog integrations-extras package celerdata. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: celerdata
+    desc: 'Datadog integrations-extras fixture, 5 events. Upstream: celerdata/assets/logs/celerdata_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: celerdata
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Celerdata events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads celerdata and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Celerdata
+    sourcetype: celerdata
+    format: text
+    desc: 5 fixture events in the samples pool (logtest_extras).
+    sample: 2024-03-28 10:21:53,960 INFO (main|1) [AuthorizationMgr.initBuiltinRoleUnlocked():282] create built-in role cluster_admin[-3]
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Celerdata events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "celerdata"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras celerdata/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/celerdata/assets/logs/celerdata_tests.yaml
+  - title: Pack Generator sample celerdata.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/celerdata.json

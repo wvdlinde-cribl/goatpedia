@@ -1,0 +1,95 @@
+id: spycloud
+name: Spycloud
+short: Spycloud
+vendor: Spycloud
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - spycloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Spycloud is logged by the Elastic integrations package spycloud. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: spycloud_breach_catalog
+    desc: 'Elastic integrations fixture, 1 events. Upstream: spycloud/data_stream/breach_catalog/_dev/test/pipeline/test-breach-catalog.log'
+  - st: spycloud_breach_record
+    desc: 'Elastic integrations fixture, 2 events. Upstream: spycloud/data_stream/breach_record/_dev/test/pipeline/test-breach-record.log'
+  - st: spycloud_compass
+    desc: 'Elastic integrations fixture, 1 events. Upstream: spycloud/data_stream/compass/_dev/test/pipeline/test-compass.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: spycloud
+  Sourcetypes: '3'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: acquisition_date, breach_category, breach_date, breach_main_category, breached_companies[0].company_name, breached_companies[0].industry
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Spycloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries acquisition_date, breach_category, breach_date, breach_main_category, breached_companies[0].company_name, breached_companies[0].industry. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads spycloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Breach Catalog
+    sourcetype: spycloud_breach_catalog
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"acquisition_date":"2022-01-15","breach_category":"credentials","breach_date":"2022-01-10","breach_main_category":"personal","breached_companies":[{"company_name":"ExampleCorp","industry":"unknown"}],"combo_list_flag":"YES","confidence":85,"consumer_category":"individuals","description":"Data breach containing user credentials","id":46201,"media_urls":["https://example.com/image1.jpg","https://example.com/image2.jpg"],"NA":"event","num_records":100000,"premium_flag":"NO","public_date":"2022-01-20","sensitive_source":true,"short_title":"ExampleBreach","site":"example.com","site_description":"Website for testing purposes","spycloud_publish_date":"2022-01-25","title":"Example Breach","tlp":"amber","type":"data","uuid":"def456","assets":{"account_caption":537892,"account_image_url":891234,"account_last_activity_time":456721,"account_login_time":987345,"account_modification_time":123456,"account_nickname":678912,"account_notes":234567,"account_password_date":789123,"account_secret":345678,"account_secret_question":912345,"account_signup_time":234789,"account_status":567890,"account_title":890123,"account_type":123456,"active_investor":789012,"address_1":345678,"address_2":901234,"age":567890,"av_softwares":123456,"backup_email":789012,"backup_email_username":234567,"bank_number":890123,"birthplace":456721,"buys_online":987345,"cat_owner":123456,"cc_bin":678912,"cc_code":234567,"cc_expiration":789012,"cc_last_four":345678,"cc_number":901234}}'
+    key:
+      - acquisition_date
+      - breach_category
+      - breach_date
+      - breach_main_category
+  - type: Breach Record
+    sourcetype: spycloud_breach_record
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"infected_time":"2023-01-15T12:30:45Z","spycloud_publish_date":"2023-01-20T08:00:00Z","severity":3,"infected_path":"/documents/confidential","target_url":"https://example.com/login","document_id":"3350f1da-fa39-4415-b2cc-02057e2fbe99","user_sys_domain":"8ad8.default","country_code":"US","country":"United States","user_hostname":"workstation-1","user_os":"Windows 10","homepage":"https://www.chess.com/member/sarahjoh","target_domain":"example.com","email":"user@example.com","full_name":"John Doe","email_domain":"example.com","email_username":"john.doe","username":"john_doe","password":"P@ssw0rd123","password_plaintext":"******","password_type":"alphanumeric","user_browser":"Chrome","ip_addresses":["203.0.113.8","203.0.113.40"],"infected_machine_id":"ABC123","av_softwares":["McAfee","Windows Defender"],"log_id":"76afa48107ec32f51a2aba4a314357c1e69d2267f1b04bf1afc948d0f77b1658","user_sys_registered_owner":"John Milk","source_id":50436,"target_subdomain":"login.example.com","domain":"example1.com"}'
+    key:
+      - infected_time
+      - spycloud_publish_date
+      - severity
+      - infected_path
+  - type: Compass
+    sourcetype: spycloud_compass
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"infected_time":"2023-10-18T06:00:00Z","spycloud_publish_date":"2023-10-25T00:00:00Z","severity":3,"infected_path":"/home/user/documents/malware","document_id":"0d7a806a-3c6b-481a-ac74-70785e05f4e7","country":"United States","user_os":"Windows 10","user_hostname":"User-PC","user_sys_domain":"8ad8.default","postal_code":"86663","country_code":"US","target_url":"http://www.targetsite.com/page","homepage":"www.difficult.com","email":"user@example.com","email_domain":"example.com","email_username":"user","full_name":"Erin Roberts","target_domain":"targetsite.com","user_browser":"Chrome 94.0.4606.81","password":"123456789","source_id":50684,"ip_addresses":["192.0.2.10","192.0.2.20"],"infected_machine_id":"MACH789","av_softwares":["McAfee","Windows Defender"],"log_id":"LOG98765","user_sys_registered_owner":"John Kim","keyboard_languages":["English (US)","Spanish"],"domain":"example1.com","target_subdomain":"subdomain.targetsite.com","password_type":"Complex"}'
+    key:
+      - infected_time
+      - spycloud_publish_date
+      - severity
+      - infected_path
+cves: []
+detections:
+  - title: Spycloud events arriving
+    severity: low
+    signals:
+      - acquisition_date
+      - breach_category
+      - breach_date
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "spycloud_breach_catalog"'
+optimizations: []
+references:
+  - title: elastic/integrations spycloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/spycloud/data_stream/breach_catalog/_dev/test/pipeline/test-breach-catalog.log
+  - title: Pack Generator sample spycloud_breach_catalog.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/spycloud_breach_catalog.json

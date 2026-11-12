@@ -1,0 +1,155 @@
+id: openai-chatgpt-enterprise
+name: Openai Chatgpt Enterprise
+short: Enterprise
+vendor: Openai
+category: ai
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - openai_chatgpt_enterprise
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Openai Chatgpt Enterprise is logged by the Elastic integrations package openai_chatgpt_enterprise. The Pack Generator samples pool holds fixture events for 8 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: openai_chatgpt_enterprise_app_auth_log
+    desc: 'Elastic integrations fixture, 3 events. Upstream: openai_chatgpt_enterprise/data_stream/app_auth_log/_dev/test/pipeline/test-app-auth-log.log'
+  - st: openai_chatgpt_enterprise_app_log
+    desc: 'Elastic integrations fixture, 4 events. Upstream: openai_chatgpt_enterprise/data_stream/app_log/_dev/test/pipeline/test-app-log.log'
+  - st: openai_chatgpt_enterprise_audit_log
+    desc: 'Elastic integrations fixture, 14 events. Upstream: openai_chatgpt_enterprise/data_stream/audit_log/_dev/test/pipeline/test-audit-log.log'
+  - st: openai_chatgpt_enterprise_auth_log
+    desc: 'Elastic integrations fixture, 5 events. Upstream: openai_chatgpt_enterprise/data_stream/auth_log/_dev/test/pipeline/test-auth-log.log'
+  - st: openai_chatgpt_enterprise_codex_log
+    desc: 'Elastic integrations fixture, 5 events. Upstream: openai_chatgpt_enterprise/data_stream/codex_log/_dev/test/pipeline/test-codex-log.log'
+  - st: openai_chatgpt_enterprise_codex_security_log
+    desc: 'Elastic integrations fixture, 4 events. Upstream: openai_chatgpt_enterprise/data_stream/codex_security_log/_dev/test/pipeline/test-codex-security-log.log'
+  - st: openai_chatgpt_enterprise_conversation_message
+    desc: 'Elastic integrations fixture, 4 events. Upstream: openai_chatgpt_enterprise/data_stream/conversation_message/_dev/test/pipeline/test-conversation-message.log'
+  - st: openai_chatgpt_enterprise_custom_agents_log
+    desc: 'Elastic integrations fixture, 19 events. Upstream: openai_chatgpt_enterprise/data_stream/custom_agents_log/_dev/test/pipeline/test-custom-agents-log.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: openai_chatgpt_enterprise
+  Sourcetypes: '8'
+  Fixture events: '58'
+  Log format seen: json
+  Fields in the first fixture: event_id, type, principal.id, principal.type, actor.type, actor.user_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Openai Chatgpt Enterprise events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_id, type, principal.id, principal.type, actor.type, actor.user_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads openai_chatgpt_enterprise and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: App Auth Log
+    sourcetype: openai_chatgpt_enterprise_app_auth_log
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"7b3e4de1-2219-4d6c-9d6e-8f4d40c7c001","type":"APP_AUTH_LOG","principal":{"id":"be545252-ad04-4cfa-9ca5-deca58416151","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-AbCdEf1234567890","user_email":"user@example.com"},"timestamp":"2026-07-09T20:33:11.112450Z","app_id":"asdk_app_0123456789abcdef0123456789abcdef","link_id":"link_00112233445566778899aabbccddeeff","action":"link"}'
+    key:
+      - event_id
+      - type
+      - principal.id
+      - principal.type
+  - type: App Log
+    sourcetype: openai_chatgpt_enterprise_app_log
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"3f1a9c02-1111-4a11-8b11-000000000001","type":"APP_LOG","principal":{"id":"11111111-2222-3333-4444-555555555555","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-Aaaaaaaaaaaaaaaaaaaaaaa1","user_email":"user@example.com"},"timestamp":"2026-07-15T15:39:18.154524Z","app_id":"asdk_app_1111111111111111aaaa","app_name":"Slack","app_type":"MCP","conversation_id":"c-1111-aaaa-2222-bbbb","log_type":"request","input":{"query":"in:general after:2026-07-14","limit":20,"include_bots":true,"sort":"timestamp","sort_dir":"desc","response_format":"concise","_meta":{"openai/userAgent":"ChatGPT/1.2026.183 (Mac OS X 26.5.2; arm64; build 1783607847)","openai/locale":"en-GB","openai/userLocation":{"city":"London","region":"England","country":"GB","timezone":"Europe/London","latitude":"51.50853","longitude":"-0.12574"},"timezone":"Europe/London","openai/subject":"v1/mock-subject-aaaaaaaaaaaaaaaa","openai/session":"v1/mock-session-aaaaaaaaaaaaaaaa","openai/organization":"v1/mock-org-aaaaaaaaaaaaaaaa"}}}'
+    key:
+      - event_id
+      - type
+      - principal.id
+      - principal.type
+  - type: Audit Log
+    sourcetype: openai_chatgpt_enterprise_audit_log
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"92b7dea7-9ff4-485e-b0a0-74efa627f15b","type":"AUDIT_LOG","principal":{"id":"be545252-ad04-4cfa-9ca5-deca58416151","type":"CHATGPT_WORKSPACE"},"actor":{"type":"API_KEY","redacted_id":"sk-example"},"timestamp":"2026-07-09T11:05:09.077133Z","action_result":"SUCCESS","action_privilege":"ADMIN","request_metadata":{"client_ip":"203.0.113.8","client_ip_details":{"country":"GB","city":"London","region":"England","region_code":"ENG","asn":"","latitude":"51.50853","longitude":"-0.12574"},"client_user_agent":"python-requests/2.34.2","client_ja3":"86dab2109182b6bbaa644647d7db2997","client_ja4":"t13d1713h1_ab0a1bf427ad_8537cf56674e","destination_hostname":"api.chatgpt.com"},"action_data":{"limit":"100","after":"2026-07-09T10:24:53.814285Z","event_type":"AUDIT_LOG"},"action":"LIST_WORKSPACE_LOG_FILES"}'
+    key:
+      - event_id
+      - type
+      - principal.id
+      - principal.type
+  - type: Auth Log
+    sourcetype: openai_chatgpt_enterprise_auth_log
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"9532e1b4-e44a-42c7-a52a-083c345e0001","type":"AUTH_LOG","principal":{"id":"11111111-2222-3333-4444-555555555555","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-Aaaaaaaaaaaaaaaaaaaaaaa1","user_email":"user@example.com"},"timestamp":"2026-07-15T10:53:18Z","request_metadata":{"client_ip":"203.0.113.40","client_ip_details":{"country":"GB","city":"London","region":"England","region_code":"ENG","latitude":"51.50853","longitude":"-0.12574"},"client_ja3":"f90ffded875933863a95a1a84285c922","client_ja4":"q13d0311h3_55b375c5d22e_653d80c3fe9d"},"action_data":{"action":"login_success","role":"standard-user"}}'
+    key:
+      - event_id
+      - type
+      - principal.id
+      - principal.type
+  - type: Codex Log
+    sourcetype: openai_chatgpt_enterprise_codex_log
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"cd000000-0000-0000-0000-000000000010","type":"CODEX_LOG","timestamp":"2026-07-09T10:10:00.000000Z","principal":{"id":"be545252-ad04-4cfa-9ca5-deca58416151","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-TUvqhBX7HbQPRgHyEBt5WRcI","user_email":"user@example.com"},"event_type":"ACCESS_TOKEN_CREATED","client_id":"CODEX_WEB","workspace_id":"be545252-ad04-4cfa-9ca5-deca58416151","event_details":{"detail_type":"ACCESS_TOKEN_CREATED","access_token_id":"cat-1001","access_token_name":"ci-runner-token","created_by_user_id":"user-TUvqhBX7HbQPRgHyEBt5WRcI","expires_at":"2026-10-09T10:10:00Z"}}'
+    key:
+      - event_id
+      - type
+      - timestamp
+      - principal.id
+  - type: Codex Security Log
+    sourcetype: openai_chatgpt_enterprise_codex_security_log
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"cs000000-1111-4a11-8b11-000000000001","type":"CODEX_SECURITY_LOG","timestamp":"2026-07-09T13:20:00.000000Z","principal":{"id":"11111111-2222-3333-4444-555555555555","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-Aaaaaaaaaaaaaaaaaaaaaaa1","user_email":"user@example.com"},"event_type":"PROPOSED_PATCH_PR_CREATED","client_id":"CODEX_WEB","workspace_id":"11111111-2222-3333-4444-555555555555","event_details":{"detail_type":"PROPOSED_PATCH_PR_CREATED","finding_id":"hid-mock-123","pr_url":"https://github.com/example-org/example-repo/pull/123"}}'
+    key:
+      - event_id
+      - type
+      - timestamp
+      - principal.id
+  - type: Conversation Message
+    sourcetype: openai_chatgpt_enterprise_conversation_message
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"9d6bb4e9-3882-4dbe-9d4c-2668b692f9a1","type":"CONVERSATION_MESSAGE","principal":{"id":"9f1c2e3a-0b1d-4c2e-8a3f-1122334455aa","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-Aa11QwErTyUiOp","user_email":"user@example.com"},"timestamp":"2026-07-15T15:29:00.243000Z","message":{"id":"39adf8b1-e281-42c0-920b-9d8f63426fc8","created_at":"2026-07-15T15:29:00.243000Z","author":{"type":"user","client_type":"desktop_web"},"content":{"type":"text","value":"Draft a concise release note for v2.3."}},"conversation":{"id":"6a57a2e4-ba84-832d-9604-9567f8223bc6","title":"Release notes","created_at":"2026-07-15T15:10:34.219710Z","is_pinned":false,"is_temporary_chat":false}}'
+    key:
+      - event_id
+      - type
+      - principal.id
+      - principal.type
+  - type: Custom Agents Log
+    sourcetype: openai_chatgpt_enterprise_custom_agents_log
+    format: json
+    desc: 19 fixture events in the samples pool (elastic).
+    sample: '{"event_id":"ca000000-0000-0000-0000-000000000001","type":"CUSTOM_AGENTS_LOG","timestamp":"2026-03-03T20:40:00.000000Z","principal":{"id":"9f1c2e3a-0b1d-4c2e-8a3f-1122334455aa","type":"CHATGPT_WORKSPACE"},"actor":{"type":"ACCOUNT_USER","user_id":"user-Aa11QwErTyUiOp","user_email":"user@example.com"},"event_type":"AGENT_CREATED","client_id":"AGENT_BUILDER_WEB","workspace_id":"9f1c2e3a-0b1d-4c2e-8a3f-1122334455aa","event_details":{"detail_type":"AGENT_CREATED","agent_id":"agent-123","version_id":"version-1","agent_fields":{"model_spec":{"name":"gpt-5","reasoning_effort":"medium"},"name":"Sales Ops Agent","prompt":"Summarize CRM activity and next actions.","description":"Workspace sales assistant","tagline":"Triage pipeline updates","category":"operations","skills":[{"id":"skill-1","type":"uploaded_skill","name":"crm-guide"}],"starter_prompts":[],"file_tree_id":"snapshot-99","tools":{"web_search":null,"image_generation_enabled":false,"widget_tools":[],"connectors":[]}}}}'
+    key:
+      - event_id
+      - type
+      - timestamp
+      - principal.id
+cves: []
+detections:
+  - title: Openai Chatgpt Enterprise events arriving
+    severity: low
+    signals:
+      - event_id
+      - type
+      - principal.id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "openai_chatgpt_enterprise_app_auth_log"'
+optimizations: []
+references:
+  - title: elastic/integrations openai_chatgpt_enterprise/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/openai_chatgpt_enterprise/data_stream/app_auth_log/_dev/test/pipeline/test-app-auth-log.log
+  - title: Pack Generator sample openai_chatgpt_enterprise_app_auth_log.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/openai_chatgpt_enterprise_app_auth_log.json

@@ -1,0 +1,71 @@
+id: liveaction-livenx
+name: Liveaction Livenx
+short: Livenx
+vendor: Liveaction
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - liveaction_livenx
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Liveaction Livenx is logged by the Splunk Connect for Syslog package liveaction_livenx. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: liveaction_livenx
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_liveaction_livenx.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: liveaction_livenx
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: kv
+  Fields in the first fixture: header, Device, Class, Direction, BitRate, BitRate
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Liveaction Livenx events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, Device, Class, Direction, BitRate, BitRate. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads liveaction_livenx and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Liveaction Livenx
+    sourcetype: liveaction_livenx
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<132>2022-01-17T13:15:08+00:00  %LIVEACTION: Device=sc4s-lab-01 Class=Queue0, Interface Direction=Output, Initial BitRate=0.00 Kbps, Latest BitRate=0.00 Kbps, Configured Threshold=0.00 Kbps, Policy=AAA_BBB_CCC_DDD, Tag(s)=vpn0'
+    key:
+      - Device
+      - Class
+      - Direction
+      - BitRate
+cves: []
+detections:
+  - title: Liveaction Livenx events arriving
+    severity: low
+    signals:
+      - header
+      - Device
+      - Class
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "liveaction_livenx"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_liveaction_livenx.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_liveaction_livenx.py
+  - title: Pack Generator sample liveaction_livenx.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/liveaction_livenx.json

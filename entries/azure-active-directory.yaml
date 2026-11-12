@@ -1,0 +1,71 @@
+id: azure-active-directory
+name: Azure Active Directory
+short: Directory
+vendor: Azure
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_active_directory
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Azure Active Directory is logged by the Datadog integrations-core package azure_active_directory. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_active_directory
+    desc: 'Datadog integrations-core fixture, 7 events. Upstream: azure_active_directory/assets/logs/azure.activedirectory_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: azure_active_directory
+  Sourcetypes: '1'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: callerIpAddress, resourceId, level, operationName, resultSignature, operationVersion
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure Active Directory events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries callerIpAddress, resourceId, level, operationName, resultSignature, operationVersion. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads azure_active_directory and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Azure Active Directory
+    sourcetype: azure_active_directory
+    format: json
+    desc: 7 fixture events in the samples pool (logtest).
+    sample: '{"callerIpAddress":"192.0.2.10","resourceId":"/tenants/4d3bac44-0230-4732-9e70-cc00736f0a97/providers/Microsoft.aadiam","level":"Informational","operationName":"Add owner to service principal","resultSignature":"None","operationVersion":"1.0","tenantId":"4d3bac44-0230-4732-9e70-cc00736f0a97","correlationId":"d38a4a5b-dea6-4fb4-aa82-7d42c51d0d60","resultDescription":"User registered Authenticator App with Code","time":"2020-04-08T07:40:53.1695436Z","category":"AuditLogs","durationMs":123,"properties":{"result":"success","id":"Directory_d38a4a5b-dea6-4fb4-aa82-7d42c51d0d60_8X8M4_47251981","initiatedBy":{"app":{"displayName":"Microsoft.Intune"}}}}'
+    key:
+      - callerIpAddress
+      - resourceId
+      - level
+      - operationName
+cves: []
+detections:
+  - title: Azure Active Directory events arriving
+    severity: low
+    signals:
+      - callerIpAddress
+      - resourceId
+      - level
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_active_directory"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core azure_active_directory/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/azure_active_directory/assets/logs/azure.activedirectory_tests.yaml
+  - title: Pack Generator sample azure_active_directory.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_active_directory.json

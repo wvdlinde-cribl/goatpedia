@@ -36,6 +36,10 @@ sourcetypes:
     desc: Splunk Add-on for MySQL — general query log file
   - st: mysql:slowQueryLog
     desc: Splunk Add-on for MySQL — slow query log (CIM Databases)
+  - st: mysql_error
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mysql/data_stream/error/_dev/test/pipeline/test-mysql-darwin-brew-5-7-10.log'
+  - st: mysql_slowlog
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mysql/data_stream/slowlog/_dev/test/pipeline/test-percona-ubuntu-5-7-19.log'
 facts:
   First released: 1995 (MySQL AB); Oracle since 2010
   Current trains: 8.0 (EOL April 2026), 8.4 LTS, 9.x innovation
@@ -157,6 +161,22 @@ logs:
     noise:
       - subsystem
     sample: "2026-11-12T09:14:22.186218Z 48211 [Note] [MY-010926] [Server] Access denied for user 'root'@'203.0.113.45' (using password: YES)"
+  - type: Error
+    sourcetype: mysql_error
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 161209 13:08:33 mysqld_safe Starting mysqld daemon with databases from /usr/local/var/mysql
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Slowlog
+    sourcetype: mysql_slowlog
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: SET timestamp=1542349556;
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2016-6662
     cvss: 9.8

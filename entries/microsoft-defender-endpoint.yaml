@@ -1,0 +1,143 @@
+id: microsoft-defender-endpoint
+name: Microsoft Defender Endpoint
+short: Endpoint
+vendor: Microsoft
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_defender_endpoint
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Microsoft Defender Endpoint is logged by the Elastic integrations package microsoft_defender_endpoint. The Pack Generator samples pool holds fixture events for 7 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_defender_endpoint
+    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/log/_dev/test/pipeline/test-defenderatp.log'
+  - st: microsoft_defender_endpoint_baseline
+    desc: 'Elastic integrations fixture, 3 events. Upstream: microsoft_defender_endpoint/data_stream/baseline/_dev/test/pipeline/test-baseline.log'
+  - st: microsoft_defender_endpoint_configuration
+    desc: 'Elastic integrations fixture, 4 events. Upstream: microsoft_defender_endpoint/data_stream/configuration/_dev/test/pipeline/test-configuration.log'
+  - st: microsoft_defender_endpoint_information_gathering
+    desc: 'Elastic integrations fixture, 3 events. Upstream: microsoft_defender_endpoint/data_stream/information_gathering/_dev/test/pipeline/test-info-gathering.log'
+  - st: microsoft_defender_endpoint_machine
+    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/machine/_dev/test/pipeline/test-machine.log'
+  - st: microsoft_defender_endpoint_machine_action
+    desc: 'Elastic integrations fixture, 5 events. Upstream: microsoft_defender_endpoint/data_stream/machine_action/_dev/test/pipeline/test-machine-action.log'
+  - st: microsoft_defender_endpoint_vulnerability
+    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_defender_endpoint
+  Sourcetypes: '7'
+  Fixture events: '33'
+  Log format seen: json
+  Fields in the first fixture: id, incidentId, investigationId, assignedTo, severity, status
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Defender Endpoint events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, incidentId, investigationId, assignedTo, severity, status. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_defender_endpoint and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: microsoft_defender_endpoint
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"id":"da637291085411733957_-1043898914","incidentId":12,"investigationId":9,"assignedTo":"user@example.com","severity":"Low","status":"Resolved","classification":null,"determination":null,"investigationState":"Benign","detectionSource":"WindowsDefenderAv","category":"Malware","threatFamilyName":null,"title":"An active ''Exeselrun'' malware was detected","description":"Malware and unwanted software are undesirable applications that perform annoying, disruptive, or harmful actions on affected machines. Some of these undesira...","alertCreationTime":"2020-06-30T10:09:01.1569718Z","firstEventTime":"2020-06-30T10:07:44.333733Z","lastEventTime":"2020-06-30T10:07:44.333733Z","lastUpdateTime":"2020-07-03T15:15:39.13Z","resolvedTime":"2020-06-30T11:13:12.2680434Z","machineId":"c5a964f417c11f6277d5bf9489f0d","computerDnsName":"testserver4","rbacGroupName":null,"aadTenantId":"123543-d66c-4c7e-9e30-40034eb7c6f3","relatedUser":null,"comments":[],"evidence":{"entityType":"File","sha1":null,"sha256":null,"fileName":"SB.xsl","filePath":"C:\\Windows\\Temp\\sb-sim-temp-ikyxqi\\sb_10554_bs_h4qpk5","processId":null,"processCommandLine":null,"processCreationTime":null,"parentProcessId":null,"parentProcessCreationTime":null,"ipAddress":null,"url":null,"accountName":null,"domainName":null,"userSid":null,"aadUserId":null,"userPrincipalName":null}}'
+    key:
+      - id
+      - incidentId
+      - investigationId
+      - assignedTo
+  - type: Baseline
+    sourcetype: microsoft_defender_endpoint_baseline
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"a1b2c3d4e5f6789012345678901234567890abcd_9e1b90be-e83e-485b-a5ec-4a429412e734_1.1.1","configurationId":"1.1.1","deviceId":"a1b2c3d4e5f6789012345678901234567890abcd","deviceName":"srv-dc01.contoso.example","profileId":"9e1b90be-e83e-485b-a5ec-4a429412e734","osPlatform":"WindowsServer2019","osVersion":"10.0.17763.2330","rbacGroupId":86,"rbacGroupName":"Production-Servers","isApplicable":true,"isCompliant":false,"dataCollectionTimeOffset":"2026-08-10T08:15:02.478Z","complianceCalculationTimeOffset":"2026-08-10T09:00:00.000Z","recommendedValue":["Greater than or equal ''24''"],"currentValue":["24"],"source":["password_hist_len"]}'
+    key:
+      - id
+      - configurationId
+      - deviceId
+      - deviceName
+  - type: Configuration
+    sourcetype: microsoft_defender_endpoint_configuration
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"deviceId":"00013ee62c6b12345b10214e1801b217b50ab455c293d","rbacGroupName":"Production-Servers","deviceName":"srv-dc01.contoso.example","osPlatform":"Windows10 and Windows 11","osVersion":"10.0.17763.2330","timestamp":"2021-01-11T09:47:58.854Z","configurationId":"scid-10000","configurationCategory":"Network","configurationSubcategory":"","configurationImpact":5,"isCompliant":true,"isApplicable":true,"isExpectedUserImpact":false,"configurationName":"Disable insecure administration protocol - Telnet","recommendationReference":"sca-_-scid-10000"}'
+    key:
+      - deviceId
+      - rbacGroupName
+      - deviceName
+      - osPlatform
+  - type: Information Gathering
+    sourcetype: microsoft_defender_endpoint_information_gathering
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"RbacGroupName":"Unassigned","Timestamp":"2026-08-31 23:12:21","LastSeenTime":"2026-08-31 19:15:55","DeviceName":"prisma-cloud-test","OsPlatform":"Linux","OsVersion":"ubuntu_linux_22.04","DeviceGatheredInfo":"{\"AvMode\":null,\"AvEngineVersion\":null,\"AvSignatureVersion\":null,\"AvPlatformVersion\":null,\"AvScanResults\":null,\"AvModeDataRefreshTime\":null,\"CloudProtectionSt...","DeviceId":"38782510e0a0cd4dc377a65eab874f466dd5e484","RbacGroupId":0}'
+    key:
+      - RbacGroupName
+      - Timestamp
+      - LastSeenTime
+      - DeviceName
+  - type: Machine
+    sourcetype: microsoft_defender_endpoint_machine
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"id":"0e23b8b23abcdefabcdef6f877b45d19c04a522d","mergedIntoMachineId":null,"isPotentialDuplication":false,"isExcluded":false,"exclusionReason":null,"computerDnsName":"c-lab-08","firstSeen":"2024-11-05T11:54:59.5717001Z","lastSeen":"2025-04-02T02:51:16.2059102Z","osPlatform":"Windows10","osVersion":null,"osProcessor":"x64","version":"22H2","lastIpAddress":"192.0.2.10","lastExternalIpAddress":"192.0.2.20","agentVersion":"10.8790.19045.5608","osBuild":19045,"healthStatus":"Active","deviceValue":"Normal","rbacGroupId":0,"rbacGroupName":null,"riskScore":"None","exposureLevel":"Low","isAadJoined":true,"aadDeviceId":"d78dc223-8dc8-1234-5678-abcdef03505b","machineTags":[],"onboardingStatus":"Onboarded","osArchitecture":"64-bit","managedBy":"Intune","managedByStatus":"Unknown","ipAddresses":[{"ipAddress":"198.51.100.15","macAddress":"00005E0053FF","type":"Ethernet","operationalStatus":"Up"}]}'
+    key:
+      - id
+      - mergedIntoMachineId
+      - isPotentialDuplication
+      - isExcluded
+  - type: Machine Action
+    sourcetype: microsoft_defender_endpoint_machine_action
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"id":"034e1b7b-1234-5678-abcd-abcdef7b1219","type":"Unisolate","title":null,"requestor":"user@example.com","requestorComment":"Isolation release","status":"Succeeded","machineId":"de693d7abcdefabcdefabcdef01f40b5bf2da1d8","computerDnsName":"c-lab-24","creationDateTimeUtc":"2024-11-25T12:59:35.8912364Z","lastUpdateDateTimeUtc":"2024-11-25T12:59:37.5532423Z","cancellationRequestor":null,"cancellationComment":null,"cancellationDateTimeUtc":null,"errorHResult":0,"scope":null,"externalId":null,"requestSource":"Portal","relatedFileInfo":null,"commands":[],"troubleshootInfo":null}'
+    key:
+      - id
+      - type
+      - title
+      - requestor
+  - type: Vulnerability
+    sourcetype: microsoft_defender_endpoint_vulnerability
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"CveBatchTitle":"Red_hat February 2025 Vulnerabilities","CveBatchUrl":"https://security.access.redhat.com/data/oval/v2/RHEL9/rhel-9.8-eus.oval.xml.bz2","CveId":"CVE-2022-49226","CvssScore":5.5,"DeviceId":"1212121212121212121212","DeviceName":"sample-host-1","EventTimestamp":"2025-10-06 12:00:00","ExploitabilityLevel":"NoExploit","FirstSeenTimestamp":"2025-10-06 10:43:58","Id":"1212121212121212121212_red_hat_kernel_0:5.14.0-427.42.1.el9_4_CVE-2022-49226","IsOnboarded":true,"LastSeenTimestamp":"2025-10-06 22:45:00","OSArchitecture":"x64","OSPlatform":"Linux","OSVersion":"enterprise_linux_9.4","RbacGroupId":0,"RbacGroupName":"Unassigned","RecommendationReference":"va-_-red_hat-_-kernel","RecommendedSecurityUpdate":"CVE-2022-49226_oval:com.redhat.rhsa:def:20249315","RecommendedSecurityUpdateId":"RHSA-2024:9315","RecommendedSecurityUpdateUrl":"https://access.redhat.com/errata/RHSA-2024:9315","RegistryPaths":[],"SoftwareName":"kernel","SoftwareVendor":"red_hat","SoftwareVersion":"0:5.14.0-427.42.1.el9_4","Status":"New","VulnerabilitySeverityLevel":"Medium"}'
+    key:
+      - CveBatchTitle
+      - CveBatchUrl
+      - CveId
+      - CvssScore
+cves: []
+detections:
+  - title: Microsoft Defender Endpoint events arriving
+    severity: low
+    signals:
+      - id
+      - incidentId
+      - investigationId
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_defender_endpoint"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_defender_endpoint/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_defender_endpoint/data_stream/log/_dev/test/pipeline/test-defenderatp.log
+  - title: Pack Generator sample microsoft_defender_endpoint.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_defender_endpoint.json

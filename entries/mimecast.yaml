@@ -1,0 +1,203 @@
+id: mimecast
+name: Mimecast
+short: Mimecast
+vendor: Mimecast
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mimecast
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Mimecast is logged by the Datadog integrations-core package mimecast. The Pack Generator samples pool holds fixture events for 12 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mimecast
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: mimecast/assets/logs/mimecast_tests.yaml'
+  - st: mimecast_archive_search_logs
+    desc: 'Elastic integrations fixture, 12 events. Upstream: mimecast/data_stream/archive_search_logs/_dev/test/pipeline/test-archive-search-logs.log'
+  - st: mimecast_audit_events
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mimecast/data_stream/audit_events/_dev/test/pipeline/test-audit-events.log'
+  - st: mimecast_cloud_integrated_logs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mimecast/data_stream/cloud_integrated_logs/_dev/test/pipeline/test-cloud-integrated-logs.log'
+  - st: mimecast_dlp_logs
+    desc: 'Elastic integrations fixture, 17 events. Upstream: mimecast/data_stream/dlp_logs/_dev/test/pipeline/test-dlp-logs.log'
+  - st: mimecast_message_release_logs
+    desc: 'Elastic integrations fixture, 9 events. Upstream: mimecast/data_stream/message_release_logs/_dev/test/pipeline/test-release-logs.json'
+  - st: mimecast_siem_logs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mimecast/data_stream/siem_logs/_dev/test/pipeline/test-siem-v2-logs.log'
+  - st: mimecast_threat_intel_malware_customer
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mimecast/data_stream/threat_intel_malware_customer/_dev/test/pipeline/test-threat-intel-malware-customer.log'
+  - st: mimecast_threat_intel_malware_grid
+    desc: 'Elastic integrations fixture, 20 events. Upstream: mimecast/data_stream/threat_intel_malware_grid/_dev/test/pipeline/test-threat-intel-malware-grid.log'
+  - st: mimecast_ttp_ap_logs
+    desc: 'Elastic integrations fixture, 12 events. Upstream: mimecast/data_stream/ttp_ap_logs/_dev/test/pipeline/test-ttp-ap-logs.log'
+  - st: mimecast_ttp_ip_logs
+    desc: 'Elastic integrations fixture, 3 events. Upstream: mimecast/data_stream/ttp_ip_logs/_dev/test/pipeline/test-ttp-ip-logs.log'
+  - st: mimecast_ttp_url_logs
+    desc: 'Elastic integrations fixture, 9 events. Upstream: mimecast/data_stream/ttp_url_logs/_dev/test/pipeline/test-ttp-url-logs.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: mimecast
+  Sourcetypes: '12'
+  Fixture events: '168'
+  Log format seen: json
+  Fields in the first fixture: eventInfo, eventTime, id, auditType, category, user
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mimecast events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries eventInfo, eventTime, id, auditType, category, user. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads mimecast and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Mimecast
+    sourcetype: mimecast
+    format: json
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '{"eventInfo":"Threat intel multiple feeds download  - malware_grid_csv_20240527063137053.zip, Date: 2024-05-27, Time: 10:31:37+0000, IP: 198.51.100.15, Application: Hamilt...","eventTime":"2024-05-27T10:31:37+0000","id":"eNoVjt0KgjAYQN9ltwXZSh1BF7LIBNNSXBrdmPua5l9MJ_3Qu2f353DOB3WQKQkFRyukYpdWKcmh21xmvdvQly3U8ZA7xE8O6cR-mxz0G6XKecd7VxmGGPIkOt2DwHR0S-z41jMZfw4qWtYeAPFlU5Z--tAmG...","auditType":"Threat Intel Feed Download","category":"reporting_logs","user":"user@example.com"}'
+    key:
+      - eventInfo
+      - eventTime
+      - id
+      - auditType
+  - type: Archive Search Logs
+    sourcetype: mimecast_archive_search_logs
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"createTime":"2023-09-01T14:56:42+0000","emailAddr":"user@example.com","source":"archive","searchText":"","searchReason":"","description":"Message Tracking Search"}'
+    key:
+      - createTime
+      - emailAddr
+      - source
+      - searchText
+  - type: Audit Events
+    sourcetype: mimecast_audit_events
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"auditType":"Threat Intel Feed Download","category":"reporting_logs","eventInfo":"Threat intel multiple feeds download  - malware_customer_csv_20211018094502564.zip, Date: 2021-10-18, Time: 08:45:02+0000, IP: 198.51.100.25, Application: In...","eventTime":"2021-10-18T08:45:02+0000","id":"eNqrVipOTS4tSs1MUbJS8im3dA5NjAxJTPP0svD1jioo9IsINgxL89c2DXZ1C3eP9AyvijKL9I7Rd_WOzC0ztMg2dzFM1M73s6w09CqoDA1T0lFKLE3JLMnJTwcZaGxoaWxpbmRhoKOUXFpckp-bWpScn5IKt...","user":"user@example.com"}'
+    key:
+      - auditType
+      - category
+      - eventInfo
+      - eventTime
+  - type: Cloud Integrated Logs
+    sourcetype: mimecast_cloud_integrated_logs
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"_offset":1825747,"_partition":53,"accountId":"AUS2474","aggregateId":"4Xz4RX59R6z84lm-ip3sazqogbn7c5haarz3ydiaeg_1732724425","attachments":["1-MB-Test_PCI-PII.xls"],"direction":"INBOUND","historicalMail":false,"messageId":"<user@example.com>","policiesApplied":[{"action":"DO_NOTHING","mode":"ACTIVE","name":"Default O365 Mail policy"}],"processingId":"127b2e8d1334f481d9dda0fe16530c1de6aede980e5313957516c6adddefddbc_1732724425","recipients":["user@example.com"],"senderEnvelope":"","senderHeader":"user@example.com","senderIp":"203.0.113.8","source":"OFFICE_365_MAIL","subject":"Undeliverable: Book Request","subtype":"NO_DETECTIONS","tags":null,"threatState":"DELIVERY_IN_PROGRESS","threatType":"NO_DETECTIONS","timestamp":1732724425453,"type":"entities"}'
+    key:
+      - _offset
+      - _partition
+      - accountId
+      - aggregateId
+  - type: Dlp Logs
+    sourcetype: mimecast_dlp_logs
+    format: json
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: '{"senderAddress":"<>","recipientAddress":"user@example.com","subject":"Undelivered Mail Returned to Sender","eventTime":"2021-10-15T20:41:25+0000","route":"inbound","policy":"Content Inspection - Watermark","action":"hold","messageId":"<user@example.com>"}'
+    key:
+      - senderAddress
+      - recipientAddress
+      - subject
+      - eventTime
+  - type: Message Release Logs
+    sourcetype: mimecast_message_release_logs
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"attachments":true,"detectionLevel":"moderate","fromEnv":{"displayableName":"FromName LastName","emailAddress":"from_user@from_domain.tld"},"fromHdr":{"displayableName":"FromName LastName","emailAddress":"from_user@from_domain.tld"},"heldGroup":"IT Staff Global","heldReason":"High-Confidence Impersonation Protection","id":"eNpVj21LhEAUhf_LfN2VnRl1RpclCN...","messageInfo":"Expired in queue - rejected by housekeeping","operator":"user@example.com","policy":"Moderate Spam Detection","rejectReason":"Message contains undesirable content","released":"2015-11-25T14:49:18+00:00","route":"inbound","size":5043,"spamProcessingDetail":{"dkim":{"allow":true,"info":"allow"},"dmarc":{"allow":true,"info":"allow"},"greyEmail":true,"managedSender":{"allow":true,"info":"allow"},"permittedSender":{"allow":true,"info":"allow"},"rbl":{"allow":true,"info":"allow"},"spamVerdict":{"categories":[{"name":"spam","risk":"low","subcategories":[{"augmentations":[{"name":"body","risk":"negligible"}],"name":"phishing","risk":"low"}]}],"decision":"spam","description":"","risk":"low"},"spf":{"allow":true,"info":"allow"}},"spamScore":12,"status":"released","subject":"Exclusive Offer - You don''t want to miss this!","to":[{"displayableName":"ToName LastName","emailAddress":"to_user@to_domain.tld"}]}'
+    key:
+      - attachments
+      - detectionLevel
+      - fromEnv.displayableName
+      - fromEnv.emailAddress
+  - type: Siem Logs
+    sourcetype: mimecast_siem_logs
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"_offset":71203,"_partition":60,"accountId":"CUSB4A274","aggregateId":"ycS8ZuP_MPunTsp6ErzBSA_1731499054","fileExtension":"pdf","fileName":"zero-day.pdf","md5":"66f03bf072a74bb19db16c952ba3dc47","processingId":"WGY_DvwBSSkQgHEEGRzoLfwigWn9mwWIGqiLvVrPqKc_1731499054","sha1":"ce87cd86f9d9d3ed4c1138530ef259ce83638593","sha256":"22a65c438289353d96c707cf55e26be723e3157f0aa00734843a9bdc8f98bab0","subtype":null,"timestamp":1731499059314,"type":"attachment protect"}'
+    key:
+      - _offset
+      - _partition
+      - accountId
+      - aggregateId
+  - type: Threat Intel Malware Customer
+    sourcetype: mimecast_threat_intel_malware_customer
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"Content-Disposition":"attachment; filename=\"malware_customer_stix_20211028161801144.stix\"","type":"malware","id":"malware--656138d6-faef-4a9d-907a-d6932bc459cb","created":"2021-10-29T15:07:26.653Z","modified":"2021-10-29T15:07:26.653Z","name":"Business Proposal_Final","labels":["virus"]}'
+    key:
+      - Content-Disposition
+      - type
+      - id
+      - created
+  - type: Threat Intel Malware Grid
+    sourcetype: mimecast_threat_intel_malware_grid
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"Content-Disposition":"attachment; filename=\"malware_grid_stix_20211028161801144.stix\"","type":"malware","id":"malware--656138d6-faef-4a9d-907a-d6932bc459cb","created":"2021-10-29T15:07:26.653Z","modified":"2021-10-29T15:07:26.653Z","name":"Business Proposal_Final.pdf","labels":["virus"]}'
+    key:
+      - Content-Disposition
+      - type
+      - id
+      - created
+  - type: Ttp Ap Logs
+    sourcetype: mimecast_ttp_ap_logs
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"senderAddress":"<>","recipientAddress":"user@example.com","fileName":"numbers.pdf","fileType":"application/pdf","result":"safe","actionTriggered":"user release, none","date":"2021-10-14T18:54:32+0000","details":"Safe                                              \r\nTime taken: 0 hrs, 0 min, 4 sec","route":"inbound","messageId":"<user@example.com>","subject":"Important Updated Numbers from the Center for Disease Control","fileHash":"eaeef09b60a59b913e9bfc0a4373e25d6182beff388957473fba517cc09345e3","definition":"Inbound - Safe file with On-Demand Sandbox"}'
+    key:
+      - senderAddress
+      - recipientAddress
+      - fileName
+      - fileType
+  - type: Ttp IP Logs
+    sourcetype: mimecast_ttp_ip_logs
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"MTOKEN:eNqrVkouLS7Jz00tSs5PSVWyUnI2MXM0N1XSUcpMUbIyMjU1NjIw1FEqSy0qzszPU7ICskvywAoNDAyVagFirRIG","senderAddress":"user@example.com","recipientAddress":"user@example.com","subject":"Requested File","definition":"IP - 1 hit (Tag email)","hits":1,"identifiers":["internal_user_name"],"action":"none","taggedExternal":false,"taggedMalicious":true,"senderIpAddress":"203.0.113.40","eventTime":"2021-10-15T17:10:46+0000","impersonationResults":[{"impersonationDomainSource":"internal_user_name","similarDomain":"John Doe Jr <user@example.com>","stringSimilarToDomain":"John Doe Jr","checkerResult":"hit"}],"messageId":"<user@example.com>"}'
+    key:
+      - id
+      - senderAddress
+      - recipientAddress
+      - subject
+  - type: Ttp Url Logs
+    sourcetype: mimecast_ttp_url_logs
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"userEmailAddress":"user@example.com","fromUserEmailAddress":"user@example.com","url":"https://click.emailinfo2.bestbuy.com/?qs=5c47c91aeb44fac857370c26ddf09c3f484431e1ccfa636fc64e26e40dd87efdb43d4deeeab8c2e727ebfa079e8cf1404c095c511152e4b09e7d...","ttpDefinition":"Inbound URL ''Aggressive''","subject":"Today only: Save $100 on Tineco Pure One S12 smart cordless stick vacuum, plus more.","action":"allow","adminOverride":"N/A","userOverride":"None","scanResult":"clean","category":"Business","sendingIp":"192.0.2.10","userAwarenessAction":"Continue","date":"2021-10-16T14:45:34+0000","actions":"Allow","route":"inbound","creationMethod":"User Click","emailPartsDescription":["Body"],"messageId":"<user@example.com>"}'
+    key:
+      - userEmailAddress
+      - fromUserEmailAddress
+      - url
+      - ttpDefinition
+cves: []
+detections:
+  - title: Mimecast events arriving
+    severity: low
+    signals:
+      - eventInfo
+      - eventTime
+      - id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mimecast"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core mimecast/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/mimecast/assets/logs/mimecast_tests.yaml
+  - title: Pack Generator sample mimecast.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mimecast.json

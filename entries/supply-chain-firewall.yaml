@@ -1,0 +1,71 @@
+id: supply-chain-firewall
+name: Supply Chain Firewall
+short: Firewall
+vendor: Supply
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - supply_chain_firewall
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Supply Chain Firewall is logged by the Datadog integrations-core package supply_chain_firewall. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: supply_chain_firewall
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: supply_chain_firewall/assets/logs/supply-chain-firewall_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: supply_chain_firewall
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: msg, ecosystem, created, source, env, version
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Supply Chain Firewall events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries msg, ecosystem, created, source, env, version. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads supply_chain_firewall and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Supply Chain Firewall
+    sourcetype: supply_chain_firewall
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"msg":"Command ''pip install urllib3==2.0.2'' was allowed","ecosystem":"PyPI","created":1755017456.590666,"source":"scfw","env":"dev","version":"3.0.0","log_version":1,"install_targets":[{"ecosystem":"PyPI","name":"urllib3","version":"2.0.2"}],"executable":"/home/devuser/.venv/bin/python","hostname":"test10-10-1-10","package_manager":"pip","service":"scfw","warning":true,"verified":true,"action":"ALLOW","username":"root","cwd":"/home/devuser/project"}'
+    key:
+      - msg
+      - ecosystem
+      - created
+      - source
+cves: []
+detections:
+  - title: Supply Chain Firewall events arriving
+    severity: low
+    signals:
+      - msg
+      - ecosystem
+      - created
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "supply_chain_firewall"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core supply_chain_firewall/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/supply_chain_firewall/assets/logs/supply-chain-firewall_tests.yaml
+  - title: Pack Generator sample supply_chain_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/supply_chain_firewall.json

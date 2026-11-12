@@ -1,0 +1,83 @@
+id: kibana
+name: Kibana
+short: Kibana
+vendor: Kibana
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - kibana
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Kibana is logged by the Elastic integrations package kibana. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: kibana
+    desc: 'Elastic integrations fixture, 3 events. Upstream: kibana/data_stream/log/_dev/test/pipeline/test-kibana-logs.log'
+  - st: kibana_audit
+    desc: 'Elastic integrations fixture, 4 events. Upstream: kibana/data_stream/audit/_dev/test/pipeline/test-kibana-audit-logs.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: kibana
+  Sourcetypes: '2'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: http.request.id, http.request.method, http.request.headers.user-agent, http.request.headers.x-elastic-product-origin, http.request.headers.x-elastic-client-meta, http.request.headers.authorization
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Kibana events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries http.request.id, http.request.method, http.request.headers.user-agent, http.request.headers.x-elastic-product-origin, http.request.headers.x-elastic-client-meta, http.request.headers.authorization. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads kibana and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: kibana
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"http":{"request":{"id":"unknownId","method":"POST","headers":{"user-agent":"elastic-transport-js/8.2.0 (linux 5.10.124-linuxkit-arm64; Node.js v16.16.0)","x-elastic-product-origin":"kibana","x-elastic-client-meta":"es=8.3.0p,js=16.16.0,t=8.2.0,hc=16.16.0","authorization":"[REDACTED]","x-opaque-id":"unknownId","content-type":"application/vnd.elasticsearch+x-ndjson; compatible-with=8","accept":"application/vnd.elasticsearch+json; compatible-with=8","content-length":"927"}},"response":{"body":{"bytes":609},"status_code":200,"headers":{"x-opaque-id":"unknownId","x-elastic-product":"Elasticsearch","content-type":"application/vnd.elasticsearch+json;compatible-with=8","content-length":"609"}}},"url":{"path":"/_bulk","query":"refresh=false&_source_includes=originId&require_alias=true"},"service":{"node":{"roles":["background_tasks","ui"]}},"ecs":{"version":"8.4.0"},"@timestamp":"2022-09-09T13:26:12.639+00:00","message":"200 - 609.0B\nPOST /_bulk?refresh=false&_source_includes=originId&require_alias=true\n{\"update\":{\"_id\":\"task:reports:monitor\",\"_index\":\".kibana_task_manager_8....","log":{"level":"DEBUG","logger":"elasticsearch.query.data"},"process":{"pid":6},"trace":{"id":"367daf7c4cd706043f301712e2fcc505"},"transaction":{"id":"a1d046c765ff35a9"}}'
+    key:
+      - http.request.id
+      - http.request.method
+      - http.request.headers.user-agent
+      - http.request.headers.x-elastic-product-origin
+  - type: Audit
+    sourcetype: kibana_audit
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"event":{"action":"http_request","category":["web"],"outcome":"unknown"},"http":{"request":{"method":"get"}},"url":{"domain":"kibana","path":"/api/fleet/enrollment_api_keys/e0a0d409-b22f-4cd0-b417-c934c621ce07","port":5601,"scheme":"https"},"user":{"name":"elastic","roles":["superuser"]},"kibana":{"space_id":"default"},"trace":{"id":"2eeefc09-26a2-4aea-840d-9170b0a9c95f"},"service":{"node":{"roles":["background_tasks","ui"]}},"ecs":{"version":"8.4.0"},"@timestamp":"2022-09-09T13:15:24.041+00:00","message":"User is requesting [/api/fleet/enrollment_api_keys/e0a0d409-b22f-4cd0-b417-c934c621ce07] endpoint","log":{"level":"INFO","logger":"plugins.security.audit.ecs"},"process":{"pid":7},"transaction":{"id":"858c45e94edb1814"}}'
+    key:
+      - event.action
+      - event.category[0]
+      - event.outcome
+      - http.request.method
+cves: []
+detections:
+  - title: Kibana events arriving
+    severity: low
+    signals:
+      - http.request.id
+      - http.request.method
+      - http.request.headers.user-agent
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "kibana"'
+optimizations: []
+references:
+  - title: elastic/integrations kibana/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/kibana/data_stream/log/_dev/test/pipeline/test-kibana-logs.log
+  - title: Pack Generator sample kibana.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kibana.json

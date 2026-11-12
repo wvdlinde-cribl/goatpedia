@@ -1,0 +1,71 @@
+id: system
+name: System
+short: System
+vendor: System
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - system
+  - Elastic integrations
+tags:
+  - elastic
+  - xml
+summary: System is logged by the Elastic integrations package system. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: system_security
+    desc: 'Elastic integrations fixture, 20 events. Upstream: system/data_stream/security/_dev/test/pipeline/test-4674.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: system
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: xml
+  Fields in the first fixture: Provider.Name, Provider.Guid, EventID, Version, Level, Task
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: System events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Provider.Name, Provider.Guid, EventID, Version, Level, Task. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - xml
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads system and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as xml.
+logs:
+  - type: Security
+    sourcetype: system_security
+    format: xml
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Security-Auditing" Guid="{54849625-5478-4994-A5BA-3E3B0328C30D}" /><EventID>4674</EventID><Version>0</Version><Level>0</Level><Task>13056</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime="2015-10-09T00:22:36.237816000Z" /><EventRecordID>1099680</EventRecordID><Correlation /><Execution ProcessID="496" ThreadID="504" /><Channel>Security</Channel><Computer>DC01.contoso.local</Computer><Security /></System><EventData><Data Name="SubjectUserSid">S-1-5-19</Data><Data Name="SubjectUserName">LOCAL SERVICE</Data><Data Name="SubjectDomainName">NT AUTHORITY</Data><Data Name="SubjectLogonId">0x3e5</Data><Data Name="ObjectServer">LSA</Data><Data Name="ObjectType">-</Data><Data Name="ObjectName">-</Data><Data Name="HandleId">0x0</Data><Data Name="AccessMask">16777216</Data><Data Name="PrivilegeList">SeSecurityPrivilege</Data><Data Name="ProcessId">0x1f0</Data><Data Name="ProcessName">C:\\Windows\\System32\\lsass.exe</Data></EventData></Event>
+    key:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+      - Version
+cves: []
+detections:
+  - title: System events arriving
+    severity: low
+    signals:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "system_security"'
+optimizations: []
+references:
+  - title: elastic/integrations system/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/system/data_stream/security/_dev/test/pipeline/test-4674.json
+  - title: Pack Generator sample system_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/system_security.json

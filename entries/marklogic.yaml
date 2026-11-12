@@ -1,0 +1,67 @@
+id: marklogic
+name: Marklogic
+short: Marklogic
+vendor: Marklogic
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - marklogic
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Marklogic is logged by the Datadog integrations-core package marklogic. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: marklogic
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: marklogic/assets/logs/marklogic_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: marklogic
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Marklogic events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads marklogic and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Marklogic
+    sourcetype: marklogic
+    format: text
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: 192.0.2.20 - - [24/Oct/2018:00:00:01 +0100] "POST /eval XDBC/1.0" 401 0 - "Java/1.8.0_181 MarkLogicXCC/8.0-5"
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Marklogic events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "marklogic"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core marklogic/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/marklogic/assets/logs/marklogic_tests.yaml
+  - title: Pack Generator sample marklogic.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/marklogic.json

@@ -1,0 +1,71 @@
+id: beyondtrust-pra
+name: Beyondtrust Pra
+short: Pra
+vendor: Beyondtrust
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - beyondtrust_pra
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Beyondtrust Pra is logged by the Elastic integrations package beyondtrust_pra. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: beyondtrust_pra_access_session
+    desc: 'Elastic integrations fixture, 2 events. Upstream: beyondtrust_pra/data_stream/access_session/_dev/test/pipeline/test-event.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: beyondtrust_pra
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: body, data.value[0].name, data.value[0].value, data.value[1].name, data.value[1].value, destination.display_name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Beyondtrust Pra events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries body, data.value[0].name, data.value[0].value, data.value[1].name, data.value[1].value, destination.display_name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads beyondtrust_pra and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Access Session
+    sourcetype: beyondtrust_pra_access_session
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"body":"Session started by Admin","data":{"value":[{"name":"username","value":"JohnDoe"},{"name":"private_ip","value":"203.0.113.8"}]},"destination":{"display_name":"Admin","gsnumber":"R56789","hostname":"admin-host","id":"112233","invited":1,"os":"Windows 11","private_ip":"203.0.113.40","public_ip":"192.0.2.10","seconds_involved":3600,"session_owner":1,"type":"representative","username":"admin_user"},"encoded_body":"U2Vzc2lvbiBzdGFydGVkIGJ5IEFkbWlu","event_type":"Session Start","filename":"logfile.txt","filesize":1024,"files":{"file":[{"filename":"logfile.txt","filesize":1024},{"filename":"logfile.txt","filesize":1024}]},"performed_by":{"display_name":"Admin","gsnumber":"R56789","hostname":"admin-host","id":"112233","invited":1,"os":"Windows 11","private_ip":"192.0.2.20","public_ip":"198.51.100.15","seconds_involved":3600,"session_owner":1,"type":"representative","username":"admin_user"},"system_information":{"category":[{"data":{"row":[{"field":[{"name":"os","#text":"Windows 10"},{"name":"hostname","#text":"remote-host"}]}]},"description":{"field":[{"name":"os","#text":"Operating System"},{"name":"hostname","#text":"Hostname"}]}}]},"timestamp":"2024-01-01T12:30:00Z","session":{"lsid":"12345","jump_group":{"#text":"Support Team","id":"56789","type":"shared"},"jumpoint":{"id":"98765","#text":"Main Jumpoint"},"command_shell_recordings":{"command_shell_recording":[{"download_url":"https://example.com/shell_download/12345","view_url":"https://example.com/shell_view/12345","instance":"0"},{"view_url":"https://example.com/shell_view/12345","instance":"0","download_url":"https://example.com/shell_download/12345"}]},"duration":"01:00:00","lseq":"12345","session_chat_view_url":"https://example.com/chat_view/12345","session_recording_view_url":"https://example.com/recording_view/12345","end_time":{"#text":"2024-01-01T13:00:00Z","timestamp":"1704114000"},"file_transfer_count":3,"start_time":{"timestamp":"1704110400","#text":"2024-01-01T12:00:00Z"},"file_move_count":1,"file_delete_count":0,"session_recording_download_url":"https://example.com/recording_download/12345","primary_customer":{"#text":"Remote PC","gsnumber":"C12345"},"custom_attributes":{"custom_attribute":[{"code_name":"priority","#text":"High","display_name":"priority"},{"code_name":"priority","#text":"High","display_name":"priority"}]},"primary_rep":{"gsnumber":"R56789","id":"112233","#text":"John Doe"},"session_chat_download_url":"https://example.com/chat_download/12345","session_type":"support"}}'
+    key:
+      - body
+      - data.value[0].name
+      - data.value[0].value
+      - data.value[1].name
+cves: []
+detections:
+  - title: Beyondtrust Pra events arriving
+    severity: low
+    signals:
+      - body
+      - data.value[0].name
+      - data.value[0].value
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "beyondtrust_pra_access_session"'
+optimizations: []
+references:
+  - title: elastic/integrations beyondtrust_pra/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beyondtrust_pra/data_stream/access_session/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample beyondtrust_pra_access_session.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_pra_access_session.json

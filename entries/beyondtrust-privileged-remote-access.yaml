@@ -1,0 +1,67 @@
+id: beyondtrust-privileged-remote-access
+name: Beyondtrust Privileged Remote Access
+short: Access
+vendor: Beyondtrust
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - beyondtrust_privileged_remote_access
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Beyondtrust Privileged Remote Access is logged by the Datadog integrations-core package beyondtrust_privileged_remote_access. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: beyondtrust_privileged_remote_access
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: beyondtrust_privileged_remote_access/assets/logs/beyondtrust-privileged-remote-access_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: beyondtrust_privileged_remote_access
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Beyondtrust Privileged Remote Access events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads beyondtrust_privileged_remote_access and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Beyondtrust Privileged Remote Access
+    sourcetype: beyondtrust_privileged_remote_access
+    format: text
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: <133>Jan 9 03:47:40 pf60fc91 BG[81869] 1427:01:01:event=fido2_credential_added;credential_owner_id=123;name=credential_name;roaming=1;registration_date=09-01-2026;last_used_date=09-01-2026;last_signature_count=1;when=1767953860;who=Sam5 Carter5 (user@example.com) using oidc;who_ip=198.51.100.25;site=pf60fc91.beyondtrustcloud.com
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Beyondtrust Privileged Remote Access events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "beyondtrust_privileged_remote_access"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core beyondtrust_privileged_remote_access/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/beyondtrust_privileged_remote_access/assets/logs/beyondtrust-privileged-remote-access_tests.yaml
+  - title: Pack Generator sample beyondtrust_privileged_remote_access.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_privileged_remote_access.json

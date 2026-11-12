@@ -1,0 +1,67 @@
+id: symantec-endpoint-protection
+name: Symantec Endpoint Protection
+short: Protection
+vendor: Symantec
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - symantec_endpoint_protection
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Symantec Endpoint Protection is logged by the Datadog integrations-core package symantec_endpoint_protection. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: symantec_endpoint_protection
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: symantec_endpoint_protection/assets/logs/symantec-endpoint-protection_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: symantec_endpoint_protection
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Symantec Endpoint Protection events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads symantec_endpoint_protection and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Symantec Endpoint Protection
+    sourcetype: symantec_endpoint_protection
+    format: text
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: '<54>Sep 13 08:34:00 WIN-RQBT7BNE363 SymantecServer: DESKTOP-CIK30CC,192.0.2.10,Continue,Application and Device Control is ready,System,Begin: 2024-09-13 08:32:44,End Time: 2024-09-13 08:32:44,Rule: Built-in rule,0,SysPlant,0,SysPlant,None,User Name: Bob,Domain Name: example.local,Action Type: Block,File size (bytes): 16385,Device ID: 890124,IP Address: 192.0.2.20,IP Address1: 198.51.100.15,MAC Address1: 00:00:5e:00:53:01,GATEWAY1: 198.51.100.25,IP Address2: 203.0.113.8,MAC Address2: 2001:db8::1,GATEWAY2: 203.0.113.40,IP Address3: 192.0.2.10,MAC Address3: 00:00:5e:00:53:01,GATEWAY3: 192.0.2.20,IP Address4: 198.51.100.15,MAC Address4: 00:00:5e:00:53:01,GATEWAY4: 198.51.100.25'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Symantec Endpoint Protection events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "symantec_endpoint_protection"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core symantec_endpoint_protection/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/symantec_endpoint_protection/assets/logs/symantec-endpoint-protection_tests.yaml
+  - title: Pack Generator sample symantec_endpoint_protection.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_endpoint_protection.json

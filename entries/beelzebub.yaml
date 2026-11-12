@@ -1,0 +1,71 @@
+id: beelzebub
+name: Beelzebub
+short: Beelzebub
+vendor: Beelzebub
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - beelzebub
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Beelzebub is logged by the Elastic integrations package beelzebub. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: beelzebub
+    desc: 'Elastic integrations fixture, 5 events. Upstream: beelzebub/data_stream/logs/_dev/test/pipeline/test-logs-ndjson.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: beelzebub
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: json
+  Fields in the first fixture: event.DateTime, event.RemoteAddr, event.Protocol, event.Command, event.CommandOutput, event.Status
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Beelzebub events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event.DateTime, event.RemoteAddr, event.Protocol, event.Command, event.CommandOutput, event.Status. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads beelzebub and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Logs
+    sourcetype: beelzebub
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"event":{"DateTime":"2025-02-13T01:08:26Z","RemoteAddr":"203.0.113.40:60748","Protocol":"SSH","Command":"","CommandOutput":"","Status":"Stateless","Msg":"New SSH attempt","ID":"1974e109-d6f8-4bb1-934c-180a163e1cb8","Environ":"","User":"root","Password":"test","Client":"SSH-2.0-dropbear","Headers":"","Cookies":"","UserAgent":"","HostHTTPRequest":"","Body":"","HTTPMethod":"","RequestURI":"","Description":"SSH interactive ChatGPT","SourceIp":"192.0.2.10","SourcePort":"60748"},"level":"info","msg":"New Event","status":"Stateless","time":"2025-02-13T01:08:26Z"}'
+    key:
+      - event.DateTime
+      - event.RemoteAddr
+      - event.Protocol
+      - event.Command
+cves: []
+detections:
+  - title: Beelzebub events arriving
+    severity: low
+    signals:
+      - event.DateTime
+      - event.RemoteAddr
+      - event.Protocol
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "beelzebub"'
+optimizations: []
+references:
+  - title: elastic/integrations beelzebub/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beelzebub/data_stream/logs/_dev/test/pipeline/test-logs-ndjson.log
+  - title: Pack Generator sample beelzebub.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beelzebub.json

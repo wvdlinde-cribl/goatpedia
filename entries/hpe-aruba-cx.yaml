@@ -1,0 +1,67 @@
+id: hpe-aruba-cx
+name: HPE Aruba CX
+short: HPE Aruba CX
+vendor: HPE
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hpe_aruba_cx
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: HPE Aruba CX is logged by the Elastic integrations package hpe_aruba_cx. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hpe_aruba_cx
+    desc: 'Elastic integrations fixture, 20 events. Upstream: hpe_aruba_cx/data_stream/log/_dev/test/pipeline/test-aruba-fabricated.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: hpe_aruba_cx
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: HPE Aruba CX events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads hpe_aruba_cx and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: hpe_aruba_cx
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '2024-06-18T12:45:38.182641-05:00 8360-Primaire lldpd[1234]: Event|101|LOG_INFO|AMM|-|LLDP Enabled'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: HPE Aruba CX events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hpe_aruba_cx"'
+optimizations: []
+references:
+  - title: elastic/integrations hpe_aruba_cx/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hpe_aruba_cx/data_stream/log/_dev/test/pipeline/test-aruba-fabricated.log
+  - title: Pack Generator sample hpe_aruba_cx.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hpe_aruba_cx.json

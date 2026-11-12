@@ -1,0 +1,71 @@
+id: checkpoint-quantum-firewall
+name: Checkpoint Quantum Firewall
+short: Firewall
+vendor: Checkpoint
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - checkpoint_quantum_firewall
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Checkpoint Quantum Firewall is logged by the Datadog integrations-core package checkpoint_quantum_firewall. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: checkpoint_quantum_firewall
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: checkpoint_quantum_firewall/assets/logs/checkpoint-quantum-firewall_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: checkpoint_quantum_firewall
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: json
+  Fields in the first fixture: creation_time, rule_uid[0], rule_uid[1], packets, protocol, client_outbound_packets
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Checkpoint Quantum Firewall events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries creation_time, rule_uid[0], rule_uid[1], packets, protocol, client_outbound_packets. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads checkpoint_quantum_firewall and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Checkpoint Quantum Firewall
+    sourcetype: checkpoint_quantum_firewall
+    format: json
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '{"creation_time":"1702027299","rule_uid":["a0bc0def-da96-4c9d-a654-37c4125fb5c9","a0bc0def-0g0h-0012-90i9-37c4125fb5c9"],"packets":"685","protocol":"HTTPS","client_outbound_packets":"468","loguid":"{0xab66c4d0,0x8d99f544,0x8d99f545,0x8d99f546}","action":"Accept","aggregated_log_count":"10","__policy_id_tag":"product=VPN-1 & FireWall-1[db_tag={ABCD1234-5F67-B89B-AF12-3456B78B91A};mgmt=gw-81a3bc;date=1702026887;policy_name=Standard\\]","app_id":"647368112","layer_name":["Network","URL"],"conn_direction":"Internal","lastupdatetime":"1702029877","sequencenum":"1","inzone":"Internal","rule_name":"Cleanup rule","ifdir":"inbound","originsicname":"cn=ab_mgmt,o=gw-12a3bc..4de5fg","browse_time":"170","version":"5","server_inbound_packets":"234","app_risk":4,"connection_count":"5","proto":"6","app_category":"High Risk","appi_name":"malware.wicar.org","dst":"203.0.113.8","origin":"203.0.113.40","flags":"4210688","last_hit_time":"1702029425"}'
+    key:
+      - creation_time
+      - rule_uid[0]
+      - rule_uid[1]
+      - packets
+cves: []
+detections:
+  - title: Checkpoint Quantum Firewall events arriving
+    severity: low
+    signals:
+      - creation_time
+      - rule_uid[0]
+      - rule_uid[1]
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "checkpoint_quantum_firewall"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core checkpoint_quantum_firewall/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/checkpoint_quantum_firewall/assets/logs/checkpoint-quantum-firewall_tests.yaml
+  - title: Pack Generator sample checkpoint_quantum_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/checkpoint_quantum_firewall.json

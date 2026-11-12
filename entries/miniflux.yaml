@@ -1,0 +1,71 @@
+id: miniflux
+name: Miniflux
+short: Miniflux
+vendor: Miniflux
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - miniflux
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Miniflux is logged by the Elastic integrations package miniflux. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: miniflux_feed_entry
+    desc: 'Elastic integrations fixture, 3 events. Upstream: miniflux/data_stream/feed_entry/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: miniflux
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: id, user_id, feed_id, status, hash, title
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Miniflux events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, user_id, feed_id, status, hash, title. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads miniflux and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Feed Entry
+    sourcetype: miniflux_feed_entry
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":83721716,"user_id":4426,"feed_id":355593,"status":"read","hash":"fab2dc0ad7ba85e40595d197da245cb2602ce93c6a2c2deca340ce909c9a4a13","title":"Exploit for Code Injection in Vmware Spring Framework exploit","url":"https://sploitus.com/exploit?id=5C9561BE-D9BB-58D0-8E51-09DDD257BC72&utm_source=rss&utm_medium=rss","comments_url":"","published_at":"2023-09-02T12:41:05+02:00","created_at":"2023-09-02T22:17:02.689133+02:00","changed_at":"2023-09-02T22:30:13.118049+02:00","content":"<p></p>\n\n<h1>Exploit for Code Injection in Vmware Spring Framework CVE-2022-22965</h1>\n<p>2023-09-02 | CVSS 7.5 </p>\n\n\n\n\n\nCopy\nDownload\nSource\n<a href=\"#shar...","author":"","share_code":"","starred":true,"reading_time":1,"enclosures":[],"feed":{"id":355593,"user_id":4426,"feed_url":"https://sploitus.com/rss","site_url":"https://sploitus.com/rss","title":"Sploitus.com Exploits RSS Feed","description":"","checked_at":"2025-04-24T22:05:56.580704+02:00","next_check_at":"0001-01-01T00:00:00Z","etag_header":"","last_modified_header":"","parsing_error_message":"","parsing_error_count":0,"scraper_rules":"","rewrite_rules":"","crawler":true,"blocklist_rules":"","keeplist_rules":"","urlrewrite_rules":"","user_agent":"","cookie":"","username":"","password":"","disabled":false,"no_media_player":false,"ignore_http_cache":false,"allow_self_signed_certificates":false,"fetch_via_proxy":false,"hide_globally":false,"disable_http2":false,"apprise_service_urls":""},"tags":[]}'
+    key:
+      - id
+      - user_id
+      - feed_id
+      - status
+cves: []
+detections:
+  - title: Miniflux events arriving
+    severity: low
+    signals:
+      - id
+      - user_id
+      - feed_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "miniflux_feed_entry"'
+optimizations: []
+references:
+  - title: elastic/integrations miniflux/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/miniflux/data_stream/feed_entry/_dev/test/pipeline/test-vulnerability.log
+  - title: Pack Generator sample miniflux_feed_entry.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/miniflux_feed_entry.json

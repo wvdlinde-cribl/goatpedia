@@ -30,6 +30,8 @@ sourcetypes:
     desc: Splunk Add-on — splunk_recommended_squid key=value logformat (adds ports, UA, referrer, bytes in/out)
   - st: cache.log
     desc: cache.log daemon/diagnostic log (errors, TLS failures, startup) (file name; no official add-on sourcetype)
+  - st: squid
+    desc: 'Elastic integrations fixture, 20 events. Upstream: squid/data_stream/log/_dev/test/pipeline/test-access.log'
 facts:
   First released: 1996 (fork of the Harvest cache)
   Platform: Linux, BSD, macOS, Windows (community builds); bundled in pfSense, many appliances
@@ -143,6 +145,14 @@ logs:
     noise:
       - kid
     sample: '2026/11/12 09:15:02 kid1| ERROR: failure while accepting a TLS connection on conn4711 local=10.0.0.3:3128 remote=10.20.30.44:51544 FD 14 flags=1: SQUID_TLS_ERR_ACCEPT+TLS_LIB_ERR=A000417+TLS_IO_ERR=1'
+  - type: Log
+    sourcetype: squid
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 1157689312.049   5006 198.51.100.25 TCP_MISS/200 19763 CONNECT login.yahoo.com:443 badeyek DIRECT/203.0.113.8 -
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2025-62168
     cvss: 7.5

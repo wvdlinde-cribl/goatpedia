@@ -1,0 +1,71 @@
+id: jamf-compliance-reporter
+name: Jamf Compliance Reporter
+short: Reporter
+vendor: Jamf
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jamf_compliance_reporter
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Jamf Compliance Reporter is logged by the Elastic integrations package jamf_compliance_reporter. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jamf_compliance_reporter
+    desc: 'Elastic integrations fixture, 19 events. Upstream: jamf_compliance_reporter/data_stream/log/_dev/test/pipeline/test-pipeline-audit.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: jamf_compliance_reporter
+  Sourcetypes: '1'
+  Fixture events: '19'
+  Log format seen: json
+  Fields in the first fixture: _event_score, arguments.fd, header.event_id, header.event_modifier, header.event_name, header.time_milliseconds_offset
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jamf Compliance Reporter events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _event_score, arguments.fd, header.event_id, header.event_modifier, header.event_name, header.time_milliseconds_offset. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads jamf_compliance_reporter and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: jamf_compliance_reporter
+    format: json
+    desc: 19 fixture events in the samples pool (elastic).
+    sample: '{"_event_score":0,"arguments":{"fd":4},"header":{"event_id":33,"event_modifier":0,"event_name":"AUE_ACCEPT","time_milliseconds_offset":281,"time_seconds_epoch":1570154219,"version":11},"host_info":{"host_name":"Dan_macbook_pro","host_uuid":"3F6E4B3A-9285-4E7E-9A0C-C3B62DC379DF","osversion":"Version 10.14.6 (Build 18G95)","primary_mac_address":"2001:db8::1","serial_number":"C03XY889JHG3"},"identity":{"cd_hash":"aa2338385e41d09a5322d1799bdef5e3b03212d1","signer_id":"openvpn-service-555549449a5cfba3ead13fd7af705ce30a37191e","signer_id_truncated":0,"signer_type":0,"team_id":"","team_id_truncated":0},"path":["//"],"return":{"description":"success","error":0,"return_value":7},"socket_unix":{"family":1,"path":""},"subject":{"audit_id":4294967295,"audit_user_name":"-1","effective_group_id":0,"effective_group_name":"wheel","effective_user_id":0,"effective_user_name":"root","group_id":0,"group_name":"wheel","process_hash":"75D2B3D5B799ACA091CF49CFD15925E35BD0DA7C","process_id":79,"process_name":"/Library/Frameworks/OpenVPN.framework/Versions/Current/bin/openvpn-service","session_id":100000,"terminal_id":{"addr":[0],"ip_address":"198.51.100.15","port":0,"type":0},"user_id":0,"user_name":"root"}}'
+    key:
+      - _event_score
+      - arguments.fd
+      - header.event_id
+      - header.event_modifier
+cves: []
+detections:
+  - title: Jamf Compliance Reporter events arriving
+    severity: low
+    signals:
+      - _event_score
+      - arguments.fd
+      - header.event_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jamf_compliance_reporter"'
+optimizations: []
+references:
+  - title: elastic/integrations jamf_compliance_reporter/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/jamf_compliance_reporter/data_stream/log/_dev/test/pipeline/test-pipeline-audit.log
+  - title: Pack Generator sample jamf_compliance_reporter.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jamf_compliance_reporter.json

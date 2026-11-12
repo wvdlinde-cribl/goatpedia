@@ -1,0 +1,83 @@
+id: forescout
+name: Forescout
+short: Forescout
+vendor: Forescout
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - forescout
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Forescout is logged by the Elastic integrations package forescout. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: forescout
+    desc: 'Elastic integrations fixture, 12 events. Upstream: forescout/data_stream/event/_dev/test/pipeline/test-pipeline-event.log'
+  - st: forescout_host
+    desc: 'Elastic integrations fixture, 3 events. Upstream: forescout/data_stream/host/_dev/test/pipeline/test-host.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: forescout
+  Sourcetypes: '2'
+  Fixture events: '15'
+  Log format seen: kv, json
+  Fields in the first fixture: header, TTY, PWD, USER, COMMAND
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Forescout events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, TTY, PWD, USER, COMMAND. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads forescout and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv / json.
+logs:
+  - type: Event
+    sourcetype: forescout
+    format: kv
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '_fsservice : TTY=unknown ; PWD=/usr/local/forescout ; USER=root ; COMMAND=/bin/fstool netflowtool netflow_init_softflow'
+    key:
+      - TTY
+      - PWD
+      - USER
+      - COMMAND
+  - type: Host
+    sourcetype: forescout_host
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"2026-03-20T10:41:23.966575","access_ip":"Unknown","compliance_state":"N/A","guest_corporate_state":"N/A","device_interfaces":"Irresolvable","is_dhcp_relay":"No DHCP traffic seen","is_dhcp_server":"No DHCP traffic seen","is_behind_nat":"Irresolvable","dhcp_server":"Unknown","ip":"198.51.100.25","mac":"Unknown","nested_device_id":"Unknown","nested_device_parent_ip":"Unknown","hwi_network_adapters":"Irresolvable","openports":"Unknown","os_cpe":"Irresolvable","segment_name":"","segment_path":"Irresolvable","smb_relay":"Irresolvable","user":"User"}'
+    key:
+      - timestamp
+      - access_ip
+      - compliance_state
+      - guest_corporate_state
+cves: []
+detections:
+  - title: Forescout events arriving
+    severity: low
+    signals:
+      - header
+      - TTY
+      - PWD
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "forescout"'
+optimizations: []
+references:
+  - title: elastic/integrations forescout/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/forescout/data_stream/event/_dev/test/pipeline/test-pipeline-event.log
+  - title: Pack Generator sample forescout.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/forescout.json

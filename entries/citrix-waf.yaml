@@ -1,0 +1,71 @@
+id: citrix-waf
+name: Citrix WAF
+short: Citrix WAF
+vendor: Citrix
+category: waf
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - citrix_waf
+  - Elastic integrations
+tags:
+  - elastic
+  - cef
+summary: Citrix WAF is logged by the Elastic integrations package citrix_waf. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: citrix_waf
+    desc: 'Elastic integrations fixture, 20 events. Upstream: citrix_waf/data_stream/log/_dev/test/pipeline/test-citrix-waf-cef.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: citrix_waf
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Citrix WAF events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads citrix_waf and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Log
+    sourcetype: citrix_waf
+    format: cef
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: Jun 12 23:37:17 <local0.info> 203.0.113.40 CEF:0|Citrix|NetScaler|NS11.0|APPFW|APPFW_STARTURL|6|src=192.0.2.10 spt=47606 method=GET request=http://aaron.stratum8.net/FFC/login.html msg=Disallow Illegal URL. cn1=1340 cn2=653 cs1=pr_ffc cs2=PPE1 cs3=EsdGd3VD0OaaURLcZnj05Y6DOmE0002 cs4=ALERT cs5=2015 act=blocked
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Citrix WAF events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "citrix_waf"'
+optimizations: []
+references:
+  - title: elastic/integrations citrix_waf/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/citrix_waf/data_stream/log/_dev/test/pipeline/test-citrix-waf-cef.log
+  - title: Pack Generator sample citrix_waf.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/citrix_waf.json

@@ -1,0 +1,83 @@
+id: lite-llm
+name: Lite Llm
+short: Lite Llm
+vendor: Lite
+category: ai
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - lite_llm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Lite Llm is logged by the Elastic integrations package lite_llm. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: lite_llm_audit
+    desc: 'Elastic integrations fixture, 10 events. Upstream: lite_llm/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: lite_llm_spend_tracking
+    desc: 'Elastic integrations fixture, 5 events. Upstream: lite_llm/data_stream/spend_tracking/_dev/test/pipeline/test-spend-tracking.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: lite_llm
+  Sourcetypes: '2'
+  Fixture events: '15'
+  Log format seen: json
+  Fields in the first fixture: id, updated_at, changed_by, changed_by_api_key, action, table_name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Lite Llm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, updated_at, changed_by, changed_by_api_key, action, table_name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads lite_llm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: lite_llm_audit
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"id":"621d20b6-2e02-432f-8b98-345d2d1c3ce8","updated_at":"2026-07-03T11:46:50.269000Z","changed_by":"user@example.com","changed_by_api_key":"bd1d442577d03f30cbc3957b0235155468fbf3b9d3aa4eac23a1e4d730c41b7c","action":"created","table_name":"LiteLLM_VerificationToken","object_id":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","before_value":null,"updated_values":{"key":"sk-example","spend":0,"token":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","config":{},"models":[],"aliases":{},"user_id":"default_user_id","key_name":"sk-example","metadata":{},"token_id":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","key_alias":"******","created_at":"2026-07-03T11:46:50.263000Z","created_by":"default_user_id","updated_at":"2026-07-03T11:46:50.263000Z","updated_by":"default_user_id","permissions":{},"allowed_routes":["llm_api_routes"],"router_settings":{"model_group_alias":{}},"access_group_ids":[],"model_max_budget":{},"allowed_cache_controls":[]}}'
+    key:
+      - id
+      - updated_at
+      - changed_by
+      - changed_by_api_key
+  - type: Spend Tracking
+    sourcetype: lite_llm_spend_tracking
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"request_id":"bcfdde71-ec6c-469c-ba5e-bba248d12b23","call_type":"","api_key":"f0c41b248c7396133777f28fddfc2ae0fe0789e0dcdc17cda1ede29adc522dbf","spend":0,"total_tokens":0,"prompt_tokens":0,"completion_tokens":0,"start_time":"2026-07-18T10:12:39.353+00:00","end_time":"2026-07-18T10:12:39.353+00:00","model":"openai/gpt-4o-mini","model_group":"gpt-4o-mini","user":"default_user_id","team_id":"litellm-dashboard","requester_ip_address":"203.0.113.8","status":"failure","metadata":{"error_information":{"error_code":"401","error_class":"AuthenticationError","error_message":"Incorrect API key provided"}}}'
+    key:
+      - request_id
+      - call_type
+      - api_key
+      - spend
+cves: []
+detections:
+  - title: Lite Llm events arriving
+    severity: low
+    signals:
+      - id
+      - updated_at
+      - changed_by
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "lite_llm_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations lite_llm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/lite_llm/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample lite_llm_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lite_llm_audit.json

@@ -1,0 +1,71 @@
+id: juniper-junos-rfc3164
+name: Juniper Junos Rfc3164
+short: Rfc3164
+vendor: Juniper
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - juniper_junos_rfc3164
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Juniper Junos Rfc3164 is logged by the Splunk Connect for Syslog package juniper_junos_rfc3164. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: juniper_junos_idp
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_juniper_junos_rfc3164.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: juniper_junos_rfc3164
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: kv
+  Fields in the first fixture: header, repeat, action, threat-severity, name, time-elapsed
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Juniper Junos Rfc3164 events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, repeat, action, threat-severity, name, time-elapsed. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads juniper_junos_rfc3164 and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Juniper Junos Idp
+    sourcetype: juniper_junos_idp
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<23> Jun 15 13:45:07 sc4s-lab-01 RT_IDP: IDP_ATTACK_LOG_EVENT: IDP: at 1303673404, ANOMALY Attack log <203.0.113.8/48397->203.0.113.40/80> for TCP protocol and service HTTP application NONE by rule 3 of rulebase IPS in policy Recommended. attack: repeat=0, action=DROP, threat-severity=HIGH, name=HTTP:INVALID:MSNG-HTTP-VER, NAT <192.0.2.10:55870->192.0.2.20:0>, time-elapsed=0, inbytes=0, outbytes=0, inpackets=0, outpackets=0, intf:trust:fe-0/0/2.0->untrust:fe-0/0/3.0, packet-log-id: 0 and misc-message -'
+    key:
+      - repeat
+      - action
+      - threat-severity
+      - name
+cves: []
+detections:
+  - title: Juniper Junos Rfc3164 events arriving
+    severity: low
+    signals:
+      - header
+      - repeat
+      - action
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "juniper_junos_idp"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_juniper_junos_rfc3164.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_juniper_junos_rfc3164.py
+  - title: Pack Generator sample juniper_junos_idp.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_junos_idp.json

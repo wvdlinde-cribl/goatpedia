@@ -1,0 +1,67 @@
+id: aws-mq
+name: AWS Mq
+short: AWS Mq
+vendor: AWS
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - aws_mq
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: AWS Mq is logged by the Elastic integrations package aws_mq. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: aws_mq_rabbitmq_general_logs
+    desc: 'Elastic integrations fixture, 12 events. Upstream: aws_mq/data_stream/rabbitmq_general_logs/_dev/test/pipeline/test-amazonmq-rabbitmq-general.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: aws_mq
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: AWS Mq events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads aws_mq and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Rabbitmq General Logs
+    sourcetype: aws_mq_rabbitmq_general_logs
+    format: text
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '2025-03-21 06:25:13.777161+00:00 [notice] <0.10337402.0> TLS server: In state hello at tls_handshake.erl:354 generated SERVER ALERT: Fatal - Insufficient Security'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: AWS Mq events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "aws_mq_rabbitmq_general_logs"'
+optimizations: []
+references:
+  - title: elastic/integrations aws_mq/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/aws_mq/data_stream/rabbitmq_general_logs/_dev/test/pipeline/test-amazonmq-rabbitmq-general.log
+  - title: Pack Generator sample aws_mq_rabbitmq_general_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aws_mq_rabbitmq_general_logs.json

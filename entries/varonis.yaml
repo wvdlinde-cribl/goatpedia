@@ -1,0 +1,71 @@
+id: varonis
+name: Varonis
+short: Varonis
+vendor: Varonis
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - varonis
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - cef
+summary: Varonis is logged by the Splunk Connect for Syslog package varonis. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: varonis_datalert
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_varonis.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: varonis
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Varonis events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads varonis and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Varonis Datalert
+    sourcetype: varonis_datalert
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: Jun 15 13:45:07 sc4s-lab-01 CEF:0|Varonis Inc.|DatAdvantage|7.5.21|6001|File permissions added|5|rt=1781531107 cat=Alert cs2=Permissions granted directly to user in windows file system cs2Label=RuleName cn1=80 cn1Label=RuleID end=1781531107 duser=corp.xxxx.com\first last dhost=xxxx filePath=D:\Shared\Global\Clinical\STATUS_20201020.XLSX fname=STATUS_20201020.XLSX act=File permissions added dvchost=sc4s-lab-01 dvc=192.0.2.10 outcome=Success msg=Full Control permissions for This object only (not inherited) was added to user xxx\xxx on D:\Shared\Global\Clinical\STATUS_20201020.XLSX cs3= cs3Label=AttachmentName cs4= https://xxx.corp.xxxx.com:443/DatAdvantage/#/app/analytics/entity/Alert/xxx-18ad-4bd8-b2da-xxxx  cs4Label=AlertURL deviceCustomDate1= fileType= cs1= cs1Label=MailRecipient suser= cs5= cs5Label=MailboxAccessType cnt= cs6=Full Control cs6Label=ChangedPermissions oldFilePermission=None filePermission=Full Control dpriv=xxx\xxxx start= externalId=bbxxxxxfd3b5c-18ad-4bd8-b2da-xxxxx
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Varonis events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "varonis_datalert"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_varonis.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_varonis.py
+  - title: Pack Generator sample varonis_datalert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/varonis_datalert.json

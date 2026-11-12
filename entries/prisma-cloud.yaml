@@ -1,0 +1,131 @@
+id: prisma-cloud
+name: Prisma Cloud
+short: Prisma Cloud
+vendor: Prisma
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - prisma_cloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Prisma Cloud is logged by the Elastic integrations package prisma_cloud. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: prisma_cloud_alert
+    desc: 'Elastic integrations fixture, 4 events. Upstream: prisma_cloud/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: prisma_cloud_audit
+    desc: 'Elastic integrations fixture, 5 events. Upstream: prisma_cloud/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: prisma_cloud_host_profile
+    desc: 'Elastic integrations fixture, 1 events. Upstream: prisma_cloud/data_stream/host_profile/_dev/test/pipeline/test-host-profile.log'
+  - st: prisma_cloud_incident_audit
+    desc: 'Elastic integrations fixture, 1 events. Upstream: prisma_cloud/data_stream/incident_audit/_dev/test/pipeline/test-incident-audit.log'
+  - st: prisma_cloud_misconfiguration
+    desc: 'Elastic integrations fixture, 4 events. Upstream: prisma_cloud/data_stream/misconfiguration/_dev/test/pipeline/test-misconfiguration.log'
+  - st: prisma_cloud_vulnerability
+    desc: 'Elastic integrations fixture, 3 events. Upstream: prisma_cloud/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: prisma_cloud
+  Sourcetypes: '6'
+  Fixture events: '18'
+  Log format seen: json
+  Fields in the first fixture: id, alertAdditionalInfo.scannerVersion, alertAttribution.attributionEventList[0].event, alertAttribution.attributionEventList[0].event_ts, alertAttribution.attributionEventList[0].username, alertAttribution.resourceCreatedBy
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Prisma Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, alertAdditionalInfo.scannerVersion, alertAttribution.attributionEventList[0].event, alertAttribution.attributionEventList[0].event_ts, alertAttribution.attributionEventList[0].username, alertAttribution.resourceCreatedBy. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads prisma_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert
+    sourcetype: prisma_cloud_alert
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"N-3910","alertAdditionalInfo":{"scannerVersion":"CS_2.0"},"alertAttribution":{"attributionEventList":[{"event":"first_event","event_ts":1694003441966,"username":"alex123"}],"resourceCreatedBy":"alex123","resourceCreatedOn":1694003441966},"status":"open","reason":"NEW_ALERT","firstSeen":1694003441966,"history":[{"modifiedOn":"1694003441966","modifiedBy":"alex123","reason":"Reason1","status":"OPEN"}],"lastSeen":1694003441966,"alertTime":1694003441966,"lastUpdated":1694003441966,"policyId":"ad23603d-754e-4499-8988-b80xxxxx898","metadata":{"saveSearchId":"8ec3f878-0f5e-4782-b4cd-98xxxxx17be5"},"policy":{"policyId":"ad23603d-754e-4499-8988-b8xxx785898","name":"AWS EC2 instance that is internet reachable with unrestricted access (198.51.100.25/0)","policyType":"network","systemDefault":true,"complianceMetadata":[{"complianceId":"qwer345bv","customAssigned":true,"policyId":"werf435tr","requirementDescription":"Description of policy compliance.","requirementId":"req-123-xyz","requirementName":"rigidity","sectionDescription":"Description of section.","sectionId":"sect-453-abc","sectionLabel":"label-1","standardDescription":"Description of standard.","standardId":"stand-543-pqr","standardName":"Class 1"}],"description":"This policy identifies AWS EC2 instances that are internet reachable with unrestricted access (203.0.113.8/0). EC2 instances with unrestricted access to the ...","severity":"high","recommendation":"The following steps are recommended to restrict unrestricted access from the Internet:\n1. Visit the Network path Analysis from Source to Destination and revi...","labels":["Prisma_Cloud","Attack Path Rule"],"lastModifiedOn":1687474999057,"lastModifiedBy":"user@example.com","deleted":false,"findingTypes":[],"remediable":false,"remediation":{"actions":[{"operation":"buy","payload":"erefwsdf"}],"cliScriptTemplate":"temp1","description":"Description of CLI Script Template."}},"alertRules":[],"resource":{"additionalInfo":{"accessKeyAge":"1691053278000","abc":"hello","how":"are you","inactiveSinceTs":"N/A"},"rrn":"rrn:aws:instance:us-xxxx-1:711162259376:e7ddce5a1ffcb47b59bfd898c622635a3b4d9da3:i-04578e97178100947","id":"i-04578e97170000047","name":"IS-37133","account":"AWS Cloud Account","accountId":"7111xx259376","cloudAccountGroups":["Default Account Group"],"region":"AWS Virginia","regionId":"us-xxxx-1","resourceType":"INSTANCE","resourceApiName":"aws-ec2-xxxx-instances","cloudServiceName":"Amazon EC2","url":"https://console.aws.amazon.com/ec2/v2/home?region=us-xxxx-1#Instances:instanceId=i-04578e9xxxxx00947","data":null,"cloudType":"aws","resourceTs":1694044541915,"unifiedAssetId":"66c543b6261xxxxx23c8eab42e15f4","resourceConfigJsonAvailable":false,"resourceDetailsAvailable":true},"investigateOptions":{"alertId":"N-3910"}}'
+    key:
+      - id
+      - alertAdditionalInfo.scannerVersion
+      - alertAttribution.attributionEventList[0].event
+      - alertAttribution.attributionEventList[0].event_ts
+  - type: Audit
+    sourcetype: prisma_cloud_audit
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":1693819702240,"user":"user@example.com","ipAddress":"203.0.113.40","actionType":"LOGIN","resourceName":"user@example.com","action":"''user@example.com''(with role ''System Admin'':''System Admin'') logged in via access key.","resourceType":"Login","result":"fail"}'
+    key:
+      - timestamp
+      - user
+      - ipAddress
+      - actionType
+  - type: Host Profile
+    sourcetype: prisma_cloud_host_profile
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"_id":"localhost","hash":9,"created":"2023-09-05T09:19:52.991Z","time":"0001-01-01T00:00:00Z","apps":[{"name":"ServiceUser","startupProcess":{"user":"root","path":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser -d","ppath":"/usr/lib/systemd/systemd","md5":"aaa","time":"2023-09-05T09:19:54.613Z"},"processes":[{"user":"root","interactive":true,"path":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser -d","ppath":"/usr/lib/systemd/systemd","md5":"i98ujh","time":"2023-09-05T09:19:54.613Z"}],"outgoingPorts":[{"port":25,"processPath":"/opt/Service/ServiceUser/python38/bin/pybin","command":"/opt/Service/ServiceUser/python38/bin/pybin -E ../../Tools/tantls/py/sslserveraudit/auditpackage.py ","modified":"2023-09-05T09:48:28.472Z","ip":"192.0.2.10"}],"listeningPorts":[{"port":17473,"processPath":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser","modified":"2023-09-05T09:20:42.893Z"}]},{"name":"filebeat","startupProcess":{"user":"root","path":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat --environment systemd -c /etc/filebeat/filebeat.yml --path.home /us","ppath":"/usr/lib/systemd/systemd","md5":"mnj87","time":"2023-09-05T09:21:13.92Z","interactive":true,"modified":true},"processes":[{"user":"root","path":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat --environment systemd -c /etc/filebeat/filebeat.yml --path.home /us","ppath":"/usr/lib/systemd/systemd","md5":"kjj","time":"2023-09-05T09:21:13.92Z","modified":true}],"listeningPorts":[{"port":9001,"processPath":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat","modified":"2023-09-05T09:21:16.37Z"}]}],"sshEvents":[{"loginTime":1694016061,"ip":"192.0.2.20","user":"root","path":"/usr/libexec/docker/cli-plugins/docker-app","command":"/usr/libexec/docker/cli-plugins/docker-app docker-cli-plugin-metadata - High rate of events, throttling started","ppath":"/usr/bin/docker","md5":"dhdj","time":"2023-09-06T16:05:43.768Z","interactive":false,"modified":true}],"geoip":{"countries":[{"ip":"198.51.100.15","code":"US","modified":"2023-09-06T16:03:30.578Z"},{"ip":"198.51.100.25","code":"CA","modified":"2023-09-06T16:03:30.229Z"}],"modified":"2023-09-06T16:03:30.703Z"},"labels":["osDistro:redhat","osVersion:7"],"accountID":"Non-onboarded cloud accounts","collections":["All"]}'
+    key:
+      - _id
+      - hash
+      - created
+      - time
+  - type: Incident Audit
+    sourcetype: prisma_cloud_incident_audit
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"_id":"651c46b145d15228585exxxx","accountID":"123abc","acknowledged":false,"app":"string","appID":"string","audits":[{"_id":"651c46b145d15228585exxxx","accountID":"abdcsfData","app":"string","appID":"string","attackTechniques":["exploitationForPrivilegeEscalation"],"attackType":"cloudMetadataProbing","cluster":"string","collections":["string"],"command":"string","container":true,"containerId":"5490e85a1a0c1c9f9c74591a9d3fcbf61beb84a952f14a17277be5fcf00xxxxx","containerName":"nginx","count":0,"country":"string","domain":"string","effect":["block","prevent"],"err":"string","filepath":"string","fqdn":"audits-fqdn-hostname","function":"string","functionID":"string","hostname":"gke-tp-cluster-tp-pool1-9658xxxx-j87v","imageId":"sha256:61395b4c586da2b9b3b7ca903ea6a448e6783dfdd7f768ff2c1a0f3360aaxxxx","imageName":"docker.io/library/nginx:latest","interactive":true,"ip":"203.0.113.8","label":"string","labels":{},"md5":"string","msg":"string"}],"category":"malware","cluster":"string","collections":["string"],"containerID":"string","containerName":"string","customRuleName":"string","fqdn":"string","function":"string","functionID":"string","hostname":"string","imageID":"string","imageName":"string","labels":{},"namespace":"string","profileID":"string","provider":"oci","region":"string","resourceID":"string","runtime":"string","serialNum":0,"shouldCollect":true,"time":"2023-09-19T07:15:31.899Z","type":"host","vmID":"string"}'
+    key:
+      - _id
+      - accountID
+      - acknowledged
+      - app
+  - type: Misconfiguration
+    sourcetype: prisma_cloud_misconfiguration
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"accountId":"aa88885-8888-4444-8fd2-00000000efc3","accountName":"Azure Account","alertStatus":{"critical":0,"high":0,"informational":0,"low":0,"medium":1},"appNames":["CSPM"],"assetType":"Azure Log Analytics Workspace","cloudType":"azure","id":"/subscriptions/aa88885-8888-4444-8fd2-00000000efc3/resourceGroups/grpc/providers/Microsoft.OperationalInsights/workspaces/sampleworkpace","name":"sampleworkpace","overallPassed":false,"regionId":"westeurope","regionName":"Azure West Europe","resourceConfigJsonAvailable":true,"resourceDetailsAvailable":true,"rrn":"rrn:azure:other:westeurope:aa88885-8888-4444-8fd2-00000000efc3:b3b5eadac382f498db09acc473e5c20a281d420b:%2Fsubscriptions%2Faa88885-8888-4444-8fd2-00000000efc...","scannedPolicy":{"id":"463d8b58-1f01-462c-9e30-eca36d8fa11d","labels":[],"name":"Azure Log Analytics workspace configured with overly permissive network access","passed":false,"severity":"medium"},"unifiedAssetId":"4b000a6af8c000b000ecd6c91c0000bd"}'
+    key:
+      - accountId
+      - accountName
+      - alertStatus.critical
+      - alertStatus.high
+  - type: Vulnerability
+    sourcetype: prisma_cloud_vulnerability
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"3RD_PARTY_EXPLOIT_SOURCE":"N/A","ASSET_ID":"bb298aa950d0000d5b000a6b0c3a2f","ASSET_TYPE":"host","ATTACK_COMPLEXITY":"N/A","ATTACK_VECTOR":"N/A","AT_RISK":"N","CISA_KEV":"N","CLOUD_ACCOUNT_ID":"aa8f0000-6888-0000-8fd1-0000004efc3","CVE_ID":"CVE-2025-38438","CVE_LINK":"https://nvd.nist.gov/vuln/detail/CVE-2025-38438","CVSS_BASE_SCORE":"5.5","DISCOVERED_DATE":"Oct 31 2025","DISTRIBUTION":"ubuntu","DOS":"N/A","EPSS_SCORE":"1.7E-4","EXPLOITABLE":"N","FIX_DATE":"N/A","FIX_VERSION":"[N/A]","INSTALLED_VERSIONS":"[5.15.0-161.171]","INTERNET_EXPOSED":"Y","OS_RELEASE":"jammy","PACKAGE_IN_USE":"false","PACKAGE_NAME":"linux","PATCHABLE":"N","PRIVILEGES_REQUIRED":"N/A","PUBLISHED_DATE":"Jul 25 2025","REGISTRY":"N/A","SERVICE_PROVIDER":"azure","SEVERITY":"medium","USER_INTERACTION":"N/A"}'
+    key:
+      - 3RD_PARTY_EXPLOIT_SOURCE
+      - ASSET_ID
+      - ASSET_TYPE
+      - ATTACK_COMPLEXITY
+cves: []
+detections:
+  - title: Prisma Cloud events arriving
+    severity: low
+    signals:
+      - id
+      - alertAdditionalInfo.scannerVersion
+      - alertAttribution.attributionEventList[0].event
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "prisma_cloud_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations prisma_cloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/prisma_cloud/data_stream/alert/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample prisma_cloud_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/prisma_cloud_alert.json

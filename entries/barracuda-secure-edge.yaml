@@ -1,0 +1,67 @@
+id: barracuda-secure-edge
+name: Barracuda Secure Edge
+short: Edge
+vendor: Barracuda
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - barracuda_secure_edge
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Barracuda Secure Edge is logged by the Datadog integrations-core package barracuda_secure_edge. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: barracuda_secure_edge
+    desc: 'Datadog integrations-core fixture, 17 events. Upstream: barracuda_secure_edge/assets/logs/barracuda_secure_edge_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: barracuda_secure_edge
+  Sourcetypes: '1'
+  Fixture events: '17'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Barracuda Secure Edge events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads barracuda_secure_edge and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Barracuda Secure Edge
+    sourcetype: barracuda_secure_edge
+    format: text
+    desc: 17 fixture events in the samples pool (logtest).
+    sample: '2025 09 26 22:28:00 +05:30 Info     : pam_unix(sudo:session): pam_unix(sshd:auth): Login vkj from 198.51.100.15: Denied: Unknown user vkj'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Barracuda Secure Edge events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "barracuda_secure_edge"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core barracuda_secure_edge/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/barracuda_secure_edge/assets/logs/barracuda_secure_edge_tests.yaml
+  - title: Pack Generator sample barracuda_secure_edge.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/barracuda_secure_edge.json

@@ -1,0 +1,71 @@
+id: foundationdb
+name: Foundationdb
+short: Foundationdb
+vendor: Foundationdb
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - foundationdb
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Foundationdb is logged by the Datadog integrations-core package foundationdb. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: foundationdb
+    desc: 'Datadog integrations-core fixture, 3 events. Upstream: foundationdb/assets/logs/foundationdb_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: foundationdb
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: OriginalTime, Locality, Severity, Time, Roles, OnWorker
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Foundationdb events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries OriginalTime, Locality, Severity, Time, Roles, OnWorker. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads foundationdb and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Foundationdb
+    sourcetype: foundationdb
+    format: json
+    desc: 3 fixture events in the samples pool (logtest).
+    sample: '{"OriginalTime":"1643098420.845074","Locality":"zoneid=5ccadef83cfe38105663afc2f75c252c processid=7e0225c2b04358590c3fcf5a61720528 machineid=5ccadef83cfe38105663afc2f75c252c","Severity":"10","Time":"1643923866.826768","Roles":"SS","OnWorker":"137231945ec52989","Origination":"Recruited","DateTime":"2022-02-03T21:31:06Z","DataFolder":"/var/lib/foundationdb/data/4500","Machine":"203.0.113.8:4500","Type":"Role","As":"Worker","LogGroup":"default","StoresPresent":"2","Transition":"Begin","ID":"137231945ec52989","OriginalDateTime":"2022-01-25T08:13:40Z","TrackLatestType":"Rolled"}'
+    key:
+      - OriginalTime
+      - Locality
+      - Severity
+      - Time
+cves: []
+detections:
+  - title: Foundationdb events arriving
+    severity: low
+    signals:
+      - OriginalTime
+      - Locality
+      - Severity
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "foundationdb"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core foundationdb/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/foundationdb/assets/logs/foundationdb_tests.yaml
+  - title: Pack Generator sample foundationdb.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/foundationdb.json

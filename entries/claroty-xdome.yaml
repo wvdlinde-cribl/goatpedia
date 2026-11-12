@@ -1,0 +1,95 @@
+id: claroty-xdome
+name: Claroty Xdome
+short: Claroty Xdome
+vendor: Claroty
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - claroty_xdome
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Claroty Xdome is logged by the Elastic integrations package claroty_xdome. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: claroty_xdome
+    desc: 'Elastic integrations fixture, 5 events. Upstream: claroty_xdome/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: claroty_xdome_alert
+    desc: 'Elastic integrations fixture, 4 events. Upstream: claroty_xdome/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: claroty_xdome_vulnerability
+    desc: 'Elastic integrations fixture, 2 events. Upstream: claroty_xdome/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: claroty_xdome
+  Sourcetypes: '3'
+  Fixture events: '11'
+  Log format seen: json
+  Fields in the first fixture: dest_network, source_site_name, dest_device_type, event_type, detection_time, dest_port
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Claroty Xdome events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries dest_network, source_site_name, dest_device_type, event_type, detection_time, dest_port. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads claroty_xdome and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: claroty_xdome
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"dest_network":"Industrial","source_site_name":"Houston_Line_1","dest_device_type":"PLC","event_type":"Configuration Upload","detection_time":"2025-02-02T19:54:13.691489+00:00","dest_port":2222,"protocol":"CIP","source_network":"Industrial","source_port":56576,"source_asset_id":"MNCYPGV","source_ip":"192.0.2.20","source_device_name":"198.51.100.15","mode":"mode1","source_device_type":"Engineering Station","dest_ip":"198.51.100.25","related_alert_ids":[1000039,10076],"dest_asset_id":"EHBLLGK","source_username":"user1","dest_site_name":"NY-BR-212","description":"Configuration Upload was detected from 203.0.113.8 (Engineering Station) to 203.0.113.40 (PLC)","dest_device_name":"dvc1","event_id":12,"ip_protocol":"UDP"}'
+    key:
+      - dest_network
+      - source_site_name
+      - dest_device_type
+      - event_type
+  - type: Alert
+    sourcetype: claroty_xdome_alert
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"ad_description":"ad description","risk_score":"Very Low","slot_cards":{"racks":[{"cards":[{"uid":"3b6c4639-3743-4362-b38a-d1edcde189b1","slot_number":0,"name":null,"card_type":"CPU","model":"1756-L7SP/B LOGIXSAFETY","vendor":"Rockwell Automation","sw_version":"V24.012","serial_number":"00172DC0"},{"uid":"f1495b05-2262-4726-b604-aff5034d4e0f","slot_number":1,"name":null,"card_type":"I/O","model":"1756-OB16E/A DCOUT EFUSE","vendor":"Rockwell Automation","sw_version":"V3.003","serial_number":"000F75F0"}],"number_of_slots":9}],"cards_count":9},"risk_score_points":57.090244,"ad_distinguished_name":"ad_distinguished_name","domains":["dmn1","dmn2"],"ae_titles":[],"alert_info":{"alert_class":"Device Changes Alerts","alert_type_name":"Location Change","category":"Device Changes","description":"A SSID Change alert of type Location Change was created for 30 devices","detected_time":"2024-09-14T01:01:57.093925Z","devices_count":30,"id":1000088,"iot_devices_count":19,"it_devices_count":5,"malicious_ip_tags_list":["ip-tag1","ip-tag2"],"medical_devices_count":0,"mitre_technique_enterprise_ids":[],"mitre_technique_enterprise_names":[],"mitre_technique_ics_ids":[],"mitre_technique_ics_names":[],"ot_devices_count":6,"status":"Unresolved","unresolved_devices_count":30,"updated_time":"2025-03-20T02:56:32.316179Z"},"asset_id":"IFDFHWB","assignees":[],"device_name":"198.51.100.15","assignees_data":[{"id":37,"type":"group","display_name":"3rd Party SOC"}],"combined_os":"Windows XP","consequence_of_failure":"unknown","device_category":"OT","device_subcategory":"Process","device_type":"Autonomous Vehicle","device_type_family":"Autonomous Vehicle","dhcp_fingerprint":"fingerprint-1","dhcp_hostnames":["dhname"],"dhcp_last_seen_hostname":"dlasthname","endpoint_security_names":[],"equipment_class":"eclass","fda_class":"fda-class","http_hostnames":["httphname"],"http_last_seen_hostname":"host1name","hw_version":"1.0.5","ip_list":["198.51.100.25"],"switch_ip_list":["203.0.113.8"],"labels":["OT Assets without Assignees","OT Internet Klabin"]}'
+    key:
+      - ad_description
+      - risk_score
+      - slot_cards.racks[0].cards[0].uid
+      - slot_cards.racks[0].cards[0].slot_number
+  - type: Vulnerability
+    sourcetype: claroty_xdome_vulnerability
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"active_queries_seen_reported_from":[],"activity_rate":52,"ad_description":null,"ad_distinguished_name":null,"ae_titles":[],"ap_location_list":[null],"ap_name_list":[null],"applied_acl_list":[null],"applied_acl_type_list":[null],"asset_id":"DLUPOQD","assignees":["3rd Party SOC (Group)","Ben Jackman"],"assignees_data":[{"display_name":"Ben Jackman","id":"ben.jackman","is_active":true,"type":"user"},{"display_name":"3rd Party SOC","id":37,"type":"group"}],"authentication_user_list":[null],"avg_examinations_per_day":null,"avg_in_use_per_day":null,"avg_online_per_day":12.4,"battery_level":null,"bssid_list":[null],"cmms_asset_tag":null,"cmms_financial_cost":null,"collection_interfaces_seen_reported_from":["ens142@demo-collection-columbia","ens178@demo-collection-clinton"],"collection_servers_seen_reported_from":["demo-collection-clinton","demo-collection-columbia"],"combined_os":"Windows 10 1607","connection_paths":[],"connection_type_list":["Ethernet"],"consequence_of_failure":null,"cppm_authentication_status_list":[null],"cppm_service_list":[null],"data_sources_seen_reported_from":["Passive Collection","Edge Scan"],"device_category":"OT"}'
+    key:
+      - active_queries_seen_reported_from
+      - activity_rate
+      - ad_description
+      - ad_distinguished_name
+cves: []
+detections:
+  - title: Claroty Xdome events arriving
+    severity: low
+    signals:
+      - dest_network
+      - source_site_name
+      - dest_device_type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "claroty_xdome"'
+optimizations: []
+references:
+  - title: elastic/integrations claroty_xdome/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/claroty_xdome/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample claroty_xdome.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/claroty_xdome.json

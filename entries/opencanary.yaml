@@ -1,0 +1,71 @@
+id: opencanary
+name: Opencanary
+short: Opencanary
+vendor: Opencanary
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - opencanary
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Opencanary is logged by the Elastic integrations package opencanary. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: opencanary
+    desc: 'Elastic integrations fixture, 20 events. Upstream: opencanary/data_stream/events/_dev/test/pipeline/test-events.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: opencanary
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: dst_host, dst_port, level, local_time, local_time_adjusted, logdata
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Opencanary events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries dst_host, dst_port, level, local_time, local_time_adjusted, logdata. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads opencanary and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: opencanary
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"dst_host":"","dst_port":-1,"level":"error","local_time":"2025-05-21 02:39:04.811038","local_time_adjusted":"2025-05-21 02:39:04.811046","logdata":"Error processing LLMNR response: list index out of range","logtype":null,"node_id":"opencanary-1","src_host":"","src_port":-1,"utc_time":"2025-05-21 02:39:04.811044"}'
+    key:
+      - dst_host
+      - dst_port
+      - level
+      - local_time
+cves: []
+detections:
+  - title: Opencanary events arriving
+    severity: low
+    signals:
+      - dst_host
+      - dst_port
+      - level
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "opencanary"'
+optimizations: []
+references:
+  - title: elastic/integrations opencanary/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/opencanary/data_stream/events/_dev/test/pipeline/test-events.log
+  - title: Pack Generator sample opencanary.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/opencanary.json

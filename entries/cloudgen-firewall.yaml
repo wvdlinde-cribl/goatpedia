@@ -1,0 +1,67 @@
+id: cloudgen-firewall
+name: Cloudgen Firewall
+short: Firewall
+vendor: Cloudgen
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cloudgen_firewall
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Cloudgen Firewall is logged by the Datadog integrations-core package cloudgen_firewall. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cloudgen_firewall
+    desc: 'Datadog integrations-core fixture, 17 events. Upstream: cloudgen_firewall/assets/logs/cloudgen_firewall_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cloudgen_firewall
+  Sourcetypes: '1'
+  Fixture events: '17'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cloudgen Firewall events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cloudgen_firewall and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Cloudgen Firewall
+    sourcetype: cloudgen_firewall
+    format: text
+    desc: 17 fixture events in the samples pool (logtest).
+    sample: '2025-09-25T15:21:00+05:30 testsdemoslocals sacumentestlocal/box_Auth_access:  Notice     sacumentestlocal LOGIN ATTEMPT: boxconfig[8652]: Login localhost_sacumentestlocal from 192.0.2.10 : Allowed.'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Cloudgen Firewall events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cloudgen_firewall"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cloudgen_firewall/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cloudgen_firewall/assets/logs/cloudgen_firewall_tests.yaml
+  - title: Pack Generator sample cloudgen_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cloudgen_firewall.json

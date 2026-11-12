@@ -1,0 +1,103 @@
+id: ceph
+name: Ceph
+short: Ceph
+vendor: Ceph
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ceph
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Ceph is logged by the Datadog integrations-core package ceph. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ceph
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: ceph/assets/logs/ceph_tests.yaml'
+  - st: ceph_cluster_status
+    desc: 'Elastic integrations fixture, 2 events. Upstream: ceph/data_stream/cluster_status/_dev/test/pipeline/test-cluster-status-metrics-nautilus.log'
+  - st: ceph_osd_pool_stats
+    desc: 'Elastic integrations fixture, 1 events. Upstream: ceph/data_stream/osd_pool_stats/_dev/test/pipeline/test-osd-pool-stats-metrics.log'
+  - st: ceph_osd_tree
+    desc: 'Elastic integrations fixture, 2 events. Upstream: ceph/data_stream/osd_tree/_dev/test/pipeline/test-osd-tree-metrics-2.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ceph
+  Sourcetypes: '4'
+  Fixture events: '15'
+  Log format seen: text, json
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ceph events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ceph and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text / json.
+logs:
+  - type: Ceph
+    sourcetype: ceph
+    format: text
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: '2019-06-19 08:00:04.025198 mon.ceph-node-1 unknown.0 - 0 :  [INF] mkfs 9f7d54f4-56b0-4f37-ab0a-eeaf198fd8f6'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Cluster Status
+    sourcetype: ceph_cluster_status
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"command":"status format=json","outb":{"fsid":"71bb7c52-360c-410a-9847-717e1483a05f","health":{"checks":{"OSD_DOWN":{"severity":"HEALTH_WARN","summary":{"message":"1 osds down"}},"OSD_HOST_DOWN":{"severity":"HEALTH_WARN","summary":{"message":"1 host (1 osds) down"}},"PG_DEGRADED":{"severity":"HEALTH_WARN","summary":{"message":"Degraded data redundancy: 148/222 objects degraded (66.667%), 33 pgs degraded, 328 pgs undersized"}},"POOL_TOO_FEW_PGS":{"severity":"HEALTH_WARN","summary":{"message":"1 pools have too few placement groups"}},"POOL_TOO_MANY_PGS":{"severity":"HEALTH_WARN","summary":{"message":"2 pools have too many placement groups"}}},"status":"HEALTH_WARN"},"election_epoch":19,"quorum":[0],"quorum_names":["master"],"quorum_age":184768,"monmap":{"epoch":2,"min_mon_release_name":"14","num_mons":1},"osdmap":{"osdmap":{"epoch":114,"num_osds":4,"num_up_osds":1,"num_in_osds":2,"num_remapped_pgs":0}},"pgmap":{"pgs_by_state":[{"state_name":"active+undersized","count":295},{"state_name":"active+undersized+degraded","count":33}],"num_pgs":328,"num_pools":5,"num_objects":74,"data_bytes":145064680,"bytes_used":1239285760,"bytes_avail":20231356416,"bytes_total":21470642176,"degraded_objects":148,"degraded_total":222,"degraded_ratio":0.6666666666666665,"read_bytes_sec":1738015,"write_bytes_sec":2543437,"read_op_per_sec":3,"write_op_per_sec":4},"fsmap":{"epoch":1,"by_rank":[],"up:standby":0},"services":{"dashboard":"https://master.29053.local:8443/","restful":"https://master.29053.local:8003/"},"always_on_modules":{"nautilus":["balancer","crash"]}},"servicemap":{"epoch":6072,"modified":"2023-02-08 16:02:26.086357","services":{}},"progress_events":{},"outs":""}'
+    key:
+      - command
+      - outb.fsid
+      - outb.health.checks.OSD_DOWN.severity
+      - outb.health.checks.OSD_DOWN.summary.message
+  - type: Osd Pool Stats
+    sourcetype: ceph_osd_pool_stats
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"pool_name":"device_health_metrics","pool_id":1,"recovery":{},"recovery_rate":{},"client_io_rate":{"write_bytes_sec":932015,"read_op_per_sec":0,"write_op_per_sec":1}}'
+    key:
+      - pool_name
+      - pool_id
+      - recovery
+      - recovery_rate
+  - type: Osd Tree
+    sourcetype: ceph_osd_tree
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":0,"device_class":"hdd","name":"osd.0","type":"osd","type_id":0,"crush_weight":0.0194854736328125,"depth":2,"pool_weights":{},"exists":1,"status":"up","reweight":1,"primary_affinity":1}'
+    key:
+      - id
+      - device_class
+      - name
+      - type
+cves: []
+detections:
+  - title: Ceph events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ceph"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ceph/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ceph/assets/logs/ceph_tests.yaml
+  - title: Pack Generator sample ceph.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ceph.json

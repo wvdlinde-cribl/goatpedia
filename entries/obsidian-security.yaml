@@ -1,0 +1,71 @@
+id: obsidian-security
+name: Obsidian Security
+short: Security
+vendor: Obsidian
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - obsidian_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Obsidian Security is logged by the Datadog integrations-core package obsidian_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: obsidian_security
+    desc: 'Datadog integrations-core fixture, 3 events. Upstream: obsidian_security/assets/logs/obsidian-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: obsidian_security
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: identity.org, identity.id, identity.type, identity.username, id, source.client_browser
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Obsidian Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries identity.org, identity.id, identity.type, identity.username, id, source.client_browser. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads obsidian_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Obsidian Security
+    sourcetype: obsidian_security
+    format: json
+    desc: 3 fixture events in the samples pool (logtest).
+    sample: '{"identity":{"org":"abcenfiejofeojew","id":"123242235353253253","type":"user","username":"user@example.com"},"id":"17","source":{"client_browser":"","client_ip":"198.51.100.25","request_id":""},"event":{"action":"CreateConnection","category":"Connections","outcome":"Success"},"timestamp":"2025-09-15T05:53:32Z","target":{"connection_uuid":"a1aaaa1a-7e97-4b4c-99e0-f144bd982787","http_code":200,"connection_id":"123243253534634324","service_id":"obsidian"}}'
+    key:
+      - identity.org
+      - identity.id
+      - identity.type
+      - identity.username
+cves: []
+detections:
+  - title: Obsidian Security events arriving
+    severity: low
+    signals:
+      - identity.org
+      - identity.id
+      - identity.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "obsidian_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core obsidian_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/obsidian_security/assets/logs/obsidian-security_tests.yaml
+  - title: Pack Generator sample obsidian_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/obsidian_security.json

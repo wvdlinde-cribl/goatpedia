@@ -33,6 +33,8 @@ sourcetypes:
     desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
   - st: AWS_VPC_FLOW
     desc: Google SecOps (Chronicle) log type (AWS_VPC_FLOW_CSV for CSV)
+  - st: aws_vpcflow
+    desc: 'Elastic integrations fixture, 20 events. Upstream: aws/data_stream/vpcflow/_dev/test/pipeline/test-ecs-samples.log'
 facts:
   First released: June 2015
   Delivery model: Managed AWS feature, enabled per VPC, subnet, ENI or Transit Gateway
@@ -148,6 +150,14 @@ logs:
     noise:
       - rest
     sample: version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id instance-id tcp-flags type pkt-srcaddr pkt-dstaddr region az-id sublocation-type sublocation-id pkt-src-aws-service pkt-dst-aws-service flow-direction traffic-path
+  - type: Vpcflow
+    sourcetype: aws_vpcflow
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '3 000000000000 - 203.0.113.8 2a02:cf40:: 64072 22 17 46 14927 1755678619 1755678641 REJECT OK - - - - - - - - - - - - - ingress - arn:aws:ecs:us-east-1:000000000000:cluster/frontend-cluster frontend-cluster arn:aws:ecs:us-east-1:000000000000:container-instance/frontend-cluster/i-82bfd814a3c34e21a i-82bfd814a3c34e21a 574fc0af-908 816bc224-160 payments-service arn:aws:ecs:us-east-1:000000000000:task-definition/backend:3 arn:aws:ecs:us-east-1:000000000000:task/frontend-cluster/6adbd0d6-211 6adbd0d6-211'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2019-0708
     cvss: 9.8

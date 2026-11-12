@@ -1,0 +1,67 @@
+id: microsoft-exchange-online-message-trace
+name: Microsoft Exchange Online Message Trace
+short: Trace
+vendor: Microsoft
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_exchange_online_message_trace
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Microsoft Exchange Online Message Trace is logged by the Elastic integrations package microsoft_exchange_online_message_trace. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_exchange_online_message_trace
+    desc: 'Elastic integrations fixture, 8 events. Upstream: microsoft_exchange_online_message_trace/data_stream/log/_dev/test/pipeline/test-log.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_exchange_online_message_trace
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Exchange Online Message Trace events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_exchange_online_message_trace and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: microsoft_exchange_online_message_trace
+    format: text
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"EndDate":"2022-09-05T21:46:46.4206759Z","FromIP":"198.51.100.25","Index":0,"MessageId":"\user@example.com\u003e","MessageTraceId":"cf7a249a-5edd-4350-130a-08da8f69e0f6","Organization":"contoso.com","Received":"2022-09-05T18:10:13.4907658","RecipientAddress":"user@example.com","SenderAddress":"user@example.com","Size":87891,"StartDate":"2022-09-03T21:46:46.4206759Z","Status":"Delivered","Subject":"PIM: A privileged directory role was assigned outside of PIM","ToIP":"203.0.113.8"}'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Microsoft Exchange Online Message Trace events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_exchange_online_message_trace"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_exchange_online_message_trace/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_exchange_online_message_trace/data_stream/log/_dev/test/pipeline/test-log.log
+  - title: Pack Generator sample microsoft_exchange_online_message_trace.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_exchange_online_message_trace.json

@@ -1,0 +1,71 @@
+id: contrastsecurity
+name: Contrastsecurity
+short: Contrastsecuri
+vendor: Contrastsecurity
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - contrastsecurity
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - kv
+summary: Contrastsecurity is logged by the Datadog integrations-extras package contrastsecurity. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: contrastsecurity
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: contrastsecurity/assets/logs/contrastsecurity_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: contrastsecurity
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: kv
+  Fields in the first fixture: header, vulnerabilityInstanceId, hash, vulnerabilityHash, name, value
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Contrastsecurity events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries header, vulnerabilityInstanceId, hash, vulnerabilityHash, name, value. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads contrastsecurity and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Contrastsecurity
+    sourcetype: contrastsecurity
+    format: kv
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: '[INFO] [talledLocalContainer] 261119 13.03.21,597 {} {} {} INFO (VulnerabilityProcessorQueryService.java:135) [VULNERABILITIES] Saved vulnerability instance property VulnerabilityInstanceProperty(id=19, vulnerabilityInstanceId=0, hash=1805407380, vulnerabilityHash=1805407380, name=/WebGoat/SqlInjection.lesson.lesson, value={"html":"class\u003d"assignment-success"\u003e\u003ci class\u003d"fa fa-2 fa-check hidden" aria-hidden\u003d"true"\u003e\u003c/i\u003e\u003c/div\u003e\n \u003cform class\u003d"attack-form" accept-charset\u003d"UNKNOWN" method\u003d"POST" name\u003d"form" action\u003d"/WebGoat/SqlInjection/attack5a" enctype\u003d"application/json;charset\u003dUTF-8"\u003e\n \u003ctable\u003e\n \u003ctr\u003e\n \u003ctd\u003eAccount Name:\u003c/td\u003e\n ","startIdx":100,"endIdx":257}, type=EVIDENCE)'
+    key:
+      - vulnerabilityInstanceId
+      - hash
+      - vulnerabilityHash
+      - name
+cves: []
+detections:
+  - title: Contrastsecurity events arriving
+    severity: low
+    signals:
+      - header
+      - vulnerabilityInstanceId
+      - hash
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "contrastsecurity"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras contrastsecurity/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/contrastsecurity/assets/logs/contrastsecurity_tests.yaml
+  - title: Pack Generator sample contrastsecurity.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/contrastsecurity.json

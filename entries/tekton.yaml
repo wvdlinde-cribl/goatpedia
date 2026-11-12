@@ -1,0 +1,71 @@
+id: tekton
+name: Tekton
+short: Tekton
+vendor: Tekton
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - tekton
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Tekton is logged by the Datadog integrations-core package tekton. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: tekton
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: tekton/assets/logs/tekton_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: tekton
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: severity, duration, caller, logger, commit, message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Tekton events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries severity, duration, caller, logger, commit, message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads tekton and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Tekton
+    sourcetype: tekton
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"severity":"info","duration":0.002798625,"caller":"controller/controller.go:550","logger":"tekton-pipelines-controller","commit":"876b81e","message":"Reconcile succeeded","timestamp":"2024-02-28T08:15:18.164Z","knative":{"dev/kind":"tekton.dev","dev/traceid":"f9171cbc-d40e-4bb8-912a-8781b387cd97","dev/controller":"github.com.tektoncd.pipeline.pkg.reconciler.taskrun.Reconciler","dev/key":"tekton-pipelines/hello-task-run"}}'
+    key:
+      - severity
+      - duration
+      - caller
+      - logger
+cves: []
+detections:
+  - title: Tekton events arriving
+    severity: low
+    signals:
+      - severity
+      - duration
+      - caller
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "tekton"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core tekton/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/tekton/assets/logs/tekton_tests.yaml
+  - title: Pack Generator sample tekton.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tekton.json

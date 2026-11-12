@@ -1,0 +1,71 @@
+id: backstage
+name: Backstage
+short: Backstage
+vendor: Backstage
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - backstage
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Backstage is logged by the Elastic integrations package backstage. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: backstage
+    desc: 'Elastic integrations fixture, 20 events. Upstream: backstage/data_stream/logs/_dev/test/pipeline/test-audit.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: backstage
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: actor.hostname, actor.ip, actor.userAgent, eventId, isAuditEvent, level
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Backstage events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries actor.hostname, actor.ip, actor.userAgent, eventId, isAuditEvent, level. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads backstage and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Logs
+    sourcetype: backstage
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"hostname":"localhost","ip":"192.0.2.10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36"},"eventId":"entity-fetch","isAuditEvent":true,"level":"info","message":"catalog.entity-fetch","meta":{"query":{"fields":["metadata","kind"],"filter":["kind=group,relations.hasMember=user:default/guest"]},"queryType":"all"},"plugin":"catalog","request":{"method":"GET","url":"/api/catalog/entities?fields=metadata,kind,spec.profile&filter=kind%3Dgroup%2Crelations.hasMember%3Duser%3Adefault%2Fguest"},"service":"backstage","severityLevel":"low","status":"initiated","timestamp":"2026-05-22T20:30:05.131Z"}'
+    key:
+      - actor.hostname
+      - actor.ip
+      - actor.userAgent
+      - eventId
+cves: []
+detections:
+  - title: Backstage events arriving
+    severity: low
+    signals:
+      - actor.hostname
+      - actor.ip
+      - actor.userAgent
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "backstage"'
+optimizations: []
+references:
+  - title: elastic/integrations backstage/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/backstage/data_stream/logs/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample backstage.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/backstage.json

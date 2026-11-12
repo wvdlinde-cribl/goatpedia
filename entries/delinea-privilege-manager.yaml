@@ -1,0 +1,71 @@
+id: delinea-privilege-manager
+name: Delinea Privilege Manager
+short: Manager
+vendor: Delinea
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - delinea_privilege_manager
+  - Datadog integrations-core
+tags:
+  - logtest
+  - cef
+summary: Delinea Privilege Manager is logged by the Datadog integrations-core package delinea_privilege_manager. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: delinea_privilege_manager
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: delinea_privilege_manager/assets/logs/delinea-privilege-manager_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: delinea_privilege_manager
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: cef
+  Fields in the first fixture: cef_version, device_vendor, device_product, device_version, signature_id, name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Delinea Privilege Manager events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries cef_version, device_vendor, device_product, device_version, signature_id, name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads delinea_privilege_manager and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Delinea Privilege Manager
+    sourcetype: delinea_privilege_manager
+    format: cef
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: CEF:0|Thycotic|Local Security Solution|8|67aa593adaf942b0933e24f60239bcc9|Password Disclosure Events|5|externalId=9 EventOccuredOnServer=11/11/2024 12:08:58 PM _DisclosedByUserId=d931c777-7021-48d6-92aa-e1f9fdb797f0 Requesting User=demo RemoteIpAddress=203.0.113.8 _ManagedUserId=f45c854f-3330-4fef-b943-8d09f2f1efe8 ManagedUserName=demo ComputerDomain=No computer domain for user F45C854F-3330-4FEF-B943-8D09F2F1EFE8 ComputerName=No computer name for user F45C854F-3330-4FEF-B943-8D09F2F1EFE8
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Delinea Privilege Manager events arriving
+    severity: low
+    signals:
+      - cef_version
+      - device_vendor
+      - device_product
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "delinea_privilege_manager"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core delinea_privilege_manager/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/delinea_privilege_manager/assets/logs/delinea-privilege-manager_tests.yaml
+  - title: Pack Generator sample delinea_privilege_manager.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/delinea_privilege_manager.json

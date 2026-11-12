@@ -1,0 +1,119 @@
+id: cyberark-epm
+name: Cyberark Epm
+short: Cyberark Epm
+vendor: Cyberark
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cyberark_epm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cyberark Epm is logged by the Elastic integrations package cyberark_epm. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cyberark_epm_admin_audit
+    desc: 'Elastic integrations fixture, 11 events. Upstream: cyberark_epm/data_stream/admin_audit/_dev/test/pipeline/test-admin-audit.log'
+  - st: cyberark_epm_aggregated_event
+    desc: 'Elastic integrations fixture, 2 events. Upstream: cyberark_epm/data_stream/aggregated_event/_dev/test/pipeline/test-aggregated-event.log'
+  - st: cyberark_epm_policyaudit_aggregated_event
+    desc: 'Elastic integrations fixture, 2 events. Upstream: cyberark_epm/data_stream/policyaudit_aggregated_event/_dev/test/pipeline/test-policyaudit-aggregated-event.log'
+  - st: cyberark_epm_policyaudit_raw_event
+    desc: 'Elastic integrations fixture, 6 events. Upstream: cyberark_epm/data_stream/policyaudit_raw_event/_dev/test/pipeline/test-policyaudit-raw-event.log'
+  - st: cyberark_epm_raw_event
+    desc: 'Elastic integrations fixture, 10 events. Upstream: cyberark_epm/data_stream/raw_event/_dev/test/pipeline/test-raw-event.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cyberark_epm
+  Sourcetypes: '5'
+  Fixture events: '31'
+  Log format seen: json
+  Fields in the first fixture: SetName, EventTime, PermissionDescription, Description, Feature, LoggedAt
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cyberark Epm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries SetName, EventTime, PermissionDescription, Description, Feature, LoggedAt. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cyberark_epm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Admin Audit
+    sourcetype: cyberark_epm_admin_audit
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"SetName":"Elastic/test","EventTime":"2024-11-29T06:13:10.32Z","PermissionDescription":"View all events and files.","Description":"API Get events raw details /API/198.51.100.15/Sets/21bddfcf-1234-1234-abcd-abcdef0e8d14/Events/Search?limit=5&nextCursor=start POST setId: Me, offset: 0, lim...","Feature":"Public API","LoggedAt":"2024-11-29T06:10:35.943Z","LoggedFrom":"198.51.100.25","Administrator":"user@example.com","InternalSessionId":1012,"Role":"SetAdmin"}'
+    key:
+      - SetName
+      - EventTime
+      - PermissionDescription
+      - Description
+  - type: Aggregated Event
+    sourcetype: cyberark_epm_aggregated_event
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"fileQualifier":"549309085493630080","lastEventDisplayName":"Updater.exe (UNICODE)","hash":"SHA1##8F21AAF3DC1EFEDF2BB5C94231CE9E24943FF512","publisher":"Logitech Inc","totalEvents":3,"applicationType":"Executable","eventType":"DetectAccess","lastEventSourceType":"LocalDisk","lastEventSourceName":"LogiOptionsFiles Setup (PDSetup.exe)","lastEventDate":"2021-07-07T06:44:52Z","firstEventDate":"2021-06-23T06:20:07Z","lastEventUserName":"AGENT\\caadmin","lastEventComputerName":null,"lastEventJustification":"","policyId":0,"threatDetectionAction":"","lastEventFileName":"updater.exe","lastEventOriginalFileName":"updater.exe","affectedComputers":1,"affectedUsers":1,"exposedUsers":null,"firstEventUserName":"JOHNBLACK\\caadmin","firstEventComputerName":null,"fileSize":544904,"CLSID":"","mimeType":"","adminTaskId":"","url":"","appPackageDisplayName":"","agentId":"0fe5ed4e-9f8f-48d1-b3f9-4b1d862faf50"}'
+    key:
+      - fileQualifier
+      - lastEventDisplayName
+      - hash
+      - publisher
+  - type: Policyaudit Aggregated Event
+    sourcetype: cyberark_epm_policyaudit_aggregated_event
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"fileQualifier":"-5566271857083130002","lastEventDisplayName":"Google Crash Handler (GoogleCrashHandler64.exe)","hash":"SHA1##C340EFFBAED989E7F8FFC6F7574856CD8ED0D18B","publisher":"Google LLC","totalEvents":8,"applicationType":"Executable","eventType":"Launch","lastEventSourceType":"Updater","lastEventSourceName":"Updater (Google Updater)","lastEventDate":"2022-12-19T01:04:47.284Z","lastEventUserName":"NT AUTHORITY\\SYSTEM","lastEventId":"QtvvKIUB8k35oa3KjVf7","lastEventJustification":"","policyId":11161,"policyName":"QQQ","lastEventFileName":"GoogleCrashHandler64.exe","affectedComputers":1,"affectedUsers":1,"firstEventDate":"2022-12-14T21:06:44.756Z","firstEventUserName":"NT AUTHORITY\\SYSTEM","fileSize":408536,"CLSID":"","adminTaskId":"","appPackageDisplayName":"","firstEventAgentId":"b074b7d4-664a-40d1-b929-69e89bbd254c","lastEventAgentId":"b074b7d4-664a-40d1-b929-69e89bbd254c","fileLocation":"C:\\Program Files (x86)\\Google\\Update\\203.0.113.8\\","aggregatedBy":"C340EFFBAED989E7F8FFC6F7574856CD8ED0D18B,QQQ","operatingSystemType":"Windows","arrivalTime":"2022-12-19T05:51:06.024Z"}'
+    key:
+      - fileQualifier
+      - lastEventDisplayName
+      - hash
+      - publisher
+  - type: Policyaudit Raw Event
+    sourcetype: cyberark_epm_policyaudit_raw_event
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"hash":"5f344897632b50114a8ff649054599c6f7fa8a69","publisher":"","eventType":"StartElevated","sourceType":"LocalDisk","sourceName":"/usr/bin/systemctl","lastEventDate":"2024-11-25T10:28:24.298Z","userName":"serviceuser","fileName":"systemctl","fileSize":1115760,"fileDescription":"systemctl","packageName":"systemctl","company":"","filePath":"/usr/bin/systemctl","firstEventDate":"2024-11-25T10:28:24.298Z","productName":"ouiSFX","productVersion":"","bundleName":"","bundleVersion":"","fileVersion":"","modificationTime":"2024-10-26T14:27:54.041Z","userIsAdmin":false,"agentEventCount":1,"skippedCount":0,"workingDirectory":"/home/serviceuser","runAsUsername":"root","originUserUID":"1000","interpreter":"","fileAccessPermission":"-rwxr-xr-x","symLink":"","commandInfo":""}'
+    key:
+      - hash
+      - publisher
+      - eventType
+      - sourceType
+  - type: Raw Event
+    sourcetype: cyberark_epm_raw_event
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"fileName":"java.exe","originalFileName":"java.exe","displayName":"Java(TM) Platform SE binary (java.exe)","policyName":null,"hash":"B3F2AE7945E98A998D998E58771C649A7A8A6591","publisher":"Oracle America, Inc.","eventType":"Ransomware","sourceType":"OldApplication","sourceName":"Old Application","lastEventDate":"2024-11-28T16:30:17.493Z","firstEventDate":"2024-11-28T16:30:17.493Z","userName":"NT SERVICE\\OracleServiceOEMREP","justification":null,"justificationEmail":null,"fileSize":207704,"threatProtectionAction":"ALL","threatProtectionActionId":0,"packageName":"Java(TM) Platform SE binary (java.exe)","company":"Oracle Corporation","filePath":"C:\\Oracle\\Database\\jdk\\bin\\java.exe","filePathWithoutFilename":"C:\\Oracle\\Database\\jdk\\bin\\","fileDescription":"Java(TM) Platform SE binary","productName":"Java(TM) Platform SE 8","productVersion":"203.0.113.40","bundleName":null,"bundleVersion":null,"bundleId":null,"applicationSubType":null,"interpreter":null,"runAsUsername":null}'
+    key:
+      - fileName
+      - originalFileName
+      - displayName
+      - policyName
+cves: []
+detections:
+  - title: Cyberark Epm events arriving
+    severity: low
+    signals:
+      - SetName
+      - EventTime
+      - PermissionDescription
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cyberark_epm_admin_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations cyberark_epm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cyberark_epm/data_stream/admin_audit/_dev/test/pipeline/test-admin-audit.log
+  - title: Pack Generator sample cyberark_epm_admin_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyberark_epm_admin_audit.json

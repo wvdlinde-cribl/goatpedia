@@ -1,0 +1,71 @@
+id: contrast-security-adr
+name: Contrast Security Adr
+short: Adr
+vendor: Contrast
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - contrast_security_adr
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Contrast Security Adr is logged by the Datadog integrations-extras package contrast_security_adr. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: contrast_security_adr
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: contrast_security_adr/assets/logs/contrast-security-adr_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: contrast_security_adr
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: severity, detectedTime, server.name, server.id, request.headers.Cookie[0], request.headers.sec-fetch-mode[0]
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Contrast Security Adr events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries severity, detectedTime, server.name, server.id, request.headers.Cookie[0], request.headers.sec-fetch-mode[0]. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads contrast_security_adr and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Contrast Security Adr
+    sourcetype: contrast_security_adr
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"severity":"critical","detectedTime":"1765979488","server":{"name":"Petclinic-thib","id":"27958"},"request":{"headers":{"Cookie":["JSESSIONID=EB2C548D2789AEFB92E843E958D2410E"],"sec-fetch-mode":["navigate"],"referer":["http://localhost:8080/customers/find"],"sec-fetch-site":["same-origin"],"accept-language":["en-GB,en-US;q=0.9,en;q=0.8"],"sec-fetch-user":["?1"],"accept":["text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"],"sec-ch-ua":["\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""],"sec-ch-ua-mobile":["?0"],"sec-ch-ua-platform":["\"macOS\""],"host":["localhost:8080"],"upgrade-insecure-requests":["1"],"connection":["keep-alive"],"accept-encoding":["gzip, deflate, br, zstd"],"sec-fetch-dest":["document"],"user-agent":["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36"]},"protocol":"http","method":"GET","protocolVersion":"1.1","queryString":"lastName=contrast-redacted-name","parameters":{"lastName":["contrast-redacted-name"]}},"vectorAnalysis":{"vectorFields":{"ruleUuid":"sql-injection","query":"SELECT DISTINCT * FROM customers WHERE customers.last_name LIKE ''%'' or 1=1; # antwerp%''"},"callLocation":"org.springframework.samples.petclinic.customer.CustomerRepository.findByLastName(CustomerRepository.java:31)"},"attackPayload":{"attackerInput":{"confirmedAttack":false,"documentType":"NORMAL","effectiveAttack":false,"name":"lastName","applicableAttack":false,"inputType":"PARAMETER_VALUE","patternsMatched":["PIDS-SQLI-42A,PIDS-SQLI-44C,TRUING_STRING_INJ,PIDS-SQLI-4001"],"documentPath":"/abc"},"value":"'' or 1=1; # antwerp","url":"/owner"},"rule":"sql-injection","eventUuid":"1678918a-103f-4030-a416-3b8766e47e19","productName":"ContrastADR","url":"/customers","result":"BLOCKED","environment":"production","organizationUuid":"203ae021-7e10-4356-ad6e-0c4b94d8511g","incident_id":"INC-2025-c13","apiUri":"/api/v4/organizations/203ae021-7e10-4356-ad6e-0c4b94d8511e/applications/08f46d44-b7da-4978-b903-fcce249f457a/attack-events/1678918a-103f-4030-a416-3b8766e47e19","mitreTactics":[{"id":"TA0001","url":"https://attack.mitre.org/tactics/TA0001/"},{"id":"TA0002","url":"https://attack.mitre.org/tactics/TA0002/"}],"application":{"name":"Web-Application-thib","agentLanguage":"java","id":"08f46d44-b7da-4978-b903-fcce249f457a"},"sourceIp":"198.51.100.15.7.10","codeLocation":{"stack":[{"fileName":"ObservationFilterChainDecorator.java","shortSummary":"wrapFilter() @ ObservationFilterChainDecorator.java:240","description":"org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.wrapFilter(ObservationFilterChainDecorator.java:240)","methodName":"wrapFilter","className":"org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter","type":"frameCommon","lineNumber":240},{"fileName":"ObservationFilterChainDecorator.java","shortSummary":"doFilter() @ ObservationFilterChainDecorator.java:227","description":"org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter.doFilter(ObservationFilterChainDecorator.java:227)","methodName":"doFilter","className":"org.springframework.security.web.ObservationFilterChainDecorator$ObservationFilter","type":"frameCommon","lineNumber":227}],"file":"HikariProxyStatement.java","method":"executeQuery()"},"ruleUuid":"ssjs-injection","cloudProvider":"UNKNOWN","host":{"runtimeVersion":"OpenJDK Runtime Environment 17.0.14+7","hostname":"bb8989bc","runtimePath":"/opt/java/openjdk/bin/java","isDocker":true,"operatingSystem":"Linux 6.10.14-linuxkit aarch64"},"agentVersion":"6.14.0","uiUrl":"https://teamserver-scantest.contsec.com/Contrast/static/ng/index.html#/203ae021-7e10-4356-ad6e-0c4b94d8511e/attack-events/1678918a-103f-4030-a416-3b8766e47e1..."}'
+    key:
+      - severity
+      - detectedTime
+      - server.name
+      - server.id
+cves: []
+detections:
+  - title: Contrast Security Adr events arriving
+    severity: low
+    signals:
+      - severity
+      - detectedTime
+      - server.name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "contrast_security_adr"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras contrast_security_adr/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/contrast_security_adr/assets/logs/contrast-security-adr_tests.yaml
+  - title: Pack Generator sample contrast_security_adr.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/contrast_security_adr.json

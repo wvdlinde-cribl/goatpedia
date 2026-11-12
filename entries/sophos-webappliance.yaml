@@ -1,0 +1,71 @@
+id: sophos-webappliance
+name: Sophos Webappliance
+short: Webappliance
+vendor: Sophos
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sophos_webappliance
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Sophos Webappliance is logged by the Splunk Connect for Syslog package sophos_webappliance. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sophos_webappliance
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_sophos_webappliance.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: sophos_webappliance
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, h, u, s, X, t
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sophos Webappliance events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, h, u, s, X, t. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads sophos_webappliance and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Sophos Webappliance
+    sourcetype: sophos_webappliance
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <27>Jun 15 13:45:07 sc4s-lab-01 h=192.0.2.10 u="DOMAIN\johnsmith" s=200 X=- t=1781531107 T=284453 Ts=0 act=1 cat="0x220000002a" app="-" rsn=- threat="-" type="text/html" ctype="text/html" sav-ev=4.77 sav-dv=2012.5.10.4770003 uri-dv=- cache=- in=1255 out=26198 meth=GET ref="-" ua="Mozilla/5.0 (Windows NT 6.1; WOW64; rv:12.0) Gecko/20100101 Firefox/12.0" req="GET http://www.google.ca/ HTTP/1.1" dom="google.ca" filetype="-" rule="0" filesize=25815 axtime=0.048193 fttime=0.049360 scantime=0.011 src_cat="0x2f0000002a" labs_cat="0x2f0000002a" dcat_prox="-" target_ip="192.0.2.20" labs_rule_id="0" reqtime=0.027 adtime=0.001625 ftbypass=- os=Windows authn=53 auth_by=portal_cache dnstime=0.000197 quotatime=- sandbox=-
+    key:
+      - h
+      - u
+      - s
+      - X
+cves: []
+detections:
+  - title: Sophos Webappliance events arriving
+    severity: low
+    signals:
+      - header
+      - h
+      - u
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sophos_webappliance"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_sophos_webappliance.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_sophos_webappliance.py
+  - title: Pack Generator sample sophos_webappliance.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sophos_webappliance.json

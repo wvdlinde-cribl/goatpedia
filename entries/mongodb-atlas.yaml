@@ -1,0 +1,77 @@
+id: mongodb-atlas
+name: Mongodb Atlas
+short: Mongodb Atlas
+vendor: Mongodb
+category: db
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mongodb_atlas
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Mongodb Atlas is logged by the Elastic integrations package mongodb_atlas. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mongodb_atlas_mongod_audit
+    desc: 'Elastic integrations fixture, 5 events. Upstream: mongodb_atlas/data_stream/mongod_audit/_dev/test/pipeline/test-mongod-audit.json'
+  - st: mongodb_atlas_mongod_database
+    desc: 'Elastic integrations fixture, 4 events. Upstream: mongodb_atlas/data_stream/mongod_database/_dev/test/pipeline/test-mongod-database.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: mongodb_atlas
+  Sourcetypes: '2'
+  Fixture events: '9'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mongodb Atlas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads mongodb_atlas and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Mongod Audit
+    sourcetype: mongodb_atlas_mongod_audit
+    format: text
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: No data for given time period or host is unreachable
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Mongod Database
+    sourcetype: mongodb_atlas_mongod_database
+    format: text
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: No data for given time period or host is unreachable
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Mongodb Atlas events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mongodb_atlas_mongod_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations mongodb_atlas/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mongodb_atlas/data_stream/mongod_audit/_dev/test/pipeline/test-mongod-audit.json
+  - title: Pack Generator sample mongodb_atlas_mongod_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mongodb_atlas_mongod_audit.json

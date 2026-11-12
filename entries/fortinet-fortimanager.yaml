@@ -1,0 +1,71 @@
+id: fortinet-fortimanager
+name: Fortinet Fortimanager
+short: Fortimanager
+vendor: Fortinet
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fortinet_fortimanager
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Fortinet Fortimanager is logged by the Elastic integrations package fortinet_fortimanager. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fortinet_fortimanager
+    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_fortimanager/data_stream/log/_dev/test/pipeline/test-fortimanager.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: fortinet_fortimanager
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: header, date, time, tz, devname, device_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fortinet Fortimanager events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, date, time, tz, devname, device_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads fortinet_fortimanager and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: fortinet_fortimanager
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: <134>date=2023-02-23 time=22:49:29 tz="+0500" devname=ABC-XYZ-FMG-VM64 device_id=FMGVMSTM23000100 log_id=0001010018 type=event subtype=system pri=information desc="User login/logout successful" user="__docker_fortiportal" userfrom="JSON(198.51.100.15)" msg="user '__docker_fortiportal' with profile 'Super_User' login accepted from JSON(198.51.100.25)" adom="" adom_oid=0 session_id=11203 operation="login" performed_on="JSON(203.0.113.8)" changes="user '__docker_fortiportal' with profile 'Super_User' login accepted from JSON(203.0.113.40)" adminprof="Super_User"
+    key:
+      - date
+      - time
+      - tz
+      - devname
+cves: []
+detections:
+  - title: Fortinet Fortimanager events arriving
+    severity: low
+    signals:
+      - header
+      - date
+      - time
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fortinet_fortimanager"'
+optimizations: []
+references:
+  - title: elastic/integrations fortinet_fortimanager/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_fortimanager/data_stream/log/_dev/test/pipeline/test-fortimanager.log
+  - title: Pack Generator sample fortinet_fortimanager.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortimanager.json

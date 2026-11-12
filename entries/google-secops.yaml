@@ -1,0 +1,71 @@
+id: google-secops
+name: Google Secops
+short: Google Secops
+vendor: Google
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - google_secops
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Google Secops is logged by the Elastic integrations package google_secops. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: google_secops_alert_v2
+    desc: 'Elastic integrations fixture, 4 events. Upstream: google_secops/data_stream/alert_v2/_dev/test/pipeline/test-alert-v2.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: google_secops
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: createdTime, detection[0].alertState, detection[0].description, detection[0].detectionFields[0].key, detection[0].detectionFields[0].value, detection[0].outcomes[0].key
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Google Secops events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries createdTime, detection[0].alertState, detection[0].description, detection[0].detectionFields[0].key, detection[0].detectionFields[0].value, detection[0].outcomes[0].key. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads google_secops and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert V2
+    sourcetype: google_secops_alert_v2
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"createdTime":"2026-07-10T10:55:52.129834Z","detection":[{"alertState":"ALERTING","description":"Detects events where source or principal IP matches a malicious or suspicious IP in GreyNoise intelligence.","detectionFields":[{"key":"correlation_ip","value":"192.0.2.10"}],"outcomes":[{"key":"principal_ip","value":"192.0.2.20"},{"key":"principal_hostname"}],"riskScore":40,"ruleId":"ru_00000000-0000-0000-0000-000000000001","ruleLabels":[{"key":"author","value":"GreyNoise Intelligence"},{"key":"description","value":"Detects events where source or principal IP matches a malicious or suspicious IP in GreyNoise intelligence."}],"ruleName":"greynoise_intelligence_ip_match","ruleType":"MULTI_EVENT","ruleVersion":"ru_00000000-0000-0000-0000-000000000001@v_1765958150_356360000","urlBackToProduct":"https://chronicle.example.com/alert?alertId=de_00000000-0000-0000-0000-000000000001"}],"detectionTime":"2026-07-10T11:00:00Z","event":{"about":[{"labels":[{"key":"watchlistsMatchedByType_id","value":"3557389"},{"key":"watchlistsMatchedByType_name","value":"Cyber Alerts"}]},{"labels":[{"key":"alertType_color","value":"FFBB05"},{"key":"alertType_id","value":"urgent"}]}],"metadata":{"baseLabels":{"allowScopedAccess":true,"logTypes":["DATAMINR_ALERT"]},"description":"Spike detected in malicious IPs attempting to exploit CVE-2017-20149.","enrichmentLabels":{"allowScopedAccess":true},"eventTimestamp":"2026-07-10T10:26:46.872Z","eventType":"SCAN_HOST","id":"AAAAAC4+egHJ1IF+LhG0dL+Ogx8AAAAABgAAABsAAAA=","ingestedTimestamp":"2026-07-10T10:40:06.231965Z","logType":"DATAMINR_ALERT","productLogId":"673882874984150889046821-1783677840000-1","urlBackToProduct":"https://app.example.com/alertDetail/1"},"principal":{"asset":{"ip":["198.51.100.15","198.51.100.25"]},"ip":["203.0.113.8","203.0.113.40"],"ipGeoArtifact":[{"ip":"192.0.2.10","location":{"countryOrRegion":"Pakistan","regionCoordinates":{"latitude":31.170406299999996,"longitude":72.7097161},"state":"Punjab"},"network":{"asn":"23674","carrierName":"nayatel (pvt) ltd"}},{"ip":"192.0.2.20","location":{"countryOrRegion":"Cameroon","regionCoordinates":{"latitude":4.1682138,"longitude":10.0807298},"state":"Littoral Region"},"network":{"asn":"14593","carrierName":"space exploration technologies corporation"}}],"labels":[{"key":"relatedTerms_cve","value":"https://app.example.com/alertDetail/1"},{"key":"relatedTerms_detected","value":"https://app.example.com/alertDetail/1"}],"location":{"countryOrRegion":"Pakistan"}},"target":{"resource":{"attribute":{"labels":[{"key":"post_media_media_url","value":"https://cdn.example.com/media/example.png?Expires=1786270980&Signature=EXAMPLESIGNATURE&Key-Pair-Id=EXAMPLEKEYPAIRID"},{"key":"post_media_url","value":"https://cdn.example.com/media/example.png?Expires=1786270980&Signature=EXAMPLESIGNATURE&Key-Pair-Id=EXAMPLEKEYPAIRID"}]}}}},"id":"de_00000000-0000-0000-0000-000000000001","label":"network","timeWindow":{"endTime":"2026-07-10T11:00:00Z","startTime":"2026-07-10T10:00:00Z"},"type":"RULE_DETECTION"}'
+    key:
+      - createdTime
+      - detection[0].alertState
+      - detection[0].description
+      - detection[0].detectionFields[0].key
+cves: []
+detections:
+  - title: Google Secops events arriving
+    severity: low
+    signals:
+      - createdTime
+      - detection[0].alertState
+      - detection[0].description
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "google_secops_alert_v2"'
+optimizations: []
+references:
+  - title: elastic/integrations google_secops/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/google_secops/data_stream/alert_v2/_dev/test/pipeline/test-alert-v2.log
+  - title: Pack Generator sample google_secops_alert_v2.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/google_secops_alert_v2.json

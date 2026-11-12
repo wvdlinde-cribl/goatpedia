@@ -1,0 +1,71 @@
+id: aruba-clearpass
+name: Aruba ClearPass
+short: ClearPass
+vendor: Aruba
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - aruba_clearpass
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Aruba ClearPass is logged by the Splunk Connect for Syslog package aruba_clearpass. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: aruba_clearpass
+    desc: 'Splunk Connect for Syslog fixture, 5 events. Upstream: tests/test_aruba_clearpass.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: aruba_clearpass
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: kv
+  Fields in the first fixture: header, event_source, level, category, description, IP
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Aruba ClearPass events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, event_source, level, category, description, IP. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads aruba_clearpass and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Aruba ClearPass
+    sourcetype: aruba_clearpass
+    format: kv
+    desc: 5 fixture events in the samples pool (sc4s).
+    sample: <46>2026-06-15 13:45:07,123456 aruba-cp- CPPM_System_Events 973 1 0 event_source=SnmpService level=ERROR category=Trap description=Switch IP=198.51.100.15. Ignore v2c trap. Bad    security name in   trap action_key=Failed timestamp=2014-06-03 13:05:30.023+05:30
+    key:
+      - event_source
+      - level
+      - category
+      - description
+cves: []
+detections:
+  - title: Aruba ClearPass events arriving
+    severity: low
+    signals:
+      - header
+      - event_source
+      - level
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "aruba_clearpass"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_aruba_clearpass.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_aruba_clearpass.py
+  - title: Pack Generator sample aruba_clearpass.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aruba_clearpass.json

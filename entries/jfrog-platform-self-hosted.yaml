@@ -1,0 +1,71 @@
+id: jfrog-platform-self-hosted
+name: Jfrog Platform Self Hosted
+short: Hosted
+vendor: Jfrog
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jfrog_platform_self_hosted
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Jfrog Platform Self Hosted is logged by the Datadog integrations-extras package jfrog_platform_self_hosted. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jfrog_platform_self_hosted
+    desc: 'Datadog integrations-extras fixture, 20 events. Upstream: jfrog_platform_self_hosted/assets/logs/jfrog_platform_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: jfrog_platform_self_hosted
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: log_timestamp, service_type, trace_id, hostname, class_line_number, log_source
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jfrog Platform Self Hosted events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries log_timestamp, service_type, trace_id, hostname, class_line_number, log_source. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads jfrog_platform_self_hosted and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Jfrog Platform Self Hosted
+    sourcetype: jfrog_platform_self_hosted
+    format: json
+    desc: 20 fixture events in the samples pool (logtest_extras).
+    sample: '{"log_timestamp":"2023-07-21T17:20:36.065Z","service_type":"jfac","trace_id":"7fb34bc09bfb7ef0","hostname":"mahithab-mac","class_line_number":"o.j.a.s.r.s.RpcLockResource:30","log_source":"jfrog.rt.access.service","log_level":"WARN","thread":"c-default-executor-5","message":"Lockisbusy"}'
+    key:
+      - log_timestamp
+      - service_type
+      - trace_id
+      - hostname
+cves: []
+detections:
+  - title: Jfrog Platform Self Hosted events arriving
+    severity: low
+    signals:
+      - log_timestamp
+      - service_type
+      - trace_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jfrog_platform_self_hosted"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras jfrog_platform_self_hosted/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/jfrog_platform_self_hosted/assets/logs/jfrog_platform_tests.yaml
+  - title: Pack Generator sample jfrog_platform_self_hosted.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jfrog_platform_self_hosted.json

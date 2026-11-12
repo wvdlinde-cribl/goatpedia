@@ -1,0 +1,71 @@
+id: plivo
+name: Plivo
+short: Plivo
+vendor: Plivo
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - plivo
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Plivo is logged by the Datadog integrations-core package plivo. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: plivo
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: plivo/assets/logs/plivo_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: plivo
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: log_preference, message_state, total_rate, replaced_sender, message_direction, units
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Plivo events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries log_preference, message_state, total_rate, replaced_sender, message_direction, units. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads plivo and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Plivo
+    sourcetype: plivo
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"log_preference":"true","message_state":"delivered","total_rate":"0.08000","replaced_sender":"18763009800","message_direction":"outbound","units":1,"requester_ip":"192.0.2.20","mcc":"404","destination_network":"Test Network","message_sent_time":"2024-09-18 11:16:39.845581+05:30","message_time":"2024-09-18 11:16:39.845581+05:30","carrier_fees_rate":"0.00000","from_number":"18763009800","conversation_id":"","to_number":"910000000000","error_message":"","dlt_template_category":"","dlt_template_id":"","mnc":"005","resource_uri":"/v1/Account/MOWTXTOIZONQSONGQONS/Message/e8fccb36-6051-4c12-8ff5-493309woxt2d4/","message_type":"sms","message_uuid":"e8fccb36-6051-4c12-8ff5-493309woxt2d4","is_domestic":false,"conversation_expiration_timestamp":"","total_amount":"0.08000","destination_country_iso2":"IN","carrier_fees":"0.00000","error_code":"000","dlt_entity_id":"","message_updated_time":"2024-09-18 11:16:42.500341+05:30"}'
+    key:
+      - log_preference
+      - message_state
+      - total_rate
+      - replaced_sender
+cves: []
+detections:
+  - title: Plivo events arriving
+    severity: low
+    signals:
+      - log_preference
+      - message_state
+      - total_rate
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "plivo"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core plivo/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/plivo/assets/logs/plivo_tests.yaml
+  - title: Pack Generator sample plivo.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/plivo.json

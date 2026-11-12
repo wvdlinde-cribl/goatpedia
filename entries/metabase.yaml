@@ -1,0 +1,71 @@
+id: metabase
+name: Metabase
+short: Metabase
+vendor: Metabase
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - metabase
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Metabase is logged by the Datadog integrations-core package metabase. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: metabase
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: metabase/assets/logs/metabase_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: metabase
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: entity_qualified_id, entity_type, user_id, topic, details.dashcards[0].name, details.dashcards[0].id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Metabase events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries entity_qualified_id, entity_type, user_id, topic, details.dashcards[0].name, details.dashcards[0].id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads metabase and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Metabase
+    sourcetype: metabase
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"entity_qualified_id":"dashboard_11","entity_type":"dashboard","user_id":1,"topic":"dashboard-add-cards","details":{"dashcards":[{"name":"Client, Filtered by Client ID is abc","id":118,"card_id":120}],"name":"Views","id":11},"id":"178","entity_id":11,"timestamp":"2024-09-30T11:47:26.247269+05:30"}'
+    key:
+      - entity_qualified_id
+      - entity_type
+      - user_id
+      - topic
+cves: []
+detections:
+  - title: Metabase events arriving
+    severity: low
+    signals:
+      - entity_qualified_id
+      - entity_type
+      - user_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "metabase"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core metabase/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/metabase/assets/logs/metabase_tests.yaml
+  - title: Pack Generator sample metabase.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/metabase.json

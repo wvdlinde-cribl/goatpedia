@@ -1,0 +1,71 @@
+id: ivanti-nzta
+name: Ivanti Nzta
+short: Ivanti Nzta
+vendor: Ivanti
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ivanti_nzta
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Ivanti Nzta is logged by the Datadog integrations-core package ivanti_nzta. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ivanti_nzta
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: ivanti_nzta/assets/logs/ivanti-nzta_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ivanti_nzta
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: severity, controller, device_id, raw_message, user_name, session_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ivanti Nzta events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries severity, controller, device_id, raw_message, user_name, session_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ivanti_nzta and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Ivanti Nzta
+    sourcetype: ivanti_nzta
+    format: json
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: '{"severity":"INFO","controller":false,"device_id":"","raw_message":"Number of concurrent users logged in to the device: 1","user_name":"System","session_id":"","message_id":"STS20641","gateway_id":"","gateway_name":"","source_ip":"192.0.2.20","timestamp":1738821618}'
+    key:
+      - severity
+      - controller
+      - device_id
+      - raw_message
+cves: []
+detections:
+  - title: Ivanti Nzta events arriving
+    severity: low
+    signals:
+      - severity
+      - controller
+      - device_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ivanti_nzta"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ivanti_nzta/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ivanti_nzta/assets/logs/ivanti-nzta_tests.yaml
+  - title: Pack Generator sample ivanti_nzta.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ivanti_nzta.json

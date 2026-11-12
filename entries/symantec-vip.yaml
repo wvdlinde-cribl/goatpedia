@@ -1,0 +1,71 @@
+id: symantec-vip
+name: Symantec Vip
+short: Symantec Vip
+vendor: Symantec
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - symantec_vip
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Symantec Vip is logged by the Datadog integrations-core package symantec_vip. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: symantec_vip
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: symantec_vip/assets/logs/symantec-vip_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: symantec_vip
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: wsdlVersion, extUserId, durationMillis, credId, result.credType, result.statusMessage
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Symantec Vip events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries wsdlVersion, extUserId, durationMillis, credId, result.credType, result.statusMessage. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads symantec_vip and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Symantec Vip
+    sourcetype: symantec_vip
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"wsdlVersion":"1_1","extUserId":"7cc34F6DC","durationMillis":"60","credId":"VSME1673472","result":{"credType":"STANDARD_OTP","statusMessage":"Success","status":"0000"},"jurHash":"1459689","requestId":"abcd456","_nestedCalls":[{"result":{"credType":"STANDARD_OTP","statusMessage":"Success","status":"0000"},"jurHash":"1459689","extUserId":"7cc34F6DC","newBindStatus":"ENABLED","credId":"VSME16734672","operation":"addCredential"},{"result":{"detail":"0000","detailMessage":"Success","statusMessage":"Success","status":"0000"},"operation":"activateToken"}],"newBindStatus":"ENABLED","_id":"coloss4be-d2-tc.149132321663.2235348","operation":"addCredential","txnId":"vipus7E94583921D0EA","ts":"2017-04-04 16:39:23.090 +0000"}'
+    key:
+      - wsdlVersion
+      - extUserId
+      - durationMillis
+      - credId
+cves: []
+detections:
+  - title: Symantec Vip events arriving
+    severity: low
+    signals:
+      - wsdlVersion
+      - extUserId
+      - durationMillis
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "symantec_vip"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core symantec_vip/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/symantec_vip/assets/logs/symantec-vip_tests.yaml
+  - title: Pack Generator sample symantec_vip.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_vip.json

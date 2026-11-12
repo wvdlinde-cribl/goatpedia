@@ -1,0 +1,67 @@
+id: juniper-junos
+name: Juniper Junos
+short: Juniper Junos
+vendor: Juniper
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - juniper_junos
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Juniper Junos is logged by the Elastic integrations package juniper_junos. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: juniper_junos
+    desc: 'Elastic integrations fixture, 20 events. Upstream: juniper_junos/data_stream/log/_dev/test/pipeline/test-generated.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: juniper_junos
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Juniper Junos events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads juniper_junos and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: juniper_junos
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 'Jan 29 06:09:59 ceroinBC.exe[6713]: RPD_SCHED_TASK_LONGRUNTIME: : exe ran for 7309(5049)'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Juniper Junos events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "juniper_junos"'
+optimizations: []
+references:
+  - title: elastic/integrations juniper_junos/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/juniper_junos/data_stream/log/_dev/test/pipeline/test-generated.log
+  - title: Pack Generator sample juniper_junos.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_junos.json

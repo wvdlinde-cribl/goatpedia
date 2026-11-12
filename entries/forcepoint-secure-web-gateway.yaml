@@ -1,0 +1,71 @@
+id: forcepoint-secure-web-gateway
+name: Forcepoint Secure Web Gateway
+short: Gateway
+vendor: Forcepoint
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - forcepoint_secure_web_gateway
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Forcepoint Secure Web Gateway is logged by the Datadog integrations-core package forcepoint_secure_web_gateway. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: forcepoint_secure_web_gateway
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: forcepoint_secure_web_gateway/assets/logs/forcepoint-secure-web-gateway_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: forcepoint_secure_web_gateway
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: ipaddress, country, requestmethod, firstname, devicehostname, regioncode
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Forcepoint Secure Web Gateway events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries ipaddress, country, requestmethod, firstname, devicehostname, regioncode. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads forcepoint_secure_web_gateway and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Forcepoint Secure Web Gateway
+    sourcetype: forcepoint_secure_web_gateway
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"ipaddress":"198.51.100.15","country":"India","requestmethod":"POST","firstname":"John","devicehostname":"desktop-gno7jr8","regioncode":"MH","city":"Mumbai","customlocation":"[\"CDS\",\"Guest\"]","deviceguid":"F47F4D56-3BED-FF67-00FD-D240EEE2F7A1","countrycode":"IN","useragent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36","requestport":"443","webcategoryclass":"[\"General Information\",\"Social Media/Internet Communication\"]","bgcloudscore":"7.00","long":"72.88559999","protocol":"https","customcategories":"[\"Github\"]","indexedtime":"2025-01-10 12:02:13","policyid":"369036","action":"block","email":"user@example.com","lat":"19.07480000","syslogheader":"<110>1 2025-01-10T11:55:00.000000Z api.bitglass.com NILVALUE NILVALUE swgweb","webcategories":"[\"WR:Image and Video Search\",\"WR:Social Networking\"]","uploadedbytes":"0","bgcategories":"[\"BG:Business Applications\",\"BG:Content and Publishing\",\"BG:Internet Services\",\"BG:Media and Entertainment\",\"BG:Mobile\"]","uri":"/ajax/bz","url":"www.instagram.com/ajax/bz?__a=1&__ccg=EXCELLENT&__comet_req=7&__d=www&__hs=20098.HYP%3Ainstagram_web_pkg.203.0.113.8.0&__hsi=7458216500016125819&__req=15&__r...","setransactionid":"190E18BD-ECB8-4FE5-9CFD-D5DAE9783017","lastname":"Doe"}'
+    key:
+      - ipaddress
+      - country
+      - requestmethod
+      - firstname
+cves: []
+detections:
+  - title: Forcepoint Secure Web Gateway events arriving
+    severity: low
+    signals:
+      - ipaddress
+      - country
+      - requestmethod
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "forcepoint_secure_web_gateway"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core forcepoint_secure_web_gateway/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/forcepoint_secure_web_gateway/assets/logs/forcepoint-secure-web-gateway_tests.yaml
+  - title: Pack Generator sample forcepoint_secure_web_gateway.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/forcepoint_secure_web_gateway.json

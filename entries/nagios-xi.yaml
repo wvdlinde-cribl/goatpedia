@@ -1,0 +1,95 @@
+id: nagios-xi
+name: Nagios Xi
+short: Nagios Xi
+vendor: Nagios
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - nagios_xi
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Nagios Xi is logged by the Elastic integrations package nagios_xi. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: nagios_xi
+    desc: 'Elastic integrations fixture, 1 events. Upstream: nagios_xi/data_stream/events/_dev/test/pipeline/test-events.log'
+  - st: nagios_xi_host
+    desc: 'Elastic integrations fixture, 2 events. Upstream: nagios_xi/data_stream/host/_dev/test/pipeline/test-host.log'
+  - st: nagios_xi_service
+    desc: 'Elastic integrations fixture, 12 events. Upstream: nagios_xi/data_stream/service/_dev/test/pipeline/test-service.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: nagios_xi
+  Sourcetypes: '3'
+  Fixture events: '15'
+  Log format seen: json
+  Fields in the first fixture: logentry_id, entry_time, logentry_type, logentry_data, instance_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Nagios Xi events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries logentry_id, entry_time, logentry_type, logentry_data, instance_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads nagios_xi and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: nagios_xi
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"logentry_id":"211300","entry_time":"2022-03-17 01:05:42","logentry_type":"1","logentry_data":"wproc:   early_timeout=0; exited_ok=1; wait_status=65280; error_code=0;","instance_id":"1"}'
+    key:
+      - logentry_id
+      - entry_time
+      - logentry_type
+      - logentry_data
+  - type: Host
+    sourcetype: nagios_xi_host
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"host_object_id":"191","host_name":"www.twitter.com","host_alias":"","display_name":"www.twitter.com","address":"www.twitter.com","icon_image":"www_server.png","icon_image_alt":"","notes":"","notes_url":"","action_url":"","hoststatus_id":"59","instance_id":"1","status_update_time":"2022-03-16 07:26:45","output":"HTTP OK: HTTP/1.1 301 Moved Permanently - 311 bytes in 0.036 second response time","long_output":"","perfdata":"time=0.036431s;;;0.000000 size=311B;;;0","current_state":"0","has_been_checked":"1","should_be_scheduled":"1","current_check_attempt":"1","max_check_attempts":"5","last_check":"2022-03-16 07:26:45","next_check":"2022-03-16 07:31:45","check_type":"0","check_options":"0","last_state_change":"2018-09-04 11:52:29","last_hard_state_change":"2010-08-06 13:39:16","last_hard_state":"0","last_time_up":"2022-03-16 07:26:45","last_time_down":"2018-09-04 11:52:29"}'
+    key:
+      - host_object_id
+      - host_name
+      - host_alias
+      - display_name
+  - type: Service
+    sourcetype: nagios_xi_service
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"host_name":"vs1.nagios.org","service_description":"SSH","display_name":"SSH","host_object_id":"120","host_address":"vs1.nagios.org","host_alias":"","icon_image":"","icon_image_alt":"","notes":"","notes_url":"","action_url":"","servicestatus_id":"872","instance_id":"1","service_object_id":"123","status_update_time":"2022-03-16 22:12:34","output":"SSH OK - OpenSSH_8.0 (protocol 2.0)","long_output":"","perfdata":"time=0.014744s;;;0.000000;10.000000","current_state":"0","has_been_checked":"1","should_be_scheduled":"1","current_check_attempt":"1","max_check_attempts":"5","last_check":"2022-03-16 22:12:34","next_check":"2022-03-16 22:17:34","check_type":"0","check_options":"0","last_state_change":"2010-07-15 15:52:36","last_hard_state_change":"2010-06-13 07:55:36","last_hard_state":"0"}'
+    key:
+      - host_name
+      - service_description
+      - display_name
+      - host_object_id
+cves: []
+detections:
+  - title: Nagios Xi events arriving
+    severity: low
+    signals:
+      - logentry_id
+      - entry_time
+      - logentry_type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "nagios_xi"'
+optimizations: []
+references:
+  - title: elastic/integrations nagios_xi/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/nagios_xi/data_stream/events/_dev/test/pipeline/test-events.log
+  - title: Pack Generator sample nagios_xi.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nagios_xi.json

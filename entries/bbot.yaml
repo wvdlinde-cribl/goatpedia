@@ -1,0 +1,71 @@
+id: bbot
+name: Bbot
+short: Bbot
+vendor: Bbot
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - bbot
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Bbot is logged by the Elastic integrations package bbot. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: bbot_asm_intel
+    desc: 'Elastic integrations fixture, 20 events. Upstream: bbot/data_stream/asm_intel/_dev/test/pipeline/test-bbot-v2-ndjson.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: bbot
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: type, id, uuid, scope_description, data.SCAN.id, data.SCAN.name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Bbot events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries type, id, uuid, scope_description, data.SCAN.id, data.SCAN.name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads bbot and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Asm Intel
+    sourcetype: bbot_asm_intel
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"type":"SCAN","id":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","uuid":"SCAN:acfbaed0-ef27-4d69-9e33-aca7cb1fd973","scope_description":"in-scope","data":{"SCAN":{"id":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","name":"dramatic_jacob","target":{"seeds":["example.com"],"whitelist":["example.com"],"blacklist":[],"strict_scope":false,"hash":"cffefd70a4eac5b8389a3c16987fb2ae91328c4c","seed_hash":"29b7be19a3f7633571a48c40f320d465c918c26b","whitelist_hash":"29b7be19a3f7633571a48c40f320d465c918c26b","blacklist_hash":"da39a3ee5e6b4b0d3255bfef95601890afd80709","scope_hash":"ef4a64d445f60a4ae47d81411d8994e40c3382d1"},"preset":{"description":"dramatic_jacob","config":{"keep_scans":1,"omit_event_types":[],"modules":{"json":{"siem_friendly":true},"http":{"url":"https://example.com/bbot","method":"POST","timeout":10,"siem_friendly":true},"iis_shortnames":{"detect_only":false}},"dns":{"threads":25,"brute_threads":1000},"web":{"spider_distance":2,"spider_depth":2,"spider_links_per_page":25}},"flags":["cloud-enum","code-enum"],"modules":["httpx"],"output_modules":["emails","json"]},"started_at":"2024-11-14T06:44:01.665790","status":"RUNNING"}},"web_spider_distance":0,"scope_distance":0,"scan":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","timestamp":"2024-11-14T06:44:01.668069","parent":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","parent_uuid":"SCAN:acfbaed0-ef27-4d69-9e33-aca7cb1fd973","tags":["in-scope","target"],"module":"TARGET","module_sequence":"TARGET","discovery_context":"Scan dramatic_jacob started at 2024-11-14 06:44:01.665790","discovery_path":[],"parent_chain":[]}'
+    key:
+      - type
+      - id
+      - uuid
+      - scope_description
+cves: []
+detections:
+  - title: Bbot events arriving
+    severity: low
+    signals:
+      - type
+      - id
+      - uuid
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "bbot_asm_intel"'
+optimizations: []
+references:
+  - title: elastic/integrations bbot/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bbot/data_stream/asm_intel/_dev/test/pipeline/test-bbot-v2-ndjson.log
+  - title: Pack Generator sample bbot_asm_intel.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bbot_asm_intel.json

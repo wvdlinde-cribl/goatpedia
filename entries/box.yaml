@@ -1,0 +1,71 @@
+id: box
+name: Box
+short: Box
+vendor: Box
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - box
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Box is logged by the Datadog integrations-core package box. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: box
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: box/assets/logs/box_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: box
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: event_id, event_type, additional_details.shield_alert.rule_id, additional_details.shield_alert.rule_name, additional_details.shield_alert.risk_score, additional_details.shield_alert.rule_category
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Box events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries event_id, event_type, additional_details.shield_alert.rule_id, additional_details.shield_alert.rule_name, additional_details.shield_alert.risk_score, additional_details.shield_alert.rule_category. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads box and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Box
+    sourcetype: box
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"event_id":"97f1b31f-f143-4777-81f8-1b557b39ca33","event_type":"SHIELD_ALERT","additional_details":{"shield_alert":{"rule_id":123,"rule_name":"Viruses and stuff","risk_score":100,"rule_category":"Malicious Content","alert_id":2398,"link":"https://app.box.com/master/shield/alerts/2398","created_at":"2025-04-25T14:52:32+05:30","malware_info":{"file_version":4239023,"file_version_uploaded":"2025-04-25T14:52:32+05:30","detail_link":"https://some.link/xyz","malware_name":"BadMalware","first_seen":"2025-04-25T14:52:32+05:30","last_seen":"2025-04-25T14:52:32+05:30","file_name":"malware.exe","description":"This is a really bad file","file_created":"2025-04-25T14:52:32+05:30","tags":["FILE_MALICIOUS_EXECUTION","FILE_OTHER_TAG"],"file_created_by":{"name":"Bob","id":1010,"email":"user@example.com"},"file_hash":"d869db7fe62fb07c25a0403ecaea55031744b5fb","file_hash_type":"SHA-1","file_id":127,"file_version_uploaded_by":{"name":"Jane","id":1011,"email":"user@example.com"},"categories":["Adware","SpyWare"],"family":"MalwareBot4000","file_size_bytes":51345,"status":"Malicious"},"priority":"medium","alert_summary":{"upload_activity":{"occurred_at":"2025-04-25T14:52:32+05:30","event_type":"Upload","item_id":"127","sha1_hash":"","item_type":"file","service_name":"Service name","item_name":"virus.exe","item_path":"ABC/DEF","ip_info":{"country_code":"US","city_name":"San Jose","ip":"203.0.113.8","latitude":"37.5555","region_name":"California","registrant":"Microsoft Corporation","longitude":"-120.6789"}}},"user":{"name":"Some Name","id":2320,"email":"user@example.com"}}},"created_at":"2025-04-25T14:52:32+05:30","ip_address":"203.0.113.40","type":"event"}'
+    key:
+      - event_id
+      - event_type
+      - additional_details.shield_alert.rule_id
+      - additional_details.shield_alert.rule_name
+cves: []
+detections:
+  - title: Box events arriving
+    severity: low
+    signals:
+      - event_id
+      - event_type
+      - additional_details.shield_alert.rule_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "box"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core box/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/box/assets/logs/box_tests.yaml
+  - title: Pack Generator sample box.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/box.json

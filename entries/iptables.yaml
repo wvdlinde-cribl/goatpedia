@@ -1,0 +1,71 @@
+id: iptables
+name: Iptables
+short: Iptables
+vendor: Iptables
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - iptables
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Iptables is logged by the Elastic integrations package iptables. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: iptables
+    desc: 'Elastic integrations fixture, 20 events. Upstream: iptables/data_stream/log/_dev/test/pipeline/test-iptables-raw.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: iptables
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: header, [wan-lan-default-D]IN, OUT, MAC, SRC, DST
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Iptables events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, [wan-lan-default-D]IN, OUT, MAC, SRC, DST. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads iptables and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: iptables
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<161>Oct 10 07:25:12 Hostname kernel: [wan-lan-default-D]IN=eth0 OUT= MAC=2001:db8::12001:db8::1 SRC=203.0.113.8 DST=203.0.113.40 LEN=52 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=38842 DPT=443 WINDOW=2853 RES=0x00 ACK URGP=0'
+    key:
+      - '[wan-lan-default-D]IN'
+      - OUT
+      - MAC
+      - SRC
+cves: []
+detections:
+  - title: Iptables events arriving
+    severity: low
+    signals:
+      - header
+      - '[wan-lan-default-D]IN'
+      - OUT
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "iptables"'
+optimizations: []
+references:
+  - title: elastic/integrations iptables/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/iptables/data_stream/log/_dev/test/pipeline/test-iptables-raw.log
+  - title: Pack Generator sample iptables.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/iptables.json

@@ -49,6 +49,14 @@ sourcetypes:
     desc: Spotlight vulnerabilities API — CVE findings per host
   - st: CrowdStrike:Event:Streams:JSON
     desc: Splunk "CrowdStrike Falcon Event Streams" TA sourcetype
+  - st: crowdstrike_alert
+    desc: 'Elastic integrations fixture, 7 events. Upstream: crowdstrike/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: crowdstrike_host
+    desc: 'Elastic integrations fixture, 2 events. Upstream: crowdstrike/data_stream/host/_dev/test/pipeline/test-host.log'
+  - st: crowdstrike_identity_protection_timeline
+    desc: 'Elastic integrations fixture, 7 events. Upstream: crowdstrike/data_stream/identity_protection_timeline/_dev/test/pipeline/test-timeline.log'
+  - st: crowdstrike_vulnerability
+    desc: 'Elastic integrations fixture, 4 events. Upstream: crowdstrike/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
 facts:
   First released: 2013 (Falcon Host); FDR GA 2017
   Platform: Windows, macOS, Linux, ChromeOS, iOS/Android, containers / Kubernetes
@@ -200,6 +208,46 @@ logs:
       - PointerSize
       - ServicePackMajor
     sample: '{"aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","ComputerName":"WS-FIN-042","MachineDomain":"corp.example.com","OU":"Workstations/Finance","SiteName":"AMS","AgentVersion":"7.38.21007.0","ConfigIDBuild":"21007","Version":"Windows 11","ProductType":"1","event_platform":"Win","FirstSeen":"1731480000","Time":"1762938000.524","Timezone":"Europe/Amsterdam","SystemManufacturer":"Dell Inc.","SystemProductName":"Latitude 7440","BiosManufacturer":"Dell Inc.","BiosVersion":"1.14.1","ChassisType":"Laptop","PointerSize":"8","ServicePackMajor":"0","HostHiddenStatus":"Visible"}'
+  - type: Alert
+    sourcetype: crowdstrike_alert
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"agent_id":"38293534662e48c99f33c61631b3536d","aggregate_id":"aggind:4446934rf3fdb64ec3056ddfb96e:5876E98F-D91B-48AC-8FFC-1191C663A1E9","cid":"4446934rf3fdb64ec3056ddfb96e","composite_id":"874694c2ff8c43fdb64ef3056ddfb96d:ind:4446934rf3fdb64ec3056ddfb96e:5876E98F-D91B-48AC-8FFC-1191C663A1E9","confidence":80,"context_timestamp":"2024-08-16T18:43:44.242Z","crawled_timestamp":"2024-08-16T18:49:02.798354466Z","created_timestamp":"2024-08-16T18:45:02.987127397Z","data_domains":["Identity"],"description":"A user denied a policy identity verification request","display_name":"Identity verification denied","end_time":"2024-08-16T18:43:44.242Z","falcon_host_link":"https://falcon.crowdstrike.com/identity-protection/detections/4446934rf3fdb64ec3056ddfb96e:ind:4446934rf3fdb64ec3056ddfb96e:5876E98F-D91B-48AC-8FFC-1191C663A...","id":"ind:4446934rf3fdb64ec3056ddfb96e:5876E98F-D91B-48AC-8FFC-1191C663A1E9","idp_policy_mfa_factor_type":"32769","idp_policy_mfa_provider":"14","idp_policy_rule_id":"1B82F2DE-2A08-49E0-8F85-AD46996F9A65","idp_policy_rule_name":"admin - RDP Access to TIER-0 Servers","name":"IdpPolicyIdentityVerificationDenied","objective":"Gain Access","pattern_id":51143,"poly_id":"AAB3RpTC74xD_bZOwwVt37ltWwicqVJrn1DHb_UVfrn1QAAATiE4zCVgvIYhKPq8wZOGu5S3BVMzfSm_y5pv8n9CypfRuw==","product":"idp","scenario":"suspicious_activity","seconds_to_resolved":0,"seconds_to_triaged":0,"severity":79,"severity_name":"High","show_in_ui":true,"source_account_azure_id":"65ddx-c454-45f9-9034-Fdf34353"}'
+    key:
+      - agent_id
+      - aggregate_id
+      - cid
+      - composite_id
+  - type: Host
+    sourcetype: crowdstrike_host
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"agent_load_flags":"0","agent_local_time":"2023-11-07T04:51:16.678Z","agent_version":"7.05.17603.0","bios_manufacturer":"ABCInc.","bios_version":"2020.192.0.2.20(iBridge:198.51.100.15.0,0)","chassis_type":"9","chassis_type_desc":"Laptop","cid":"92012896127c4948236ba7601b886b0","config_id_base":"6594763","config_id_build":"1703","config_id_platform":"4","connection_ip":"198.51.100.25","cpu_signature":"460517","device_id":"3114433dbce478ca48d9a828b9b34be","device_policies":{"device_control":{"applied":true,"applied_date":"2023-06-20T08:45:26.341093915Z","assigned_date":"2023-06-20T08:43:47.736146738Z","policy_id":"2f88daf0177f467dae69262a5ce71775","policy_type":"device-control"},"firewall":{"applied":true,"applied_date":"2023-09-11T10:33:44.174488832Z","assigned_date":"2023-09-11T10:32:47.853976945Z","policy_id":"1ee301f7e3e24e96ad6a23c73aaac1e3","policy_type":"firewall","rule_set_id":"1ee301f7e3e24e96ad6a23c73aaac1e3"},"global_config":{"applied":true,"applied_date":"2023-11-07T04:52:59.515775409Z","assigned_date":"2023-11-07T04:51:18.94671252Z","policy_id":"7e3078b60976486cac5dc998808d9135","policy_type":"globalconfig","settings_hash":"f01def74"},"prevention":{"applied":true,"applied_date":"2023-06-08T10:04:47.643357971Z","assigned_date":"2023-06-08T10:03:49.505180252Z","policy_id":"1024fac1b279424fa7300b8ac2d56be5","policy_type":"prevention","rule_groups":[],"settings_hash":"f7a54ca1"},"remote_response":{"applied":true,"applied_date":"2023-06-08T10:04:47.01735027Z","assigned_date":"2023-06-08T10:03:49.505163572Z","policy_id":"dabb4def99034f11b9b3d52271584c9f","policy_type":"remote-response","settings_hash":"8a548e5e"},"sensor_update":{"applied":true,"applied_date":"2023-11-07T04:52:59.659583066Z","assigned_date":"2023-11-07T04:47:43.342175341Z","policy_id":"64bfa2bbcd4e46da92a66b107933da11","policy_type":"sensor-update","settings_hash":"tagged|18;101","uninstall_protection":"ENABLED"}},"external_ip":"203.0.113.8","first_seen":"2023-06-08T10:00:19Z","group_hash":"b607fe25348a46d421ff46e19741b0caf5bbc70bb6da1637f56e97b4e1454d77","groups":["182388a8dbea4c44b5e019cfd32c2695"],"hostname":"CLM101-131.local","kernel_version":"22.6.0","last_seen":"2023-11-07T10:25:24Z","local_ip":"203.0.113.40","mac_address":"14-7d-da-ad-ac-71","machine_domain":"SYS","major_version":"22","meta":{"version":"6002","version_string":"7:43570272778"},"minor_version":"6","modified_timestamp":"2023-11-07T10:26:53Z","os_build":"22G120"}'
+    key:
+      - agent_load_flags
+      - agent_local_time
+      - agent_version
+      - bios_manufacturer
+  - type: Identity Protection Timeline
+    sourcetype: crowdstrike_identity_protection_timeline
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"eventId":"evt-1","eventType":"SUCCESSFUL_AUTHENTICATION","eventLabel":"Login","eventSeverity":"NEUTRAL","timestamp":"2024-06-01T10:00:00Z","startTime":"2024-06-01T10:00:00Z","endTime":"2024-06-01T10:00:01Z","userEntity":{"primaryDisplayName":"jdoe"},"endpointEntity":{"primaryDisplayName":"WS01"},"ipAddress":"192.0.2.10","authenticationType":"DOMAIN_LOGIN","protocolType":"KERBEROS"}'
+    key:
+      - eventId
+      - eventType
+      - eventLabel
+      - eventSeverity
+  - type: Vulnerability
+    sourcetype: crowdstrike_vulnerability
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"897580adb4ab4540a457536faa42de18_eda961728a22320da280bd9d181a798b","cid":"2cd98db1a47b4c98b913c94d43bfab70","aid":"897580adb4ab4540a357536faa41de18","vulnerability_id":"CVE-2025-26465","data_providers":[{"provider":"Falcon sensor","ports":[22,80],"rating":"high","scan_id":"scan-123456","scan_time":"2025-02-20T12:00:00Z","scanner_id":"scanner-xyz"}],"created_timestamp":"2025-02-20T10:10:24Z","updated_timestamp":"2025-02-25T13:33:23Z","status":"open","apps":[{"vendor_normalized":"Ubuntu","product_name_version":"openssh 1:9.6p1-3ubuntu13.4","product_name_normalized":"openssh","sub_status":"open","remediation":{"ids":["4688299d204b35a192828bdaf556ecf8"]},"evaluation_logic":{"id":"138bd6a67791327ab367838079b4d786","aid":"897580adb4ab4540a357536faa41de18","cid":"2cd98db1a47b4c98b913c94d43bfab70","complex_check_operator":"AND","created_timestamp":"2025-02-20T10:15:30Z","logic":[{"comparison_check":"equals","comparisons":{"state_comparisons":[{"entity_comparisons":[{"actual_value_field":"version","operation":"equals","value_datatype":"string"}],"entity_operator":"AND"}],"state_operator":"OR"},"determined_by_comparison":true,"existence_check":"Yes","id":"logic-12345","negate":false,"status":"active","title":"Evaluation Logic for OpenSSH","type":"comparison"}],"updated_timestamp":"2025-02-25T13:33:23Z"},"remediation_info":{"recommended_id":"4688299d207b35a192828bdaf556ecf8","minimum_id":"df1af7df1d33382398fb0dc268109a4d","patch_publication_date":"2025-02-19T00:00:00Z"},"patch_publication_date":"2025-02-19T00:00:00Z"}],"suppression_info":{"is_suppressed":false,"reason":"Not applicable"},"confidence":"confirmed","closed_timestamp":"2025-02-25T13:33:23Z","app":{"vendor_normalized":"Ubuntu","product_name_version":"openssh 1:9.6p1-3ubuntu13.4","product_name_normalized":"openssh"},"cve":{"id":"CVE-2025-26465","base_score":6.8,"severity":"MEDIUM","exploit_status":30,"exprt_rating":"MEDIUM","remediation_level":"O","cisa_info":{"is_cisa_kev":false,"due_date":"2025-03-01"},"spotlight_published_date":"2025-02-19T05:32:00Z","types":["Vulnerability"],"cwes":["CWE-123"],"description":"A vulnerability was found in OpenSSH...","published_date":"2025-02-18T19:15:00Z","references":["https://ubuntu.com/security/CVE-2025-26465"],"exploitability_score":1.6,"impact_score":5.2,"vector":"CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N"},"host_info":{"hostname":"ub24-50-10-154","local_ip":"192.0.2.20","os_version":"Ubuntu 24.04","platform":"Linux","product_type_desc":"Server","asset_criticality":"Critical","internet_exposure":"No","managed_by":"Falcon sensor","host_last_seen_timestamp":"2025-02-18T00:00:00Z","tags":["production","security"]},"remediation":{"ids":["4688299d207b35a192828bdaf556ecf8","df1af7df1d33382398fb0dc268109a4d"],"entities":[{"id":"4688299d207b35a192828bdaf556ecf8","reference":"1:9.6p1-3ubuntu13.8","title":"Update ubuntu openssh","action":"Update ubuntu openssh to version 1:9.6p1-3ubuntu13.8 or newer","link":"https://ubuntu.com/security/CVE-2025-26465","vendor_url":"https://www.openssh.com","recommendation_type":"recommended","patch_publication_date":"2025-02-19T00:00:00Z"}]}}'
+    key:
+      - id
+      - cid
+      - aid
+      - vulnerability_id
 cves:
   - id: CVE-2026-40058
     cvss: 8.8

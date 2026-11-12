@@ -1,0 +1,119 @@
+id: xm-cyber
+name: Xm Cyber
+short: Xm Cyber
+vendor: Xm
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - xm_cyber
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Xm Cyber is logged by the Elastic integrations package xm_cyber. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: xm_cyber_audit_trail
+    desc: 'Elastic integrations fixture, 3 events. Upstream: xm_cyber/data_stream/audit_trail/_dev/test/pipeline/test-audit-trail.log'
+  - st: xm_cyber_device
+    desc: 'Elastic integrations fixture, 3 events. Upstream: xm_cyber/data_stream/device/_dev/test/pipeline/test-device.log'
+  - st: xm_cyber_entity_inventory
+    desc: 'Elastic integrations fixture, 3 events. Upstream: xm_cyber/data_stream/entity_inventory/_dev/test/pipeline/test-entity-inventory.log'
+  - st: xm_cyber_product
+    desc: 'Elastic integrations fixture, 4 events. Upstream: xm_cyber/data_stream/product/_dev/test/pipeline/test-product.log'
+  - st: xm_cyber_vulnerability
+    desc: 'Elastic integrations fixture, 4 events. Upstream: xm_cyber/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: xm_cyber
+  Sourcetypes: '5'
+  Fixture events: '17'
+  Log format seen: json
+  Fields in the first fixture: _id, details, eventSubType, eventType, objectName, objectType
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Xm Cyber events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _id, details, eventSubType, eventType, objectName, objectType. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads xm_cyber and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit Trail
+    sourcetype: xm_cyber_audit_trail
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"_id":"64a1b2c3d4e5f60718293a4b","details":"ExampleDC01 failed to perform domain scan","eventSubType":"SENSOR_SCAN_FAILED","eventType":"ACTIVE_DIRECTORY","objectName":"example.com","objectType":"DOMAIN","tenant":"demo","terminalId":{"hostname":"acme","ip":"acme"},"timestamp":"2023-04-16T10:49:26.855Z","userId":{"name":"Automated"}}'
+    key:
+      - _id
+      - details
+      - eventSubType
+      - eventType
+  - type: Device
+    sourcetype: xm_cyber_device
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"deviceId":"9000000000000000001","deviceName":"host-01","chokePointScore":38,"chokePointLevel":"Low","isCriticalAsset":false,"lastScan":"2026-09-06T14:08:10.982Z","lastCompromised":"2026-09-04T00:00:00.000Z","deviceType":"Workstation","type":"agent","products":4,"ipAddress":"203.0.113.40","subnet":"192.0.2.10/24","labels":["lab","example-security-test"],"enrichmentLabels":["enriched"],"os":"Windows 11","domain":"corp.example.com","ou":"OU=Workstations,DC=corp,DC=example,DC=com","fqdn":"host-01.corp.example.com","criticalVulnerabilities":2,"highVulnerabilities":5,"mediumVulnerabilities":10,"lowVulnerabilities":3,"unknownVulnerabilities":0,"maxCvssV2":8,"maxCvssV3":9.1,"maxCvssV31":8.8,"maxCvssV4":7.2,"enitityVulnerabilities":1,"affectedEntities":4,"criticalAssetsAtRisk":2}'
+    key:
+      - deviceId
+      - deviceName
+      - chokePointScore
+      - chokePointLevel
+  - type: Entity Inventory
+    sourcetype: xm_cyber_entity_inventory
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"90000000000000000003","accessKeyCreationDate":"Unknown","podIP":"","ec2PublicIpAddress":"","agentVersion":{"major":1,"minor":55,"patch":2},"agentVersionStr":"1.55.2","arch":"Amd64","cmId":"0000","connectionCounter":160,"customProperties":{"snifferStatus":"Active","snifferStatusChangeable":true,"domainWorkgroup":{"type":"workgroup","data":"workgroup"},"ouComputer":"workgroup","subnetInfo":"192.0.2.20/24","macAddresses":["2001:db8::1"],"ouUser":"workgroup","labels":[{"label":"spooler"},{"label":"device_without_edr"}],"snifferStatusConfiguration":"ForcedEnabled","custom_labels":[{"label":"testLabel"},{"label":"sn : azure Identity : sn"}],"hardwareInfo":{"totalRamMb":"2047","cpuProcessorType":"Intel(R) Xeon(R) Gold 5318Y CPU @ 2.10GHz","cpuCoreCount":1,"cpuCount":1,"cpuManufacturer":"GenuineIntel","cpuSpeedMhz":2095,"systemManufacturer":"VMware, Inc.","systemModel":"VMware Virtual Platform"}},"customerId":"89a1d5c1-2b3e-4f67-8a9b-0c1d2e3f4a5b","disabled":false,"disabledChangedAt":"2025-12-01T05:31:01.103Z","disabledReason":"revivedByCmNodeMgr","firstSeen":"2024-08-07T12:18:26.093Z","hasUpdateAvailable":false,"installationId":"00000000-0000-0000-0000-000000000001","ipv4":[{"data":[192,168],"type":"Buffer"}],"ipv4Num":[2885681155],"ipv4Str":["198.51.100.15"],"ipv6":[{"data":[32,1],"type":"Buffer"}],"ipv6Str":["2001:db8::1"],"lastConnectionTime":"2026-05-03T08:40:06.399Z","lastDisconnectionReason":"Keepalive","lastRebootTime":"2025-05-15T09:33:32.000Z","lastStatusChange":"2026-05-03T08:40:06.399Z","latestPossibleAgentVersion":{"major":1,"minor":55,"patch":2},"latestPossibleAgentVersionStr":"1.55.2","name":"172-0-0-3","nameUppercase":"172-0-0-3"}'
+    key:
+      - id
+      - accessKeyCreationDate
+      - podIP
+      - ec2PublicIpAddress
+  - type: Product
+    sourcetype: xm_cyber_product
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"productName":"windows remote desktop services","vendor":null,"productVulnerabilities":2,"devicesFoundOn":8,"affectedCriticalAssets":3,"chokePointsFoundOn":0,"productsCriticalAssetsAtRisk":29,"productOperatingSystem":["Windows 7 SP 1.0","Windows Server 2012 R2"],"lastDataUpdate":"2026-09-07T01:32:06.000Z"}'
+    key:
+      - productName
+      - vendor
+      - productVulnerabilities
+      - devicesFoundOn
+  - type: Vulnerability
+    sourcetype: xm_cyber_vulnerability
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"cve":"CVE-2013-6629","description":"The get_sos function in jdmarker.c in (1) libjpeg 6b and (2) libjpeg-turbo through 1.3.0, as used in Google Chrome before 31.0.1650.48, Ghostscript, and othe...","cvss2":5,"firstDetected":"2025-04-03T00:00:00.000Z","publishedDate":"2013-11-19T00:00:00.000Z","severity":20,"cvss2Vector":"AV:N/AC:M/Au:N/C:P/I:N/A:N","cvss30":0,"cvss3Vector":"","cvss31":0,"cvss31Vector":"","cvss4":0,"cvss4Vector":"","epssPercentile":0.95322,"epssScore":0.10117,"epssProbability":0.10117,"inCisaKev":false,"inExploitDb":false,"hasAttackTechnique":false,"severityLevel":"Medium","products":2,"deviceFoundOn":18,"criticalAssetsFoundOn":1,"chokePointFoundOn":1,"criticalAssetsAtRisk":29,"NVDURL":"https://nvd.nist.gov/vuln/detail/CVE-2013-6629","CVEOrgURL":"https://www.cve.org/CVERecord?id=CVE-2013-6629","MSRCURL":"https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-6629","RedHatURL":"https://access.redhat.com/security/cve/CVE-2013-6629","AmazonLinuxURL":"https://explore.alas.aws.amazon.com/CVE-2013-6629.html"}'
+    key:
+      - cve
+      - description
+      - cvss2
+      - firstDetected
+cves: []
+detections:
+  - title: Xm Cyber events arriving
+    severity: low
+    signals:
+      - _id
+      - details
+      - eventSubType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "xm_cyber_audit_trail"'
+optimizations: []
+references:
+  - title: elastic/integrations xm_cyber/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/xm_cyber/data_stream/audit_trail/_dev/test/pipeline/test-audit-trail.log
+  - title: Pack Generator sample xm_cyber_audit_trail.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/xm_cyber_audit_trail.json

@@ -1,0 +1,71 @@
+id: hubspot-content-hub
+name: Hubspot Content Hub
+short: Hub
+vendor: Hubspot
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hubspot_content_hub
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Hubspot Content Hub is logged by the Datadog integrations-core package hubspot_content_hub. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hubspot_content_hub
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: hubspot_content_hub/assets/logs/hubspot-content-hub_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: hubspot_content_hub
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: regionCode, countryCode, ipAddress, location, userAgent, id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Hubspot Content Hub events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries regionCode, countryCode, ipAddress, location, userAgent, id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads hubspot_content_hub and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Hubspot Content Hub
+    sourcetype: hubspot_content_hub
+    format: json
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: '{"regionCode":"dl","countryCode":"in","ipAddress":"198.51.100.15","location":"delhi, india","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36","id":"3959685975","loginAt":"2024-09-16T06:55:51.186Z","userId":70769783,"email":"user@example.com","loginSucceeded":true}'
+    key:
+      - regionCode
+      - countryCode
+      - ipAddress
+      - location
+cves: []
+detections:
+  - title: Hubspot Content Hub events arriving
+    severity: low
+    signals:
+      - regionCode
+      - countryCode
+      - ipAddress
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hubspot_content_hub"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core hubspot_content_hub/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/hubspot_content_hub/assets/logs/hubspot-content-hub_tests.yaml
+  - title: Pack Generator sample hubspot_content_hub.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hubspot_content_hub.json

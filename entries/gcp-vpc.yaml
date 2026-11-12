@@ -31,6 +31,8 @@ sourcetypes:
     desc: Splunk Add-on for Google Cloud Platform — Cloud Logging entries pulled from a Pub/Sub subscription
   - st: GCP_FIREWALL
     desc: Google SecOps (Chronicle) ingestion label for the Google Cloud Firewall parser
+  - st: gcp_vpcflow
+    desc: 'Elastic integrations fixture, 20 events. Upstream: gcp/data_stream/vpcflow/_dev/test/pipeline/test-vpcflow.log'
 facts:
   First released: VPC Flow Logs 2018; firewall logging later extended to hierarchical and network firewall policies (Cloud NGFW)
   Delivery: Cloud Logging (_Default bucket, 30-day default retention) → log sink to Pub/Sub, Cloud Storage or BigQuery
@@ -157,6 +159,16 @@ logs:
       - jsonPayload.throughput_inclusion
       - resource.labels.subnetwork_id
     sample: '{"insertId":"4q5w6e7r8t","jsonPayload":{"connection":{"src_ip":"10.128.0.33","src_port":49120,"dest_ip":"192.0.2.66","dest_port":4444,"protocol":6},"reporter":"SRC","disposition":"DROPPED","drop_reason":"FIREWALL_DENY","bytes_dropped":"360","packets_dropped":"6","throughput_inclusion":"EXCLUDED","start_time":"2026-11-12T10:31:10.004Z","end_time":"2026-11-12T10:31:14.700Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-c","vm_name":"batch-07"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-c","subnetwork_name":"batch-subnet","subnetwork_id":"1122334455667788990"}},"timestamp":"2026-11-12T10:31:16.010Z"}'
+  - type: Vpcflow
+    sourcetype: gcp_vpcflow
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"insertId":"ut8lbrffooxyw","jsonPayload":{"bytes_sent":"1776","connection":{"dest_ip":"198.51.100.15","dest_port":33478,"protocol":6,"src_ip":"198.51.100.25","src_port":5601},"dest_location":{"asn":15169,"continent":"America","country":"usa"},"end_time":"2019-06-14T03:45:37.301953198Z","packets_sent":"7","reporter":"SRC","rtt_msec":"36","src_instance":{"project_id":"my-sample-project","region":"us-east1","vm_name":"kibana","zone":"us-east1-b"},"src_vpc":{"project_id":"my-sample-project","subnetwork_name":"default","vpc_name":"default"},"start_time":"2019-06-14T03:45:37.186193305Z"},"logName":"projects/my-sample-project/logs/compute.googleapis.com%2Fvpc_flows","receiveTimestamp":"2019-06-14T03:50:10.845445834Z","resource":{"labels":{"location":"us-east1-b","project_id":"my-sample-project","subnetwork_id":"758019854043528829","subnetwork_name":"default"},"type":"gce_subnetwork"},"timestamp":"2019-06-14T03:50:10.845445834Z"}'
+    key:
+      - insertId
+      - jsonPayload.bytes_sent
+      - jsonPayload.connection.dest_ip
+      - jsonPayload.connection.dest_port
 cves:
   - id: CVE-2020-8903
     cvss: 7.8

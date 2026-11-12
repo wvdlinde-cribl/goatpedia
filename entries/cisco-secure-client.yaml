@@ -1,0 +1,67 @@
+id: cisco-secure-client
+name: Cisco Secure Client
+short: Client
+vendor: Cisco
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_secure_client
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Cisco Secure Client is logged by the Datadog integrations-core package cisco_secure_client. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_secure_client
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: cisco_secure_client/assets/logs/cisco-secure-client_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cisco_secure_client
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Secure Client events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cisco_secure_client and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Cisco Secure Client
+    sourcetype: cisco_secure_client
+    format: text
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: '<190>2025-12-05T10:51:16Z: %FTD-4-113035: Group Employee-Access User evelyn.baker IP 203.0.113.40 Session terminated: AnyConnect not enabled or invalid AnyConnect image on the device_123'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Cisco Secure Client events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_secure_client"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cisco_secure_client/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cisco_secure_client/assets/logs/cisco-secure-client_tests.yaml
+  - title: Pack Generator sample cisco_secure_client.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_secure_client.json

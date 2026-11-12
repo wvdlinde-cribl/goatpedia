@@ -1,0 +1,67 @@
+id: kuma
+name: Kuma
+short: Kuma
+vendor: Kuma
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - kuma
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Kuma is logged by the Datadog integrations-core package kuma. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: kuma
+    desc: 'Datadog integrations-core fixture, 9 events. Upstream: kuma/assets/logs/kuma_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: kuma
+  Sourcetypes: '1'
+  Fixture events: '9'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Kuma events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads kuma and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Kuma
+    sourcetype: kuma
+    format: text
+    desc: 9 fixture events in the samples pool (logtest).
+    sample: '[2025-06-26T21:29:21.535Z] - default 198.51.100.15(unknown)->198.51.100.25:6379(redis_kuma-demo_svc_6379) took 14004ms, sent 6195 bytes, received: 194 bytes'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Kuma events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "kuma"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core kuma/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/kuma/assets/logs/kuma_tests.yaml
+  - title: Pack Generator sample kuma.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kuma.json

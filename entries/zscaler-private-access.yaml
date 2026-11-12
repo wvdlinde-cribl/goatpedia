@@ -1,0 +1,71 @@
+id: zscaler-private-access
+name: Zscaler Private Access
+short: Access
+vendor: Zscaler
+category: swg
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - zscaler_private_access
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Zscaler Private Access is logged by the Datadog integrations-core package zscaler_private_access. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: zscaler_private_access
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: zscaler_private_access/assets/logs/zscaler-private-access_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: zscaler_private_access
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: json
+  Fields in the first fixture: User, ClientAuditUpdate, RequestID, ObjectID, EventType, AuditOperationType
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Zscaler Private Access events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries User, ClientAuditUpdate, RequestID, ObjectID, EventType, AuditOperationType. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads zscaler_private_access and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Zscaler Private Access
+    sourcetype: zscaler_private_access
+    format: json
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: '{"User":"user@example.com","ClientAuditUpdate":"0","RequestID":"b11bb11b-2233-bbc2-223bc223456b","ObjectID":"98765432100123457","EventType":"audit-logs","AuditOperationType":"Sign In","CustomerID":22345678901234570,"ModifiedBy":99887766554433220,"ObjectName":"finance.test.com","ObjectType":"Authentication","ModifiedTime":"2025-08-28T07:02:15.000Z","AuditNewValue":"{\"id\":\"98765432100123457\",\"name\":\"finance.test.com\",\"applicationId\":\"22312312312312301\",\"applicationPort\":\"8443\",\"applicationProtocol\":\"HTTPS\",\"certificateId...","CreationTime":"2025-08-28T07:02:15.000Z","AuditOldValue":""}'
+    key:
+      - User
+      - ClientAuditUpdate
+      - RequestID
+      - ObjectID
+cves: []
+detections:
+  - title: Zscaler Private Access events arriving
+    severity: low
+    signals:
+      - User
+      - ClientAuditUpdate
+      - RequestID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "zscaler_private_access"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core zscaler_private_access/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/zscaler_private_access/assets/logs/zscaler-private-access_tests.yaml
+  - title: Pack Generator sample zscaler_private_access.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zscaler_private_access.json

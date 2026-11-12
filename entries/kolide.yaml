@@ -1,0 +1,167 @@
+id: kolide
+name: Kolide
+short: Kolide
+vendor: Kolide
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - kolide
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Kolide is logged by the Elastic integrations package kolide. The Pack Generator samples pool holds fixture events for 9 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: kolide_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: kolide/data_stream/audit/_dev/test/pipeline/test-kolide-audit-pipeline.json'
+  - st: kolide_auth
+    desc: 'Elastic integrations fixture, 20 events. Upstream: kolide/data_stream/auth/_dev/test/pipeline/test-kolide-auth-pipeline.json'
+  - st: kolide_deprovisioned_person
+    desc: 'Elastic integrations fixture, 2 events. Upstream: kolide/data_stream/deprovisioned_person/_dev/test/pipeline/test-kolide-deprovisioned-person-pipeline.json'
+  - st: kolide_device
+    desc: 'Elastic integrations fixture, 7 events. Upstream: kolide/data_stream/device/_dev/test/pipeline/test-kolide-device-pipeline.json'
+  - st: kolide_issues
+    desc: 'Elastic integrations fixture, 11 events. Upstream: kolide/data_stream/issues/_dev/test/pipeline/test-kolide-issues-pipeline.json'
+  - st: kolide_osquery_result
+    desc: 'Elastic integrations fixture, 5 events. Upstream: kolide/data_stream/osquery_result/_dev/test/pipeline/test-kolide-osquery-result-s3-sample.json'
+  - st: kolide_osquery_status
+    desc: 'Elastic integrations fixture, 6 events. Upstream: kolide/data_stream/osquery_status/_dev/test/pipeline/test-kolide-osquery-status-s3-sample.json'
+  - st: kolide_people
+    desc: 'Elastic integrations fixture, 2 events. Upstream: kolide/data_stream/people/_dev/test/pipeline/test-kolide-people-pipeline.json'
+  - st: kolide_request
+    desc: 'Elastic integrations fixture, 7 events. Upstream: kolide/data_stream/request/_dev/test/pipeline/test-kolide-request-pipeline.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: kolide
+  Sourcetypes: '9'
+  Fixture events: '80'
+  Log format seen: json
+  Fields in the first fixture: id, timestamp, actor_name, description, actor_info.actor_name, actor_info.actor_email
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Kolide events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, timestamp, actor_name, description, actor_info.actor_name, actor_info.actor_email. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads kolide and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: kolide_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"id":"90000001","timestamp":"2026-06-04T19:10:55.090Z","actor_name":"Alice Johnson","description":"user ''user@example.com'' accepted invitation to Kolide","actor_info":{"actor_name":"Alice Johnson","actor_email":"user@example.com","actor_type":"User"}}'
+    key:
+      - id
+      - timestamp
+      - actor_name
+      - description
+  - type: Auth
+    sourcetype: kolide_auth
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"id":"id-543149772982012844324275333","timestamp":"2026-06-14T23:49:36.779Z","person_name":"E U","person_email":"user@example.com","person_info":{"identifier":"100001","link":"https://api.kolide.com/people/100001"},"device_info":{"identifier":"","link":null},"result":"Fail","initial_status":"unknown","ip_address":"203.0.113.8","country":"Example Country","city":"Example City","browser_name":"Chrome","browser_user_agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36","issues_displayed":[],"events":[{"timestamp":"2026-06-14T23:49:36.779Z","event_type":"sign_in_attempt","event_description":"SAML session started by user@example.com"},{"timestamp":"2026-06-14T23:49:51.614Z","event_type":"agent_download_request","event_description":"Downloaded package: linux-systemd-deb"}],"session_timestamp":"2026-06-14T23:49:36.914Z","sub_event_type":"sign_in_attempt","sub_event_description":"SAML session started by user@example.com"}'
+    key:
+      - id
+      - timestamp
+      - person_name
+      - person_email
+  - type: Deprovisioned Person
+    sourcetype: kolide_deprovisioned_person
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"861637","name":"Alice Johnson","email":"user@example.com","created_at":"2026-06-04T18:29:22.129Z","last_authenticated_at":"2024-06-15T12:00:00Z","has_registered_device":false,"api_url":"https://api.kolide.com/people/861637"}'
+    key:
+      - id
+      - name
+      - email
+      - created_at
+  - type: Device
+    sourcetype: kolide_device
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"id":"2000001","name":"example-ubuntu-01","registered_at":null,"last_authenticated_at":null,"last_seen_at":"2026-06-14T21:16:58.000Z","registered_owner_info":{"identifier":"","link":null},"operating_system":"Ubuntu 24.04.3 LTS (Noble Numbat)","hardware_model":"ExampleModel9","serial":"Default string","hardware_uuid":"89a1d5c1-2b3e-4f67-8a9b-0c1d2e3f4a5b","note":"Unused asset","auth_state":"Good","will_block_at":null,"product_image_url":"https://assets2.kolide.com/assets/inventory/devices/linux-929081eb.png","auth_configuration":null,"device_type":"Linux","form_factor":"computer"}'
+    key:
+      - id
+      - name
+      - registered_at
+      - last_authenticated_at
+  - type: Issues
+    sourcetype: kolide_issues
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"id":"500000010","issue_key":"check_target","issue_value":"/","title":"Disk Is Not Encrypted","value":{"path":"/","type":"ext4","device":"/dev/nvme0n1p2","de_type":"","check_target":"/","de_encrypted":"No","device_alias":"/dev/nvme0n1p2","de_encryption":"","zfs_encryption":"","check_target_type":"Mountpoint","fscrypt_encrypted":"No","fs_type_encryption":"","fscrypt_encryption":"","KOLIDE_CHECK_STATUS":"FAIL","cryptluks_encryption":""},"exempted":false,"resolved_at":null,"detected_at":"2026-06-14T20:31:58.869Z","blocks_device_at":null,"device_information":{"identifier":"2000001","link":"https://api.kolide.com/devices/2000001"},"check_information":{"identifier":"32","link":"https://api.kolide.com/checks/32"},"last_rechecked_at":"2026-06-14T20:31:58.000Z"}'
+    key:
+      - id
+      - issue_key
+      - issue_value
+      - title
+  - type: Osquery Result
+    sourcetype: kolide_osquery_result
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"snapshot":[{"address":"192.0.2.10","hostnames":"localhost"},{"address":"192.0.2.20","hostnames":"broadcasthost"}],"action":"snapshot","name":"pack:kolide_log_pipeline:test:etc_hosts","hostIdentifier":"00000000-0000-0000-0000-000000000001","calendarTime":"Tue Jul  7 18:21:44 2026 UTC","unixTime":1783448504,"epoch":1781800669,"counter":0,"numerics":false,"decorations":{"computer_name":"Test User''s MacBook Pro","hardware_model":"Mac16,8","hardware_serial":"TESTSERIAL0001","hardware_vendor":"Apple Inc.","hardware_version":"","hostname":"test-macbook-pro","local_hostname":"test-macbook-pro","uuid":"00000000-0000-0000-0000-000000000001"},"kolide_decorations":{"device_id":9000000,"device_display_name":"test-macbook-pro","remote_ip":"203.0.113.8","serial_number":"TESTSERIAL0001","hardware_uuid":"00000000-0000-0000-0000-000000000001","enrolled_at":"2026-06-18T16:37:49.943Z","device_registered_owner_id":9100000,"device_registered_owner_name":"Test User","device_registered_owner_email":"user@example.com","device_registered_at":"2026-07-02T14:39:42.576Z"},"request_id":"01KWYX2FE5SD1DJ2XMH96V19NT","type":"results_log"}'
+    key:
+      - snapshot[0].address
+      - snapshot[0].hostnames
+      - snapshot[1].address
+      - snapshot[1].hostnames
+  - type: Osquery Status
+    sourcetype: kolide_osquery_status
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"s":0,"f":"config.cpp","i":1337,"m":"Refreshing configuration state","h":"00000000-0000-0000-0000-000000000001","c":"Wed Jul  1 06:24:48 2026 UTC","u":1782887088,"kolide_decorations":{"device_id":9000000,"device_display_name":"test-macbook-pro","remote_ip":"203.0.113.40","serial_number":"TESTSERIAL0001","hardware_uuid":"00000000-0000-0000-0000-000000000001","enrolled_at":"2026-06-18T16:37:49.943Z","device_registered_owner_id":9100000,"device_registered_owner_name":"Test User","device_registered_owner_email":"user@example.com","device_registered_at":"2026-06-18T16:38:12.195Z"},"request_id":"01KWE5MJK0MYXQMW1XAB6QG6AP","type":"status_log"}'
+    key:
+      - s
+      - f
+      - i
+      - m
+  - type: People
+    sourcetype: kolide_people
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"861637","name":"Alice Johnson","email":"user@example.com","created_at":"2024-01-10T08:00:00Z","last_authenticated_at":"2024-06-15T12:00:00Z","has_registered_device":true,"usernames":["user@example.com"]}'
+    key:
+      - id
+      - name
+      - email
+      - created_at
+  - type: Request
+    sourcetype: kolide_request
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"_kolide_request_type":"exemption","id":"exemption-request-001","status":"open","requester_message":"Need temporary access for incident response","requested_at":"2024-03-11T21:28:17Z","device_information":{"identifier":"200001","link":"https://api.example.com/devices/200001"},"requester_information":{"identifier":"100001","link":"https://api.example.com/people/100001"},"issues":[{"identifier":"9999","link":"https://api.example.com/issues/9999"}]}'
+    key:
+      - _kolide_request_type
+      - id
+      - status
+      - requester_message
+cves: []
+detections:
+  - title: Kolide events arriving
+    severity: low
+    signals:
+      - id
+      - timestamp
+      - actor_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "kolide_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations kolide/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/kolide/data_stream/audit/_dev/test/pipeline/test-kolide-audit-pipeline.json
+  - title: Pack Generator sample kolide_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kolide_audit.json

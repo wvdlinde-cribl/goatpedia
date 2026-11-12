@@ -1,0 +1,71 @@
+id: sym
+name: Sym
+short: Sym
+vendor: Sym
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sym
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Sym is logged by the Datadog integrations-extras package sym. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sym
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: sym/assets/logs/sym_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: sym
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: actor.identity.service, actor.identity.external_id, actor.identity.email, actor.name, actor.user, actor.username
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sym events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries actor.identity.service, actor.identity.external_id, actor.identity.email, actor.name, actor.user, actor.username. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads sym and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Sym
+    sourcetype: sym
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"actor":{"identity":{"service":"sym","external_id":"cloud","email":"user@example.com"},"name":"Ari Tang","user":"sym:user:normal:ba76b21a-6fa9-473f-af93-07d441c5d4da:latest","username":"user@example.com"},"service":"sym","meta":{"schema_version":7},"run":{"parent":"sym:run:flow_selection:1.0.0:88827c22-c38a-4891-9e69-3f23ccdeb726","actors":{"request":{"identity":{"user_id":"U01CAEHPK0E","service":"slack","external_id":"T0106DCL4BB"},"name":"Ari Tang","user":"sym:user:normal:ba76b21a-6fa9-473f-af93-07d441c5d4da:latest","username":"user@example.com"},"approve":{"identity":{"user_id":"U01CAEHPK0E","service":"slack","external_id":"T0106DCL4BB"},"name":"Ari Tang","user":"sym:user:normal:ba76b21a-6fa9-473f-af93-07d441c5d4da:latest","username":"user@example.com"},"prompt":{"identity":{"service":"sym","external_id":"cloud","email":"user@example.com"},"name":"Ari Tang","user":"sym:user:normal:ba76b21a-6fa9-473f-af93-07d441c5d4da:latest","username":"user@example.com"},"escalate":{"identity":{"service":"sym","external_id":"cloud","email":"user@example.com"},"name":"Ari Tang","user":"sym:user:normal:ba76b21a-6fa9-473f-af93-07d441c5d4da:latest","username":"user@example.com"}},"srn":"sym:run:iam_access:latest:c0754fef-465d-46f9-9a60-e0b3390a4cf2","flow":"sym:flow:iam_access:155.0.0:83acf82f-ebd7-4449-94b1-4374e2f17900"},"id":"16e2b5b0-33d0-4da3-a948-19031c9aab80","state":{"status":"completed"},"event":{"template":"sym:template:approval:1.0.0","channel":"internal","type":"escalate","srn":"sym:event-spec:approval:1.0.0:escalate","timestamp":"2023-07-26T16:05:06.504423"},"fields":{"duration":600,"reason":"asdfsdf","target_id":"e26d0777-c108-47c1-97aa-f703e311bf5c","target":{"settings":{"iam_group":"Sym-Staging-IAM-Strategy-Group"},"name":"sym-staging-iam-strategy-group","label":"IAM Test Target","type":"aws_iam_group","srn":"sym:access_target:aws_iam_group:sym-staging-iam-strategy-group:3.0.0:e26d0777-c108-47c1-97aa-f703e311bf5c"}},"type":"event"}'
+    key:
+      - actor.identity.service
+      - actor.identity.external_id
+      - actor.identity.email
+      - actor.name
+cves: []
+detections:
+  - title: Sym events arriving
+    severity: low
+    signals:
+      - actor.identity.service
+      - actor.identity.external_id
+      - actor.identity.email
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sym"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras sym/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/sym/assets/logs/sym_tests.yaml
+  - title: Pack Generator sample sym.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sym.json

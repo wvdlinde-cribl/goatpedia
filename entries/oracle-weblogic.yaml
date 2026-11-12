@@ -1,0 +1,67 @@
+id: oracle-weblogic
+name: Oracle Weblogic
+short: Weblogic
+vendor: Oracle
+category: db
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - oracle_weblogic
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Oracle Weblogic is logged by the Elastic integrations package oracle_weblogic. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: oracle_weblogic_access
+    desc: 'Elastic integrations fixture, 7 events. Upstream: oracle_weblogic/data_stream/access/_dev/test/pipeline/test-access.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: oracle_weblogic
+  Sourcetypes: '1'
+  Fixture events: '7'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Oracle Weblogic events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads oracle_weblogic and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Access
+    sourcetype: oracle_weblogic_access
+    format: text
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: 203.0.113.8 - - [26/Mar/2022:23:40:05 +0530] "GET /medrec/javax.faces.resource/welcome.jpg.xhtml?ln=img&amp;con=bayland HTTP/1.1" 200 844071
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Oracle Weblogic events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "oracle_weblogic_access"'
+optimizations: []
+references:
+  - title: elastic/integrations oracle_weblogic/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/oracle_weblogic/data_stream/access/_dev/test/pipeline/test-access.log
+  - title: Pack Generator sample oracle_weblogic_access.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/oracle_weblogic_access.json

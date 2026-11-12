@@ -1,0 +1,95 @@
+id: microsoft-sentinel
+name: Microsoft Sentinel
+short: Sentinel
+vendor: Microsoft
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_sentinel
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Microsoft Sentinel is logged by the Elastic integrations package microsoft_sentinel. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_sentinel
+    desc: 'Elastic integrations fixture, 1 events. Upstream: microsoft_sentinel/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: microsoft_sentinel_alert
+    desc: 'Elastic integrations fixture, 2 events. Upstream: microsoft_sentinel/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: microsoft_sentinel_incident
+    desc: 'Elastic integrations fixture, 1 events. Upstream: microsoft_sentinel/data_stream/incident/_dev/test/pipeline/test-incident.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_sentinel
+  Sourcetypes: '3'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: TimeGenerated, DisplayName, AlertName, AlertSeverity, Description, ProviderName
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Sentinel events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries TimeGenerated, DisplayName, AlertName, AlertSeverity, Description, ProviderName. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_sentinel and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: microsoft_sentinel
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"TimeGenerated":"2024-09-26T05:23:30.5594143Z","DisplayName":"Incident for Entity Type account with Entity ID: 302.0 and Tags: [\"MDR - Customer Escalation\"]","AlertName":"Incident for Entity Type account with Entity ID: 302.0 and Tags: [\"MDR - Customer Escalation\"]","AlertSeverity":"High","Description":"Incident has been created for Entity AWS:44512121212/us-east-1/ec2:i-42f44fdfvdf5d of type account with Entity ID: 302.0 and Tags: [\"MDR - Customer Escalatio...","ProviderName":"ASI Scheduled Alerts","VendorName":"Microsoft","VendorOriginalId":"jnfjrdnkr-7cbd-5454-9c61-455cc9818f50","SystemAlertId":"jnfjrdnkr-7cbd-5454-9c61-455cc9818f50","AlertType":"24d005cc-4dd7-437d-82fd-fnddg875rgr-dd8c-41e7-b686-fd5adbbd0aee","IsIncident":0,"StartTime":"2024-09-26T05:18:17.9124607Z","EndTime":"2024-09-26T05:18:17.9124607Z","ProcessingEndTime":"2024-09-26T05:23:30.0436295Z","ExtendedProperties":"{}","Entities":"[{\"$id\":\"2\",\"Name\":\"AWS:44512121212/us-east-1/ec2:i-42f44fdfvdf5d\",\"Type\":\"account\"}]","SourceSystem":"Detection","WorkspaceSubscriptionId":"55fd55dfv-527c-4ffe-b7d5-444f4vdvvf4","WorkspaceResourceGroup":"test","ProductName":"Azure Sentinel","ProductComponentName":"Scheduled Alerts","Status":"New","Tactics":"Unknown","_ItemId":"7c0162e6-7bc7-11ef-ac1b-7c1e524a21ba","_Internal_WorkspaceResourceId":"/subscriptions/e55fd55dfv-527c-4ffe-b7d5-444f4vdvvf4/resourcegroups/test/providers/microsoft.operationalinsights/workspaces/example","Type":"SecurityAlert","TenantId":"55fd4svd5-45a7-437d-82fd-54sdv44svf"}'
+    key:
+      - TimeGenerated
+      - DisplayName
+      - AlertName
+      - AlertSeverity
+  - type: Alert
+    sourcetype: microsoft_sentinel_alert
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"/subscriptions/abcdef1-111111-4647-9105-6339bfdb4e6a/resourceGroups/myRG/providers/Microsoft.OperationalInsights/workspaces/myWorkspace/providers/Microsoft.S...","name":"abcdef-6fde-4ab7-a093-d09f7b75c58c","type":"Microsoft.SecurityInsights/Entities","kind":"SecurityAlert","properties":{"systemAlertId":"abcdef-6fde-4ab7-a093-d09f7b75c58c","tactics":["abc"],"alertDisplayName":"myAlert","confidenceLevel":"Unknown","severity":"Low","vendorName":"Microsoft","productName":"AzureSecurityCenter","alertType":"myAlert","processingEndTime":"2020-07-20T18:21:53.6158361Z","status":"New","endTimeUtc":"2020-07-21T18:21:53.6158361Z","startTimeUtc":"2020-07-20T18:21:53.6158361Z","timeGenerated":"2020-07-20T18:21:53.6158361Z","resourceIdentifiers":[{"type":"LogAnalytics","workspaceId":"abcdefg-985d-4e4e-8e91-fb3466cd0e5b","subscriptionId":"a123456-4d29-4647-9105-6339bfdb4e6a","resourceGroup":"myRG"}],"additionalData":{"AlertMessageEnqueueTime":"2020-07-20T18:21:57.304Z"},"friendlyName":"myAlert"},"systemData":{"createdAt":"2020-07-20T18:21:57.304Z","createdBy":"admin","createdByType":"User","lastModifiedAt":"2020-07-20T18:21:57.304Z"}}'
+    key:
+      - id
+      - name
+      - type
+      - kind
+  - type: Incident
+    sourcetype: microsoft_sentinel_incident
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"/subscriptions/d0cfe6b2-9ac0-4464-9919-dccaee2e48c0/resourceGroups/myRg/providers/Microsoft.OperationalInsights/workspaces/myWorkspace/providers/Microsoft.Se...","name":"aaaaaaa-5cd7-4139-a149-9f2736ff2ab5","type":"Microsoft.SecurityInsights/incidents","etag":"\"bbbbbbbb-0000-0000-0000-5c37296e0000\"","properties":{"lastModifiedTimeUtc":"2019-01-01T13:15:30Z","createdTimeUtc":"2019-01-01T13:15:30Z","lastActivityTimeUtc":"2019-01-01T13:05:30Z","firstActivityTimeUtc":"2019-01-01T13:00:30Z","description":"Thisisademoincident","title":"Myincident","owner":{"objectId":"abcdefghij-040d-4a46-9e2b-91c2941bfa70","email":"user@example.com","userPrincipalName":"user@example.com","assignedTo":"johndoe"},"severity":"High","classification":"FalsePositive","classificationComment":"Notamaliciousactivity","classificationReason":"InaccurateData","status":"Closed","incidentUrl":"https://portal.azure.com/#asset/Microsoft_Azure_Security_Insights/Incident/subscriptions/d0cfe6b2-9ac0-4464-9919-dccaee2e48c0/resourceGroups/myRg/providers/M...","incidentNumber":3177,"labels":[],"providerName":"AzureSentinel","providerIncidentId":"3177","relatedAnalyticRuleIds":["/subscriptions/abc12345678-9ac0-4464-9919-dccaee2e48c0/resourceGroups/myRg/providers/Microsoft.OperationalInsights/workspaces/myWorkspace/providers/Microsoft..."],"additionalData":{"alertsCount":0,"bookmarksCount":0,"commentsCount":3,"alertProductNames":[],"tactics":["InitialAccess","Persistence"]}}}'
+    key:
+      - id
+      - name
+      - type
+      - etag
+cves: []
+detections:
+  - title: Microsoft Sentinel events arriving
+    severity: low
+    signals:
+      - TimeGenerated
+      - DisplayName
+      - AlertName
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_sentinel"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_sentinel/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_sentinel/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample microsoft_sentinel.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_sentinel.json

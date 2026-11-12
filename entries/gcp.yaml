@@ -1,0 +1,83 @@
+id: gcp
+name: GCP
+short: GCP
+vendor: GCP
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - gcp
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: GCP is logged by the Elastic integrations package gcp. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: gcp_dns
+    desc: 'Elastic integrations fixture, 20 events. Upstream: gcp/data_stream/dns/_dev/test/pipeline/test-dns.log'
+  - st: gcp_loadbalancing_logs
+    desc: 'Elastic integrations fixture, 3 events. Upstream: gcp/data_stream/loadbalancing_logs/_dev/test/pipeline/test-load-balancer.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: gcp
+  Sourcetypes: '2'
+  Fixture events: '23'
+  Log format seen: json
+  Fields in the first fixture: insertId, jsonPayload.authAnswer, jsonPayload.protocol, jsonPayload.queryName, jsonPayload.queryType, jsonPayload.rdata
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: GCP events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries insertId, jsonPayload.authAnswer, jsonPayload.protocol, jsonPayload.queryName, jsonPayload.queryType, jsonPayload.rdata. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads gcp and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: DNS
+    sourcetype: gcp_dns
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"insertId":"vwroyze8pg7y","jsonPayload":{"authAnswer":true,"protocol":"UDP","queryName":"elastic.co.","queryType":"A","rdata":"elastic.co.\t300\tIN\ta\t127.0.0.1","responseCode":"NOERROR","serverLatency":14,"sourceIP":"203.0.113.40","sourceNetwork":"default","vmInstanceId":8340998530665147,"vmInstanceIdString":"8340998530665147","vmInstanceName":"694119234537.instance","vmProjectId":"project","vmZoneName":"europe-west2-a"},"logName":"projects/project/logs/dns.googleapis.com%2Fdns_queries","receiveTimestamp":"2022-01-23T09:16:05.502805637Z","resource":{"labels":{"location":"europe-west2","project_id":"project","source_type":"gce-vm","target_name":"","target_type":"external"},"type":"dns_query"},"severity":"INFO","timestamp":"2022-01-23T09:16:05.341873447Z"}'
+    key:
+      - insertId
+      - jsonPayload.authAnswer
+      - jsonPayload.protocol
+      - jsonPayload.queryName
+  - type: Loadbalancing Logs
+    sourcetype: gcp_loadbalancing_logs
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"insertId":"1oek5rg3l3fxj7","jsonPayload":{"@type":"type.googleapis.com/google.cloud.loadbalancin,g.type.LoadBalancerLogEntry","cacheId":"SFO-fbae48ad","statusDetails":"response_from_cache"},"httpRequest":{"requestMethod":"GET","requestUrl":"http://192.0.2.10/static/us/three-cats.jpg","requestSize":"577","status":304,"responseSize":"157","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36","remoteIp":"192.0.2.20","cacheHit":true,"cacheLookup":true},"resource":{"type":"http_load_balancer","labels":{"zone":"global","url_map_name":"URL_MAP_NAME","forwarding_rule_name":"FORWARDING_RULE_NAME","target_proxy_name":"TARGET_PROXY_NAME","backend_service_name":"","project_id":"PROJECT_ID"}},"timestamp":"2020-06-08T23:41:30.078651Z","severity":"INFO","logName":"projects/PROJECT_ID/logs/requests","trace":"projects/PROJECT_ID/traces/241d69833e64b3bf83fabac8c873d992","receiveTimestamp":"2020-06-08T23:41:30.588272510Z","spanId":"7b6537d3672e08e1"}'
+    key:
+      - insertId
+      - jsonPayload.@type
+      - jsonPayload.cacheId
+      - jsonPayload.statusDetails
+cves: []
+detections:
+  - title: GCP events arriving
+    severity: low
+    signals:
+      - insertId
+      - jsonPayload.authAnswer
+      - jsonPayload.protocol
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "gcp_dns"'
+optimizations: []
+references:
+  - title: elastic/integrations gcp/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/gcp/data_stream/dns/_dev/test/pipeline/test-dns.log
+  - title: Pack Generator sample gcp_dns.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/gcp_dns.json

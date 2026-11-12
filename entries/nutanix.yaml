@@ -1,0 +1,71 @@
+id: nutanix
+name: Nutanix
+short: Nutanix
+vendor: Nutanix
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - nutanix
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Nutanix is logged by the Splunk Connect for Syslog package nutanix. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: nutanix_syslog
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_nutanix.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: nutanix
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: kv
+  Fields in the first fixture: header, node, type, msg, arch, syscall
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Nutanix events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, node, type, msg, arch, syscall. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads nutanix and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Nutanix Syslog
+    sourcetype: nutanix_syslog
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<134>2026-06-15T13:45:07 NTNX-sc4s-lab-01-CVM audispd[00000]: node=ntnx-sc4s-lab-01-cvm type=SYSCALL msg=audit(1651176975.464:2828209): arch=c000003e syscall=2 success=yes exit=6 a0=7f2955ac932e a1=2 a2=3e8 a3=3 items=1 ppid=29680 pid=4684 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=964698 comm="sshd" exe="/usr/sbin/sshd" subj=system_u:system_r:sshd_t:s0-s0:c0.c1023_jnjnhcdebcbdcbhdbcbjkn4'
+    key:
+      - node
+      - type
+      - msg
+      - arch
+cves: []
+detections:
+  - title: Nutanix events arriving
+    severity: low
+    signals:
+      - header
+      - node
+      - type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "nutanix_syslog"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_nutanix.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_nutanix.py
+  - title: Pack Generator sample nutanix_syslog.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nutanix_syslog.json

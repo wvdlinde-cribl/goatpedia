@@ -1,0 +1,67 @@
+id: singlestore
+name: Singlestore
+short: Singlestore
+vendor: Singlestore
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - singlestore
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Singlestore is logged by the Datadog integrations-core package singlestore. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: singlestore
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: singlestore/assets/logs/singlestore_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: singlestore
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Singlestore events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads singlestore and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Singlestore
+    sourcetype: singlestore
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '2021-09-13 09:25:04.266   INFO: Query information_schema.''SELECT WITH(binary_serialization=1, binary_serialization_internal=1) `remote_0`.`NODE_ID` AS `NODE_ID`, `remote_0`.`INTERFACE` AS `INTERFACE`, `remote_0`.`RECEIVED_CUMULATIVE_B` AS `RECEIVED_CUMULATIVE_B`, `remote_0`.`TRANSMITTED_CUMULATIVE_B` AS `TRANSMITTED_CUMULATIVE_B` FROM `_MV_SYSINFO_NET` as `remote_0`  /*!90623 OPTION(NO_QUERY_REWRITE=1, INTERPRETER_MODE=INTERPRET_FIRST)*/'' submitted 222 milliseconds ago, queued for 16 milliseconds, compiled asynchronously in 206 milliseconds'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Singlestore events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "singlestore"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core singlestore/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/singlestore/assets/logs/singlestore_tests.yaml
+  - title: Pack Generator sample singlestore.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/singlestore.json

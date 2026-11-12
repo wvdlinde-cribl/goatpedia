@@ -1,0 +1,71 @@
+id: forcepoint-security-service-edge
+name: Forcepoint Security Service Edge
+short: Edge
+vendor: Forcepoint
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - forcepoint_security_service_edge
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Forcepoint Security Service Edge is logged by the Datadog integrations-core package forcepoint_security_service_edge. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: forcepoint_security_service_edge
+    desc: 'Datadog integrations-core fixture, 7 events. Upstream: forcepoint_security_service_edge/assets/logs/forcepoint-security-service-edge_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: forcepoint_security_service_edge
+  Sourcetypes: '1'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: owner, dlpmatchlocations, classifylabels, attachments, originalfolder, filelink
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Forcepoint Security Service Edge events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries owner, dlpmatchlocations, classifylabels, attachments, originalfolder, filelink. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads forcepoint_security_service_edge and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Forcepoint Security Service Edge
+    sourcetype: forcepoint_security_service_edge
+    format: json
+    desc: 7 fixture events in the samples pool (logtest).
+    sample: '{"owner":"user@example.com","dlpmatchlocations":"","classifylabels":"","attachments":"","originalfolder":"","filelink":"https://file_123.com","patterns":"Encypted File (IsLocked: True), Document and PDF Files (FileMatchClassification: pdf)","originalpatterns":"","enterprisename":"","createdtime":"27 Dec 2024 06:18:35","filename":"file_123.pdf","folder":"/My Drive","modifiedtime":"26 Dec 2024 11:09:12","size":"233926","application":"Cloud Apps","policyid":"","organization":"","time":"27 Dec 2024 07:19:17","sharedwith":"","syslogheader":"<110>1 2024-12-27T07:19:17.887066Z api.hostserver.com NILVALUE NILVALUE cloudsummary","status":"Internal, Shared, DLP","fileid":"1fdf5e4f8e4f8er4e8re7e"}'
+    key:
+      - owner
+      - dlpmatchlocations
+      - classifylabels
+      - attachments
+cves: []
+detections:
+  - title: Forcepoint Security Service Edge events arriving
+    severity: low
+    signals:
+      - owner
+      - dlpmatchlocations
+      - classifylabels
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "forcepoint_security_service_edge"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core forcepoint_security_service_edge/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/forcepoint_security_service_edge/assets/logs/forcepoint-security-service-edge_tests.yaml
+  - title: Pack Generator sample forcepoint_security_service_edge.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/forcepoint_security_service_edge.json

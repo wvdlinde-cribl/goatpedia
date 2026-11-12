@@ -1,0 +1,67 @@
+id: argocd
+name: Argocd
+short: Argocd
+vendor: Argocd
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - argocd
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Argocd is logged by the Datadog integrations-core package argocd. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: argocd
+    desc: 'Datadog integrations-core fixture, 7 events. Upstream: argocd/assets/logs/argocd_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: argocd
+  Sourcetypes: '1'
+  Fixture events: '7'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Argocd events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads argocd and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Argocd
+    sourcetype: argocd
+    format: text
+    desc: 7 fixture events in the samples pool (logtest).
+    sample: 'E1219 01:18:53.299220       1 reflector.go:138] pkg/mod/k8s.io/client-go@v0.24.2/tools/cache/reflector.go:167: Failed to watch *v1.ConfigMap: failed to list *v1.ConfigMap: Get "https://203.0.113.8:443/api/v1/namespaces/default/configmaps?labelSelector=app.kubernetes.io%2Fpart-of%3Dargocd&resourceVersion=26616193": dial tcp 203.0.113.40:443: i/o timeout'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Argocd events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "argocd"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core argocd/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/argocd/assets/logs/argocd_tests.yaml
+  - title: Pack Generator sample argocd.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/argocd.json

@@ -1,0 +1,143 @@
+id: macos
+name: Macos
+short: Macos
+vendor: Macos
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - macos
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Macos is logged by the Elastic integrations package macos. The Pack Generator samples pool holds fixture events for 7 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: macos_advanced_monitoring
+    desc: 'Elastic integrations fixture, 2 events. Upstream: macos/data_stream/advanced_monitoring/_dev/test/pipeline/test-advanced-monitoring.log'
+  - st: macos_authentication
+    desc: 'Elastic integrations fixture, 3 events. Upstream: macos/data_stream/authentication/_dev/test/pipeline/test-authentication.log'
+  - st: macos_file_read_write
+    desc: 'Elastic integrations fixture, 2 events. Upstream: macos/data_stream/file_read_write/_dev/test/pipeline/test-file.log'
+  - st: macos_network_activity
+    desc: 'Elastic integrations fixture, 4 events. Upstream: macos/data_stream/network_activity/_dev/test/pipeline/test-network-activity.log'
+  - st: macos_process_execution_monitoring
+    desc: 'Elastic integrations fixture, 2 events. Upstream: macos/data_stream/process_execution_monitoring/_dev/test/pipeline/test-process-execution-monitoring.log'
+  - st: macos_system_change
+    desc: 'Elastic integrations fixture, 8 events. Upstream: macos/data_stream/system_change/_dev/test/pipeline/test-system-change.log'
+  - st: macos_user_and_account_management
+    desc: 'Elastic integrations fixture, 2 events. Upstream: macos/data_stream/user_and_account_management/_dev/test/pipeline/test-user-and-account-management.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: macos
+  Sourcetypes: '7'
+  Fixture events: '23'
+  Log format seen: json
+  Fields in the first fixture: timezoneName, messageType, eventType, source, formatString, userID
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Macos events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timezoneName, messageType, eventType, source, formatString, userID. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads macos and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Advanced Monitoring
+    sourcetype: macos_advanced_monitoring
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"[%p] activating connection: mach=%{bool}d listener=%{bool}d peer=%{bool}d name=%{public}s","userID":0,"activityIdentifier":0,"subsystem":"com.apple.xpc","category":"connection","threadID":12345,"senderImageUUID":"ABCE7E08-7D29-3BE0-AF60-F0DC752E951C","backtrace":{"frames":[{"imageOffset":43862,"imageUUID":"ABCE7E08-7D29-3BE0-AF60-F0DC752E951C"}]},"bootUUID":"218031E6-E47F-4A77-B7FC-5A57B049F4BC","processImagePath":"/usr/libexec/launchd","senderImagePath":"/usr/lib/system/libxpc.dylib","timestamp":"2025-12-19 15:18:32.238726+0530","machTimestamp":454777460134003,"eventMessage":"[0x7fd20cffa690] activating connection: mach=true listener=false peer=false name=com.apple.xpc.launchd","processImageUUID":"04C516B8-C8E5-30EF-AC49-1631528F5645","traceID":35866893965594628,"processID":1,"senderProgramCounter":43862,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: Authentication
+    sourcetype: macos_authentication
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"%s | ApplicationManager: Checked in app : %@","userID":501,"activityIdentifier":0,"subsystem":"com.apple.loginwindow.logging","category":"Standard","threadID":13692,"senderImageUUID":"2F16B6B6-41B5-34D4-88A1-06CAFCE952EF","backtrace":{"frames":[{"imageOffset":109999,"imageUUID":"2F16B6B6-41B5-34D4-88A1-06CAFCE952EF"}]},"bootUUID":"","processImagePath":"/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow","senderImagePath":"/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow","timestamp":"2025-10-09 12:02:22.345217+0530","eventMessage":"-[SessionLogoutManager buildSessionDictionary] |      final sessionDictionary:{\n    DirectLogoutType = 5;\n    GroupID = 248;\n    GuestAccount = 0;\n    HomeDi...","processImageUUID":"2F16B6B6-41B5-34D4-88A1-06CAFCE952EF","traceID":3714562696282116,"processID":1062,"senderProgramCounter":109999,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: File Read Write
+    sourcetype: macos_file_read_write
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"open(%{public}s, 0x%x, 0x%x)","userID":0,"activityIdentifier":0,"subsystem":"com.apple.sandbox","category":"filesystem","threadID":319557,"senderImageUUID":"CF2A3610-D17B-3407-835F-2402AF4DF167","backtrace":{"frames":[{"imageOffset":220631,"imageUUID":"CF2A3610-D17B-3407-835F-2402AF4DF167"}]},"bootUUID":"218031E6-E47F-4A77-B7FC-5A57B049F4BC","processImagePath":"/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder","senderImagePath":"/System/Library/Frameworks/Foundation.framework/Versions/A/Foundation","timestamp":"2025-10-06 11:53:43.295485+0530","machTimestamp":670044832721072,"eventMessage":"open(/Users/test/Documents/report.pdf, 0x0, 0x1b6)","processImageUUID":"CF2A3610-D17B-3407-835F-2402AF4DF167","traceID":1622535598968836,"processID":1152,"senderProgramCounter":220631,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: Network Activity
+    sourcetype: macos_network_activity
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"[C%u %{public,uuid_t}.16P %{public}s %{public}@] cancelled\n\t[C%{public}s %{public,uuid_t}.16P %{public}s<->%{public}s]\n\tConnected Path: %{public}@\n\tPrivacy S...","userID":242,"activityIdentifier":0,"subsystem":"com.apple.network","category":"connection","threadID":1132574,"senderImageUUID":"E481CDB0-9C0C-3BBC-87FA-006C66D3223E","backtrace":{"frames":[{"imageOffset":9418645,"imageUUID":"E481CDB0-9C0C-3BBC-87FA-006C66D3223E"}]},"bootUUID":"218031E6-E47F-4A77-B7FC-5A57B049F4BC","processImagePath":"/usr/libexec/nsurlsessiond","senderImagePath":"/System/Library/Frameworks/Network.framework/Versions/A/Network","timestamp":"2025-10-15 16:21:27.886344+0530","machTimestamp":739118933716566,"eventMessage":"[C348 90B95967-CD66-4EDD-AD9E-5BA99B3B1C62 Hostname#ea5d1e75:443 quic-connection, bundle id: com.apple.mobileassetd.client.auto-asset-client, url hash: 69b0e...","processImageUUID":"5CF1C24C-80AC-35A6-A065-986216BBD0B2","traceID":589370805553725400,"processID":198,"senderProgramCounter":9418645,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: Process Execution Monitoring
+    sourcetype: macos_process_execution_monitoring
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"code signing internal problem: unexpected error from xpc: %s","userID":501,"activityIdentifier":0,"subsystem":"com.apple.securityd","category":"SecError","threadID":199743,"senderImageUUID":"AF38D16B-954C-3A9E-B0F7-5100DB3D566C","backtrace":{"frames":[{"imageOffset":2219233,"imageUUID":"AF38D16B-954C-3A9E-B0F7-5100DB3D566C"}]},"bootUUID":"AB156DC0-B7BC-4860-9E5C-A34A8BBE8699","processImagePath":"/System/Library/Frameworks/StoreKit.framework/Support/storekitagent","senderImagePath":"/System/Library/Frameworks/Security.framework/Versions/A/Security","timestamp":"2026-01-13 17:58:13.140307+0530","machTimestamp":82458117633560,"eventMessage":"code signing internal problem: unexpected error from xpc: <dictionary: 0x7ff8593dcce0> { count = 1, transaction: 0, voucher = 0x0, contents =\n\t\"XPCErrorDescr...","processImageUUID":"63A2B64B-11CA-3ABA-94D7-3916A3BD8D08","traceID":232616665735757820,"processID":552,"senderProgramCounter":2219233,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: System Change
+    sourcetype: macos_system_change
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"Evaluated system policy for %{public}@ %{public}@","userID":0,"activityIdentifier":0,"subsystem":"com.apple.systempolicy","category":"default","threadID":28456,"senderImageUUID":"A1B2C3D4-E5F6-7890-ABCD-EF1234567890","backtrace":{"frames":[{"imageOffset":12345,"imageUUID":"A1B2C3D4-E5F6-7890-ABCD-EF1234567890"}]},"bootUUID":"218031E6-E47F-4A77-B7FC-5A57B049F4BC","processImagePath":"/usr/libexec/syspolicyd","senderImagePath":"/usr/libexec/syspolicyd","timestamp":"2025-10-13 15:45:56.155816+0530","machTimestamp":725858385613246,"eventMessage":"Evaluated system policy for application: /Applications/Safari.app allowed","processImageUUID":"CD58B635-1F96-38BD-BF3B-DBA7CA293E28","traceID":1202012843394990000,"processID":200,"senderProgramCounter":12345,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+  - type: User And Account Management
+    sourcetype: macos_user_and_account_management
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"timezoneName":"","messageType":"Default","eventType":"logEvent","source":null,"formatString":"SecureTokenStatus users: admin %llu, admin w/SecureToken %llu, admin w/o SecureToken %llu, standard %llu, standard w/SecureToken %llu, standard w/o SecureTok...","userID":0,"activityIdentifier":80,"subsystem":"com.apple.opendirectoryd","category":"auth","threadID":3864,"senderImageUUID":"B327C6FB-1480-39ED-B23A-F3D283CBFA1E","backtrace":{"frames":[{"imageOffset":49542,"imageUUID":"B327C6FB-1480-39ED-B23A-F3D283CBFA1E"}]},"bootUUID":"218031E6-E47F-4A77-B7FC-5A57B049F4BC","processImagePath":"/usr/libexec/opendirectoryd","senderImagePath":"/System/Library/OpenDirectory/Modules/PlistFile.bundle/Contents/MacOS/PlistFile","timestamp":"2025-09-25 23:31:36.868722-0700","machTimestamp":131807906844,"eventMessage":"SecureTokenStatus users: admin 0, admin w/SecureToken 0, admin w/o SecureToken 0, standard 0, standard w/SecureToken 0, standard w/o SecureToken 0","processImageUUID":"D8FEDD38-55EF-31D4-9A85-CC8ADF519F32","traceID":1597384271003652,"processID":66,"senderProgramCounter":49542,"parentActivityIdentifier":0}'
+    key:
+      - timezoneName
+      - messageType
+      - eventType
+      - source
+cves: []
+detections:
+  - title: Macos events arriving
+    severity: low
+    signals:
+      - timezoneName
+      - messageType
+      - eventType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "macos_advanced_monitoring"'
+optimizations: []
+references:
+  - title: elastic/integrations macos/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/macos/data_stream/advanced_monitoring/_dev/test/pipeline/test-advanced-monitoring.log
+  - title: Pack Generator sample macos_advanced_monitoring.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/macos_advanced_monitoring.json

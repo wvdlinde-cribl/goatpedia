@@ -32,6 +32,10 @@ sourcetypes:
     desc: Splunk Add-on for NGINX access log sourcetype (combined)
   - st: nginx:plus:error
     desc: Splunk Add-on for NGINX error log sourcetype
+  - st: nginx_error
+    desc: 'Elastic integrations fixture, 6 events. Upstream: nginx/data_stream/error/_dev/test/pipeline/test-error-raw.log'
+  - st: nginx_plus_access
+    desc: 'Splunk attack_data fixture, 15 events. Upstream: datasets/attack_techniques/T1190/citrix/nginx_kv_citrixbleed2_startwebview.log'
 facts:
   First released: 2004 (Igor Sysoev); NGINX Plus 2013; acquired by F5 in 2019
   Current version: Open Source 1.31.7 mainline / 1.30.6 stable (November 2026)
@@ -149,6 +153,24 @@ logs:
       - tid
       - connection_id
     sample: '2026/11/12 02:14:22 [error] 2104#2104: *1834 open() "/usr/share/nginx/html/.env" failed (2: No such file or directory), client: 203.0.113.45, server: www.example.com, request: "GET /.env HTTP/1.1", host: "www.example.com"'
+  - type: Error
+    sourcetype: nginx_error
+    format: text
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '2016/10/25 14:49:34 [error] 54053#0: *1 open() "/usr/local/Cellar/nginx/1.10.2_1/html/favicon.ico" failed (2: No such file or directory), client: 203.0.113.40, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "localhost:8080", referrer: "http://localhost:8080/"'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Nginx Plus Access
+    sourcetype: nginx_plus_access
+    format: kv
+    desc: 15 fixture events in the samples pool (attack_data).
+    sample: site="netscaler.catjamfest.com" server="localhost" dest_port="80" dest_ip="192.0.2.10" src="192.0.2.20" src_ip="198.51.100.15" user="-" time_local="02/Jul/2025:15:07:55 +0000" protocol="HTTP/1.1" status="403" bytes_out="163" bytes_in="-" http_referer="-" http_user_agent="curl/7.81.0" nginx_version="1.18.0" http_x_forwarded_for="-" http_x_header="-" uri_query="-" uri_path="/nf/auth/startwebview.do" http_method="HEAD" response_time="-" cookie="-" request_time="0.000" category="application/octet-stream" https="" request_body="-"
+    key:
+      - site
+      - server
+      - dest_port
+      - dest_ip
 cves:
   - id: CVE-2026-42945
     cvss: 8.1

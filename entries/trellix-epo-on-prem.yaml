@@ -1,0 +1,155 @@
+id: trellix-epo-on-prem
+name: Trellix Epo On Prem
+short: Prem
+vendor: Trellix
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - trellix_epo_on_prem
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Trellix Epo On Prem is logged by the Elastic integrations package trellix_epo_on_prem. The Pack Generator samples pool holds fixture events for 8 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: trellix_epo_on_prem_audit
+    desc: 'Elastic integrations fixture, 6 events. Upstream: trellix_epo_on_prem/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: trellix_epo_on_prem_compliance_history
+    desc: 'Elastic integrations fixture, 2 events. Upstream: trellix_epo_on_prem/data_stream/compliance_history/_dev/test/pipeline/test-trellix-epo-on-prem-compliance-history-sample.log'
+  - st: trellix_epo_on_prem_device_event
+    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/device_event/_dev/test/pipeline/test-device-event.log'
+  - st: trellix_epo_on_prem_dlp_incident
+    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/dlp_incident/_dev/test/pipeline/test-dlp-incident.log'
+  - st: trellix_epo_on_prem_product_event
+    desc: 'Elastic integrations fixture, 11 events. Upstream: trellix_epo_on_prem/data_stream/product_event/_dev/test/pipeline/test-product-event.log'
+  - st: trellix_epo_on_prem_system
+    desc: 'Elastic integrations fixture, 3 events. Upstream: trellix_epo_on_prem/data_stream/system/_dev/test/pipeline/test-system.log'
+  - st: trellix_epo_on_prem_threat_event
+    desc: 'Elastic integrations fixture, 12 events. Upstream: trellix_epo_on_prem/data_stream/threat_event/_dev/test/pipeline/test-threat-event.log'
+  - st: trellix_epo_on_prem_web_control
+    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/web_control/_dev/test/pipeline/test-web-control.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: trellix_epo_on_prem
+  Sourcetypes: '8'
+  Fixture events: '49'
+  Log format seen: json
+  Fields in the first fixture: OrionAuditLog.AutoId, OrionAuditLog.CmdName, OrionAuditLog.EndTime, OrionAuditLog.Message, OrionAuditLog.Priority, OrionAuditLog.StartTime
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Trellix Epo On Prem events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries OrionAuditLog.AutoId, OrionAuditLog.CmdName, OrionAuditLog.EndTime, OrionAuditLog.Message, OrionAuditLog.Priority, OrionAuditLog.StartTime. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads trellix_epo_on_prem and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: trellix_epo_on_prem_audit
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"OrionAuditLog.AutoId":1939,"OrionAuditLog.CmdName":"Endpoint Security Firewall Property Translator","OrionAuditLog.EndTime":"2026-07-16T12:45:03+05:30","OrionAuditLog.Message":"","OrionAuditLog.Priority":3,"OrionAuditLog.StartTime":"2026-07-16T12:45:02+05:30","OrionAuditLog.Success":true,"OrionAuditLog.UserId":2,"OrionAuditLog.UserName":"system"}'
+    key:
+      - OrionAuditLog.AutoId
+      - OrionAuditLog.CmdName
+      - OrionAuditLog.EndTime
+      - OrionAuditLog.Message
+  - type: Compliance History
+    sourcetype: trellix_epo_on_prem_compliance_history
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"EpoComplianceHistory.AutoId":1,"EpoComplianceHistory.ChartName":"Trellix Agent Compliance Summary","EpoComplianceHistory.TaskName":"Generate Records for Trellix Agent Compliance History Reporting","EpoComplianceHistory.CountComputers":0,"EpoComplianceHistory.CountNonCompliant":0,"EpoComplianceHistory.PercentNonCompliant":0,"EpoComplianceHistory.PercentCompliant":100,"EpoComplianceHistory.CountCompliant":0,"EpoComplianceHistory.TheTimestamp":"2026-07-12T01:00:18+05:30","EpoComplianceHistory.TenantId":0}'
+    key:
+      - EpoComplianceHistory.AutoId
+      - EpoComplianceHistory.ChartName
+      - EpoComplianceHistory.TaskName
+      - EpoComplianceHistory.CountComputers
+  - type: Device Event
+    sourcetype: trellix_epo_on_prem_device_event
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"EEFFDeviceAllEventsView.AutoID":1048576,"EEFFDeviceAllEventsView.AgentGUID":"11111111-2222-4333-8444-555555555555","EEFFDeviceAllEventsView.BackupSize":1024.5,"EEFFDeviceAllEventsView.BackupState":"Completed","EEFFDeviceAllEventsView.BackupTime":18.75,"EEFFDeviceAllEventsView.DeviceSize":64000,"EEFFDeviceAllEventsView.DeviceSN":"EXAMPLE-DEVICE-SN-001","EEFFDeviceAllEventsView.Exempted":"No","EEFFDeviceAllEventsView.EventID":3001,"EEFFDeviceAllEventsView.FileSystem":"NTFS","EEFFDeviceAllEventsView.FileSystemVersion":"3.1","EEFFDeviceAllEventsView.InitializationState":"Initialized","EEFFDeviceAllEventsView.InitializationTime":12.25,"EEFFDeviceAllEventsView.ProductName":"Example Secure USB","EEFFDeviceAllEventsView.Protected":"Yes","EEFFDeviceAllEventsView.ProtectedSize":62000,"EEFFDeviceAllEventsView.UserName":"EXAMPLE\\analyst","EEFFDeviceAllEventsView.UserResponse":"Approved","EEFFDeviceAllEventsView.VendorName":"Example Vendor","EEFFDeviceAllEventsView.EventGeneratedTime":"2026-07-31T08:15:42.000Z","EEFFDeviceAllEventsView.EventReportedTime":"2026-07-31T08:16:03.000Z","EEFFDeviceAllEventsView.Key":"example-removable-media-key-001","EEFFDeviceAllEventsView.CredentialType":1,"EEFFDeviceAllEventsView.MediaType":2}'
+    key:
+      - EEFFDeviceAllEventsView.AutoID
+      - EEFFDeviceAllEventsView.AgentGUID
+      - EEFFDeviceAllEventsView.BackupSize
+      - EEFFDeviceAllEventsView.BackupState
+  - type: Dlp Incident
+    sourcetype: trellix_epo_on_prem_dlp_incident
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"UDLP_EPD_Incidents.IncidentId":100001,"UDLP_EPD_Incidents.OriginalIncidentId":100000,"UDLP_EPD_Incidents.IncidentType":1,"UDLP_EPD_Incidents.ViolationLocalTime":"2026-07-28T14:45:00+05:30","UDLP_EPD_Incidents.ViolationTimezone":"India Standard Time","UDLP_EPD_Incidents.ViolationUTCTime":"2026-07-28T09:15:00+05:30","UDLP_EPD_Incidents.ViolationCustomTime":"2026-07-28T14:45:00+05:30","UDLP_EPD_Incidents.Severity":3,"UDLP_EPD_Incidents.StatusId":1,"UDLP_EPD_Incidents.ResolutionId":0,"UDLP_EPD_Incidents.Reviewer":"user@example.com","UDLP_EPD_Incidents.McAfeeAgentGuid":"12345678-1234-4567-89ab-1234567890ab","UDLP_EPD_Incidents.DlpAgentVersion":"198.51.100.15","UDLP_EPD_Incidents.EvidenceCount":1,"UDLP_EPD_Incidents.TotalMatchCount":3,"UDLP_EPD_Incidents.TotalContentSize":4096,"UDLP_EPD_Incidents.ClassificationsToDisplay":"Confidential Data","UDLP_EPD_Incidents.RulesToDisplay":"Block confidential data upload","UDLP_EPD_Incidents.ConnectivityState":1,"UDLP_EPD_Incidents.ActualAction":2,"UDLP_EPD_Incidents.ExpectedAction":2,"UDLP_EPD_Incidents.FailureReason":0,"UDLP_EPD_Incidents.LastUpdateTimestamp":"2026-07-28T14:46:30+05:30","UDLP_EPD_Incidents.ReportingProduct":1,"UDLP_EPD_Incidents.ShortMatchString":"Sample confidential identifier: ***-**-1234","UDLP_EPD_Incidents.RuleSetToDisplay":"Endpoint DLP Rules"}'
+    key:
+      - UDLP_EPD_Incidents.IncidentId
+      - UDLP_EPD_Incidents.OriginalIncidentId
+      - UDLP_EPD_Incidents.IncidentType
+      - UDLP_EPD_Incidents.ViolationLocalTime
+  - type: Product Event
+    sourcetype: trellix_epo_on_prem_product_event
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"EPOProductEvents.AgentGUID":"89A1D5C1-2B3E-4F67-8A9B-0C1D2E3F4A5B","EPOProductEvents.AutoID":1,"EPOProductEvents.DetectedUTC":"2026-07-21T14:53:20+05:30","EPOProductEvents.Error":0,"EPOProductEvents.ExtraDATNames":null,"EPOProductEvents.HostName":"HOST-EXAMPLE-02","EPOProductEvents.IPV6":"2001:db8::1","EPOProductEvents.InitiatorID":null,"EPOProductEvents.InitiatorType":"CommandLine","EPOProductEvents.Locale":1033,"EPOProductEvents.NodeID":1,"EPOProductEvents.ProductCode":"EPOAGENT3000","EPOProductEvents.ReceivedUTC":"2026-07-21T14:53:47+05:30","EPOProductEvents.SPHotFix":null,"EPOProductEvents.SiteName":null,"EPOProductEvents.TVDEventID":2411,"EPOProductEvents.TVDSeverity":0,"EPOProductEvents.TenantId":1,"EPOProductEvents.Type":"Install","EPOProductEvents.UserName":"SYSTEM"}'
+    key:
+      - EPOProductEvents.AgentGUID
+      - EPOProductEvents.AutoID
+      - EPOProductEvents.DetectedUTC
+      - EPOProductEvents.Error
+  - type: System
+    sourcetype: trellix_epo_on_prem_system
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"EPOLeafNode.AutoID":5,"EPOLeafNode.NodeName":"LAPTOP-R7WQ4NZ","EPOLeafNode.Type":1,"EPOLeafNode.ParentID":2,"EPOLeafNode.AgentGUID":"C58D2E71-9F03-4A6B-B142-6D97E38A0C24","EPOLeafNode.LastUpdate":"2026-09-08T16:47:03+05:30","EPOLeafNode.AgentVersion":"198.51.100.25","EPOLeafNode.NodePath":null,"EPOLeafNode.ServerKeyHash":"zCpCbtDGJO5y9CB7kjIW+lY9lEPxhJhunES4S5Aayao=","EPOLeafNode.TenantId":1,"EPOLeafNode.LastCommSecure":"0","EPOLeafNode.SequenceErrorCount":2,"EPOLeafNode.SequenceErrorCountLastUpdate":"2026-09-08T16:40:11+05:30","EPOLeafNode.TransferSiteListsID":false,"EPOLeafNode.ManagedState":0,"EPOLeafNode.Tags":"Laptop","EPOLeafNode.ExcludedTags":""}'
+    key:
+      - EPOLeafNode.AutoID
+      - EPOLeafNode.NodeName
+      - EPOLeafNode.Type
+      - EPOLeafNode.ParentID
+  - type: Threat Event
+    sourcetype: trellix_epo_on_prem_threat_event
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"EPOEvents.AgentGUID":"11111111-2222-4333-8444-555555555501","EPOEvents.Analyzer":"ENDP_AM_1070","EPOEvents.AnalyzerDetectionMethod":"Exploit Prevention","EPOEvents.AnalyzerHostName":"lab-host-nips.example.com","EPOEvents.AnalyzerIPV4":1177773066,"EPOEvents.AnalyzerIPV6":"2001:db8::1","EPOEvents.AnalyzerMAC":"00005E005302","EPOEvents.AnalyzerName":"Trellix Endpoint Security","EPOEvents.AnalyzerVersion":"10.7.20.14066","EPOEvents.AutoGUID":"AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEE01","EPOEvents.AutoID":10001,"EPOEvents.DetectedUTC":"2026-01-15T10:00:00+00:00","EPOEvents.EventTimeLocal":"2026-01-15T10:00:00+00:00","EPOEvents.ReceivedUTC":"2026-01-15T10:00:05+00:00","EPOEvents.ServerID":"epo-server-01.example.com","EPOEvents.SourceIPV4":1177773067,"EPOEvents.SourceIPV6":"2001:db8::1","EPOEvents.SourceMAC":"00005E005304","EPOEvents.TargetHostName":"lab-target-nips.example.com","EPOEvents.TargetIPV4":1177773076,"EPOEvents.TargetIPV6":"2001:db8::1","EPOEvents.TargetMAC":"00005E005305","EPOEvents.TargetPort":443,"EPOEvents.TenantId":1,"EPOEvents.ThreatActionTaken":"blocked","EPOEvents.ThreatCategory":"hip.nips","EPOEvents.ThreatEventID":18059,"EPOEvents.ThreatHandled":true,"EPOEvents.ThreatName":"Synthetic NIPS port scan violation","EPOEvents.ThreatSeverity":2}'
+    key:
+      - EPOEvents.AgentGUID
+      - EPOEvents.Analyzer
+      - EPOEvents.AnalyzerDetectionMethod
+      - EPOEvents.AnalyzerHostName
+  - type: Web Control
+    sourcetype: trellix_epo_on_prem_web_control
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"WP_EventInfo.ActionID":4,"WP_EventInfo.BadLinkRatingID":4,"WP_EventInfo.ContentID":0,"WP_EventInfo.Count":1,"WP_EventInfo.DomainName":"reports.blockedSiteDSSError","WP_EventInfo.DownloadRatingID":4,"WP_EventInfo.EventAutoID":494,"WP_EventInfo.ExploitRatingID":4,"WP_EventInfo.ListID":1,"WP_EventInfo.ObserverMode":true,"WP_EventInfo.PhishingRatingID":4,"WP_EventInfo.PopupRatingID":4,"WP_EventInfo.RatingID":6,"WP_EventInfo.ReasonID":7,"WP_EventInfo.SpamRatingID":4,"WP_EventInfo.URL":"reports.blockedSiteDSSError","WP_EventInfo.UserName":null}'
+    key:
+      - WP_EventInfo.ActionID
+      - WP_EventInfo.BadLinkRatingID
+      - WP_EventInfo.ContentID
+      - WP_EventInfo.Count
+cves: []
+detections:
+  - title: Trellix Epo On Prem events arriving
+    severity: low
+    signals:
+      - OrionAuditLog.AutoId
+      - OrionAuditLog.CmdName
+      - OrionAuditLog.EndTime
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "trellix_epo_on_prem_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations trellix_epo_on_prem/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trellix_epo_on_prem/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample trellix_epo_on_prem_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trellix_epo_on_prem_audit.json

@@ -1,0 +1,83 @@
+id: veeam
+name: Veeam
+short: Veeam
+vendor: Veeam
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - veeam
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Veeam is logged by the Elastic integrations package veeam. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: veeam
+    desc: 'Elastic integrations fixture, 20 events. Upstream: veeam/data_stream/event/_dev/test/pipeline/test-veeam-event-backup-sample.log'
+  - st: veeam_vbr_syslog
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_veeam.py'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: veeam
+  Sourcetypes: '2'
+  Fixture events: '22'
+  Log format seen: kv
+  Fields in the first fixture: '[categoryId, instanceId, JobSessionID, JobID, JobType, TaskSessionID'
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Veeam events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries [categoryId, instanceId, JobSessionID, JobID, JobType, TaskSessionID. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads veeam and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Event
+    sourcetype: veeam
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '[categoryId=0 instanceId=10014 JobSessionID="47d76d50-7c0c-4c4c-9af1-5452387cdb5a" JobID="140e8222-4640-4db5-8c13-2507e39899ad" JobType="28" TaskSessionID="ad191b3e-76c1-466b-b6cc-3853baf97288" RepositoryOibID="02e48eae-4314-4fe6-bd46-5e9fbcb48e00" TapeOibID="71f3f7cd-92fd-4aeb-a307-a61dfddb3e3c" TapeStorageID="4d61131b-8195-4330-8194-22f9b887968a" TapeStorageCreationTime="07/25/2026 08:56:09" TapeID="35c1e3cc-74eb-4648-899a-bc2a8bb4ead4" Barcode="WRM000LS" MediaPoolID="e3262542-20c9-42c5-9534-77e5e17fbb92" MediaSetID="1697828487" SequenceNumber="1" TapeUsedSize="0" VbrHostName="vbr-01.example.local" VbrVersion="192.0.2.20" Version="1" Description="VM ''vm-web-01'' restore point has been offloaded to the tape WRM000LS."]'
+    key:
+      - '[categoryId'
+      - instanceId
+      - JobSessionID
+      - JobID
+  - type: Veeam Vbr Syslog
+    sourcetype: veeam_vbr_syslog
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <14>1 2026-06-15T13:45:07.123456+00:00 sc4s-lab-01 Veeam_MP - - [origin enterpriseId="3xxx3"] [categoryId=0 instanceId=10010 OibID="1a583aa0-84f0-4f63-8cc0-a2e25a3dxxxf" OriginalOibID="75ae4bc8-725b-4583-b8e6-c2dfcabxxxba" VmRef="d5692942-d615-d64b-2339-31e3c29xxx49" VmName="server.mydomain.com" ServerName="This server" DateTime="06/10/2024 14:32:17" IsCorrupted="True" Platform="6" StorageSize="28473884672" RepositoryID="1451444b-83fa-44ec-9965-a48dxxx954cd" IsFull="False" Version="1" Description="VM 'server.mydomain.com' restore point has been created."]
+    key:
+      - enterpriseId
+      - '[categoryId'
+      - instanceId
+      - OibID
+cves: []
+detections:
+  - title: Veeam events arriving
+    severity: low
+    signals:
+      - '[categoryId'
+      - instanceId
+      - JobSessionID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "veeam"'
+optimizations: []
+references:
+  - title: elastic/integrations veeam/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/veeam/data_stream/event/_dev/test/pipeline/test-veeam-event-backup-sample.log
+  - title: Pack Generator sample veeam.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/veeam.json

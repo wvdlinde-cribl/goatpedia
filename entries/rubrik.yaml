@@ -1,0 +1,203 @@
+id: rubrik
+name: Rubrik
+short: Rubrik
+vendor: Rubrik
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - rubrik
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Rubrik is logged by the Elastic integrations package rubrik. The Pack Generator samples pool holds fixture events for 12 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: rubrik_drives
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/drives/_dev/test/pipeline/test-drives-metrics.log'
+  - st: rubrik_filesets
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/filesets/_dev/test/pipeline/test-fileset-metrics.log'
+  - st: rubrik_global_cluster_performance
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/global_cluster_performance/_dev/test/pipeline/test-cluster-performance-metrics.log'
+  - st: rubrik_managed_volumes
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/managed_volumes/_dev/test/pipeline/test-managed-volumes-metrics.log'
+  - st: rubrik_monitoring_jobs
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/monitoring_jobs/_dev/test/pipeline/test-monitoring-jobs-metrics.log'
+  - st: rubrik_mssql_databases
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/mssql_databases/_dev/test/pipeline/test-mssql-databases-metrics.log'
+  - st: rubrik_node_statistics
+    desc: 'Elastic integrations fixture, 3 events. Upstream: rubrik/data_stream/node_statistics/_dev/test/pipeline/test-node-statistics.log'
+  - st: rubrik_physical_hosts
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/physical_hosts/_dev/test/pipeline/test-physical-hosts-metrics.log'
+  - st: rubrik_sla_domains
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/sla_domains/_dev/test/pipeline/test-sla-domains-metrics.log'
+  - st: rubrik_tasks
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/tasks/_dev/test/pipeline/test-tasks-metrics.log'
+  - st: rubrik_unmanaged_objects
+    desc: 'Elastic integrations fixture, 2 events. Upstream: rubrik/data_stream/unmanaged_objects/_dev/test/pipeline/test-unmanaged-objects-metrics.log'
+  - st: rubrik_virtual_machines
+    desc: 'Elastic integrations fixture, 1 events. Upstream: rubrik/data_stream/virtual_machines/_dev/test/pipeline/test-virtualmachines-metrics.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: rubrik
+  Sourcetypes: '12'
+  Fixture events: '15'
+  Log format seen: json
+  Fields in the first fixture: clusterId, clusterName, capacityBytes, diskId, diskType, isEncrypted
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Rubrik events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries clusterId, clusterName, capacityBytes, diskId, diskType, isEncrypted. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads rubrik and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Drives
+    sourcetype: rubrik_drives
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"clusterId":"dd16a645-dc11-43b0-b01a-30f37a4c2eb7","clusterName":"cluster-1","capacityBytes":3834792386560,"diskId":"sdd","diskType":"HDD","isEncrypted":false,"path":"/mnt/wwn-0x9000b3100b3610c9","status":"ACTIVE","unallocatedBytes":1497465520128,"usableBytes":1457440894976,"nodeId":"1f7c2a2a-8631-416d-abfb-0ab97c2e0fd0"}'
+    key:
+      - clusterId
+      - clusterName
+      - capacityBytes
+      - diskId
+  - type: Filesets
+    sourcetype: rubrik_filesets
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"archiveStorage":0,"totalSnapshots":6,"filesetName":"Linux","osType":"LINUX","localStorage":1286184885,"archiveSnapshots":0,"complianceStatus":"OUT_OF_COMPLIANCE","clusterID":"7f4f96b3-e777-4bde-ba08-47a40ecaa416","clusterName":"401-rubrik","effectiveSlaDomainName":"Bronze","effectiveSlaDomainID":"8f983b74-a50f-5ffa-b73d-359462c06f4b"}'
+    key:
+      - archiveStorage
+      - totalSnapshots
+      - filesetName
+      - osType
+  - type: Global Cluster Performance
+    sourcetype: rubrik_global_cluster_performance
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"estimatedRunway":1140,"id":"b1a9e557-0b47-4bc1-841d-e6379e733016","metric":{"availableCapacity":719592345600,"averageDailyGrowth":630829064,"cdpCapacity":0,"ingestedSnapshotStorage":436860485632,"liveMountCapacity":0,"miscellaneousCapacity":3490865159,"pendingSnapshotCapacity":2064,"physicalSnapshotStorage":313507076073,"snapshotCapacity":313507076073,"totalCapacity":1036590288896,"usedCapacity":316997943296},"name":"prod-rub1","status":"Disconnected","type":"Robo"}'
+    key:
+      - estimatedRunway
+      - id
+      - metric.availableCapacity
+      - metric.averageDailyGrowth
+  - type: Managed Volumes
+    sourcetype: rubrik_managed_volumes
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"cluster":{"id":"b1a9e557-0b47-4bc1-841d-e6379e733016","name":"prod-rub1"},"host":null,"id":"e07d2906-8915-56ba-a551-ba8fd4a20b6f","mainMount":{"logicalUsedSize":24576},"name":"test-volume","numChannels":1,"provisionedSize":1073741824,"snapshotDistribution":{"scheduledCount":0,"totalCount":0},"state":"MANAGED_VOLUME_STATE_EXPORTED","effectiveSlaDomain":{"id":"4031c11d-078e-4f14-8566-717cfffaf359","name":"sla-domain-1"}}'
+    key:
+      - cluster.id
+      - cluster.name
+      - host
+      - id
+  - type: Monitoring Jobs
+    sourcetype: rubrik_monitoring_jobs
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"allJobs":668241,"archiveJobs":{"count":8},"backupJobs":{"count":36092},"conversionJobs":{"count":0},"id":"7f4f96b3-e777-4bde-ba08-47a40ecaa416","logBackupJobs":{"count":0},"name":"401-rubrik","recoveryJobs":{"count":39},"replicationJobs":{"count":6},"cluster":{"id":"7562f3f9-f7ff-4828-af2c-87df3bf4f54c","name":"cluster-1"}}'
+    key:
+      - allJobs
+      - archiveJobs.count
+      - backupJobs.count
+      - conversionJobs.count
+  - type: Mssql Databases
+    sourcetype: rubrik_mssql_databases
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"4d77e6de-0eef-4593-870b-60ac9a7a0727","name":"mssql-1","cluster":{"id":"f5ce5ffc-42d4-47bc-a64f-d928030892d5","name":"cluster-1"},"isOnline":true,"effectiveSlaDomain":{"id":"4031c11d-078e-4f14-8566-717cfffaf359","name":"sla-domain-1"}}'
+    key:
+      - id
+      - name
+      - cluster.id
+      - cluster.name
+  - type: Node Statistics
+    sourcetype: rubrik_node_statistics
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"clusterId":"4963bfb3-8fa1-4be1-b610-6c73b3676c27","clusterName":"aks-brik","clusterType":"Robo","cpuStat":56,"iopsReadsPerSecond":1,"iopsWritesPerSecond":270,"networkBytesReceived":361,"networkBytesTransmitted":545,"nodeId":"VRVW423514397","readThroughputBytesPerSecond":50312,"time":"2025-02-04T00:29:00.000Z","usedMemoryStat":84,"writeThroughputBytesPerSecond":1967273}'
+    key:
+      - clusterId
+      - clusterName
+      - clusterType
+      - cpuStat
+  - type: Physical Hosts
+    sourcetype: rubrik_physical_hosts
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"aed47d37-4267-4b15-9a4c-be41c215cb52","name":"203.0.113.8","connectionStatus":{"connectivity":"DISCONNECTED"},"cluster":{"id":"7562f3f9-f7ff-4828-af2c-87df3bf4f54c","name":"cluster-1"},"osType":"WINDOWS","effectiveSlaDomain":{"id":"4031c11d-078e-4f14-8566-717cfffaf359","name":"sla-domain-1"}}'
+    key:
+      - id
+      - name
+      - connectionStatus.connectivity
+      - cluster.id
+  - type: Sla Domains
+    sourcetype: rubrik_sla_domains
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"numNutanixVms":0,"numHypervVms":0,"numDbs":1,"numManagedVolumes":1,"numEc2Instances":0,"numVcdVapps":0,"numOracleDbs":0,"numFilesets":1,"numStorageArrayVolumeGroups":0,"numWindowsVolumeGroups":0,"numLinuxHosts":1,"numShares":0,"numWindowsHosts":0,"numVms":0,"numProtectedObjects":2,"id":"6fc7ca5c-5926-4a85-b236-a43a9935dff9","primaryClusterId":"5e81520e-a7e1-4ed4-adce-870804739532","name":"cluster-1","primaryClusterSlaVersion":20,"replicationTargetSlaVersion":4,"frequencies":{"daily":{"frequency":1,"retention":35},"weekly":{"frequency":1,"retention":53,"dayOfWeek":"Monday"},"monthly":{"frequency":1,"retention":3,"dayOfMonth":"FirstDay"}},"allowedBackupWindows":[{"startTimeAttributes":{"minutes":0,"hour":19},"durationInHours":13}],"firstFullAllowedBackupWindows":[],"localRetentionLimit":259200,"maxLocalRetentionLimit":32054400,"archivalSpecs":[{"locationId":"4b6ccad7-907b-41eb-88c7-3b271802d1ed","locationName":"S3:test-1","archivalThreshold":259200,"isPassthroughSupported":true}],"replicationSpecs":[{"locationId":"2d458abf-df57-4873-9075-63d7b674e307","locationName":"LOCAL","retentionLimit":259200,"replicationType":"REPLICATION_TO_CLUSTER"}],"isDefault":false,"uiColor":"#7f3340","showAdvancedUi":false}'
+    key:
+      - numNutanixVms
+      - numHypervVms
+      - numDbs
+      - numManagedVolumes
+  - type: Tasks
+    sourcetype: rubrik_tasks
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"slaDomainId":"4d77e6de-0eef-4593-870b-60ac9a7a0727","slaDomainName":"mssql-1","succeededTasksValue":1,"failedTasksValue":2,"canceledTasksValue":3,"missedTasksValue":4,"metricType":"succeeded_tasks"}'
+    key:
+      - slaDomainId
+      - slaDomainName
+      - succeededTasksValue
+      - failedTasksValue
+  - type: Unmanaged Objects
+    sourcetype: rubrik_unmanaged_objects
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"VM-UNIQUE-ID-129","name":"Virtual-Datastore","objectType":"VirtualMachine","physicalLocation":[{"managedId":"vCenter2001:db8::1VCENTER-ID","name":"location_1"},{"managedId":"DataCenter2001:db8::1DATACENTER-ID","name":"Datacenter-1"}],"unmanagedStatus":"Relic","snapshotCount":3,"isRemote":false,"localStorage":107543704053,"archiveStorage":0,"retentionSlaDomainId":"SLA-DOMAIN-ID","retentionSlaDomainName":"Backup-Policy","hasSnapshotsWithPolicy":true}'
+    key:
+      - id
+      - name
+      - objectType
+      - physicalLocation[0].managedId
+  - type: Virtual Machines
+    sourcetype: rubrik_virtual_machines
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"4d77e6de-0eef-4593-870b-60ac9a7a0727","name":"vm-1","cluster":{"id":"7562f3f9-f7ff-4828-af2c-87df3bf4f54c","name":"cluster-1"},"powerStatus":"ON","agentStatus":{"agentStatus":"CONNECTED"},"effectiveSlaDomain":{"id":"4031c11d-078e-4f14-8566-717cfffaf359","name":"sla-domain-1"}}'
+    key:
+      - id
+      - name
+      - cluster.id
+      - cluster.name
+cves: []
+detections:
+  - title: Rubrik events arriving
+    severity: low
+    signals:
+      - clusterId
+      - clusterName
+      - capacityBytes
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "rubrik_drives"'
+optimizations: []
+references:
+  - title: elastic/integrations rubrik/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/rubrik/data_stream/drives/_dev/test/pipeline/test-drives-metrics.log
+  - title: Pack Generator sample rubrik_drives.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/rubrik_drives.json

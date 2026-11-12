@@ -1,0 +1,71 @@
+id: aqua
+name: Aqua
+short: Aqua
+vendor: Aqua
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - aqua
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - kv
+summary: Aqua is logged by the Datadog integrations-extras package aqua. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: aqua
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: aqua/assets/logs/aqua_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: aqua
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: kv
+  Fields in the first fixture: header, action, user, uid, image, imageid
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Aqua events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries header, action, user, uid, image, imageid. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads aqua and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Aqua
+    sourcetype: aqua
+    format: kv
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: 'Mar 13 17:42:44 ip-172-31-9-170.us-west-2.compute.internal aquasec[1743]: action=create user=root uid=0 image=alpine:latest imageid=13213123 result=deny container=azeb containerid=1232312'
+    key:
+      - action
+      - user
+      - uid
+      - image
+cves: []
+detections:
+  - title: Aqua events arriving
+    severity: low
+    signals:
+      - header
+      - action
+      - user
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "aqua"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras aqua/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/aqua/assets/logs/aqua_tests.yaml
+  - title: Pack Generator sample aqua.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aqua.json

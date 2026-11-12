@@ -1,0 +1,311 @@
+id: cloudflare-logpush
+name: Cloudflare Logpush
+short: Logpush
+vendor: Cloudflare
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cloudflare_logpush
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cloudflare Logpush is logged by the Elastic integrations package cloudflare_logpush. The Pack Generator samples pool holds fixture events for 21 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cloudflare_logpush_access_request
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/access_request/_dev/test/pipeline/test-pipeline-access-request.log'
+  - st: cloudflare_logpush_audit
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/audit/_dev/test/pipeline/test-pipeline-audit.log'
+  - st: cloudflare_logpush_casb
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/casb/_dev/test/pipeline/test-pipeline-casb.log'
+  - st: cloudflare_logpush_device_posture
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/device_posture/_dev/test/pipeline/test-pipeline-device-posture.log'
+  - st: cloudflare_logpush_dlp_forensic_copies
+    desc: 'Elastic integrations fixture, 1 events. Upstream: cloudflare_logpush/data_stream/dlp_forensic_copies/_dev/test/pipeline/test-pipeline-dlp-forensic-copies.log'
+  - st: cloudflare_logpush_dns
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/dns/_dev/test/pipeline/test-pipeline-dns.log'
+  - st: cloudflare_logpush_dns_firewall
+    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/dns_firewall/_dev/test/pipeline/test-pipeline-dns-firewall.log'
+  - st: cloudflare_logpush_email_security_alerts
+    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/email_security_alerts/_dev/test/pipeline/test-pipeline-email-security-alerts-event.log'
+  - st: cloudflare_logpush_firewall_event
+    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/firewall_event/_dev/test/pipeline/test-pipeline-firewall-event.log'
+  - st: cloudflare_logpush_gateway_dns
+    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/gateway_dns/_dev/test/pipeline/test-pipeline-gateway-dns.log'
+  - st: cloudflare_logpush_gateway_http
+    desc: 'Elastic integrations fixture, 5 events. Upstream: cloudflare_logpush/data_stream/gateway_http/_dev/test/pipeline/test-pipeline-gateway-http.log'
+  - st: cloudflare_logpush_gateway_network
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/gateway_network/_dev/test/pipeline/test-pipeline-gateway-network.log'
+  - st: cloudflare_logpush_http_request
+    desc: 'Elastic integrations fixture, 8 events. Upstream: cloudflare_logpush/data_stream/http_request/_dev/test/pipeline/test-pipeline-http-request.log'
+  - st: cloudflare_logpush_magic_ids
+    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/magic_ids/_dev/test/pipeline/test-pipeline-magic-ids.log'
+  - st: cloudflare_logpush_nel_report
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/nel_report/_dev/test/pipeline/test-pipeline-nel-report.log'
+  - st: cloudflare_logpush_network_analytics
+    desc: 'Elastic integrations fixture, 7 events. Upstream: cloudflare_logpush/data_stream/network_analytics/_dev/test/pipeline/test-pipeline-network-analytics.log'
+  - st: cloudflare_logpush_network_session
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/network_session/_dev/test/pipeline/test-pipeline-network-session.log'
+  - st: cloudflare_logpush_page_shield_events
+    desc: 'Elastic integrations fixture, 1 events. Upstream: cloudflare_logpush/data_stream/page_shield_events/_dev/test/pipeline/test-pipeline-page-shield-events.log'
+  - st: cloudflare_logpush_sinkhole_http
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/sinkhole_http/_dev/test/pipeline/test-pipeline-sinkhole-http.log'
+  - st: cloudflare_logpush_spectrum_event
+    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/spectrum_event/_dev/test/pipeline/test-pipeline-spectrum-event.log'
+  - st: cloudflare_logpush_workers_trace
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/workers_trace/_dev/test/pipeline/test-pipeline-workers-trace.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cloudflare_logpush
+  Sourcetypes: '21'
+  Fixture events: '80'
+  Log format seen: json
+  Fields in the first fixture: Action, Allowed, AppDomain, AppUUID, Connection, Country
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cloudflare Logpush events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Action, Allowed, AppDomain, AppUUID, Connection, Country. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cloudflare_logpush and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Access Request
+    sourcetype: cloudflare_logpush_access_request
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"Action":"login","Allowed":true,"AppDomain":"partner-zt-logs.cloudflareaccess.com/warp","AppUUID":"123e4567-e89b-12d3-a456-426614174000","Connection":"onetimepin","Country":"us","CreatedAt":"2023-05-24T02:48:33+09:30","Email":"user@example.com","IPAddress":"192.0.2.20","PurposeJustificationPrompt":"Please provide your reason for accessing the application.","PurposeJustificationResponse":"I need to access the application for work purposes.","RayID":"00c0ffeeabc12345","TemporaryAccessApprovers":["user@example.com","user@example.com"],"TemporaryAccessDuration":7200,"UserUID":"166befbb-00e3-5e20-bd6e-27245333949f"}'
+    key:
+      - Action
+      - Allowed
+      - AppDomain
+      - AppUUID
+  - type: Audit
+    sourcetype: cloudflare_logpush_audit
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"ActionResult":true,"ActionType":"token_create","ActorEmail":"user@example.com","ActorID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ActorIP":"198.51.100.15","ActorType":"user","ID":"73fd39ed-5aab-4a2a-b93c-c9a4abf0c425","Interface":"UI","Metadata":{"token_name":"test","token_tag":"b7261c49a793a82678d12285f0bc1401"},"NewValue":{"key1":"value1","key2":"value2"},"OldValue":{"key3":"value4","key4":"value4"},"OwnerID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ResourceID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ResourceType":"account","When":"2021-11-30T20:19:48Z"}'
+    key:
+      - ActionResult
+      - ActionType
+      - ActorEmail
+      - ActorID
+  - type: Casb
+    sourcetype: cloudflare_logpush_casb
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"AssetDisplayName":"John Doe","AssetExternalID":"0051N000004mG2LAAA","AssetLink":"https://example.com/resource","AssetMetadata":{"Id":"0051N000004mG2LAAA","Fax":null,"Name":"John Doe","Alias":"JDoe","Email":"user@example.com","Phone":"+3460000000","Title":"Customer Solutions Engineer","Address":{"city":"Singapore","state":null,"street":null,"country":"Singapore","latitude":null,"longitude":null,"stateCode":null,"postalCode":null,"countryCode":"SG","geocodeAccuracy":null},"Division":null,"IsActive":false,"LastName":"Doe","UserType":"Standard","AccountId":null,"BadgeText":"","ContactId":null,"Extension":null,"FirstName":"John","Signature":null,"Department":"521","SenderName":null,"UserRoleId":"00E2G000001E","attributes":{"url":"/services/data/userID","type":"User"},"CompanyName":"MyCompany","MobilePhone":null,"SenderEmail":"user@example.com","CallCenterId":null,"FullPhotoUrl":"https://photos.com/profilephoto/001","LocaleSidKey":"en_SG","LastLoginDate":"2021-10-06T06:32:09.000+0000","SmallPhotoUrl":"https://photos.com/photo/001"},"DetectedTimestamp":"2023-05-16T10:00:00Z","FindingTypeDisplayName":"Salesforce User Sending Email with Different Email Address","FindingTypeID":"a2790c4f-03f5-449f-b209-5f4447f417aa","FindingTypeSeverity":"Medium","InstanceID":"6b187be4-2dd5-42c5-a37b-111111111111","IntegrationDisplayName":"Salesforce Testing","IntegrationID":"c772678d-5cf1-4c73-bf3f-111111111111","IntegrationPolicyVendor":"Salesforce Connection"}'
+    key:
+      - AssetDisplayName
+      - AssetExternalID
+      - AssetLink
+      - AssetMetadata.Id
+  - type: Device Posture
+    sourcetype: cloudflare_logpush_device_posture
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"ClientVersion":"2023.3.258","DeviceID":"083a8354-d56c-11ed-9771-111111111","DeviceManufacturer":"Google Compute Engine","DeviceModel":"Google Compute Engine","DeviceName":"zt-test-vm1","DeviceSerialNumber":"GoogleCloud-ABCD1234567890","DeviceType":"linux","Email":"user@example.com","OSVersion":"5.15.0","PolicyID":"policy-abcdefgh","PostureCheckName":"Ubuntu","PostureCheckType":"os_version","PostureEvaluatedResult":true,"PostureExpectedJSON":{"version":"5.15.0-1025-gcp","operator":"==","os_distro_name":"ubuntu","os_distro_revision":"20.04"},"PostureReceivedJSON":{"version":"5.15.0-1025-gcp","operator":"==","os_distro_name":"ubuntu","os_distro_revision":"20.04"},"Timestamp":"2023-05-17T12:00:00Z","UserUID":"user-abcdefgh"}'
+    key:
+      - ClientVersion
+      - DeviceID
+      - DeviceManufacturer
+      - DeviceModel
+  - type: Dlp Forensic Copies
+    sourcetype: cloudflare_logpush_dlp_forensic_copies
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"AccountID":"acc-id","ForensicCopyID":"copy-id","GatewayRequestID":"req-id","Payload":"Tm90aGluZyB0byBzZWUgaGVyZS4gTW92ZSBhbG9uZy4K","Phase":"request","TriggeredRuleID":"9","Datetime":"2023-05-04T11:29:14Z","Headers":{"key1":"val1","key2":"val2"}}'
+    key:
+      - AccountID
+      - ForensicCopyID
+      - GatewayRequestID
+      - Payload
+  - type: DNS
+    sourcetype: cloudflare_logpush_dns
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"ColoCode":"MRS","EDNSSubnet":"198.51.100.25","EDNSSubnetLength":0,"QueryName":"example.com","QueryType":65535,"ResponseCached":false,"ResponseCode":0,"SourceIP":"203.0.113.8","Timestamp":"2022-05-26T09:23:54Z"}'
+    key:
+      - ColoCode
+      - EDNSSubnet
+      - EDNSSubnetLength
+      - QueryName
+  - type: DNS Firewall
+    sourcetype: cloudflare_logpush_dns_firewall
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"ClientResponseCode":0,"ClusterID":"CLUSTER-001","ColoCode":"SFO","EDNSSubnet":"203.0.113.40","EDNSSubnetLength":24,"QueryDO":true,"QueryName":"example.com","QueryRD":true,"QuerySize":60,"QueryTCP":false,"QueryType":1,"ResponseCached":true,"ResponseCachedStale":false,"SourceIP":"192.0.2.10","Timestamp":"2023-09-19T12:30:00Z","UpstreamIP":"192.0.2.20","UpstreamResponseCode":0,"UpstreamResponseTimeMs":30}'
+    key:
+      - ClientResponseCode
+      - ClusterID
+      - ColoCode
+      - EDNSSubnet
+  - type: Email Security Alerts
+    sourcetype: cloudflare_logpush_email_security_alerts
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"AlertID":"4WtWkr6nlBz9sNH-2024-08-28T15:32:35","AlertReasons":["because","said-so"],"Attachments":[{"Md5":"91f073bd208689ddbd248e8989ecae90","Sha1":"62b77e14e2c43049c45b5725018e78d0f9986930","Sha256":"3b57505305e7162141fd898ed87d08f92fc42579b5047495859e56b3275a6c06","Ssdeep":"McAQ8tPlH25e85Q2OiYpD08NvHmjJ97UfPMO47sekO:uN9M553OiiN/OJ9MM+e3","Name":"attachment.gif","ContentTypeProvided":"image/gif","ContentTypeComputed":"application/x-msi","Encrypted":true,"Decrypted":true}],"CC":["user@example.com"],"CCName":["First Last (cc)"],"FinalDisposition":"unset","From":"user@example.com","FromName":"First Last (from)","Links":["https://example.com"],"MessageDeliveryMode":"unset","MessageID":"<Message-ID>","Origin":"unset","OriginalSender":"user@example.com","ReplyTo":"user@example.com","ReplyToName":"First Last (reply)","SMTPEnvelopeFrom":"user@example.com","SMTPEnvelopeTo":["user@example.com"],"SMTPHeloServerIP":"198.51.100.15","SMTPHeloServerIPAsName":"asn","SMTPHeloServerIPAsNumber":"42","SMTPHeloServerIPGeo":"US/NV/Las Vegas","SMTPHeloServerName":"servername","Subject":"innocuous message: please read","ThreatCategories":["CredentialHarvester","Dropper"],"Timestamp":"2024-08-28T15:32:35Z","To":["user@example.com"],"ToName":["First Last (to)"]}'
+    key:
+      - AlertID
+      - AlertReasons[0]
+      - AlertReasons[1]
+      - Attachments[0].Md5
+  - type: Firewall Event
+    sourcetype: cloudflare_logpush_firewall_event
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"ClientRequestScheme":"https","MatchIndex":1,"ClientRefererHost":"abc.example.com","Source":"firewallrules","ClientRequestUserAgent":"Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Mobile Safari/537.36 (compatible; Googl...","ClientRefererPath":"/abc/checkout","Metadata":{"filter":"1ced07e066a34abf8b14f2a99593bc8d","type":"customer"},"EdgeResponseStatus":403,"ClientRequestProtocol":"HTTP/1.1","OriginatorRayID":"00","RayID":"713d477539b55c29","ClientRequestMethod":"GET","ClientIP":"198.51.100.25","ClientRequestPath":"/abc/checkout","Action":"block","Kind":"firewall","RuleID":"7dc666e026974dab84884c73b3e2afe1","ClientIPClass":"searchEngine","ClientASNDescription":"CLOUDFLARENET","ClientCountry":"us","ClientRefererQuery":"?sourcerer=(default%3A(id%3A!n%2CselectedPatterns%3A!(eqldemo%2C%27logs-endpoint.*-eqldemo%27%2C%27logs-system.*-eqldemo%27%2C%27logs-windows.*-eqldemo%27%2C...","ClientRequestQuery":"?sourcerer=(default%3A(id%3A!n%2CselectedPatterns%3A!(eqldemo%2C%27logs-endpoint.*-eqldemo%27%2C%27logs-system.*-eqldemo%27%2C%27logs-windows.*-eqldemo%27%2C...","OriginResponseStatus":0,"EdgeColoCode":"IAD","ClientRefererScheme":"referer URL scheme","Datetime":"2022-05-31T05:23:43Z","ClientRequestHost":"xyz.example.com","ClientASN":15169}'
+    key:
+      - ClientRequestScheme
+      - MatchIndex
+      - ClientRefererHost
+      - Source
+  - type: Gateway DNS
+    sourcetype: cloudflare_logpush_gateway_dns
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"ApplicationID":0,"ColoCode":"ORD","ColoID":14,"Datetime":"2023-05-02T22:49:53Z","DeviceID":"083a8354-d56c-11ed-9771-6a842b111aaa","DeviceName":"zt-test-vm1","DstIP":"203.0.113.8","DstPort":443,"Email":"user@example.com","Location":"GCP default","LocationID":"f233bd67-78c7-4050-9aff-ad63cce25732","MatchedCategoryIDs":[7,163],"MatchedCategoryNames":["Photography","Weather"],"Policy":"7bdc7a9c-81d3-4816-8e56-de1acad3dec5","PolicyID":"1412","Protocol":"https","QueryCategoryIDs":[26,155],"QueryCategoryNames":["Technology","Technology"],"QueryName":"security.ubuntu.com","QueryNameReversed":"com.ubuntu.security","QuerySize":48,"QueryType":1,"QueryTypeName":"A","RCode":0,"RData":[{"type":"1","data":"CHNlY3VyaXR5BnVidW50dQMjb20AAAEAAQAAAAgABLl9vic="},{"type":"1","data":"CHNlY3VyaXR5BnVidW50dQNjb20AAAEAABAAAAgABLl9viQ="}],"ResolvedIPs":["203.0.113.40","192.0.2.10"],"ResolverDecision":"allowedOnNoPolicyMatch","SrcIP":"198.51.100.15","SrcPort":0,"TimeZone":"UTC"}'
+    key:
+      - ApplicationID
+      - ColoCode
+      - ColoID
+      - Datetime
+  - type: Gateway HTTP
+    sourcetype: cloudflare_logpush_gateway_http
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"AccountID":"e1836771179f98aabb828da5ea69a348","Action":"block","BlockedFileHash":"91dc1db739a705105e1c763bfdbdaa84c0de8","BlockedFileName":"downloaded_test","BlockedFileReason":"malware","BlockedFileSize":43,"BlockedFileType":"bin","Datetime":"2023-05-03T20:55:05Z","DestinationIP":"198.51.100.25","DestinationPort":443,"DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","DownloadedFileNames":["downloaded_file","downloaded_test"],"Email":"user@example.com","FileInfo":{"files":[{"name":"downloaded_file","size":43},{"name":"downloaded_test","size":341}]},"HTTPHost":"guce.yahoo.com","HTTPMethod":"GET","HTTPStatusCode":302,"HTTPVersion":"HTTP/2","IsIsolated":false,"PolicyID":"85063bec-74cb-4546-85a3-e0cde2cdfda2","PolicyName":"Block Yahoo","Referer":"https://www.example.com/","RequestID":"1884fec9b600007fb06a299400000001","SourceInternalIP":"203.0.113.8","SourceIP":"203.0.113.40","SourcePort":47924,"UntrustedCertificateAction":"none","UploadedFileNames":["uploaded_file","uploaded_test"],"URL":"https://test.com"}'
+    key:
+      - AccountID
+      - Action
+      - BlockedFileHash
+      - BlockedFileName
+  - type: Gateway Network
+    sourcetype: cloudflare_logpush_gateway_network
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"AccountID":"e1836771179f98aabb828da5ea69a111","Action":"allowedOnNoRuleMatch","Datetime":"2023-05-19T06:42:57+09:30","DestinationIP":"192.0.2.10","DestinationPort":443,"DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","Email":"user@example.com","OverrideIP":"192.0.2.20","OverridePort":8080,"PolicyID":"85063bec-74cb-4546-85a3-e0cde2cdfda2","PolicyName":"My policy","SNI":"www.elastic.co","SessionID":"5f2d04be-3512-11e8-b467-0ed5f89f718b","SourceIP":"198.51.100.15","SourceInternalIP":"198.51.100.25","SourcePort":47924,"Transport":"tcp","UserID":"166befbb-00e3-5e20-bd6e-27245723949f"}'
+    key:
+      - AccountID
+      - Action
+      - Datetime
+      - DestinationIP
+  - type: HTTP Request
+    sourcetype: cloudflare_logpush_http_request
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"BotDetectionIDs":[7,8],"BotScore":20,"BotScoreSrc":"Verified Bot","BotTags":["bing"],"CacheCacheStatus":"dynamic","CacheResponseBytes":983828,"CacheResponseStatus":200,"CacheTieredFill":false,"ClientASN":43766,"ClientCountry":"sa","ClientDeviceType":"desktop","ClientIP":"203.0.113.8","ClientIPClass":"noRecord","ClientMTLSAuthCertFingerprint":"Fingerprint","ClientMTLSAuthStatus":"unknown","ClientRequestBytes":5800,"ClientRequestHost":"xyz.example.com","ClientRequestMethod":"POST","ClientRequestPath":"/xyz/checkout","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://example.com/s/example/default?sourcerer=(default:(id:!n,selectedPatterns:!(example,%27logs-endpoint.*-example%27,%27logs-system.*-example%27,%27logs-...","ClientRequestScheme":"https","ClientRequestSource":"edgeWorkerFetch","ClientRequestURI":"/s/example/api/telemetry/v2/clusters/_stats","ClientRequestUserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36","ClientSrcPort":0,"ClientSSLCipher":"NONE","ClientSSLProtocol":"TLSv1.2","ClientTCPRTTMs":0,"ClientXRequestedWith":"Request With"}'
+    key:
+      - BotDetectionIDs[0]
+      - BotDetectionIDs[1]
+      - BotScore
+      - BotScoreSrc
+  - type: Magic IDS
+    sourcetype: cloudflare_logpush_magic_ids
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"Action":"pass","ColoCode":"NRT","DestinationIP":"192.0.2.20","DestinationPort":80,"Protocol":"tcp","SignatureID":2031296,"SignatureMessage":"ET CURRENT_EVENTS [Fireeye] POSSIBLE HackTool.TCP.Rubeus.[User32LogonProcesss]","SignatureRevision":1,"SourceIP":"198.51.100.15","SourcePort":44667,"Timestamp":"2023-09-11T03:02:57Z","ColoCity":"Tokyo"}'
+    key:
+      - Action
+      - ColoCode
+      - DestinationIP
+      - DestinationPort
+  - type: Nel Report
+    sourcetype: cloudflare_logpush_nel_report
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"ClientIPASN":"13335","ClientIPASNDescription":"CLOUDFLARENET","ClientIPCountry":"US","LastKnownGoodColoCode":"SJC","Phase":"connection","Timestamp":"2021-07-27T00:01:07Z","Type":"network-error"}'
+    key:
+      - ClientIPASN
+      - ClientIPASNDescription
+      - ClientIPCountry
+      - LastKnownGoodColoCode
+  - type: Network Analytics
+    sourcetype: cloudflare_logpush_network_analytics
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"AttackCampaignID":"xyz987","AttackID":"abc777","ColoCountry":"AD","ColoGeoHash":"gbuun","ColoID":46,"ColoName":"SJC","Datetime":"2021-07-27T00:01:07Z","DestinationASN":1900,"DestinationASNDescription":"asn description","DestinationCountry":"AD","DestinationGeoHash":"gbuun","DestinationPort":5678,"Direction":"ingress","GREChecksum":10,"GREEthertype":10,"GREHeaderLength":1024,"GREKey":10,"GRESequenceNumber":10,"GREVersion":10,"ICMPChecksum":10,"ICMPCode":10,"ICMPType":10,"IPDestinationAddress":"198.51.100.25","IPDestinationSubnet":"/24","IPFragmentOffset":1480,"IPHeaderLength":20,"IPMoreFragments":1480,"IPProtocol":6,"IPProtocolName":"tcp","IPSourceAddress":"203.0.113.8"}'
+    key:
+      - AttackCampaignID
+      - AttackID
+      - ColoCountry
+      - ColoGeoHash
+  - type: Network Session
+    sourcetype: cloudflare_logpush_network_session
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"AccountID":"e1836771179f98aabb828da5ea69a111","BytesReceived":679,"BytesSent":2333,"ClientTCPHandshakeDurationMs":12,"ClientTLSCipher":"TLS_AES_128_GCM_SHA256","ClientTLSHandshakeDurationMs":125,"ClientTLSVersion":"TLS 1.3","ConnectionCloseReason":"CLIENT_CLOSED","ConnectionReuse":false,"DestinationTunnelID":"00000000-0000-0000-0000-000000000000","DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","EgressColoName":"ORD","EgressIP":"2001:db8::1","EgressPort":41052,"EgressRuleID":"00000000-0000-0000-0000-000000000000","EgressRuleName":"Egress Rule 1","Email":"user@example.com","IngressColoName":"ORD","Offramp":"INTERNET","OriginIP":"203.0.113.40","OriginPort":80,"OriginTLSCertificateIssuer":"DigiCert Inc","OriginTLSCertificateValidationResult":"VALID","OriginTLSCipher":"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384","OriginTLSHandshakeDurationMs":130,"OriginTLSVersion":"TLS 1.2","Protocol":"TCP","RuleEvaluationDurationMs":10,"SessionEndTime":"2023-05-04T11:29:14Z"}'
+    key:
+      - AccountID
+      - BytesReceived
+      - BytesSent
+      - ClientTCPHandshakeDurationMs
+  - type: Page Shield Events
+    sourcetype: cloudflare_logpush_page_shield_events
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"Action":"log","CSPDirective":"directive","Host":"hostymchost.face","PageURL":"http://example.com/?query=42","PolicyID":"9","ResourceType":"other","Timestamp":"2023-05-04T11:29:14Z","URL":"https://example.com/?query=hog","URLContainsCDNCGIPath":true,"URLHost":"example.com"}'
+    key:
+      - Action
+      - CSPDirective
+      - Host
+      - PageURL
+  - type: Sinkhole HTTP
+    sourcetype: cloudflare_logpush_sinkhole_http
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"AccountID":"AC123456","Body":"{\"action\": \"login\", \"user\": \"john_doe\"}","BodyLength":39,"DestAddr":"198.51.100.15","Headers":"Host: example.com\nUser-Agent: Mozilla/5.0\nAccept: */*\nConnection: keep-alive","Host":"example.com","Method":"POST","Password":"password123","R2Path":"","Referrer":"https://searchengine.com/","SinkholeID":"SH001","SrcAddr":"198.51.100.25","Timestamp":"2023-09-19T12:00:00Z","URI":"/api/v1/login","URL":"https://example.com/api/v1/login","UserAgent":"Mozilla/5.0","Username":"john_doe"}'
+    key:
+      - AccountID
+      - Body
+      - BodyLength
+      - DestAddr
+  - type: Spectrum Event
+    sourcetype: cloudflare_logpush_spectrum_event
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"Application":"7ef659a2f8ef4810a9bade96fdad7c75","ClientAsn":200391,"ClientBytes":0,"ClientCountry":"bg","ClientIP":"203.0.113.8","ClientMatchedIpFirewall":"UNKNOWN","ClientPort":40456,"ClientProto":"tcp","ClientTcpRtt":0,"ClientTlsCipher":"UNK","ClientTlsClientHelloServerName":"server name","ClientTlsProtocol":"TLSv1.2","ClientTlsStatus":"UNKNOWN","ColoCode":"SOF","ConnectTimestamp":"2022-05-26T09:24:00Z","DisconnectTimestamp":"2022-06-01T00:00:00Z","Event":"connect","IpFirewall":false,"OriginBytes":0,"OriginIP":"203.0.113.40","OriginPort":3389,"OriginProto":"tcp","OriginTcpRtt":0,"OriginTlsCipher":"UNK","OriginTlsFingerprint":"0000000000000000000000000000000000000000000000000000000000000000.","OriginTlsMode":"off","OriginTlsProtocol":"unknown","OriginTlsStatus":"UNKNOWN","ProxyProtocol":"off","Status":0}'
+    key:
+      - Application
+      - ClientAsn
+      - ClientBytes
+      - ClientCountry
+  - type: Workers Trace
+    sourcetype: cloudflare_logpush_workers_trace
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"Event":{"RayID":"7e9ae7157ac0c33a","Request":{"URL":"http://chat-gpt-little-butterfly-0c3d.example.workers.dev/v2/_catalog","Method":"GET"},"Response":{"Status":404}},"EventTimestampMs":1689852946804,"EventType":"fetch","Exceptions":[{"Message":"Uncaught TypeError: Cannot read property ''x'' of undefined","Stack":"TypeError: Cannot read property ''x'' of undefined\n    at fetchHandler (/workers/script.js:12:27)\n    at handleRequest (/workers/script.js:6:13)"}],"Logs":[{"level":"info","message":"Request received for /api/data"},{"level":"error","message":"Something went wrong"}],"Outcome":"exception","ScriptName":"chat-gpt-little-butterfly-0c3d","ScriptTags":["api","chatgpt"],"DispatchNamespace":"my-worker-dispatch"}'
+    key:
+      - Event.RayID
+      - Event.Request.URL
+      - Event.Request.Method
+      - Event.Response.Status
+cves: []
+detections:
+  - title: Cloudflare Logpush events arriving
+    severity: low
+    signals:
+      - Action
+      - Allowed
+      - AppDomain
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cloudflare_logpush_access_request"'
+optimizations: []
+references:
+  - title: elastic/integrations cloudflare_logpush/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cloudflare_logpush/data_stream/access_request/_dev/test/pipeline/test-pipeline-access-request.log
+  - title: Pack Generator sample cloudflare_logpush_access_request.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cloudflare_logpush_access_request.json

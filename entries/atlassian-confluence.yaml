@@ -1,0 +1,71 @@
+id: atlassian-confluence
+name: Atlassian Confluence
+short: Confluence
+vendor: Atlassian
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - atlassian_confluence
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Atlassian Confluence is logged by the Elastic integrations package atlassian_confluence. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: atlassian_confluence_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: atlassian_confluence/data_stream/audit/_dev/test/pipeline/test-audit-api.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: atlassian_confluence
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: timestamp, author.name, author.type, author.id, author.uri, author.avatarUri
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Atlassian Confluence events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, author.name, author.type, author.id, author.uri, author.avatarUri. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads atlassian_confluence and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: atlassian_confluence_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"2021-11-23T00:44:36.398Z","author":{"name":"test user","type":"user","id":"2c9680837d4a3682017d4a375a280000","uri":"http://confluence.internal:8090/admin/users/viewuser.action?username=admin","avatarUri":""},"type":{"categoryI18nKey":"atlassian.audit.event.category.audit","category":"Auditing","actionI18nKey":"atlassian.audit.event.action.audit.search","action":"Audit Log search performed"},"affectedObjects":[],"changedValues":[],"source":"192.0.2.10","system":"http://confluence.internal:8090","method":"Browser","extraAttributes":[{"nameI18nKey":"atlassian.audit.event.attribute.id","name":"ID Range","value":"79 - 178"},{"nameI18nKey":"atlassian.audit.event.attribute.query","name":"Query","value":""}]}'
+    key:
+      - timestamp
+      - author.name
+      - author.type
+      - author.id
+cves: []
+detections:
+  - title: Atlassian Confluence events arriving
+    severity: low
+    signals:
+      - timestamp
+      - author.name
+      - author.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "atlassian_confluence_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations atlassian_confluence/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/atlassian_confluence/data_stream/audit/_dev/test/pipeline/test-audit-api.log
+  - title: Pack Generator sample atlassian_confluence_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/atlassian_confluence_audit.json

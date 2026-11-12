@@ -1,0 +1,71 @@
+id: fortinet-web
+name: Fortinet Web
+short: Fortinet Web
+vendor: Fortinet
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fortinet_web
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Fortinet Web is logged by the Splunk Connect for Syslog package fortinet_web. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fortinet_fortiweb
+    desc: 'Splunk Connect for Syslog fixture, 6 events. Upstream: tests/test_fortinet_web.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: fortinet_web
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: kv
+  Fields in the first fixture: header, date, time, devname, log_id, msg_id
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fortinet Web events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, date, time, devname, log_id, msg_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads fortinet_web and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Fortinet Fortiweb
+    sourcetype: fortinet_fortiweb
+    format: kv
+    desc: 6 fixture events in the samples pool (sc4s).
+    sample: <111> Jun 15 13:45:07 fortiweb date=2026-06-15 time=13:45:07 devname=sc4s-lab-01 log_id=10000017 msg_id=000000001117 device_id=FVVM040000010871 vd="root" timezone="(GMT+0000)Region,City" type=event subtype="system" pri=information trigger_policy="" user=admin ui=GUI action=login status=success msg="User admin login successfully from GUI(198.51.100.25)"
+    key:
+      - date
+      - time
+      - devname
+      - log_id
+cves: []
+detections:
+  - title: Fortinet Web events arriving
+    severity: low
+    signals:
+      - header
+      - date
+      - time
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fortinet_fortiweb"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_fortinet_web.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_fortinet_web.py
+  - title: Pack Generator sample fortinet_fortiweb.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortiweb.json

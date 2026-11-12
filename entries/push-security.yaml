@@ -1,0 +1,71 @@
+id: push-security
+name: Push Security
+short: Push Security
+vendor: Push
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - push_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Push Security is logged by the Datadog integrations-core package push_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: push_security
+    desc: 'Datadog integrations-core fixture, 12 events. Upstream: push_security/assets/logs/push-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: push_security
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: json
+  Fields in the first fixture: new.os, new.loginType, new.sourceIpAddress, new.employeeId, new.userAgent, new.passwordManuallyTyped
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Push Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries new.os, new.loginType, new.sourceIpAddress, new.employeeId, new.userAgent, new.passwordManuallyTyped. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads push_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Push Security
+    sourcetype: push_security
+    format: json
+    desc: 12 fixture events in the samples pool (logtest).
+    sample: '{"new":{"os":"MACOS","loginType":"PASSWORD_LOGIN","sourceIpAddress":"198.51.100.15","employeeId":"emp1","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15","passwordManuallyTyped":true,"accountId":"acc1","weakPassword":false,"passwordId":"pass1","appType":"EXAMPLE_APP","loginUrl":"https://example.com/authorize","appId":"app1","browser":"SAFARI","workApp":true,"loginTimestamp":1757326157,"email":"user@example.com","leakedPassword":false},"description":"user@example.com logged into https://example.com/authorize using a password","id":"123","category":"ACTIVITY","version":"1","friendlyName":"Login","timestamp":1757326162,"object":"LOGIN"}'
+    key:
+      - new.os
+      - new.loginType
+      - new.sourceIpAddress
+      - new.employeeId
+cves: []
+detections:
+  - title: Push Security events arriving
+    severity: low
+    signals:
+      - new.os
+      - new.loginType
+      - new.sourceIpAddress
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "push_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core push_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/push_security/assets/logs/push-security_tests.yaml
+  - title: Pack Generator sample push_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/push_security.json

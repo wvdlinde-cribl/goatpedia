@@ -1,0 +1,71 @@
+id: plaid
+name: Plaid
+short: Plaid
+vendor: Plaid
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - plaid
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Plaid is logged by the Datadog integrations-core package plaid. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: plaid
+    desc: 'Datadog integrations-core fixture, 3 events. Upstream: plaid/assets/logs/plaid_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: plaid
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: amount, authorization_id, created, description, failure_reason.ach_return_code, failure_reason.failure_code
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Plaid events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries amount, authorization_id, created, description, failure_reason.ach_return_code, failure_reason.failure_code. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads plaid and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Plaid
+    sourcetype: plaid
+    format: json
+    desc: 3 fixture events in the samples pool (logtest).
+    sample: '{"amount":"12.34","authorization_id":"3e77aebb-444e-9a71-4c70-9cde604c0689","created":"2025-04-15T04:31:55.577677Z","description":"posted","failure_reason":{"ach_return_code":"R01","failure_code":"R01","description":"Insufficient funds"},"type":"debit","cancellable":false,"network":"ach","originator_client_id":"66dec76ee40771001aff0759","sweep_status":"unswept","account_id":"yngxaDxQXXT8Eok5Aw7RIx3qwmXzjQF4RbrPE","ach_class":"ppd","iso_currency_code":"USD","origination_account_id":"","id":"54ad77b7-b08b-06f1-3d2d-86d7a0c6e25e","ledger_id":"2ec67c41-a3c6-4501-a31e-757b362fa0be","user":{"legal_name":"Alberta Bobbeth Charleson"},"status":"failed"}'
+    key:
+      - amount
+      - authorization_id
+      - created
+      - description
+cves: []
+detections:
+  - title: Plaid events arriving
+    severity: low
+    signals:
+      - amount
+      - authorization_id
+      - created
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "plaid"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core plaid/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/plaid/assets/logs/plaid_tests.yaml
+  - title: Pack Generator sample plaid.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/plaid.json

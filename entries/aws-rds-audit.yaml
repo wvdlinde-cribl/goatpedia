@@ -32,6 +32,8 @@ sourcetypes:
     desc: 'RDS/Aurora PostgreSQL engine log lines with the default %t:%r:%u@%d:[%p]: prefix, including pgAudit AUDIT records and authentication failures'
   - st: aws:cloudwatchlogs
     desc: Splunk Add-on for AWS — generic CloudWatch Logs input used for RDS log groups
+  - st: aws_cloudwatch_logs
+    desc: 'Elastic integrations fixture, 6 events. Upstream: aws/data_stream/cloudwatch_logs/_dev/test/pipeline/test-cloudwatch-ec2.log'
 facts:
   Engines: RDS for MySQL, MariaDB and PostgreSQL; Aurora MySQL and Aurora PostgreSQL
   MySQL/MariaDB mechanism: MARIADB_AUDIT_PLUGIN option in an option group (RDS); server_audit_* cluster parameters (Aurora Advanced Auditing)
@@ -185,6 +187,14 @@ logs:
     noise:
       - pid
     sample: '2026-11-12 09:18:40 UTC:203.0.113.45(40112):postgres@postgres:[22790]:FATAL:  password authentication failed for user "postgres"'
+  - type: Cloudwatch Logs
+    sourcetype: aws_cloudwatch_logs
+    format: text
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '2020-02-20T07:01:01.000Z Feb 20 07:01:01 ip-172-31-81-156 systemd: Stopping User Slice of root.'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2023-2454
     cvss: 7.2

@@ -32,6 +32,12 @@ sourcetypes:
     desc: Generic CEF routing name for Incapsula SIEMintegration events
   - st: ImpervaWAFCloudV2
     desc: Microsoft Sentinel table (SentinelImpervaWAFCloudV2Logs) fed by the Imperva connector
+  - st: imperva_waf
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_imperva_waf.py'
+  - st: imperva_waf_firewall_cef
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_imperva_waf.py'
+  - st: imperva_waf_security_cef
+    desc: 'Splunk Connect for Syslog fixture, 3 events. Upstream: tests/test_imperva_waf.py'
 facts:
   First released: 2009 (Incapsula); acquired by Imperva 2014, Imperva by Thales 2023
   Delivery model: SaaS reverse proxy on a global PoP network (CDN + WAF + DDoS)
@@ -145,6 +151,36 @@ logs:
       - suid
     sample: |-
       CEF:0|Incapsula|SIEMintegration|1|1|Normal|0| fileId=3412341160002518172 sourceServiceName=shop.example.com siteid=1509732 suid=50005477 Customer=Example Retail Ltd tag=example-retail siteTag=shop-prod deviceFacility=ams ccode=NL cicode=Amsterdam dproc=Browser start=1794557662213 end=1794557662251 request=shop.example.com/catalog/shoes?color\=black&size\=42 requestMethod=GET app=HTTPS act=REQ_PASSED deviceExternalId=33411452762204225 requestClientApplication=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 src=198.51.100.77 sip=198.51.100.20 cpt=49822 spt=443 cn1=200 qstr=color\=black&size\=42 ref=https://shop.example.com/catalog in=48213 ver=TLSv1.3 TLS_AES_128_GCM_SHA256 cs1=NA cs1Label=Cap Support cs2=true cs2Label=Javascript Support cs3=true cs3Label=CO Support cs4=9d4c5f0e-2a8b-4c1e-9f3a-6e7b1d2c8a40 cs4Label=VID cs6=Chrome cs6Label=clapp cs7=52.3740 cs7Label=latitude cs8=4.8897 cs8Label=longitude cs15=X25519 cs15Label=TLS KX Group
+  - type: Imperva WAF
+    sourcetype: imperva_waf
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <11> Jun 15 13:45:07 sc4s-lab-01 CEF:0|Imperva Inc.|SecureSphere|13.5.0.10_0|Custom|custom-policy-violation|High|act=block dst=203.0.113.8 dpt=80 duser=GeritaMija3s src=203.0.113.40 spt=59774 proto=TCP rt=Jun 15 13:45:07 cat=Alert cs1=Suspicious File Access Attempt - 1 cs1Label=Policy cs2=WebCloud (simulation) cs2Label=ServerGroup cs3=WebCloud HTTP Service (simulation) cs3Label=ServiceName cs4=aaaa.bbb.cc Application cs4Label=ApplicationName cs5=custom-policy-violation cs5Label=Description cs6=POST cs6Label=HTTPHeaderRequest-URLMethod cs7=/uploads/dede/sys_verifies.php cs7Label=HTTPHeaderRequest-URLPath cs8=Connection, Content-Type, Accept, Referer, User-Agent, Content-Length, Host Keep-Alive, application/x-www-form-urlencoded, */*, http://aaaaa.bbb.cc/uploads/dede/sys_verifies.php?action=down, Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2), 231, aaaa.bbb.cc cs8Label=HttpHeaderRequest-Header cs9=down action cs9Label=HttpHeaderRequest-Parameters cs10=6704543119945989736 cs10Label=EventID cs11=7500662780438769543 cs11Label=SessionID
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Imperva WAF Firewall Cef
+    sourcetype: imperva_waf_firewall_cef
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: Jun 15 13:45:07 sc4s-lab-01 CEF:0|Imperva Inc.|SecureSphere|12.0.0|Firewall|SSL Untraceable Connection|Medium|act=Block dst=192.0.2.10 dpt=2157 duser=Mathbelliin src=192.0.2.20 spt=11286 proto=TCP rt=Jun 15 13:45:07 cat=Alert cs1=Automated Vulnerability Scanning cs1Label=Policy cs2=IRIS_1 cs2Label=ServerGroup cs3=app1-5.host1.com [Multi_VIP] cs3Label=ServiceName cs4=For Monitor ONLY cs4Label=ApplicationName cs5=Distributed Too Many Headers per Response cs5Label=Description
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Imperva WAF Security Cef
+    sourcetype: imperva_waf_security_cef
+    format: cef
+    desc: 3 fixture events in the samples pool (sc4s).
+    sample: <111>Jun 15 13:45:07 sc4s-lab-01 CEF:0|Imperva Inc.|SecureSphere|13.0.0|Signature|Sql Signature Violation|Low|act=None dst=198.51.100.15 dpt=1521 duser=Multiple src=198.51.100.25 spt=51462 proto=TCP rt=Jun 15 13:45:07 cat=Alert cs1=Recommended Signatures Policy for Database Applications cs1Label=Policy cs2=hklp320p cs2Label=ServerGroup cs3=Multiple EXECUTE IMMEDIATE attempt(+)  from 203.0.113.8 cs3Label=Description
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
 cves:
   - id: CVE-2021-45468
     cvss: 9.8

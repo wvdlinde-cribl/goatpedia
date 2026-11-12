@@ -1,0 +1,71 @@
+id: zerofox
+name: Zerofox
+short: Zerofox
+vendor: Zerofox
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - zerofox
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Zerofox is logged by the Elastic integrations package zerofox. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: zerofox_alerts
+    desc: 'Elastic integrations fixture, 3 events. Upstream: zerofox/data_stream/alerts/_dev/test/pipeline/test-alert.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: zerofox
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: alert_type, logs[0].id, logs[0].timestamp, logs[0].actor, logs[0].subject, logs[0].action
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Zerofox events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries alert_type, logs[0].id, logs[0].timestamp, logs[0].actor, logs[0].subject, logs[0].action. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads zerofox and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alerts
+    sourcetype: zerofox_alerts
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"alert_type":"search query","logs":[{"id":205171631,"timestamp":"2021-04-29T18:56:52+00:00","actor":"ZeroFox Platform Specialist","subject":"","action":"modify tags"},{"id":205171630,"timestamp":"2021-04-29T18:56:51+00:00","actor":"","subject":"","action":"open"}],"offending_content_url":"hxxp://abc.biz?entity=123456","asset_term":"","assignee":"","entity":{"id":123456,"name":"abc.com","image":"https://cdn.zerofox.com/media/entityimages/1.jpg","labels":[{"id":17700,"name":"Brand"}],"entity_group":{"id":2857,"name":"Default"}},"entity_term":"","content_created_at":"2017-01-10T11:00:00+00:00","id":123456789,"protected_account":"","severity":4,"perpetrator":{"name":"Concealed","display_name":"Concealed","id":123456789,"url":"hxxp://abc.biz?entity=123456","content":"Variation of protected domain abc.com found: abc.biz","type":"page","timestamp":"2017-01-10T11:00:00+00:00","network":"domains"},"rule_group_id":457,"metadata":"{}","status":"Open","timestamp":"2021-04-29T18:56:51+00:00","rule_name":"Advanced Domain Analysis - Typosquat Match","last_modified":"2021-04-29T18:56:52Z","protected_locations":"","darkweb_term":"","business_network":"","reviewed":false,"escalated":false,"network":"domains","protected_social_object":"","notes":"","reviews":[],"content_actions":[],"rule_id":38160,"entity_account":""}'
+    key:
+      - alert_type
+      - logs[0].id
+      - logs[0].timestamp
+      - logs[0].actor
+cves: []
+detections:
+  - title: Zerofox events arriving
+    severity: low
+    signals:
+      - alert_type
+      - logs[0].id
+      - logs[0].timestamp
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "zerofox_alerts"'
+optimizations: []
+references:
+  - title: elastic/integrations zerofox/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/zerofox/data_stream/alerts/_dev/test/pipeline/test-alert.json
+  - title: Pack Generator sample zerofox_alerts.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zerofox_alerts.json

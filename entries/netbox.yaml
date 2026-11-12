@@ -1,0 +1,83 @@
+id: netbox
+name: Netbox
+short: Netbox
+vendor: Netbox
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - netbox
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Netbox is logged by the Elastic integrations package netbox. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: netbox_devices
+    desc: 'Elastic integrations fixture, 2 events. Upstream: netbox/data_stream/devices/_dev/test/pipeline/test-devices.json'
+  - st: netbox_ips
+    desc: 'Elastic integrations fixture, 2 events. Upstream: netbox/data_stream/ips/_dev/test/pipeline/test-devices.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: netbox
+  Sourcetypes: '2'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: id, url, display_url, display, name, device_type.id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Netbox events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, url, display_url, display, name, device_type.id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads netbox and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Devices
+    sourcetype: netbox_devices
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":2,"url":"http://localhost:8000/api/dcim/devices/2/","display_url":"http://localhost:8000/dcim/devices/2/","display":"server-1 (macbook-server)","name":"server-1","device_type":{"id":1,"url":"http://localhost:8000/api/dcim/device-types/1/","display":"macbook pro","manufacturer":{"id":1,"url":"http://localhost:8000/api/dcim/manufacturers/1/","display":"Apple","name":"Apple","slug":"apple","description":""},"model":"macbook pro","slug":"macbook-pro","description":"Macbook Pro"},"role":{"id":1,"url":"http://localhost:8000/api/dcim/device-roles/1/","display":"test-role","name":"test-role","slug":"test-role","description":"","_depth":0},"tenant":{"id":1,"url":"http://localhost:8000/api/tenancy/tenants/1/","display":"tenant-1","name":"tenant-1","slug":"tenant-1","description":"first tenant"},"platform":{"id":1,"url":"http://localhost:8000/api/dcim/platforms/1/","display":"some-playtofmr","name":"some-playtofmr","slug":"some-playtofmr","description":"6trgyuhb"},"serial":"243rtgtbsasdf","asset_tag":"macbook-server","site":{"id":1,"url":"http://localhost:8000/api/dcim/sites/1/","display":"test-site","name":"test-site","slug":"test-site","description":""},"location":{"id":1,"url":"http://localhost:8000/api/dcim/locations/1/","display":"location1","name":"location1","slug":"location1","description":"some location","rack_count":0,"_depth":0},"rack":{"id":1,"url":"http://localhost:8000/api/dcim/racks/1/","display":"rack-1 (faciclity-id-123)","name":"rack-1","description":"test rack 1"},"position":1,"face":{"value":"front","label":"Front"},"latitude":0.000004,"longitude":0.000005,"parent_device":null,"status":{"value":"active","label":"Active"},"airflow":{"value":"front-to-rear","label":"Front to rear"},"primary_ip":{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display":"192.0.2.20/24","family":{"value":4,"label":"IPv4"},"address":"198.51.100.15/24","description":"great desc"},"primary_ip4":{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display":"198.51.100.25/24","family":{"value":4,"label":"IPv4"},"address":"203.0.113.8/24","description":"great desc"},"primary_ip6":null,"oob_ip":{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display":"203.0.113.40/24","family":{"value":4,"label":"IPv4"},"address":"192.0.2.10/24","description":"great desc"},"cluster":{"id":1,"url":"http://localhost:8000/api/virtualization/clusters/1/","display":"test","name":"test","description":"test-description"},"virtual_chassis":{"id":1,"url":"http://localhost:8000/api/dcim/virtual-chassis/1/","display":"asdf","name":"asdf","master":{"id":2,"url":"http://localhost:8000/api/dcim/devices/2/","display_url":"http://localhost:8000/dcim/devices/2/","display":"server-1 (macbook-server)","name":"server-1"},"description":"","member_count":2},"vc_position":1,"vc_priority":null,"description":"test server"}'
+    key:
+      - id
+      - url
+      - display_url
+      - display
+  - type: Ips
+    sourcetype: netbox_ips
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display_url":"http://localhost:8000/ipam/ip-addresses/1/","display":"192.0.2.20/32","family":{"value":4,"label":"IPv4"},"address":"198.51.100.15/32","vrf":{"id":1,"url":"http://localhost:8000/api/ipam/vrfs/1/","display":"test","name":"test","rd":null,"description":"asdf"},"tenant":{"id":1,"url":"http://localhost:8000/api/tenancy/tenants/1/","display":"tenant-1","name":"tenant-1","slug":"tenant-1","description":"first tenant"},"status":{"value":"active","label":"Active"},"role":{"value":"secondary","label":"Secondary"},"assigned_object_type":"dcim.interface","assigned_object_id":1,"assigned_object":{"id":1,"url":"http://localhost:8000/api/dcim/interfaces/1/","display":"test1","device":{"id":2,"url":"http://localhost:8000/api/dcim/devices/2/","display":"server-1 (macbook-server)","name":"server-1","description":"test server"},"name":"test1","description":"wlan","cable":null,"_occupied":false},"nat_inside":{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display_url":"http://localhost:8000/ipam/ip-addresses/1/","display":"198.51.100.25/32","family":4,"address":"203.0.113.8/32"},"nat_outside":[{"id":1,"url":"http://localhost:8000/api/ipam/ip-addresses/1/","display_url":"http://localhost:8000/ipam/ip-addresses/1/","display":"203.0.113.40/32","family":4,"address":"192.0.2.10/32"}],"dns_name":"test.co","description":"great desc","comments":"","tags":[{"id":2,"url":"http://localhost:8000/api/extras/tags/2/","display_url":"http://localhost:8000/extras/tags/2/","display":"dev","name":"dev","slug":"dev","color":"9e9e9e"},{"id":3,"url":"http://localhost:8000/api/extras/tags/3/","display_url":"http://localhost:8000/extras/tags/3/","display":"web","name":"web","slug":"web","color":"9e9e9e"}],"custom_fields":{},"created":"2025-08-11T16:49:52.511883Z","last_updated":"2025-08-12T12:50:29.063329Z"}'
+    key:
+      - id
+      - url
+      - display_url
+      - display
+cves: []
+detections:
+  - title: Netbox events arriving
+    severity: low
+    signals:
+      - id
+      - url
+      - display_url
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "netbox_devices"'
+optimizations: []
+references:
+  - title: elastic/integrations netbox/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/netbox/data_stream/devices/_dev/test/pipeline/test-devices.json
+  - title: Pack Generator sample netbox_devices.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/netbox_devices.json

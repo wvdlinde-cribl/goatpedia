@@ -1,0 +1,67 @@
+id: calico
+name: Calico
+short: Calico
+vendor: Calico
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - calico
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Calico is logged by the Datadog integrations-core package calico. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: calico
+    desc: 'Datadog integrations-core fixture, 13 events. Upstream: calico/assets/logs/calico_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: calico
+  Sourcetypes: '1'
+  Fixture events: '13'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Calico events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads calico and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Calico
+    sourcetype: calico
+    format: text
+    desc: 13 fixture events in the samples pool (logtest).
+    sample: '2022-03-08 13:20:34.092 [INFO][760] felix/int_dataplane.go 1484: Received *proto.ActiveProfileUpdate update from calculation graph msg=id:<name:"ksa.default.datadog-agent-kube-state-metrics" > profile:<>'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Calico events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "calico"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core calico/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/calico/assets/logs/calico_tests.yaml
+  - title: Pack Generator sample calico.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/calico.json

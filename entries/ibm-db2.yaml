@@ -35,6 +35,8 @@ sourcetypes:
     desc: SYSADMIN category — DB2AUDIT, DB2SET, START_DB2/STOP_DB2, UPDATE_DBM_CFG, BACKUP_DB, RESTORE_DB, FORCE_APPLICATION …
   - st: ibm_db2_audit_validate
     desc: VALIDATE category — AUTHENTICATION and GET_USERMAPPING_FROM_PLUGIN, with SQLCODE status
+  - st: ibm_db2
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: ibm_db2/assets/logs/ibm_db2_tests.yaml'
 facts:
   First released: 1983 (DB2 for MVS); Db2 LUW since the 1990s; audit facility rewritten in 9.5 (policies, per-database logs)
   Current releases: Db2 12.1, 11.5 (Linux, AIX, Windows; containers / OpenShift; Db2 on Cloud, Db2 Warehouse)
@@ -243,6 +245,14 @@ logs:
       - local_txn_id
       - global_txn_id
     sample: '"2026-11-12-02.47.10.004512","SYSADMIN","DB2AUDIT",1,0,"        ","db2inst1","DB2INST1",0,0,"*LOCAL.db2inst1.261112014710","db2audit","","",0,"","","","","","","","","","","","",""'
+  - type: IBM Db2
+    sourcetype: ibm_db2
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '2018-05-14-08.47.36.193659+000 E15259E495            LEVEL: Event PID     : 1492                 TID : 140145063458688 PROC : db2star2 INSTANCE: db2inst1             NODE : 000 HOSTNAME: 04753ae5d01d FUNCTION: DB2 UDB, base sys utilities, DB2StartMain, probe:911 MESSAGE : ADM7513W  Database manager has started.'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2026-10543
     cvss: 9.8

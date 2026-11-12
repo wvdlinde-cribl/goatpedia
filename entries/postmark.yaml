@@ -1,0 +1,71 @@
+id: postmark
+name: Postmark
+short: Postmark
+vendor: Postmark
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - postmark
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Postmark is logged by the Datadog integrations-core package postmark. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: postmark
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: postmark/assets/logs/postmark_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: postmark
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: Details, ServerID, RecordType, DeliveredAt, MessageStream, Recipient
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Postmark events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries Details, ServerID, RecordType, DeliveredAt, MessageStream, Recipient. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads postmark and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Postmark
+    sourcetype: postmark
+    format: json
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '{"Details":"smtp;250 2.0.0 OK 1729492532 af79cd13be357-7b165ab4182si321600985a.706 - gsmtp","ServerID":14542485,"RecordType":"Delivery","DeliveredAt":"2024-10-21T06:35:32Z","MessageStream":"outbound","Recipient":"user@example.com","Tag":"","MessageID":"fc7e2258-279b-4f76-9af7-7efa94b97853"}'
+    key:
+      - Details
+      - ServerID
+      - RecordType
+      - DeliveredAt
+cves: []
+detections:
+  - title: Postmark events arriving
+    severity: low
+    signals:
+      - Details
+      - ServerID
+      - RecordType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "postmark"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core postmark/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/postmark/assets/logs/postmark_tests.yaml
+  - title: Pack Generator sample postmark.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/postmark.json

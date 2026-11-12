@@ -1,0 +1,71 @@
+id: linux-audit-logs
+name: Linux Audit Logs
+short: Logs
+vendor: Linux
+category: os
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - linux_audit_logs
+  - Datadog integrations-core
+tags:
+  - logtest
+  - kv
+summary: Linux Audit Logs is logged by the Datadog integrations-core package linux_audit_logs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: linux_audit_logs
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: linux_audit_logs/assets/logs/linux-audit-logs_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: linux_audit_logs
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: type, msg, pid, uid, auid, ses
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Linux Audit Logs events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries type, msg, pid, uid, auid, ses. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads linux_audit_logs and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Linux Audit Logs
+    sourcetype: linux_audit_logs
+    format: kv
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: 'type=USER_MAC_CONFIG_CHANGE msg=audit(1736329118.112:6532): pid=381980 uid=0 auid=0 ses=138 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 msg=''resrc=port op=add lport=3307 proto=6 tcontext=system_u:object_r:mysqld_port_t:s0 comm="semanage" exe="/usr/libexec/platform-python3.6" hostname=198.51.100.15 addr=198.51.100.25 terminal=ssh res=success''UID="root" AUID="root"'
+    key:
+      - type
+      - msg
+      - pid
+      - uid
+cves: []
+detections:
+  - title: Linux Audit Logs events arriving
+    severity: low
+    signals:
+      - type
+      - msg
+      - pid
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "linux_audit_logs"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core linux_audit_logs/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/linux_audit_logs/assets/logs/linux-audit-logs_tests.yaml
+  - title: Pack Generator sample linux_audit_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/linux_audit_logs.json

@@ -41,6 +41,8 @@ sourcetypes:
     desc: Splunk Add-on for Microsoft Office 365 name for Graph API inputs
   - st: OfficeActivity
     desc: Microsoft Sentinel table for the Office 365 connector (Exchange, SharePoint, OneDrive, Teams)
+  - st: o365_audit
+    desc: 'Elastic integrations fixture, 10 events. Upstream: o365/data_stream/audit/_dev/test/pipeline/test-azuread-events.json'
 facts:
   First released: 2015 (Office 365 Management Activity API, general availability 2016)
   Platform: Microsoft 365 SaaS (Exchange Online, SharePoint Online, OneDrive, Teams, Entra ID)
@@ -186,6 +188,16 @@ logs:
       - resourceId
       - deviceDetail.deviceId
     sample: '{"id":"7fbc0a97-0000-4cc8-9377-dc94d2ad1e00","createdDateTime":"2026-11-12T09:12:58Z","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"bfb8c366-0000-41a5-b3e3-328f4a3b4484","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.23","clientAppUsed":"Browser","correlationId":"8fe7aa9b-0000-b52e-c6f2-8e4dfc07996b","conditionalAccessStatus":"success","isInteractive":true,"riskLevelDuringSignIn":"medium","resourceDisplayName":"Office 365 Exchange Online","resourceId":"00000002-0000-0ff1-ce00-000000000000","status":{"errorCode":0,"failureReason":"Other."},"deviceDetail":{"deviceId":"","operatingSystem":"Windows10","browser":"Chrome 130.0.0"},"location":{"city":"Amsterdam","countryOrRegion":"NL"}}'
+  - type: Audit
+    sourcetype: o365_audit
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"Actor":[{"ID":"user@example.com","Type":"5"},{"ID":"1003200096971F55","Type":"3"}],"ActorContextId":"b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd","ActorIpAddress":"198.51.100.25","AzureActiveDirectoryEventType":"1","ClientIP":"203.0.113.8","CreationTime":"2020-02-09T15:33:26","ExtendedProperties":[{"Name":"actorContextId","Value":"b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd"},{"Name":"actorObjectId","Value":"755e500a-6c03-46b0-b53b-282f23374e3b"}],"Id":"8f6eb24b-6e61-4ee2-a376-31368c300613","ModifiedProperties":[{"Name":"RequiredResourceAccess","NewValue":"[\r\n  {\r\n    \"ResourceAppId\": \"c5393580-f805-4401-95e8-94b7a6ef2fc2\",\r\n    \"RequiredAppPermissions\": [\r\n      {\r\n        \"EntitlementId\": \"4807a72c-ad38-4250-...","OldValue":"[\r\n  {\r\n    \"ResourceAppId\": \"00000003-0000-0000-c000-000000000000\",\r\n    \"RequiredAppPermissions\": [\r\n      {\r\n        \"EntitlementId\": \"e1fe6dd8-ba31-4d61-..."},{"Name":"Included Updated Properties","NewValue":"RequiredResourceAccess","OldValue":""}],"ObjectId":"Not Available","Operation":"Update application.","OrganizationId":"b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd","RecordType":"8","ResultStatus":"Success","SupportTicketId":"","Target":[{"ID":"Application_08d8bb01-c269-4a92-9929-a1a89b729512","Type":"2"},{"ID":"08d8bb01-c269-4a92-9929-a1a89b729512","Type":"2"}],"TargetContextId":"b86ab9d4-fcf1-4b11-8a06-7a8f91b47fbd","UserId":"user@example.com","UserKey":"user@example.com","UserType":"0","Version":"1","Workload":"AzureActiveDirectory"}'
+    key:
+      - Actor[0].ID
+      - Actor[0].Type
+      - Actor[1].ID
+      - Actor[1].Type
 cves:
   - id: CVE-2025-55241
     cvss: 10

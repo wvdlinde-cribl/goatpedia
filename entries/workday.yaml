@@ -29,6 +29,10 @@ sourcetypes:
     desc: User Activity log entries (GET /api/privacy/v1/<tenant>/activityLogging) — task, target, READ/WRITE/DOWNLOAD, IP, user agent
   - st: workday_signon
     desc: Workday account signon records (Get_Workday_Account_Signons web service or a signon RaaS report)
+  - st: workday_sign_on
+    desc: 'Elastic integrations fixture, 10 events. Upstream: workday/data_stream/sign_on/_dev/test/pipeline/test-sign-on.log'
+  - st: workday_user
+    desc: 'Elastic integrations fixture, 5 events. Upstream: workday/data_stream/user/_dev/test/pipeline/test-user.log'
 facts:
   First released: 2006 (Workday HCM); User Activity Logging REST API 2021
   Delivery model: Multi-tenant SaaS (production, sandbox and implementation tenants)
@@ -145,6 +149,26 @@ logs:
       - taskId
       - target.id
     sample: '{"sessionId":"b42d7e","target":{"descriptor":"All Active Workers - Compensation Detail","id":"9f8e7d6c5b4a39281706f5e4d3c2b1a0"},"taskDisplayName":"Export to Excel","requestTime":"2026-11-12T09:02:41.088Z","taskId":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","ipAddress":"198.51.100.23","deviceType":"Desktop","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15","activityAction":"DOWNLOAD","systemAccount":"asmith"}'
+  - type: Sign On
+    sourcetype: workday_sign_on
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"Account_Locked__Disabled_or_Expired":"0","Active_Session":"0","Authentication_Type_for_Signon":"SAML","Browser_Type":"Chrome","Device_Type":"Desktop","Device_is_Trusted":"0","Failed_Signon":"0","Forgotten_Password_Reset_Request":"0","Invalid_Credentials":"0","Is_Device_Managed":"0","Operating_System":"Mac OS X","Password_Changed":"0","Request_Originator":"UI","SAML_Identity_Provider":"IdP_Acme","Session_End":"2026-06-18T23:25:22-07:00","Session_Start":"2026-06-18T16:59:32-07:00","System_Account":"user534.acme / User 534"}'
+    key:
+      - Account_Locked__Disabled_or_Expired
+      - Active_Session
+      - Authentication_Type_for_Signon
+      - Browser_Type
+  - type: User
+    sourcetype: workday_user
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"Cost_Center":"Support","Employee_ID":"007066","Hire_Date":"2024-03-19","Job_Title":"Customer Support Representative I","Last_Account_or_Proxy_Login_Moment":"2024-12-24T00:44:07.572-08:00","Manager_Email":"user@example.com","Manager_ID":"000687","Organization_Roles":"Cost Center Manager; Manager","User_Name":"jdoe","User-Based_Security_Groups_for_User":"Report Writer","WorkerIsManager":"1","Worker_Type":"Employee","Worker_s_Manager":"Alex Manager (000687)","location":"Mexico - Distributed","primaryWorkEmail":"user@example.com"}'
+    key:
+      - Cost_Center
+      - Employee_ID
+      - Hire_Date
+      - Job_Title
 cves:
   - id: CVE-2019-12134
     cvss: 8.8

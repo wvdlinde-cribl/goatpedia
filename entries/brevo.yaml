@@ -1,0 +1,71 @@
+id: brevo
+name: Brevo
+short: Brevo
+vendor: Brevo
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - brevo
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Brevo is logged by the Datadog integrations-core package brevo. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: brevo
+    desc: 'Datadog integrations-core fixture, 16 events. Upstream: brevo/assets/logs/brevo_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: brevo
+  Sourcetypes: '1'
+  Fixture events: '16'
+  Log format seen: json
+  Fields in the first fixture: date_sent, segment_ids[0], segment_ids[1], date_event, campaign name, ts_sent
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Brevo events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries date_sent, segment_ids[0], segment_ids[1], date_event, campaign name, ts_sent. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads brevo and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Brevo
+    sourcetype: brevo
+    format: json
+    desc: 16 fixture events in the samples pool (logtest).
+    sample: '{"date_sent":"2020-10-09 00:00:00","segment_ids":[1,10],"date_event":"2020-10-09 00:00:00","campaign name":"My First Campaign","ts_sent":1604933619,"camp_id":1,"id":11111,"tag":"","event":"opened","ts_event":1604933737,"email":"user@example.com","ts":1604937337}'
+    key:
+      - date_sent
+      - segment_ids[0]
+      - segment_ids[1]
+      - date_event
+cves: []
+detections:
+  - title: Brevo events arriving
+    severity: low
+    signals:
+      - date_sent
+      - segment_ids[0]
+      - segment_ids[1]
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "brevo"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core brevo/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/brevo/assets/logs/brevo_tests.yaml
+  - title: Pack Generator sample brevo.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/brevo.json

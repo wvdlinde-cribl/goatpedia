@@ -1,0 +1,71 @@
+id: modal
+name: Modal
+short: Modal
+vendor: Modal
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - modal
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Modal is logged by the Datadog integrations-extras package modal. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: modal
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: modal/assets/logs/modal_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: modal
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: hostname, rpc, target_attr_name, level, service, target_attr_value
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Modal events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries hostname, rpc, target_attr_name, level, service, target_attr_value. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads modal and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Modal
+    sourcetype: modal
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"hostname":"","rpc":"TokenCreate","target_attr_name":"token_type","level":"success","service":"modal.audit-logs","target_attr_value":"0","client_type":"CLIENT_TYPE_WEB_SERVER","timestamp":"2023-11-24T21:39:37.805667+00:00"}'
+    key:
+      - hostname
+      - rpc
+      - target_attr_name
+      - level
+cves: []
+detections:
+  - title: Modal events arriving
+    severity: low
+    signals:
+      - hostname
+      - rpc
+      - target_attr_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "modal"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras modal/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/modal/assets/logs/modal_tests.yaml
+  - title: Pack Generator sample modal.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/modal.json

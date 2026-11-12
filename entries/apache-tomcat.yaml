@@ -1,0 +1,87 @@
+id: apache-tomcat
+name: Apache Tomcat
+short: Apache Tomcat
+vendor: Apache
+category: web
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - apache_tomcat
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Apache Tomcat is logged by the Elastic integrations package apache_tomcat. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: apache_tomcat_access
+    desc: 'Elastic integrations fixture, 17 events. Upstream: apache_tomcat/data_stream/access/_dev/test/pipeline/test-access.log'
+  - st: apache_tomcat_catalina
+    desc: 'Elastic integrations fixture, 20 events. Upstream: apache_tomcat/data_stream/catalina/_dev/test/pipeline/test-catalina.log'
+  - st: apache_tomcat_localhost
+    desc: 'Elastic integrations fixture, 20 events. Upstream: apache_tomcat/data_stream/localhost/_dev/test/pipeline/test-localhost.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: apache_tomcat
+  Sourcetypes: '3'
+  Fixture events: '57'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Apache Tomcat events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads apache_tomcat and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Access
+    sourcetype: apache_tomcat_access
+    format: text
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: 198.51.100.25 - admin [02/Mar/2023:18:58:17 +0530] "POST /host-manager/images/asf-logo.svg HTTP/1.1" 200 20486 203.0.113.8 + 400 "http://localhost:8080/host-manager/html" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36" X-Forwarded-For="192.0.2.10, 192.0.2.20"
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Catalina
+    sourcetype: apache_tomcat_catalina
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 06-Mar-2023 18:34:17.383 SEVERE [main] org.apache.catalina.util.LifecycleBase.handleSubClassException Failed to initialize component [Connector[HTTP/1.1-8080]]
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Localhost
+    sourcetype: apache_tomcat_localhost
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '23-Feb-2023 15:40:03.713 INFO [localhost-startStop-1] org.apache.catalina.core.ApplicationContext.log ContextListener: attributeAdded(''StockTicker'', ''async.Stockticker@57ca937b'')'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Apache Tomcat events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "apache_tomcat_access"'
+optimizations: []
+references:
+  - title: elastic/integrations apache_tomcat/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/apache_tomcat/data_stream/access/_dev/test/pipeline/test-access.log
+  - title: Pack Generator sample apache_tomcat_access.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/apache_tomcat_access.json

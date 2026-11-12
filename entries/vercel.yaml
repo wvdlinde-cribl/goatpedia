@@ -1,0 +1,71 @@
+id: vercel
+name: Vercel
+short: Vercel
+vendor: Vercel
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - vercel
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Vercel is logged by the Datadog integrations-extras package vercel. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: vercel
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: vercel/assets/logs/vercel_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: vercel
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: proxy.referer, proxy.path, proxy.scheme, proxy.method, proxy.clientIp, proxy.host
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Vercel events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries proxy.referer, proxy.path, proxy.scheme, proxy.method, proxy.clientIp, proxy.host. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads vercel and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Vercel
+    sourcetype: vercel
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"proxy":{"referer":"https://verceltb.vercel.app/","path":"/api/date","scheme":"https","method":"GET","clientIp":"198.51.100.15","host":"verceltb.vercel.app","userAgent":["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"],"region":"iad1","timestamp":1629819797810,"statusCode":200},"deploymentId":"dpl_A1Hx5vjZxt2sWtMFQwbmr9xEBAD8","host":"verceltb-9hrosuv8e-zaphodBeeblebrox-dd.vercel.app","id":"AQAAAXt41IE0oGI-bAAAAABBWHQ0MU5nckFBQTBpd2dER0dtRDN3QUE","source":"lambda","message":"START RequestId: 85ea8a46-d63e-4fe3-ad03-ade7c16cd36b Version: $LATEST END RequestId: 85ea8a46-d63e-4fe3-ad03-ade7c16cd36b REPORT RequestId: 85ea8a46-d63e-4f...","projectName":"projectName.vercel.app","timestamp":"2021-08-24T15:43:17.812Z","tags":["source:vercel"],"traceId":"85ea8a46-d63e-4fe3-ad03-ade7c16cd36b","spanId":"1012381427123789198737891237891"}'
+    key:
+      - proxy.referer
+      - proxy.path
+      - proxy.scheme
+      - proxy.method
+cves: []
+detections:
+  - title: Vercel events arriving
+    severity: low
+    signals:
+      - proxy.referer
+      - proxy.path
+      - proxy.scheme
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "vercel"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras vercel/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/vercel/assets/logs/vercel_tests.yaml
+  - title: Pack Generator sample vercel.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vercel.json

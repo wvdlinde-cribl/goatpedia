@@ -1,0 +1,71 @@
+id: dataminr-pulse
+name: Dataminr Pulse
+short: Dataminr Pulse
+vendor: Dataminr
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - dataminr_pulse
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Dataminr Pulse is logged by the Elastic integrations package dataminr_pulse. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: dataminr_pulse_alerts
+    desc: 'Elastic integrations fixture, 17 events. Upstream: dataminr_pulse/data_stream/alerts/_dev/test/pipeline/test-field-mappings.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: dataminr_pulse
+  Sourcetypes: '1'
+  Fixture events: '17'
+  Log format seen: json
+  Fields in the first fixture: headline, alertId, publicPost.timestamp, publicPost.channels[0], publicPost.channels[1], publicPost.href
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Dataminr Pulse events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries headline, alertId, publicPost.timestamp, publicPost.channels[0], publicPost.channels[1], publicPost.href. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads dataminr_pulse and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alerts
+    sourcetype: dataminr_pulse_alerts
+    format: json
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: '{"headline":"Comprehensive base field mapping test","alertId":"BASE-FIELD-TEST-001","publicPost":{"timestamp":"2026-03-15T14:30:00.000Z","channels":["chatter","sensor"],"href":"https://r.dataminr.com/base-test","media":[{"type":"photo","href":"https://alertmedia.dataminr.com/image1.jpg"},{"type":"video","href":"https://alertmedia.dataminr.com/video1.mp4"}]},"listsMatched":[{"id":"4932401","name":"Cyber Security","topicIds":["963155"],"subType":"DIGITAL_RISK"},{"id":"4932402","name":"Infrastructure","topicIds":["853036"],"subType":"OPERATIONAL"}],"estimatedEventLocation":{"name":"San Francisco, CA, USA","coordinates":[37.7749,-122.4194],"probabilityRadius":5.2},"dataminrAlertUrl":"https://app.dataminr.com/#alertDetail/5/BASE-FIELD-TEST-001","alertType":{"name":"Flash"},"alertTopics":[{"id":"963155","name":"Data Exposure & Breaches"},{"id":"963136","name":"Threat Actors - Hacktivists"}],"alertTimestamp":"2026-03-15T14:31:00.000Z","alertSectors":[{"name":"Technology"},{"name":"Financials"}],"alertCompanies":[{"name":"Example Corp"},{"name":"Test Industries"}],"intelAgents":[{"summary":"Intel agent summary for testing","timestamp":"2026-03-15T14:30:30.000Z","version":"2.1"}],"liveBrief":[{"summary":"Live brief summary for testing","version":"1.0","timestamp":"2026-03-15T14:30:45.000Z"}],"entityType":"no-entities"}'
+    key:
+      - headline
+      - alertId
+      - publicPost.timestamp
+      - publicPost.channels[0]
+cves: []
+detections:
+  - title: Dataminr Pulse events arriving
+    severity: low
+    signals:
+      - headline
+      - alertId
+      - publicPost.timestamp
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "dataminr_pulse_alerts"'
+optimizations: []
+references:
+  - title: elastic/integrations dataminr_pulse/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/dataminr_pulse/data_stream/alerts/_dev/test/pipeline/test-field-mappings.log
+  - title: Pack Generator sample dataminr_pulse_alerts.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dataminr_pulse_alerts.json

@@ -1,0 +1,71 @@
+id: cisco-secure-access-security-events-ravpn
+name: Cisco Secure Access Security Events Ravpn
+short: Ravpn
+vendor: Cisco
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_secure_access_security_events_ravpn
+  - Splunk attack_data
+tags:
+  - attack_data
+  - json
+summary: Cisco Secure Access Security Events Ravpn is logged by the Splunk attack_data package cisco_secure_access_security_events_ravpn. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_secure_access_security_events_ravpn
+    desc: 'Splunk attack_data fixture, 10 events. Upstream: datasets/cisco_secure_access/ravpn/ravpn_high_auth_failures.log'
+facts:
+  Where the sample comes from: Splunk attack_data
+  Integration package: cisco_secure_access_security_events_ravpn
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: activity_id, category_uid, cisco_asa.full_log_print_specifiers, cisco_asa.syslog_class, cisco_asa.syslog_descriptor, cisco_asa.syslog_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Splunk attack_data
+      desc: Fixtures were harvested from splunk/attack_data. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Secure Access Security Events Ravpn events in this library are the test fixtures shipped with splunk/attack_data (d192cc5844). The first event carries activity_id, category_uid, cisco_asa.full_log_print_specifiers, cisco_asa.syslog_class, cisco_asa.syslog_descriptor, cisco_asa.syslog_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Splunk attack_data package reads cisco_secure_access_security_events_ravpn and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Cisco Secure Access Security Events Ravpn
+    sourcetype: cisco_secure_access_security_events_ravpn
+    format: json
+    desc: 10 fixture events in the samples pool (attack_data).
+    sample: '{"activity_id":0,"category_uid":4,"cisco_asa":{"full_log_print_specifiers":"[\"\",\"\",\"\",\"\"]","syslog_class":"INFORMATION","syslog_descriptor":"AAA_RESULT_REJECT","syslog_id":"ASA-6-113005","syslog_id_with_version":"ASA-6-113005-0","syslog_severity":"6"},"cisco_dtls_ipsec_tunnel":{"bytes_received":0,"bytes_transmitted":0,"cipher_suite":"","compression":"","connection_timeout":"","connection_timeout_left":"","destination_port":0,"dh_group":"","encapsulation":"","encryption":"","filter_name":"","hashing":"","id":"","idle_timeout":"","idle_timeout_left":"","ipv6_filter_name":"","local_selector":"","packets_received":0,"packets_received_dropped":0,"packets_transmitted":0,"packets_transmitted_dropped":0,"pfs_group":"","prf":"","rekey_data":"","rekey_data_left":"","rekey_interval":"","rekey_interval_left":"","remote_selector":"","source_port":0},"cisco_endpoint_posture":{"dap_connection_type":"","dap_record_name":""},"cisco_event_id":"4be3aa5d442331d1397a1826eec2b80764c10776e8f344636156b214f8b72dff","cisco_event_type":"ravpn","cisco_organization_id":8176184,"cisco_origin":{"id":0,"type":"UNKNOWN"},"cisco_ravpn_metadata":{"anyconnect_version":"","event_type":"FAILED"},"cisco_ravpn_session":{"assigned_ip":"","assigned_ipv6":"","audit_session_id":"","connected_at":0,"disconnection_reason":"","duration":"","id":"","inactivity":"","public_ip":"203.0.113.8","public_ipv6":"","redirect_acl":"","redirect_url":"","security_group_tag":"","session_type":"","vpn_profile":"","warning_reason":""},"cisco_ssl_ike_tunnel":{"bytes_received":0,"bytes_transmitted":0,"cipher_suite":"","compression":"","connection_timeout":"","connection_timeout_left":"","destination_port":0,"dh_group":"","encapsulation":"","encryption":"","filter_name":"","hashing":"","id":"","idle_timeout":"","idle_timeout_left":"","ipv6_filter_name":"","local_selector":"","packets_received":0,"packets_received_dropped":0,"packets_transmitted":0,"packets_transmitted_dropped":0,"pfs_group":"","prf":"","rekey_data":"","rekey_data_left":"","rekey_interval":"","rekey_interval_left":"","remote_selector":"","source_port":0},"class_uid":4001,"cloud":{"region":"us-west-2"},"device":{"os":{"version":""}},"metadata":{"product":{"name":"ciscoSecureAccess"},"version":"1.6.0"},"policy":{"data":{"failed_reasons":["AUTHORIZATION-CHECK"]}},"severity_id":0,"src_endpoint":{"name":""},"time":1777303058000,"type_uid":400100}'
+    key:
+      - activity_id
+      - category_uid
+      - cisco_asa.full_log_print_specifiers
+      - cisco_asa.syslog_class
+cves: []
+detections:
+  - title: Cisco Secure Access Security Events Ravpn events arriving
+    severity: low
+    signals:
+      - activity_id
+      - category_uid
+      - cisco_asa.full_log_print_specifiers
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_secure_access_security_events_ravpn"'
+optimizations: []
+references:
+  - title: splunk/attack_data datasets/cisco_secure_access
+    url: https://github.com/splunk/attack_data/blob/d192cc584459ec4c33dae772de132d6a070abcb8/datasets/cisco_secure_access/ravpn/ravpn_high_auth_failures.log
+  - title: Pack Generator sample cisco_secure_access_security_events_ravpn.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_secure_access_security_events_ravpn.json

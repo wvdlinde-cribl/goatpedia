@@ -1,0 +1,67 @@
+id: cisco-secure-firewall
+name: Cisco Secure Firewall
+short: Firewall
+vendor: Cisco
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_secure_firewall
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Cisco Secure Firewall is logged by the Datadog integrations-core package cisco_secure_firewall. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_secure_firewall
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: cisco_secure_firewall/assets/logs/cisco-secure-firewall_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cisco_secure_firewall
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Secure Firewall events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cisco_secure_firewall and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Cisco Secure Firewall
+    sourcetype: cisco_secure_firewall
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '<190>2024-01-17T09:07:34Z: %FTD-2-109011: Authen Session Start: user testuser1, sid 23'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Cisco Secure Firewall events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_secure_firewall"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cisco_secure_firewall/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cisco_secure_firewall/assets/logs/cisco-secure-firewall_tests.yaml
+  - title: Pack Generator sample cisco_secure_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_secure_firewall.json

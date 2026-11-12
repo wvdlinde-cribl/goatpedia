@@ -1,0 +1,71 @@
+id: lumos
+name: Lumos
+short: Lumos
+vendor: Lumos
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - lumos
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Lumos is logged by the Elastic integrations package lumos. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: lumos_activity_logs
+    desc: 'Elastic integrations fixture, 2 events. Upstream: lumos/data_stream/activity_logs/_dev/test/pipeline/test-activity-logs.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: lumos
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: actor.actor_type, actor.email, actor.family_name, actor.given_name, event_began_at, event_hash
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Lumos events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries actor.actor_type, actor.email, actor.family_name, actor.given_name, event_began_at, event_hash. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads lumos and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Activity Logs
+    sourcetype: lumos_activity_logs
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"actor_type":"Lumos user","email":"user@example.com","family_name":"Wile","given_name":"Coyote"},"event_began_at":"2024-03-12T16:09:14","event_hash":"630b90cedc35a8a5f43361534099bee51e032f42dd442085fc76ef094d228f543c78fbe59c132df992cf71a6b8496504e8ebbc6020fbae1f34206676985412e7","event_metadata":{},"event_type":"SOD_POLICY_DELETED","event_type_user_friendly":"A user deleted a SOD Policy","outcome":"Succeeded","targets":[{"name":"Untitled Rule","target_type":"SOD Policy"}]}'
+    key:
+      - actor.actor_type
+      - actor.email
+      - actor.family_name
+      - actor.given_name
+cves: []
+detections:
+  - title: Lumos events arriving
+    severity: low
+    signals:
+      - actor.actor_type
+      - actor.email
+      - actor.family_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "lumos_activity_logs"'
+optimizations: []
+references:
+  - title: elastic/integrations lumos/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/lumos/data_stream/activity_logs/_dev/test/pipeline/test-activity-logs.log
+  - title: Pack Generator sample lumos_activity_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lumos_activity_logs.json

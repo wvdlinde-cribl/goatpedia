@@ -1,0 +1,71 @@
+id: mcafee-epo
+name: Mcafee Epo
+short: Mcafee Epo
+vendor: Mcafee
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mcafee_epo
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - xml
+summary: Mcafee Epo is logged by the Splunk Connect for Syslog package mcafee_epo. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mcafee_epo
+    desc: 'Splunk Connect for Syslog fixture, 6 events. Upstream: tests/test_mcafee_epo.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: mcafee_epo
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: xml
+  Fields in the first fixture: 29, MachineName, AgentGUID, IPAddress, OSName, UserName
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mcafee Epo events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries 29, MachineName, AgentGUID, IPAddress, OSName, UserName. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - xml
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads mcafee_epo and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as xml.
+logs:
+  - type: Mcafee Epo
+    sourcetype: mcafee_epo
+    format: xml
+    desc: 6 fixture events in the samples pool (sc4s).
+    sample: <29>1 2026-06-15T13:45:07.123Z sc4s-lab-01 EPOEvents - EventFwd [agentInfo@3401 tenantId="1" bpsId="1" tenantGUID="{00000000-0000-0000-0000-000000000000}" tenantNodePath="1\2"] ?<?xml version="1.0" encoding="UTF-8"?><EPOEvent><MachineInfo><MachineName>DESKTOP-00001</MachineName><AgentGUID>0011aacc-eeee-0000-0000-000011223311</AgentGUID><IPAddress>198.51.100.25</IPAddress><OSName>Windows 10 Server</OSName><UserName>%CTX_DOMAIN_USER%</UserName><TimeZoneBias>-330</TimeZoneBias><RawMACAddress>000011223311</RawMACAddress></MachineInfo><SoftwareInfo ProductName="McAfee Endpoint Security" ProductVersion="10.6.1.1607" ProductFamily="TVD"><CommonFields><Analyzer>ENDP_GS_1060</Analyzer><AnalyzerName>McAfee Endpoint Security</AnalyzerName><AnalyzerVersion>10.6.1.1607</AnalyzerVersion><AnalyzerHostName>DESKTOP-00001</AnalyzerHostName><AnalyzerDATVersion></AnalyzerDATVersion><AnalyzerEngineVersion></AnalyzerEngineVersion></CommonFields><Event><EventID>1120</EventID><Severity>0</Severity><GMTTime>2026-06-15T13:45:07.123</GMTTime><CommonFields><AnalyzerDetectionMethod></AnalyzerDetectionMethod><ThreatName>_</ThreatName><ThreatType></ThreatType><ThreatCategory>ops.update</ThreatCategory><ThreatHandled>1</ThreatHandled><ThreatActionTaken>none</ThreatActionTaken><ThreatSeverity>6</ThreatSeverity></CommonFields></Event></SoftwareInfo></EPOEvent>
+    key:
+      - '29'
+      - MachineName
+      - AgentGUID
+      - IPAddress
+cves: []
+detections:
+  - title: Mcafee Epo events arriving
+    severity: low
+    signals:
+      - '29'
+      - MachineName
+      - AgentGUID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mcafee_epo"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_mcafee_epo.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_mcafee_epo.py
+  - title: Pack Generator sample mcafee_epo.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mcafee_epo.json

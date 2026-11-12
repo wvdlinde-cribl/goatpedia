@@ -1,0 +1,71 @@
+id: boundary
+name: Boundary
+short: Boundary
+vendor: Boundary
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - boundary
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Boundary is logged by the Datadog integrations-core package boundary. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: boundary
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: boundary/assets/logs/boundary_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: boundary
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: json
+  Fields in the first fixture: data.op, data.data.@original-log-name, data.data.msg, data.data.@original-log-level, data.version, specversion
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Boundary events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries data.op, data.data.@original-log-name, data.data.msg, data.data.@original-log-level, data.version, specversion. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads boundary and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Boundary
+    sourcetype: boundary
+    format: json
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '{"data":{"op":"github.com/hashicorp/boundary/internal/observability/event.(*HclogLoggerAdapter).writeEvent","data":{"@original-log-name":"aws","msg":"configuring client automatic mTLS","@original-log-level":"none"},"version":"v0.1"},"specversion":"1.0","id":"ucZ3F62GB8","source":"https://hashicorp.com/boundary/722bbe11f780/controller+worker","datacontentype":"application/cloudevents","time":"2022-08-25T17:09:18.3470639Z","type":"system"}'
+    key:
+      - data.op
+      - data.data.@original-log-name
+      - data.data.msg
+      - data.data.@original-log-level
+cves: []
+detections:
+  - title: Boundary events arriving
+    severity: low
+    signals:
+      - data.op
+      - data.data.@original-log-name
+      - data.data.msg
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "boundary"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core boundary/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/boundary/assets/logs/boundary_tests.yaml
+  - title: Pack Generator sample boundary.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/boundary.json

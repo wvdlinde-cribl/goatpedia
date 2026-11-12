@@ -1,0 +1,71 @@
+id: gigamon
+name: Gigamon
+short: Gigamon
+vendor: Gigamon
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - gigamon
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Gigamon is logged by the Datadog integrations-extras package gigamon. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: gigamon
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: gigamon/assets/logs/gigamon_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: gigamon
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: ssl_common_name, generator, src_packets, seq_num, dst_ip, device_inbound_interface
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Gigamon events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries ssl_common_name, generator, src_packets, seq_num, dst_ip, device_inbound_interface. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads gigamon and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Gigamon
+    sourcetype: gigamon
+    format: json
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: '{"ssl_common_name":"203.0.113.40","generator":"gs_apps_appInst9_423330e5-4a3d-f203-14cb-b6642e5054e9","src_packets":"13","seq_num":"18045114","dst_ip":"192.0.2.10","device_inbound_interface":"0","src_ip":"192.0.2.20","ssl_validity_not_after":"2029-05-2613:01:03","intf_name":"0","protocol":"6","ip_version":"4","vendor":"Gigamon","src_bytes":"2728","id":"3844000378249019393","app_id":"4962","dst_bytes":"5045","src_mac":"2001:db8::1","sys_up_time_first":"36697","ssl_cipher_suite_id":"49200","end_reason":"3","ssl_validity_not_before":"2024-05-26 13:01:03","end_time":"2024:08:29 10:49:40.735","version":"6.6.00","dst_mac":"2001:db8::1","ssl_issuer":"CA","ddsource":"gigamon","src_port":"55861","start_time":"2024:08:29 10:49:40.710","app_name":"Unknown ssl","egress_intf_id":"0"}'
+    key:
+      - ssl_common_name
+      - generator
+      - src_packets
+      - seq_num
+cves: []
+detections:
+  - title: Gigamon events arriving
+    severity: low
+    signals:
+      - ssl_common_name
+      - generator
+      - src_packets
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "gigamon"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras gigamon/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/gigamon/assets/logs/gigamon_tests.yaml
+  - title: Pack Generator sample gigamon.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/gigamon.json

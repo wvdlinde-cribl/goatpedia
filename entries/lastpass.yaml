@@ -1,0 +1,95 @@
+id: lastpass
+name: Lastpass
+short: Lastpass
+vendor: Lastpass
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - lastpass
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Lastpass is logged by the Datadog integrations-core package lastpass. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: lastpass
+    desc: 'Datadog integrations-core fixture, 16 events. Upstream: lastpass/assets/logs/lastpass_tests.yaml'
+  - st: lastpass_event_report
+    desc: 'Elastic integrations fixture, 20 events. Upstream: lastpass/data_stream/event_report/_dev/test/pipeline/test-event-report.log'
+  - st: lastpass_user
+    desc: 'Elastic integrations fixture, 1 events. Upstream: lastpass/data_stream/user/_dev/test/pipeline/test-pipeline-user.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: lastpass
+  Sourcetypes: '3'
+  Fixture events: '37'
+  Log format seen: json
+  Fields in the first fixture: Time, Username, IP_Address, Action, Data, timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Lastpass events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries Time, Username, IP_Address, Action, Data, timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads lastpass and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Lastpass
+    sourcetype: lastpass
+    format: json
+    desc: 16 fixture events in the samples pool (logtest).
+    sample: '{"Time":"2024-08-06 05:16:17","Username":"user@example.com","IP_Address":"192.0.2.10","Action":"Remove from group","Data":"''Group3'' ''user@example.com''","timestamp":1722921377000}'
+    key:
+      - Time
+      - Username
+      - IP_Address
+      - Action
+  - type: Event Report
+    sourcetype: lastpass_event_report
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"Time":"2015-07-17 09:51:51","Username":"user@example.com","IP_Address":"192.0.2.20","Action":"Login Verification Email Sent","Data":""}'
+    key:
+      - Time
+      - Username
+      - IP_Address
+      - Action
+  - type: User
+    sourcetype: lastpass_user
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"username":"user@example.com","fullname":"Ned Flanders","mpstrength":"100","created":"2014-03-12 10:02:56","last_pw_change":"2015-05-19 10:58:33","last_login":"2015-05-29 11:45:05","neverloggedin":false,"disabled":false,"admin":false,"linked":"user@example.com","sites":72,"notes":19,"formfills":2,"applications":0,"attachments":1,"password_reset_required":false,"groups":["Domain Admins","Dev Team"]}'
+    key:
+      - username
+      - fullname
+      - mpstrength
+      - created
+cves: []
+detections:
+  - title: Lastpass events arriving
+    severity: low
+    signals:
+      - Time
+      - Username
+      - IP_Address
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "lastpass"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core lastpass/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/lastpass/assets/logs/lastpass_tests.yaml
+  - title: Pack Generator sample lastpass.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lastpass.json

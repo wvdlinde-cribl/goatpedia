@@ -1,0 +1,83 @@
+id: splunk
+name: Splunk
+short: Splunk
+vendor: Splunk
+category: pipeline
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - splunk
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Splunk is logged by the Elastic integrations package splunk. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: splunk_alert
+    desc: 'Elastic integrations fixture, 5 events. Upstream: splunk/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: splunk_search
+    desc: 'Elastic integrations fixture, 2 events. Upstream: splunk/data_stream/search/_dev/test/pipeline/test-search.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: splunk
+  Sourcetypes: '2'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: _bkt, _cd, _indextime, _raw, _serial, _si[0]
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Splunk events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _bkt, _cd, _indextime, _raw, _serial, _si[0]. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads splunk and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert
+    sourcetype: splunk_alert
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"_bkt":"notable~70~E10E99CE-2B29-4D28-B797-57BEABF6E876","_cd":"70:13771","_indextime":"1739168416","_raw":"1739168412, search_name=\"Access - Excessive Failed Logins - Rule\", app=\"ssl-web\", craction=\"4\", count=\"5\", ip=\"198.51.100.15\", tz=\"555\", time=\"10/01/24 18:57...","_serial":"476","_si":["203.0.113.8","notable"],"_sourcetype":"stash","_time":"2025-02-10T11:50:16.000+05:30","host":"203.0.113.40","index":"notable","linecount":"1","source":"Access - Excessive Failed Logins - Rule","sourcetype":"stash","splunk_server":"192.0.2.10"}'
+    key:
+      - _bkt
+      - _cd
+      - _indextime
+      - _raw
+  - type: Search
+    sourcetype: splunk_search
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"author":"author_mcauthorface","query":"search *","result":{"_bkt":"main~0~266C23A8-75B5-4A00-8732-4A6065281018","_cd":"0:10","_indextime":"1740148016","_raw":"02/21/2025 14:26:56 +0000, info_min_time=1740060000.000, info_max_time=1740148015.000, info_search_time=1740148015.943, field1=test","_serial":"0","_si":["ip-186-86-82-48","main"],"_sourcetype":"stash","_time":"2025-02-21T14:26:56.000+00:00","host":"ip-186-86-82-48","index":"main","linecount":"1","source":"/opt/splunk/var/spool/splunk/cafc46ad8c914957_a9876ea14cfe7ac8_events.stash_new","sourcetype":"stash","splunk_server":"ip-186-86-82-49"}}'
+    key:
+      - author
+      - query
+      - result._bkt
+      - result._cd
+cves: []
+detections:
+  - title: Splunk events arriving
+    severity: low
+    signals:
+      - _bkt
+      - _cd
+      - _indextime
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "splunk_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations splunk/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/splunk/data_stream/alert/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample splunk_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/splunk_alert.json

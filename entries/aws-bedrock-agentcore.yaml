@@ -1,0 +1,95 @@
+id: aws-bedrock-agentcore
+name: AWS Bedrock Agentcore
+short: Agentcore
+vendor: AWS
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - aws_bedrock_agentcore
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: AWS Bedrock Agentcore is logged by the Elastic integrations package aws_bedrock_agentcore. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: aws_bedrock_agentcore_gateway_application_logs
+    desc: 'Elastic integrations fixture, 1 events. Upstream: aws_bedrock_agentcore/data_stream/gateway_application_logs/_dev/test/pipeline/test-aws-bedrock-agentcore-gateway.log'
+  - st: aws_bedrock_agentcore_memory_application_logs
+    desc: 'Elastic integrations fixture, 1 events. Upstream: aws_bedrock_agentcore/data_stream/memory_application_logs/_dev/test/pipeline/test-aws-bedrock-agentcore-memory.log'
+  - st: aws_bedrock_agentcore_runtime_application_logs
+    desc: 'Elastic integrations fixture, 5 events. Upstream: aws_bedrock_agentcore/data_stream/runtime_application_logs/_dev/test/pipeline/test-aws-bedrock-agentcore-response-array.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: aws_bedrock_agentcore
+  Sourcetypes: '3'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: resource_arn, event_timestamp, body.isError, body.log, body.id, account_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: AWS Bedrock Agentcore events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries resource_arn, event_timestamp, body.isError, body.log, body.id, account_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads aws_bedrock_agentcore and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Gateway Application Logs
+    sourcetype: aws_bedrock_agentcore_gateway_application_logs
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"resource_arn":"arn:aws:bedrock-agentcore:us-west-2:845123678901:gateway/ordermanager-gw-abc12def34","event_timestamp":1768432156789,"body":{"isError":false,"log":"Processing request for tool DocumentRetrieval___fetch_order_details from target XYZPROD001","id":"7"},"account_id":"845123678901","request_id":"a1b2c3d4-5678-9012-ef34-567890abcdef","trace_id":"8e45f912abcd3456ef7890123456abcd","span_id":"9f8e7d6c5b4a3210","resource":{"attributes":{"service.name":"ordermanager-gw-abc12def34","cloud.resource_id":"arn:aws:bedrock-agentcore:us-west-2:845123678901:gateway/ordermanager-gw-abc12def34","cloud.platform":"aws_bedrock_agentcore"}},"attributes":{"aws.request.id":"a1b2c3d4-5678-9012-ef34-567890abcdef","aws.account.id":"845123678901","aws.resource.type":"AWS2001:db8::1BedrockAgentCore2001:db8::1Gateway"},"timeUnixNano":1768432156789123600,"severityNumber":9,"severityText":"INFO","traceId":"8e45f912abcd3456ef7890123456abcd","spanId":"9f8e7d6c5b4a3210"}'
+    key:
+      - resource_arn
+      - event_timestamp
+      - body.isError
+      - body.log
+  - type: Memory Application Logs
+    sourcetype: aws_bedrock_agentcore_memory_application_logs
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"resource_arn":"arn:aws:bedrock-agentcore:eu-west-1:912345678012:memory/salesassistant-8k2pq9RtyH","event_timestamp":1769543217654,"memory_strategy_id":"conversation_history-7bXy4m89KL","namespace":"sales/customer/PREMIUM/history","actor_id":"PREMIUM","session_id":"c4e8a2f1-9d3b-4567-a890-def123456789","body":{"log":"Processing conversation history for customer context retrieval.","requestId":"89ab12cd-ef34-5678-90ab-cdef12345678","isError":false,"currentConversations":[{"role":"USER","content":{"text":"Can you show me the latest pricing for enterprise plans?"}},{"role":"ASSISTANT","content":{"text":"I''d be happy to help you with enterprise pricing information. Based on your account status as a Premium customer, I can offer you our special enterprise rates."}}]},"resource":{"attributes":{"service.name":"salesassistant-8k2pq9RtyH","cloud.resource_id":"arn:aws:bedrock-agentcore:eu-west-1:912345678012:memory/salesassistant-8k2pq9RtyH","cloud.platform":"aws_bedrock_agentcore"}},"attributes":{"aws.resource.type":"AWS2001:db8::1BedrockAgentCore2001:db8::1Memory","aws.agentcore.memory.namespace":"sales/customer/PREMIUM/history","session.id":"c4e8a2f1-9d3b-4567-a890-def123456789","actor.id":"PREMIUM"},"timeUnixNano":1769543217654321200,"severityNumber":9,"severityText":"INFO"}'
+    key:
+      - resource_arn
+      - event_timestamp
+      - memory_strategy_id
+      - namespace
+  - type: Runtime Application Logs
+    sourcetype: aws_bedrock_agentcore_runtime_application_logs
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"resource_arn":"arn:aws:bedrock-agentcore:us-east-1:627286350132:runtime/customersupport-3OutfrDDJ2","event_timestamp":1763962578048,"account_id":"627286350132","request_id":"083603b2-7b75-46ba-bf61-45c562764b68","session_id":"76d5c1a5-df2d-4299-b536-9f0302e344ab","span_id":"c128b28261d25f39","trace_id":"61fae24cf690c9866936148344883db0","service_name":"AgentCoreCodeRuntime","operation":"InvokeAgentRuntime","resource":{"attributes":{"cloud.provider":"aws","service.name":"customersupport.DEFAULT","cloud.resource_id":"arn:aws:bedrock-agentcore:us-east-1:627286350132:runtime/customersupport-3OutfrDDJ9","cloud.platform":"aws_bedrock_agentcore"}},"attributes":{"aws.operation.name":"InvokeAgentRuntime","aws.request.id":"083603b2-7b75-46ba-bf61-45c562764b68","aws.account.id":"627286350132","aws.resource.type":"AWS2001:db8::1BedrockAgentCore2001:db8::1Runtime","session.id":"76d5c1a5-df2d-4299-b536-9f0302e344ab"},"timeUnixNano":1763962575492617000,"severityNumber":9,"severityText":"INFO","body":{"request_payload":{"prompt":"Summarize my previous conversation","actor_id":"DEFAULT"},"response_payload":[{"role":"assistant","content":"Here is your summary of the previous conversation."},{"role":"assistant","content":"Is there anything else you would like to know?"}]},"traceId":"61fae24cf690c9866936148344883db1","spanId":"c128b28261d25f34"}'
+    key:
+      - resource_arn
+      - event_timestamp
+      - account_id
+      - request_id
+cves: []
+detections:
+  - title: AWS Bedrock Agentcore events arriving
+    severity: low
+    signals:
+      - resource_arn
+      - event_timestamp
+      - body.isError
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "aws_bedrock_agentcore_gateway_application_logs"'
+optimizations: []
+references:
+  - title: elastic/integrations aws_bedrock_agentcore/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/aws_bedrock_agentcore/data_stream/gateway_application_logs/_dev/test/pipeline/test-aws-bedrock-agentcore-gateway.log
+  - title: Pack Generator sample aws_bedrock_agentcore_gateway_application_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aws_bedrock_agentcore_gateway_application_logs.json

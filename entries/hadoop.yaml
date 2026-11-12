@@ -1,0 +1,71 @@
+id: hadoop
+name: Hadoop
+short: Hadoop
+vendor: Hadoop
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hadoop
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Hadoop is logged by the Elastic integrations package hadoop. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hadoop_application
+    desc: 'Elastic integrations fixture, 2 events. Upstream: hadoop/data_stream/application/_dev/test/pipeline/test-application-metrics.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: hadoop
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: allocatedMB, allocatedVCores, amContainerLogs, amHostHttpAddress, amNodeLabelExpression, amRPCAddress
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Hadoop events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries allocatedMB, allocatedVCores, amContainerLogs, amHostHttpAddress, amNodeLabelExpression, amRPCAddress. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads hadoop and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Application
+    sourcetype: hadoop_application
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"allocatedMB":-1,"allocatedVCores":-1,"amContainerLogs":"http://localhost:8042/node/containerlogs/container_1646029193591_0003_01_000001/bhagyaraj","amHostHttpAddress":"localhost:8042","amNodeLabelExpression":"","amRPCAddress":"localhost:38279","applicationTags":"","applicationType":"MAPREDUCE","clusterId":1646029193591,"clusterUsagePercentage":0,"diagnostics":"","elapsedTime":35114,"finalStatus":"SUCCEEDED","finishedTime":1646030395258,"id":"application_1646029193591_0003","launchTime":1646030360297,"logAggregationStatus":"DISABLED","masterNodeId":"localhost:45960","memorySeconds":103467,"name":"wordcount","numAMContainerPreempted":0,"numNonAMContainerPreempted":0,"preemptedMemorySeconds":0,"preemptedResourceMB":0,"preemptedResourceSecondsMap":{},"preemptedResourceVCores":0,"preemptedVcoreSeconds":0,"priority":0,"progress":100,"queue":"default"}'
+    key:
+      - allocatedMB
+      - allocatedVCores
+      - amContainerLogs
+      - amHostHttpAddress
+cves: []
+detections:
+  - title: Hadoop events arriving
+    severity: low
+    signals:
+      - allocatedMB
+      - allocatedVCores
+      - amContainerLogs
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hadoop_application"'
+optimizations: []
+references:
+  - title: elastic/integrations hadoop/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hadoop/data_stream/application/_dev/test/pipeline/test-application-metrics.log
+  - title: Pack Generator sample hadoop_application.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hadoop_application.json

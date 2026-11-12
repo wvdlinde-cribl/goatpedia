@@ -36,6 +36,14 @@ sourcetypes:
     desc: Microsoft Sentinel table for Netskope DLP incident events
   - st: NetskopeWebTransactions_CL
     desc: Microsoft Sentinel table for Log Streaming web transactions
+  - st: netskope
+    desc: 'Elastic integrations fixture, 17 events. Upstream: netskope/data_stream/events/_dev/test/pipeline/test-events.log'
+  - st: netskope_alerts
+    desc: 'Elastic integrations fixture, 10 events. Upstream: netskope/data_stream/alerts/_dev/test/pipeline/test-alerts.log'
+  - st: netskope_alerts_events_v2
+    desc: 'Elastic integrations fixture, 5 events. Upstream: netskope/data_stream/alerts_events_v2/_dev/test/pipeline/test-combined.log'
+  - st: netskope_transaction
+    desc: 'Elastic integrations fixture, 4 events. Upstream: netskope/data_stream/transaction/_dev/test/pipeline/test-transaction.log'
 facts:
   First released: 2013 (CASB); platform rebranded Netskope One in 2023
   Delivery model: SaaS on Netskope's NewEdge private security cloud
@@ -186,6 +194,46 @@ logs:
       - tss_mode
       - scan_type
     sample: '{"_id":"3a1d5e7f9b2c4d6e8f0a1b2c","type":"nspolicy","alert":"yes","alert_type":"Malware","alert_name":"Threat Protection - Default","timestamp":1794475020,"access_method":"Client","acked":"false","action":"block","activity":"Download","app":"Microsoft OneDrive for Business","instance_id":"example.sharepoint.com","user":"jdoe@example.com","srcip":"203.0.113.45","object":"Invoice_8841.zip","malware_name":"Gen:Variant.Downloader.Agent","malware_type":"Trojan","malware_severity":"High","detection_engine":"Sandbox","scan_type":"Real-time Scan","sha256":"0d9c8b7a6f5e4d3c2b1a09f8e7d6c5b4a3928170f6e5d4c3b2a1908f7e6d5c4b","tss_mode":"inline","url":"example-my.sharepoint.com/personal/jdoe/Invoice_8841.zip"}'
+  - type: Events
+    sourcetype: netskope
+    format: json
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: '{"netskope":{"events":{"event_type":"application","insertion":{"timestamp":1643512589},"access_method":"API Connector","ack":"false","activity":{"name":"Upload"},"alert":{"is_present":"yes","name":"legal-hold-alert","type":"legal hold"},"app":{"name":"Slack","category":"Cloud Storage"},"category":{"name":"Cloud Storage"},"cci":"88","ccl":"high","count":1,"device":{"type":"Other"},"instance":{"id":"netskope.com"},"object":{"name":"WZjtNtcrWrMPIhfK","id":"14WLYNjJxKgEyqIoNAcb57aPGx9_klcxTo3MyjF82rGg","type":"File"},"organization_unit":"/Active Users","other":{"categories":"null"},"request":{"id":"2459149802892628500"},"site":"Slack","source":{"geoip_src":2},"traffic":{"type":"CloudApp"},"type":"nspolicy","destination":{"geoip":{"source":2}},"exposure":"organization_wide_link","file":{"lang":"ENGLISH"},"instance_name":"netskope.com","modified_at":1613760236,"owner":"foobar","policy":{"name":"GDrive Customer metadata shared externally"},"scan":{"type":"Ongoing"},"shared":{"with":"none"}}},"event":{"action":"alert","id":"6ee3fa4fa47718367ee5367d"},"user_agent":{"name":"unknown","os":{"name":"unknown"}},"source":{"geo":{"country_iso_code":"NL","location":{"lat":4.8975,"lon":52.3759},"city_name":"Amsterdam","region_name":"North Holland","postal_code":"1012"},"address":"203.0.113.40","ip":"192.0.2.10"},"@timestamp":"2022-01-30T00:58:52.000Z","user":{"email":{"1":"user@example.com","2":"user@example.com"},"group":{"name":"null"}},"cloud":{"account":{"name":"false"}},"destination":{"geo":{"country_iso_code":"NL","location":{"lat":4.8975,"lon":52.3759},"city_name":"Amsterdam","region_name":"North Holland","postal_code":"1012"},"address":"192.0.2.20","ip":"198.51.100.15"},"file":{"path":"/SomeDrive/SomePath","size":16854,"mime_type":{"1":"application/vnd.apps.document","2":"application/vnd.apps.document"},"hash":{"md5":"4bf7680195ecaed55e3edabb5d95ca01"}}}'
+    key:
+      - netskope.events.event_type
+      - netskope.events.insertion.timestamp
+      - netskope.events.access_method
+      - netskope.events.ack
+  - type: Alerts
+    sourcetype: netskope_alerts
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"event":{"id":"f621f259f5fbde850ad5593a"},"netskope":{"alerts":{"insertion_epoch_timestamp":1640277131,"access_method":"API Connector","acked":"false","action":"block","activity":{"name":"Login Successful"},"is_alert":"yes","alert":{"name":"policy-alert","type":"nspolicy"},"app":{"name":"SomeApp","category":"Cloud Storage"},"category":{"name":"Cloud Storage"},"cci":"81","ccl":"high","count":1,"device":{"name":"Other"},"destination":{"geoip_src":2},"exposure":"organization_wide_link","file":{"lang":"ENGLISH"},"instance":{"name":"example.com","id":"example.com"},"modified":{"timestamp":1613760236},"object":{"name":"HjBuUvDLWgpudzQr","id":"GxyjNjJxKg14W3Mb57aLY9_klcxToPEyqIoNAcF82rGg","type":"File"},"organization":{"unit":"example.local\\\\/example\\\\/Active Users"},"other":{"categories":"null"},"owner":"foobar","policy":{"name":"Some Policy"},"request":{"id":"9262245914980288500"},"scan":{"type":"Ongoing"},"shared":{"with":"none"},"site":"Example","source":{"geoip_src":2},"suppression":{"key":"Tenant Migration across MPs"},"traffic":{"type":"CloudApp"}}},"user_agent":{"name":"unknown","os":{"name":"unknown"}},"destination":{"geo":{"country_iso_code":"NL","location":{"lat":52.3759,"lon":4.8975},"city_name":"Amsterdam","region_name":"North Holland","postal_code":"1012"},"address":"198.51.100.25","ip":"203.0.113.8"},"file":{"path":"\\\\/My Drive\\\\/Clickhouse\\\\/Tenant Migration across MPs","size":196869,"mime_type":{"1":"application\\\\/vnd.apps.document","2":"application\\\\/vnd.apps.document"},"hash":{"md5":"4bb5d9501bf7685ecaed55e3eda9ca01"}},"source":{"geo":{"country_iso_code":"NL","location":{"lat":52.3759,"lon":4.8975},"city_name":"Amsterdam","region_name":"North Holland","postal_code":"1012"},"address":"203.0.113.40","ip":"192.0.2.10"},"@timestamp":"2021-12-23T16:27:09.000Z","user":{"email":{"1":"user@example.com","2":"user@example.com","3":"user@example.com"},"group":{"name":"null"}}}'
+    key:
+      - event.id
+      - netskope.alerts.insertion_epoch_timestamp
+      - netskope.alerts.access_method
+      - netskope.alerts.acked
+  - type: Alerts Events V2
+    sourcetype: netskope_alerts_events_v2
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"_id":"5182808a2a99fc688d4a8057","access_method":"API Connector","account_id":"0u3700o60054","account_name":"testing-iaas-policies","acked":"true","action":"block","activity":"Delete","alert":"yes","alert_id":"9b302da498a1ed703495f527c1574b76","alert_name":"[Web] Block Countries Managed","alert_source":"DLP","alert_type":"policy","app":"Dropbox","app_session_id":130464223392976,"appcategory":"Technology","appsuite":"Microsoft Live","breach_date":1700352376,"breach_id":"e8bcc837615516de9d338403caa57ac9","breach_score":"70","browser":"Chrome","browser_session_id":6013040120128864000,"cci":31,"ccl":"excellent","client_bytes":3613916,"conn_duration":47,"conn_endtime":1700352376,"conn_starttime":1700352376,"connection_id":5047636402716176000,"custom_attr":{"usr_udf_employeeid":"A095301","usr_display_name":"McKillip, William (A095301)","usr_title":"Analyst - Business Solutions Analyst"},"device":"Windows Device"}'
+    key:
+      - _id
+      - access_method
+      - account_id
+      - account_name
+  - type: Transaction
+    sourcetype: netskope_transaction
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"bytes":"5021","c-ip":"203.0.113.40","cs-bytes":"2971","cs-content-type":"-","cs-dns":"www.bing.com","cs-host":"www.bing.com","cs-method":"GET","cs-referer":"-","cs-uri":"/client/config?cc=US&setlang=en-US","cs-uri-port":"443","cs-uri-query":"cc=US&setlang=en-US","cs-uri-scheme":"https","cs-user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; Cortana 1.14.7.19041; 192.0.2.10.19045.2006) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537...","cs-username":"user@example.com","date":"2024-08-05","rs-status":"200","s-ip":"192.0.2.20","sc-bytes":"2050","sc-content-type":"application/json; charset=utf-8","sc-status":"200","time":"16:24:20","time-taken":"64","x-c-browser":"Edge","x-c-browser-version":"18.19045","x-c-country":"US","x-c-device":"Windows Device","x-c-latitude":"29.775400","x-c-local-time":"2024-08-05 11:24:00","x-c-location":"Houston","x-c-longitude":"-95.598000"}'
+    key:
+      - bytes
+      - c-ip
+      - cs-bytes
+      - cs-content-type
 cves:
   - id: CVE-2024-7401
     cvss: 7.5

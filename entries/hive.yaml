@@ -1,0 +1,70 @@
+id: hive
+name: Hive
+short: Hive
+vendor: Hive
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hive
+  - Datadog integrations-core
+tags:
+  - logtest
+  - kv
+summary: Hive is logged by the Datadog integrations-core package hive. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hive
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: hive/assets/logs/hive_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: hive
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: kv
+  Fields in the first fixture: header, ugi, ip, cmd
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Hive events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries header, ugi, ip, cmd. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads hive and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Hive
+    sourcetype: hive
+    format: kv
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: "2019-05-17T10:01:17,153 INFO  [pool-10-thread-2]: HiveMetaStore.audit (HiveMetaStore.java:logAuditEvent(309)) - ugi=root\tip=192.0.2.10\tcmd=source:192.0.2.20 get_all_functions"
+    key:
+      - ugi
+      - ip
+      - cmd
+cves: []
+detections:
+  - title: Hive events arriving
+    severity: low
+    signals:
+      - header
+      - ugi
+      - ip
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hive"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core hive/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/hive/assets/logs/hive_tests.yaml
+  - title: Pack Generator sample hive.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hive.json

@@ -1,0 +1,71 @@
+id: appomni
+name: Appomni
+short: Appomni
+vendor: Appomni
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - appomni
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Appomni is logged by the Datadog integrations-extras package appomni. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: appomni
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: appomni/assets/logs/appomni_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: appomni
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: '@timestamp, appomni.alert.channel, appomni.organization.id, appomni.event.sortable_event_id, appomni.event.sortable_ingest_id, appomni.event.id'
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Appomni events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries @timestamp, appomni.alert.channel, appomni.organization.id, appomni.event.sortable_event_id, appomni.event.sortable_ingest_id, appomni.event.id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads appomni and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Appomni
+    sourcetype: appomni
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"@timestamp":"2025-01-23T21:05:49.315Z","appomni":{"alert":{"channel":"prod"},"organization":{"id":25},"event":{"sortable_event_id":"01JJAFRJ8345TFD7RSYPFG6HK4","sortable_ingest_id":"01JJAG2QHJHEGBR2JJ5HPG46F4","id":"5e2c0a65-5e08-56a3-8ff6-dd7614c4ea11","dataset":"appomni_alert"}},"related":{"identity":["bb266b26-76a7-49b7-9c31-df989427453e"],"ip":["198.51.100.15"],"services":{"id":[11169],"type":["okta"]},"event":["6f63ac57-e033-50b3-979d-fd3d4d81f110"],"user":["user@example.com"]},"rule":{"name":"MFA Modified for Admin User","ruleset":"1423ff39-3250-4d53-aafb-142e740668bd","threat":{"framework":"MITRE ATT&CK","technique":{"name":["Account Manipulation"],"id":["T1098"]},"tactic":{"name":["Persistence"],"id":["TA0003"]}},"uuid":"93075872-2e3f-401a-846c-7ad54dd30d07","version":"1"},"event":{"severity":3,"created":"2025-01-23T21:11:22.418Z","kind":"alert"},"message":"MFA was modified for an admin user in ''Okta''","version":"2.0.0"}'
+    key:
+      - '@timestamp'
+      - appomni.alert.channel
+      - appomni.organization.id
+      - appomni.event.sortable_event_id
+cves: []
+detections:
+  - title: Appomni events arriving
+    severity: low
+    signals:
+      - '@timestamp'
+      - appomni.alert.channel
+      - appomni.organization.id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "appomni"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras appomni/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/appomni/assets/logs/appomni_tests.yaml
+  - title: Pack Generator sample appomni.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/appomni.json

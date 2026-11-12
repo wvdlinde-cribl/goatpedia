@@ -1,0 +1,71 @@
+id: azure-network-watcher-nsg
+name: Azure Network Watcher Nsg
+short: Nsg
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_network_watcher_nsg
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure Network Watcher Nsg is logged by the Elastic integrations package azure_network_watcher_nsg. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_network_watcher_nsg
+    desc: 'Elastic integrations fixture, 1 events. Upstream: azure_network_watcher_nsg/data_stream/log/_dev/test/pipeline/test-nsg.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure_network_watcher_nsg
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: time, systemId, category, resourceId, operationName, properties.Version
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure Network Watcher Nsg events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, systemId, category, resourceId, operationName, properties.Version. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure_network_watcher_nsg and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: azure_network_watcher_nsg
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"time":"2018-11-13T12:00:35.3899262Z","systemId":"a0fca5ce-022c-47b1-9735-89943b42f2fa","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_AllowInternetOutBound","flows":[{"mac":"000D3AF87856","flowTuples":["1542110379,203.0.113.40,192.0.2.10,59932,443,T,O,A,E,1,66,1,66"]}]}]}}'
+    key:
+      - time
+      - systemId
+      - category
+      - resourceId
+cves: []
+detections:
+  - title: Azure Network Watcher Nsg events arriving
+    severity: low
+    signals:
+      - time
+      - systemId
+      - category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_network_watcher_nsg"'
+optimizations: []
+references:
+  - title: elastic/integrations azure_network_watcher_nsg/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_network_watcher_nsg/data_stream/log/_dev/test/pipeline/test-nsg.log
+  - title: Pack Generator sample azure_network_watcher_nsg.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_network_watcher_nsg.json

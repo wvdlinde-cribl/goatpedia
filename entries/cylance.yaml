@@ -1,0 +1,67 @@
+id: cylance
+name: Cylance
+short: Cylance
+vendor: Cylance
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cylance
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Cylance is logged by the Elastic integrations package cylance. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cylance_protect
+    desc: 'Elastic integrations fixture, 20 events. Upstream: cylance/data_stream/protect/_dev/test/pipeline/test-generated.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cylance
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cylance events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cylance and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Protect
+    sourcetype: cylance_protect
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '29-January-2016 06:09:59 high boNemoe4402.www.invalid dolore <<sequa>abo 2016-1-29T6:09:59.squira nostrud4819.mail.test CylancePROTECT mqui nci [billoi] Event Type: AuditLog, Event Name: ZoneAdd, Message: Policy Assigned:orev; Devices: pisciv , User: uii umexe (estlabo)'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Cylance events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cylance_protect"'
+optimizations: []
+references:
+  - title: elastic/integrations cylance/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cylance/data_stream/protect/_dev/test/pipeline/test-generated.log
+  - title: Pack Generator sample cylance_protect.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cylance_protect.json

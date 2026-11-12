@@ -1,0 +1,71 @@
+id: twistlock
+name: Twistlock
+short: Twistlock
+vendor: Twistlock
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - twistlock
+  - Datadog integrations-core
+tags:
+  - logtest
+  - kv
+summary: Twistlock is logged by the Datadog integrations-core package twistlock. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: twistlock
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: twistlock/assets/logs/twistlock_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: twistlock
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: kv
+  Fields in the first fixture: time, type, log_type, vulnerability_id, description, cve
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Twistlock events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries time, type, log_type, vulnerability_id, description, cve. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads twistlock and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Twistlock
+    sourcetype: twistlock
+    format: kv
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: time="2018-12-17T23:04:53.405061747Z" type="registry_scan" log_type="vulnerability" vulnerability_id="46" description="Image contains vulnerable OS packages" cve="CVE-2017-13727" severity="low" package="tiff (used in libtiff5)" package_version="4.0.3-7ubuntu0.4" vendor_status="fixed in 4.0.3-7ubuntu0.8" rule="Default - alert all components" host="demo-jeremy-p-twistlock-com" image_id="sha256:779975a3607d703c6cce88f2bb6076ef2f8e0b20d971d474cb1b81dee5d5acca" image_name="registry.infra.svc.cluster.local:5000/infoslack/dvwa:latest"
+    key:
+      - time
+      - type
+      - log_type
+      - vulnerability_id
+cves: []
+detections:
+  - title: Twistlock events arriving
+    severity: low
+    signals:
+      - time
+      - type
+      - log_type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "twistlock"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core twistlock/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/twistlock/assets/logs/twistlock_tests.yaml
+  - title: Pack Generator sample twistlock.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/twistlock.json

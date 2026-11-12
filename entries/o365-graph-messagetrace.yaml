@@ -1,0 +1,71 @@
+id: o365-graph-messagetrace
+name: Microsoft 365 Graph Messagetrace
+short: Messagetrace
+vendor: Microsoft
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - o365_graph_messagetrace
+  - Splunk attack_data
+tags:
+  - attack_data
+  - json
+summary: Microsoft 365 Graph Messagetrace is logged by the Splunk attack_data package o365_graph_messagetrace. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: o365_graph_messagetrace
+    desc: 'Splunk attack_data fixture, 4 events. Upstream: datasets/attack_techniques/T1114/o365_suspect_email_actions/o365_graph_messagetrace_suspect_events.log'
+facts:
+  Where the sample comes from: Splunk attack_data
+  Integration package: o365_graph_messagetrace
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: id, messageId, status, receivedDateTime, recipientAddress, senderAddress
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Splunk attack_data
+      desc: Fixtures were harvested from splunk/attack_data. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft 365 Graph Messagetrace events in this library are the test fixtures shipped with splunk/attack_data (d192cc5844). The first event carries id, messageId, status, receivedDateTime, recipientAddress, senderAddress. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Splunk attack_data package reads o365_graph_messagetrace and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Microsoft 365 Graph Messagetrace
+    sourcetype: o365_graph_messagetrace
+    format: json
+    desc: 4 fixture events in the samples pool (attack_data).
+    sample: '{"id":"fcc4836f-5164-4fc3-ef74-08dcff9abd45","messageId":"<beee425e-de47-490c-aae9-dae74de48442@mailserver2001.attack_range.lan>","status":"delivered","receivedDateTime":"2025-01-16T20:06:46.832Z","recipientAddress":"victim_1@attack_range.lan","senderAddress":"Password@attack_range.lan","subject":"Password Manager — Password was Reset","size":36476,"fromIP":"198.51.100.15","toIP":""}'
+    key:
+      - id
+      - messageId
+      - status
+      - receivedDateTime
+cves: []
+detections:
+  - title: Microsoft 365 Graph Messagetrace events arriving
+    severity: low
+    signals:
+      - id
+      - messageId
+      - status
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "o365_graph_messagetrace"'
+optimizations: []
+references:
+  - title: splunk/attack_data datasets/attack_techniques
+    url: https://github.com/splunk/attack_data/blob/d192cc584459ec4c33dae772de132d6a070abcb8/datasets/attack_techniques/T1114/o365_suspect_email_actions/o365_graph_messagetrace_suspect_events.log
+  - title: Pack Generator sample o365_graph_messagetrace.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/o365_graph_messagetrace.json

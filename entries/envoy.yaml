@@ -1,0 +1,67 @@
+id: envoy
+name: Envoy
+short: Envoy
+vendor: Envoy
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - envoy
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Envoy is logged by the Datadog integrations-core package envoy. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: envoy
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: envoy/assets/logs/envoy_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: envoy
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Envoy events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads envoy and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Envoy
+    sourcetype: envoy
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '[2019-03-06T09:31:27.354Z] "GET /status/418 HTTP/1.1" 418 - "-" 0 135 11 10 "-" "curl/7.60.0" "d209e46f-9ed5-9b61-bbdd-43e22662702a" "httpbin:8000" "198.51.100.15:80" outbound|8000||httpbin.default.svc.cluster.local - 198.51.100.25:8000 203.0.113.8:60290 -'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Envoy events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "envoy"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core envoy/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/envoy/assets/logs/envoy_tests.yaml
+  - title: Pack Generator sample envoy.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/envoy.json

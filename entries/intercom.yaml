@@ -1,0 +1,71 @@
+id: intercom
+name: Intercom
+short: Intercom
+vendor: Intercom
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - intercom
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Intercom is logged by the Datadog integrations-core package intercom. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: intercom
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: intercom/assets/logs/intercom_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: intercom
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: data.item.read, data.item.topics.total_count, data.item.topics.type, data.item.created_at, data.item.conversation_parts.total_count, data.item.conversation_parts.conversation_parts[0].updated_at
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Intercom events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries data.item.read, data.item.topics.total_count, data.item.topics.type, data.item.created_at, data.item.conversation_parts.total_count, data.item.conversation_parts.conversation_parts[0].updated_at. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads intercom and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Intercom
+    sourcetype: intercom
+    format: json
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '{"data":{"item":{"read":true,"topics":{"total_count":0,"type":"topic.list"},"created_at":1726135184,"conversation_parts":{"total_count":1,"conversation_parts":[{"updated_at":1726135185,"redacted":false,"author":{"name":"Fin","id":"1234567","type":"bot","email":"user@example.com"},"created_at":1726135185,"part_type":"language_detection_details","id":"123","notified_at":1726135185,"type":"conversation_part"}],"type":"conversation_part.list"},"waiting_since":1726135184,"source":{"redacted":false,"subject":"","author":{"id":"a3f9de4278b2c016e5d4f309","type":"lead","email":""},"id":"1234567890","type":"conversation","body":"<p>Hello</p>","delivered_as":"customer_initiated","url":"http://localhost:3001/"},"type":"conversation","priority":"not_priority","tags":{"type":"tag.list"},"custom_attributes":{"Copilot used":false},"teammates":{"type":"admin.list"},"updated_at":1726135185,"ai_agent_participated":false,"first_contact_reply":{"created_at":1726135184,"type":"conversation","url":"http://localhost:3001/"},"id":"73","state":"open","linked_objects":{"total_count":0,"has_more":false,"type":"list"},"contacts":{"type":"contact.list","contacts":[{"external_id":"7a8e4d1b-9c23-4f8d-91b2-e3c4d5678f90","id":"a3f9de4278b2c016e5d4f309","type":"contact"}]},"open":true,"statistics":{"last_contact_reply_at":"2024-09-12T09:59:44.000Z","count_assignments":0,"count_conversation_parts":2,"first_contact_reply_at":"2024-09-12T09:59:44.000Z","type":"conversation_statistics","count_reopens":0}},"type":"notification_event_data"},"delivery_attempts":1,"first_sent_at":1726135186,"topic":"conversation.user.created","created_at":1726135186,"id":"notif_7b3e81c1-6f92-4c8d-b345-9f5a2c1d8e12","type":"notification_event","app_id":"abcdefgh","delivered_at":0,"delivery_status":"pending"}'
+    key:
+      - data.item.read
+      - data.item.topics.total_count
+      - data.item.topics.type
+      - data.item.created_at
+cves: []
+detections:
+  - title: Intercom events arriving
+    severity: low
+    signals:
+      - data.item.read
+      - data.item.topics.total_count
+      - data.item.topics.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "intercom"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core intercom/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/intercom/assets/logs/intercom_tests.yaml
+  - title: Pack Generator sample intercom.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/intercom.json

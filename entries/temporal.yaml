@@ -1,0 +1,71 @@
+id: temporal
+name: Temporal
+short: Temporal
+vendor: Temporal
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - temporal
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Temporal is logged by the Datadog integrations-core package temporal. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: temporal
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: temporal/assets/logs/temporal_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: temporal
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: msg, address, level, service, logging-call-at, ts
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Temporal events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries msg, address, level, service, logging-call-at, ts. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads temporal and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Temporal
+    sourcetype: temporal
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"msg":"Created gRPC listener","address":"192.0.2.10:7234","level":"info","service":"history","logging-call-at":"rpc.go:151","ts":"2023-03-16T12:25:24.072Z"}'
+    key:
+      - msg
+      - address
+      - level
+      - service
+cves: []
+detections:
+  - title: Temporal events arriving
+    severity: low
+    signals:
+      - msg
+      - address
+      - level
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "temporal"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core temporal/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/temporal/assets/logs/temporal_tests.yaml
+  - title: Pack Generator sample temporal.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/temporal.json

@@ -1,0 +1,70 @@
+id: datazoom
+name: Datazoom
+short: Datazoom
+vendor: Datazoom
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - datazoom
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Datazoom is logged by the Datadog integrations-extras package datazoom. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: datazoom
+    desc: 'Datadog integrations-extras fixture, 2 events. Upstream: datazoom/assets/logs/datazoom_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: datazoom
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: ad.ad_blocker, ops_metadata.client_ts_ms, event.type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Datazoom events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries ad.ad_blocker, ops_metadata.client_ts_ms, event.type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads datazoom and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Datazoom
+    sourcetype: datazoom
+    format: json
+    desc: 2 fixture events in the samples pool (logtest_extras).
+    sample: '{"ad":{"ad_blocker":false},"ops_metadata":{"client_ts_ms":"1649345354892"},"event":{"type":"error"}}'
+    key:
+      - ad.ad_blocker
+      - ops_metadata.client_ts_ms
+      - event.type
+cves: []
+detections:
+  - title: Datazoom events arriving
+    severity: low
+    signals:
+      - ad.ad_blocker
+      - ops_metadata.client_ts_ms
+      - event.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "datazoom"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras datazoom/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/datazoom/assets/logs/datazoom_tests.yaml
+  - title: Pack Generator sample datazoom.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/datazoom.json

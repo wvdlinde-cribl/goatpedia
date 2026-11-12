@@ -1,0 +1,67 @@
+id: arctic-wolf-aurora-endpoint-security
+name: Arctic Wolf Aurora Endpoint Security
+short: Security
+vendor: Arctic
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - arctic_wolf_aurora_endpoint_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Arctic Wolf Aurora Endpoint Security is logged by the Datadog integrations-core package arctic_wolf_aurora_endpoint_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: arctic_wolf_aurora_endpoint_security
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: arctic_wolf_aurora_endpoint_security/assets/logs/arctic-wolf-aurora-endpoint-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: arctic_wolf_aurora_endpoint_security
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Arctic Wolf Aurora Endpoint Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads arctic_wolf_aurora_endpoint_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Arctic Wolf Aurora Endpoint Security
+    sourcetype: arctic_wolf_aurora_endpoint_security
+    format: text
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: 'Tenant ID: 82ee77a2-76a6-4d8f-97de-231bd4d5a4f7, Tenant Name: TestTenant, Event Type: AppControl, Event Name: pechange, Device Name: Unknown (test1), IP Address: (198.51.100.25), Action: Deny, Action Type: PE File Change, File Path: c:/test/test1, SHA256: 7D2113B7046867BC643CD621D2CBA7365609675505BAA66585FC44747C0D1EF5, Zone Names: (Windows Zone (Default)), Device Id: 0929f443-2a56-46b3-bcfe-fc598da81d8a, Policy Name: Stage 3 - All Threats AQT + Critical Exploit Prevention + Malicious Script Prevention (Cylance Reference Policy)'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Arctic Wolf Aurora Endpoint Security events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "arctic_wolf_aurora_endpoint_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core arctic_wolf_aurora_endpoint_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/arctic_wolf_aurora_endpoint_security/assets/logs/arctic-wolf-aurora-endpoint-security_tests.yaml
+  - title: Pack Generator sample arctic_wolf_aurora_endpoint_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/arctic_wolf_aurora_endpoint_security.json

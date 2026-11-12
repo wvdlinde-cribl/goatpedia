@@ -1,0 +1,71 @@
+id: canva
+name: Canva
+short: Canva
+vendor: Canva
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - canva
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Canva is logged by the Elastic integrations package canva. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: canva_audit
+    desc: 'Elastic integrations fixture, 1 events. Upstream: canva/data_stream/audit/_dev/test/pipeline/test-audit.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: canva
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: id, timestamp, actor.type, actor.user.id, actor.user.display_name, actor.user.email
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Canva events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, timestamp, actor.type, actor.user.id, actor.user.display_name, actor.user.email. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads canva and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: canva_audit
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"3849ef51-ca85-4028-bae3-1b8de3ee5738","timestamp":1704070800123,"actor":{"type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"OXtgecafZvh"},"details":{"type":"SCIM"}},"target":{"target_type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"abc"},"owner":{"type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"abc"}},"resource_type":"DESIGN","id":"abc123","name":"abc"},"action":{"type":"REMOVE_TEAM_FROM_ORGANIZATION","display_name":"Marketing","first_name":"string","last_name":"string","email":"user@example.com","email_verified":"true","phone_number":"string","country_code":"string","locale":"string","managing_entity":{"type":"TEAM","team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"Abc11233"}},"saml_accounts":[{"idp_issuer":"string","name_id":"string"}],"oauth_accounts":[{"platform":"string","external_user_id":"string"}],"totp_mfa_enabled":"true","sms_mfa_enabled":"true","reason":{"type":"SAML_JIT_PROVISIONING"},"changed_fields":"ADDRESS","login_type":"PASSWORD","oauth_platform":"APPLE","user_scope":"CURRENT_USER","session_scope":"CURRENT_SESSION","app_id":"string","app_version":"string","app_name":"string","permissions":["DESIGN_CONTENT_READ"],"old_permissions":["DESIGN_CONTENT_READ"],"new_permissions":["DESIGN_CONTENT_READ"],"output_type":"PDF","create_type":"CREATE","title":"Myawesomedesign","original_design_id":"DAGKs37VOUl"},"outcome":{"result":"PERMITTED","details":{"type":"RESOURCE_CREATED","resource_id":"DXWEBartcNg","resource_type":"DESIGN","user_id":"ac343"}},"context":{"ip_address":"192.0.2.10","session":"abc111","request_id":"fafas","device_id":"Ddb44"}}'
+    key:
+      - id
+      - timestamp
+      - actor.type
+      - actor.user.id
+cves: []
+detections:
+  - title: Canva events arriving
+    severity: low
+    signals:
+      - id
+      - timestamp
+      - actor.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "canva_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations canva/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/canva/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample canva_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/canva_audit.json

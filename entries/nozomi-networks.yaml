@@ -1,0 +1,155 @@
+id: nozomi-networks
+name: Nozomi Networks
+short: Networks
+vendor: Nozomi
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - nozomi_networks
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Nozomi Networks is logged by the Elastic integrations package nozomi_networks. The Pack Generator samples pool holds fixture events for 8 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: nozomi_networks_alert
+    desc: 'Elastic integrations fixture, 3 events. Upstream: nozomi_networks/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: nozomi_networks_asset
+    desc: 'Elastic integrations fixture, 4 events. Upstream: nozomi_networks/data_stream/asset/_dev/test/pipeline/test-asset.log'
+  - st: nozomi_networks_audit
+    desc: 'Elastic integrations fixture, 4 events. Upstream: nozomi_networks/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: nozomi_networks_health
+    desc: 'Elastic integrations fixture, 3 events. Upstream: nozomi_networks/data_stream/health/_dev/test/pipeline/test-health.log'
+  - st: nozomi_networks_node
+    desc: 'Elastic integrations fixture, 3 events. Upstream: nozomi_networks/data_stream/node/_dev/test/pipeline/test-node.log'
+  - st: nozomi_networks_node_cve
+    desc: 'Elastic integrations fixture, 3 events. Upstream: nozomi_networks/data_stream/node_cve/_dev/test/pipeline/test-node-cve.log'
+  - st: nozomi_networks_session
+    desc: 'Elastic integrations fixture, 3 events. Upstream: nozomi_networks/data_stream/session/_dev/test/pipeline/test-session.log'
+  - st: nozomi_networks_variable
+    desc: 'Elastic integrations fixture, 4 events. Upstream: nozomi_networks/data_stream/variable/_dev/test/pipeline/test-variable.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: nozomi_networks
+  Sourcetypes: '8'
+  Fixture events: '27'
+  Log format seen: json
+  Fields in the first fixture: id, ack, name, note, synchronized, time
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Nozomi Networks events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, ack, name, note, synchronized, time. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads nozomi_networks and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert
+    sourcetype: nozomi_networks_alert
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"6dbf93f8-d8da-4ae3-bf1a-e91a82fc3041","ack":false,"name":"Program change","note":"User Defined Note","synchronized":true,"time":1747398906110,"id_dst":"198.51.100.25","id_src":"203.0.113.8","ip_dst":"203.0.113.40","ip_src":"192.0.2.10","status":"open","mac_dst":"2001:db8::1","mac_src":"2001:db8::1","parents":["id1"],"port_dst":44818,"port_src":58679,"protocol":"ethernetip","severity":10,"zone_dst":"Production_B","zone_src":"Production_B","dst_roles":"producer","label_dst":"private.directinvesting.com1","label_src":"private.directinvesting.com2","src_roles":"consumer, engineering_station","ti_source":"","type_name":"Program change","session_id":"12eszcd-223cds34","replicated":true,"bpf_filter":"(ip host 192.0.2.20 and ip host 198.51.100.15 and tcp port 58679 and tcp port 44818) or (vlan and ip host 198.51.100.25 and ip host 203.0.113.8 and tcp port ...","properties":{"to_id":"203.0.113.40","from_id":"192.0.2.10","base_risk":6,"raised_by":"n2os_ids","n2os_version":"25.0.0-03042016_D5AB7","is_dst_public":false,"is_src_public":false,"is_dst_node_learned":true,"is_src_node_learned":true,"mitre_attack_for_ics":{"source":{"types":["Engineering Workstation"],"levels":["2"]},"destination":{"types":["Field Controller/RTU/PLC/IED"],"levels":["2"]}},"is_dst_reputation_bad":false,"is_src_reputation_bad":false}}'
+    key:
+      - id
+      - ack
+      - name
+      - note
+  - type: Asset
+    sourcetype: nozomi_networks_asset
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"f855ca08-ec50-4953-ba47-abb18464013e","ip":["192.0.2.20"],"os":"Mac OS X","name":"198.51.100.15","risk":2,"time":1746643849541,"type":"typehost","level":"level1","roles":["other"],"zones":["Undefined"],"vendor":"unknown","os:info":{"source":"passive"},"lifecycle":"life-cycle","protocols":["smb","http"],"type:info":{"source":"passive"},"created_at":1681948201431,"mac_vendor":["Cisco Systems, Inc"],"mac_address":["2001:db8::1"],"vendor:info":{"source":"passive"},"product_name":"pname","serial_number":"123456789","capture_device":"demo","is_ai_enriched":false,"lifecycle:info":{"source":"passive"},"os_or_firmware":"fware","appliance_hosts":["Demo Sensor iq e6ef8db9"],"end_of_sale_date":1747994353,"firmware_version":"fv2","mac_address_level":{"2001:db8::1":"unconfirmed"},"product_name:info":{"source":"passive"}}'
+    key:
+      - id
+      - ip[0]
+      - os
+      - name
+  - type: Audit
+    sourcetype: nozomi_networks_audit
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"e68f6c04-fe98-4549-abcf-6a2213249c3c","name":"API key signed in","event":"API key signed in with id 7a6534a6-ee49-4cb3-a0ae-1f3a6cac9b26","action":"create","browser":"python-requests/2.32.3","details":null,"username":"user@example.com via APIkey AK6eef5d","controller":"api/api_key_sessions","ip_address":"203.0.113.8","record_created_at":1747028333580,"time":1747028333579}'
+    key:
+      - id
+      - name
+      - event
+      - action
+  - type: Health
+    sourcetype: nozomi_networks_health
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"f8c3fe6d-6926-4cbe-b51d-08f38a72c593","info":{"description":"Recommended changes. The following items should be changed to support the updates included in version 22.5.0.\n\nAlert rules:\nNothing to change here\n\nAssertion..."},"time":1741868841845,"record_created_at":1741869377517,"sensor_id":"1c08da2c-e7e9-4030-b956-cada6e0a9a96","sensor_host":"Sandbox-TAE-Guardian3","sensor_appliance_type":"guardian"}'
+    key:
+      - id
+      - info.description
+      - time
+      - record_created_at
+  - type: Node
+    sourcetype: nozomi_networks_node
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"9b492faf-5cf2-4b91-b745-f1e903bba5d1","ip":"2001:db8::1","os":"Windows XP SP3","name":"00112231@203.0.113.40","type":"controller","zone":"Layer2","label":"ACMEincHQ_SW2","level":"1.5","roles":["other"],"subnet":"192.0.2.10/24","vendor":"Rockwell Automation","os:info":{"source":"none"},"is_public":false,"lifecycle":"end_of_sale","protocols":["ethernetip"],"type:info":{"source":"passive","protocol":"ethernetip"},"bpf_filter":"ip host 192.0.2.20","created_at":1725960106182,"is_learned":true,"label:info":{"source":"none"},"mac_vendor":"Schweitzer Engineering Laboratories","properties":{"_type.passive":"controller","_vendor.passive":"Rockwell Automation/Allen-Bradley","ethernetip/vendor":"Rockwell Automation/Allen-Bradley","ethernetip/vendor_id":"1","_product_name.passive":"ControlLogix 1756-ENBT/A","ethernetip/device_type":"Communications Adapter","ethernetip/product_code":"166","ethernetip/product_name":"1756-ENBT/A","ethernetip/serial_number":"00112231","ethernetip/device_type_id":"12","ethernetip/firmware_version":"18.002"},"reputation":"test reputation","sent.bytes":"0","is_disabled":false,"links_count":"1","mac_address":"2001:db8::1","vendor:info":{"source":"passive","protocol":"ethernetip","confidence":"high","granularity":"complete"},"_is_licensed":true,"is_broadcast":false}'
+    key:
+      - id
+      - ip
+      - os
+      - name
+  - type: Node Cve
+    sourcetype: nozomi_networks_node_cve
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"4e046f7f-f76f-4d1f-9585-97eedffd863b","cve":"CVE-2021-30992","cve_score":5.5,"time":1742300286262,"minimum_hotfix":"KB3074683","latest_hotfix":"KB5059091","matching_cpes":["cpe:/o:apple:ipados:13.3.1:-:-"],"cwe_name":"Out-of-bounds Read","cve_summary":"This issue was addressed with improved handling of file metadata. This issue is fixed in iOS 15.2 and iPadOS 15.2. A user in a FaceTime call may unexpectedly...","references":[{"url":"https://support.xyz.com/en-us","name":"About the security content of iOS 15.2 and iPadOS 15.2","source":"user@example.com","reference_type":"Vendor Advisory"}],"is_kev":false,"cve_creation_time":1629832523963,"cve_update_time":1732183506837,"cve_source":"user@example.com","probability":"Confirmed","likelihood":1,"resolved":false,"nodes":["198.51.100.15","localhost"],"zones":["Production_B"],"name":"iPad Pro 12.9\" 2nd Gen (Wi-Fi)","type":"tablet","vendor":"Apple","product_name":"iPad Pro 12.9\" 2nd Gen (Wi-Fi)","firmware_version":"","os":"iPadOS 13_3_1","record_created_at":1742300286108,"cve_epss_score":0.00066,"cwe_id":"125","asset_id":"616489ea-7bd3-41e7-a618-aecfa9f3d91a","appliance_host":"sensor-east-01"}'
+    key:
+      - id
+      - cve
+      - cve_score
+      - time
+  - type: Session
+    sourcetype: nozomi_networks_session
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"5514f626-10d8-476e-a9ad-d06eef56e5eb","to":"2001:db8::1","key":"2001:db8::1;5355;2a02:cf40::;49740;udp;56710","from":"2a02:cf40::","status":"ACTIVE","to_port":"5355","to_zone":"Undefined","protocol":"llmnr","from_port":"49740","from_zone":"Undefined","bpf_filter":"ip6 host 2a02:cf40:: and ip6 host 2001:db8::1 and udp port 49740 and udp port 5355","is_broadcast":false,"is_to_public":false,"is_from_public":false,"throughput_speed":0,"transferred.bytes":"90","direction_is_known":true,"last_activity_time":1745957044875,"transport_protocol":"udp","first_activity_time":"1745957044874","transferred.packets":"1","transferred.last_5m_bytes":"90","transferred.last_15m_bytes":"90","transferred.last_30m_bytes":"90","transferred.avg_packet_bytes":90,"transferred.biggest_packet_bytes":"90","transferred.smallest_packet_bytes":"90","vlan_id":"100"}'
+    key:
+      - id
+      - to
+      - key
+      - from
+  - type: Variable
+    sourcetype: nozomi_networks_variable
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"e77d717d-4306-49af-9bfe-d49f81aebcef","host":"203.0.113.40","name":"ioa-2-206","type":"analog","unit":"n/a","label":"ioa-2-206 at 6913","scale":"1.000000","value":0.003814697265625,"offset":"0.000000","var_key":"192.0.2.10/6913/ioa-2-206","protocol":"iec104","bit_value":"00111011011111000000000000000000","max_value":"0.013184","min_value":"0.013184","namespace":"6913","host_label":"plc095.ACME0.corporationnet.com","is_numeric":true,"last_cause":"read:event","last_value":0.01318359375,"flow_status":"CYCLIC","last_client":"192.0.2.20","active_checks":[],"changes_count":"4","request_count":"9032","flow_anomalies":"0","flow_stats.avg":300005.2765957447,"flow_stats.var":224189.0462307355,"history_status":false,"last_update_time":"1741982102719","latest_bit_change":"Bit 5 changed from 0 to 1"}'
+    key:
+      - id
+      - host
+      - name
+      - type
+cves: []
+detections:
+  - title: Nozomi Networks events arriving
+    severity: low
+    signals:
+      - id
+      - ack
+      - name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "nozomi_networks_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations nozomi_networks/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/nozomi_networks/data_stream/alert/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample nozomi_networks_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nozomi_networks_alert.json

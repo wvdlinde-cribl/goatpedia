@@ -1,0 +1,71 @@
+id: ide-shepherd
+name: Ide Shepherd
+short: Ide Shepherd
+vendor: Ide
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ide_shepherd
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Ide Shepherd is logged by the Datadog integrations-core package ide_shepherd. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ide_shepherd
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: ide_shepherd/assets/logs/ide-shepherd_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ide_shepherd
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: isAlert, category_uid, metadata.product.name, metadata.product.vendor_name, metadata.environment.ide_version, metadata.environment.ide_flavor
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ide Shepherd events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries isAlert, category_uid, metadata.product.name, metadata.product.vendor_name, metadata.environment.ide_version, metadata.environment.ide_flavor. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ide_shepherd and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Ide Shepherd
+    sourcetype: ide_shepherd
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"isAlert":false,"category_uid":2,"metadata":{"product":{"name":"IDE Shepherd","vendor_name":"Datadog"},"environment":{"ide_version":"1.105.1","ide_flavor":"cursor"},"version":"1.6.0"},"finding_info":{"uid":"rust-lang.rust-analyzer-0.3.2769-metadata-analysis","title":"Metadata Analysis: rust-lang.rust-analyzer-0.3.2769","desc":"Detected 0 suspicious pattern(s) (Risk: none, Score: 0)"},"status_id":1,"application":{"uid":"rust-lang.rust-analyzer-0.3.2769","path":"/Users/tesnim.hamdouni/.cursor/extensions/rust-lang.rust-analyzer-0.3.2769-darwin-arm64","name":"rust-lang.rust-analyzer","vendor_name":"rust-lang","version":"0.3.2769"},"activity_id":2,"class_uid":2007,"severity_id":1,"time":1769418941951,"type_uid":200702,"network":{"ip":{"attributes":[{"ip":"198.51.100.15","source":["tags"]}],"list":["198.51.100.25"]}}}'
+    key:
+      - isAlert
+      - category_uid
+      - metadata.product.name
+      - metadata.product.vendor_name
+cves: []
+detections:
+  - title: Ide Shepherd events arriving
+    severity: low
+    signals:
+      - isAlert
+      - category_uid
+      - metadata.product.name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ide_shepherd"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ide_shepherd/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ide_shepherd/assets/logs/ide-shepherd_tests.yaml
+  - title: Pack Generator sample ide_shepherd.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ide_shepherd.json

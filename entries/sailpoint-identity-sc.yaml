@@ -1,0 +1,95 @@
+id: sailpoint-identity-sc
+name: Sailpoint Identity Sc
+short: Sc
+vendor: Sailpoint
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sailpoint_identity_sc
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Sailpoint Identity Sc is logged by the Elastic integrations package sailpoint_identity_sc. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sailpoint_identity_sc
+    desc: 'Elastic integrations fixture, 7 events. Upstream: sailpoint_identity_sc/data_stream/events/_dev/test/pipeline/test-event.log'
+  - st: sailpoint_identity_sc_identities
+    desc: 'Elastic integrations fixture, 4 events. Upstream: sailpoint_identity_sc/data_stream/identities/_dev/test/pipeline/test-manager-with-supervises-sample.log'
+  - st: sailpoint_identity_sc_machine_identities
+    desc: 'Elastic integrations fixture, 3 events. Upstream: sailpoint_identity_sc/data_stream/machine_identities/_dev/test/pipeline/test-machine-identity-full-sample.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: sailpoint_identity_sc
+  Sourcetypes: '3'
+  Fixture events: '14'
+  Log format seen: json
+  Fields in the first fixture: org, pod, created, id, action, type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sailpoint Identity Sc events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries org, pod, created, id, action, type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads sailpoint_identity_sc and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: sailpoint_identity_sc
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"org":"example-org","pod":"se01-useast1","created":"2024-12-23T10:58:27.962Z","id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2","action":"USER_PASSWORD_UPDATE_PASSED","type":"PASSWORD_ACTIVITY","actor":{"id":"c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4","name":"alice.example","displayName":"Alice Example"},"target":{"name":"alice.example"},"stack":"pigs","details":"38eef046d4594d7e9186cee997232f3d","trackingNumber":"fb38cc3fb990451dab51133aed21268a","ipAddress":"203.0.113.40","attributes":{"accountId":"alice.example","sourceName":"IdentityNow","info":"Password workflow invoked successfully.","hostName":"192.0.2.10","pod":"se01-useast1","org":"example-org","scope":"[\"sp:scopes:all\"]"},"objects":["USER","PASSWORD"],"operation":"UPDATE","status":"PASSED","technicalName":"USER_PASSWORD_UPDATE_PASSED","name":"Update User Password Passed","synced":"2024-12-23T10:58:32.977Z","_type":"event","_version":"v2"}'
+    key:
+      - org
+      - pod
+      - created
+      - id
+  - type: Identities
+    sourcetype: sailpoint_identity_sc_identities
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"access":[{"attribute":"memberOf","description":"Grants administrative access to the internal VPN system","displayName":"HostingVPN","id":"access-id-c01","name":"HostingVPN","privileged":false,"source":{"id":"source-id-ad-001","name":"Active Directory"},"standalone":true,"type":"ENTITLEMENT","value":"CN=HostingVPN,OU=Groups,OU=Demo,DC=corp,DC=example,DC=com"},{"attribute":"groups","description":"View-only access to all existing Accounting report data","displayName":"View_Reports","id":"access-id-c07","name":"View_Reports","privileged":false,"source":{"id":"source-id-prism-001","name":"PRISM"},"standalone":false,"type":"ENTITLEMENT","value":"View_Reports"}],"accessCount":4,"accessProfileCount":1,"accountCount":2,"accounts":[{"accountId":"CN=Emma Thompson,OU=Munich,OU=Europe,OU=Demo,DC=corp,DC=example,DC=com","created":"2026-04-24T16:34:13.180Z","disabled":false,"entitlementAttributes":{"memberOf":["CN=HostingVPN,OU=Groups,OU=Demo,DC=corp,DC=example,DC=com"]},"id":"account-id-ad-002","locked":false,"manuallyCorrelated":false,"name":"Emma.Thompson","passwordLastSet":"2021-03-04T23:52:23.845Z","privileged":false,"source":{"id":"source-id-ad-001","name":"Active Directory","type":"Active Directory - Direct"}},{"accountId":"EMP001","created":"2026-04-24T16:34:13.324Z","disabled":false,"entitlementAttributes":{},"id":"account-id-hr-002","locked":false,"manuallyCorrelated":false,"name":"Emma.Thompson","privileged":false,"source":{"id":"source-id-hr-001","name":"HR","type":"JDBC"}}],"attributes":{"city":"Boston","cloudAuthoritativeSource":"source-id-hr-001","cloudLifecycleState":"active","cloudStatus":"ACTIVE","country":"US","department":"Human Resources","displayName":"Emma Thompson","email":"user@example.com","firstname":"Emma","identificationNumber":"EMP001","identityState":"ACTIVE","internalCloudStatus":"ACTIVE","jobTitle":"HR Manager","lastname":"Thompson","location":"Boston","types":"Employee","uid":"emma.thompson","visibleSegments":["All Employees"]},"created":"2024-04-24T16:34:13.173Z","displayName":"Emma Thompson","email":"user@example.com","employeeNumber":"EMP001","entitlementCount":2,"firstName":"Emma","id":"identity-id-chr-001","identityProfile":{"id":"profile-id-001","name":"HR"},"inactive":false,"isManager":true,"lastName":"Thompson","manager":{"id":"mgr-id-003","name":"dennis.clark","displayName":"Dennis Clark"},"modified":"2024-04-24T16:56:37.494Z","name":"emma.thompson","org":"example-corp","ownsCount":0,"pod":"pod01-useast1","protected":false,"roleCount":1,"source":{"id":"source-id-hr-001","name":"HR"},"status":"ACTIVE","tags":[],"visibleSegments":["All Employees"],"disabled":false}'
+    key:
+      - access[0].attribute
+      - access[0].description
+      - access[0].displayName
+      - access[0].id
+  - type: Machine Identities
+    sourcetype: sailpoint_identity_sc_machine_identities
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"mi-id-aabbccdd-1111-2222-3333-000000000002","name":"svc-reporting-job","created":"2024-02-20T14:00:00Z","modified":"2025-01-11T09:00:00Z","nativeIdentity":"svc-reporting:prod:00002","description":"Service account for scheduled reporting tasks.","attributes":{"env":"production","team":"Analytics"},"subtype":"Application","owners":{"primaryIdentity":{"type":"IDENTITY","id":"00000000000000000000000000000002","name":"bob.example"},"secondaryIdentities":[{"type":"IDENTITY","id":"00000000000000000000000000000004","name":"alice.example"}]},"sourceId":"src-id-aabbccdd-1111-2222-3333-000000000002","uuid":"uuid-aabbccdd-1111-2222-3333-000000000002","manuallyEdited":false,"manuallyCreated":false,"source":{"type":"SOURCE","id":"src-id-aabbccdd-1111-2222-3333-000000000002","name":"Example Cloud Apps"},"datasetId":"ds-id-aabbccdd-1111-2222-3333-000000000002","userEntitlements":[{"sourceId":"src-id-aabbccdd-1111-2222-3333-000000000003","entitlementId":"ent-id-aabbccdd-1111-2222-3333-000000000001","displayName":"Reports DB Read Access","source":{"type":"SOURCE","id":"src-id-aabbccdd-1111-2222-3333-000000000003","name":"Example SQL DB"}}]}'
+    key:
+      - id
+      - name
+      - created
+      - modified
+cves: []
+detections:
+  - title: Sailpoint Identity Sc events arriving
+    severity: low
+    signals:
+      - org
+      - pod
+      - created
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sailpoint_identity_sc"'
+optimizations: []
+references:
+  - title: elastic/integrations sailpoint_identity_sc/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sailpoint_identity_sc/data_stream/events/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample sailpoint_identity_sc.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sailpoint_identity_sc.json

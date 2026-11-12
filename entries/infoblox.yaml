@@ -55,6 +55,10 @@ sourcetypes:
     desc: Google SecOps (Chronicle) log type for DHCP logs
   - st: INFOBLOX_RPZ
     desc: Google SecOps (Chronicle) log type for DNS Firewall (RPZ) hits
+  - st: infoblox_dhcp
+    desc: 'Splunk Connect for Syslog fixture, 10 events. Upstream: tests/test_infoblox.py'
+  - st: infoblox_threatprotect
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_infoblox.py'
 facts:
   First released: 2000s (Infoblox founded 1999; NIOS Grid architecture since mid-2000s)
   OS / engines: NIOS 8.6 / 9.0 trains. BIND 9 for DNS, ISC DHCP (Kea in newer builds)
@@ -193,6 +197,24 @@ logs:
       - pri
       - syslog_time
     sample: '<29>Nov 12 10:02:11 gm.example.com httpd: 2026-11-12 10:02:11.204Z [jdoe]: Deleted ARecord payroll.corp.example.com DnsView=default: Delete address="10.40.1.20"'
+  - type: Infoblox DHCP
+    sourcetype: infoblox_dhcp
+    format: text
+    desc: 10 fixture events in the samples pool (sc4s).
+    sample: '<150>Jun 15 13:45:07 sc4s-lab-01 dhcpd[4321]: Abandoning IP address 203.0.113.40: pinged before offer'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Infoblox Threatprotect
+    sourcetype: infoblox_threatprotect
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<111>Jun 15 13:45:07 sc4s-lab-01 threat-protect-log[4321]: CEF:0|Infoblox|NIOS Threat|8.4.4-386831|120303001|Blacklist:foo.foo.foo|7|src=192.0.2.10 spt=57092 dst=192.0.2.20 dpt=53 act="DROP" cat="BLACKLIST UDP FQDN lookup" nat=0 nfpt=0 nlpt=0 fqdn=foo.foo.foo hit_count=4'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
 cves:
   - id: CVE-2024-37566
     cvss: 9.8

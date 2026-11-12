@@ -1,0 +1,119 @@
+id: vectra-rux
+name: Vectra Rux
+short: Vectra Rux
+vendor: Vectra
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - vectra_rux
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Vectra Rux is logged by the Elastic integrations package vectra_rux. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: vectra_rux_audit
+    desc: 'Elastic integrations fixture, 2 events. Upstream: vectra_rux/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: vectra_rux_detection_event
+    desc: 'Elastic integrations fixture, 2 events. Upstream: vectra_rux/data_stream/detection_event/_dev/test/pipeline/test-detection-event.log'
+  - st: vectra_rux_entity_event
+    desc: 'Elastic integrations fixture, 2 events. Upstream: vectra_rux/data_stream/entity_event/_dev/test/pipeline/test-entity-event.log'
+  - st: vectra_rux_health
+    desc: 'Elastic integrations fixture, 2 events. Upstream: vectra_rux/data_stream/health/_dev/test/pipeline/test-health.log'
+  - st: vectra_rux_lockdown
+    desc: 'Elastic integrations fixture, 2 events. Upstream: vectra_rux/data_stream/lockdown/_dev/test/pipeline/test-lockdown.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: vectra_rux
+  Sourcetypes: '5'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: id, user_id, username, user_type, api_client_id, user_role
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Vectra Rux events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, user_id, username, user_type, api_client_id, user_role. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads vectra_rux and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: vectra_rux_audit
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":212,"user_id":1,"username":"admin","user_type":"API_CLIENT","api_client_id":"0cc5c3a9-4b1d-4b3a-9c5c-3a9b1d4b3a9b","user_role":"Security Analyst","version":"2022.0.0","source_ip":"198.51.100.25","event_timestamp":"2025-01-01T00:00:00.000Z","message":"[table:linked_account][id:1] with tags [] was changed to [''tag1'', ''tag2'', ''tag3'', ''tag4'', ''tag5'', ''tag6'']","result_status":"success","event_data":{},"event_object":"account_tags","event_action":"updated"}'
+    key:
+      - id
+      - user_id
+      - username
+      - user_type
+  - type: Detection Event
+    sourcetype: vectra_rux_detection_event
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":28538,"category":"command_and_control","threat":50,"certainty":50,"triaged":false,"detection_type":"Azure AD Redundant Access Creation","url":"https://207031206993.uw2.devportal.vectra.ai/detections/959","d_type_vname":"Azure AD Redundant Access Creation","detection_id":959,"detection_href":"https://207031206993.uw2.devportal.vectra.ai/detections/959?detail_id=94341","entity_id":1,"type":"account","entity_href":"https://207031206993.uw2.devportal.vectra.ai/accounts/1","entity_uid":"O365:ServicePrincipal_3fb87dda-882a-49e1-88b9-67d2499b2fd4","src_entity":"O365:ServicePrincipal_3fb87dda-882a-49e1-88b9-67d2499b2fd4","event_timestamp":"2022-09-12T16:31:35Z","mitre":["T1526"],"detail":{},"severity":5}'
+    key:
+      - id
+      - category
+      - threat
+      - certainty
+  - type: Entity Event
+    sourcetype: vectra_rux_entity_event
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":24,"entity_id":100,"breadth_contrib":0,"importance":0,"type":"host","is_prioritized":false,"severity":"Low","urgency_reason":"Ransomware: This entity was prioritized because it was implicated in an active ransomware detection","urgency_score":0,"velocity_contrib":0,"event_timestamp":"2022-08-07T00:14:31Z","name":"AWS:None/us-1-east/config:AWSConfig-Describe","active_detection_types":["AWS S3 Enumeration"],"category":"ACCOUNT SCORING","last_detection":{"id":103,"type":"AWS S3 Enumeration","url":"https://200888808432.uw2.devportal.vectra.ai/detections/103"},"attack_rating":0,"url":"https://200888808432.uw2.devportal.vectra.ai/accounts/8"}'
+    key:
+      - id
+      - entity_id
+      - breadth_contrib
+      - importance
+  - type: Health
+    sourcetype: vectra_rux_health
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"memory":{"usage_percent":47,"free_bytes":5597118464,"used_bytes":33078743040,"total_bytes":67444477952,"updated_at":"2025-04-18 07:17:35+00:00"},"trafficdrop":{"sensors":[{"name":"EDR Sensor","error":"All interfaces have traffic volume within range","status":"OK","serial_number":"V421353ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","ip_address":"203.0.113.8"},{"name":"XDR Sensor","error":"Interface have traffic volume within range","status":"OK","serial_number":"1421353ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","ip_address":"203.0.113.40"}],"updated_at":"2025-04-18 07:17:35+00:00"},"cpu":{"user_percent":30,"nice_percent":0,"system_percent":24.9,"idle_percent":43.9,"updated_at":"2025-04-18 07:17:35+00:00"},"hostid":{"artifact_counts":{"TestEDR":0,"arsenic":0,"carbon_black":0,"cb_cloud":0,"clear_state":0,"cookie":0,"crowdstrike":0,"cybereason":0,"dhcp":6606,"dns":27818,"end_time":0,"fireeye":0,"generic_edr":0,"idle_end":27818,"idle_start":27936,"invalid":0,"kerberos":209,"kerberos_user":0,"mdns":18575,"netbios":15596,"proxy_ip":0,"rdns":0,"sentinelone":0,"split":0,"src_port":0,"static_ip":0,"total":134681,"uagent":10122,"vmachine_info":0,"windows_defender":1},"ip_always_percent":18.52,"ip_sometimes_percent":2.47,"ip_never_percent":79.01,"updated_at":"2025-04-18 07:17:35+00:00"},"network":{"updated_at":"2025-04-18 07:17:34+00:00","vlans":{"vlan_ids":["7","8"],"count":1}},"disk":{"degraded_raid_volume":{"error":"error","output":"output","status":"OK"},"disk_raid":{"error":"error","output":"output","status":"OK"},"disk_utilization":{"free_bytes":10000109,"total_bytes":67444477952,"usage_percent":47,"used_bytes":33078743040},"raid_disks_missing":{"error":"error","output":"output","status":"OK"},"updated_at":"2025-04-18 07:17:34+00:00"},"power":{"status":"SKIP","error":"Power check for this device is not supported","updated_at":"2025-04-18 07:17:35+00:00"},"system":{"uptime":"261 days, 13 hours, 33 minutes","serial_number":"VHE66258a5e8dafe76d9a5dd741abd94ee8","version":{"last_update":"Wed Apr  9 02:03:16 2025","last_update_utc":"2025-04-09T02:03:16+00:00","model":"VHE","mode":"brain","cloud_bridge":true,"gmt":"2025-04-18T07:14:09.593927Z","vm_type":"vmware","vectra_instance_type":"medium","vectra_version":"9.0.3-2-62"},"updated_at":"2025-04-18 07:17:33+00:00"},"sensors":[{"id":3,"location":"hyp-2-37","serial_number":"V421353ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","status":"paired","version":"9.0.3-1-62","ip_address":"192.0.2.10","ssh_tunnel_port":"38113","public_key":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1y0zv2goBjkol/8TggJJ\nMgP03tIZ6B6w9PVpF/bK8KTT0/hinX8PHP/MdDS58sVE6DuAqAkkELqN55f35AhB\n...","product_name":"DCS","mode":"sensor","headend_uri":"192.0.2.20","original_version":"7.9.0-17-38","last_seen":"2025-04-18T07:15:37.685Z","update_count":0,"name":"EDR Sensor"},{"id":2,"location":"hyp-2-35","serial_number":"12421353ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","status":"paired","version":"9.0.3-1-62","ip_address":"198.51.100.15","ssh_tunnel_port":"38113","public_key":"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1y0zv2goBjkol/8TggJJ\nMgP03tIZ6B6w9PVpF/bK8KTT0/hinX8PHP/MdDS58sVE6DuAqAkkELqN55f35AhB\n...","product_name":"DCS","mode":"sensor","headend_uri":"198.51.100.25","original_version":"7.9.0-17-38","last_seen":"2025-04-18T07:15:37.685Z","update_count":0,"name":"XDR Sensor"}],"detection":{"updated_at":"2025-04-18 07:17:33+00:00","name":"Detection 1","detection_type":"AWS","message":"This is detection message","status":"OK"},"event_timestamp":"2025-04-15T09:39:45.146Z","connectivity":{"sensors":[{"name":"EDR Sensor","error":"metadata replication seems fine","status":"OK","serial_number":"V421353ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","ip_address":"203.0.113.40","affected_metadata_hours":["2025-04-18T00:00:00Z","2025-04-18T01:00:00Z"]},{"name":"XDR Sensor","error":"metadata replication seems fine","status":"OK","serial_number":"V423ef386550fb2f9a959fa3f52aee","luid":"w4ftj0a8","ip_address":"192.0.2.10","affected_metadata_hours":["2025-04-18T00:00:00Z","2025-04-18T01:00:00Z"]}],"updated_at":"2025-04-18 07:17:35+00:00"}}'
+    key:
+      - memory.usage_percent
+      - memory.free_bytes
+      - memory.used_bytes
+      - memory.total_bytes
+  - type: Lockdown
+    sourcetype: vectra_rux_lockdown
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":1,"type":"account","entity_id":2,"entity_name":"O365:user@example.com","lock_event_timestamp":"2023-03-06T22:30:06Z","locked_by":"vadmin","certainty":0,"unlock_event_timestamp":"2023-04-07T23:50:00Z"}'
+    key:
+      - id
+      - type
+      - entity_id
+      - entity_name
+cves: []
+detections:
+  - title: Vectra Rux events arriving
+    severity: low
+    signals:
+      - id
+      - user_id
+      - username
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "vectra_rux_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations vectra_rux/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/vectra_rux/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample vectra_rux_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vectra_rux_audit.json

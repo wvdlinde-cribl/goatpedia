@@ -1,0 +1,95 @@
+id: proofpoint-tap
+name: Proofpoint Tap
+short: Proofpoint Tap
+vendor: Proofpoint
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - proofpoint_tap
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Proofpoint Tap is logged by the Elastic integrations package proofpoint_tap. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: proofpoint_tap_clicks_blocked
+    desc: 'Elastic integrations fixture, 6 events. Upstream: proofpoint_tap/data_stream/clicks_blocked/_dev/test/pipeline/test-clicks-blocked.log'
+  - st: proofpoint_tap_clicks_permitted
+    desc: 'Elastic integrations fixture, 5 events. Upstream: proofpoint_tap/data_stream/clicks_permitted/_dev/test/pipeline/test-clicks-permitted.log'
+  - st: proofpoint_tap_message_blocked
+    desc: 'Elastic integrations fixture, 7 events. Upstream: proofpoint_tap/data_stream/message_blocked/_dev/test/pipeline/test-message-blocked.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: proofpoint_tap
+  Sourcetypes: '3'
+  Fixture events: '18'
+  Log format seen: json
+  Fields in the first fixture: url, classification, clickTime, threatTime, userAgent, campaignId
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Proofpoint Tap events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries url, classification, clickTime, threatTime, userAgent, campaignId. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads proofpoint_tap and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Clicks Blocked
+    sourcetype: proofpoint_tap_clicks_blocked
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"url":"https://www.example.com/?name=john","classification":"phish","clickTime":"2022-03-21T07:52:11.000Z","threatTime":"2022-03-18T14:54:20.000Z","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36 Edg/99.0.1150.39","campaignId":"46x01x8x-x899-404x-xxx9-111xx393d1x7","id":"8760d0fc-1234-1234-1234-2exxfxxxxx1xd","clickIP":"198.51.100.25","sender":"user@example.com","recipient":"user@example.com","senderIP":"203.0.113.8","GUID":"x11xxxx1-12f9-111x-x12x-1x1x123456xx","threatID":"3xx97xx852c66a7xx761450xxxxxx9f4ffaxxxxxxxxxxxxxxx7a76481xx","threatURL":"https://www.example.com/?name=john","threatStatus":"active","messageID":"user@example.com"}'
+    key:
+      - url
+      - classification
+      - clickTime
+      - threatTime
+  - type: Clicks Permitted
+    sourcetype: proofpoint_tap_clicks_permitted
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"campaignId":"46x01x8x-x899-404x-xxx9-111xx393d1x7","classification":"MALWARE","clickIP":"203.0.113.40","clickTime":"2016-06-24T19:17:44.000Z","GUID":"x11xxxx1-12f9-111x-x12x-1x1x123XXX6xx","id":"a2abc123-1234-1234-1234-babcded1234","messageID":"user@example.com","recipient":"user@example.com","sender":"user@example.com","senderIP":"192.0.2.10","threatID":"61f7622xx1x6x7x1x4xxxxxxxxxxx4xdbaxxxxxxxxxxx5xex3xbxxxxxdxfx5xxxxx0","threatTime":"2016-06-24T19:17:46.000Z","threatURL":"https://threatinsight.proofpoint.com/#/a2abc123-1234-1234-1234-babcded1234/threat/u/6xxx1xxxfx7x62x2x1x6x7x1x4x4xdxxxbxa5xex5x0xxxxx","threatStatus":"active","url":"http://example.com/","userAgent":"Mozilla/5.0(WindowsNT6.1;WOW64;rv:27.0)Gecko/20100101Firefox/27.0"}'
+    key:
+      - campaignId
+      - classification
+      - clickIP
+      - clickTime
+  - type: Message Blocked
+    sourcetype: proofpoint_tap_message_blocked
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"spamScore":0,"phishScore":0,"threatsInfoMap":[{"threatID":"dhgonvjabcdefghijkabcdefghijkabcdefghijkabcdefghijkhlonvjdsabcdefgh","threatStatus":"active","classification":"malware","threatUrl":"https://threatinsight.proofpoint.com/adhgon-vjdsd-efghjikhlon-abcdefghij/threat/email/792e8d28448xxxxxxxxxxxxxxxxx8448c792xxxxx1af132onvjdsvsbnvjd","threatTime":"2022-01-01T02:03:40.050Z","threat":"example.com/xyz/","campaignID":null,"threatType":"url"}],"messageTime":"2022-01-01T00:45:55.050Z","impostorScore":0,"malwareScore":100,"cluster":"pharmtech_hosted","subject":"Re: Delayed Mail (still being retried)","quarantineFolder":null,"quarantineRule":null,"policyRoutes":["default_inbound"],"modulesRun":["av","zerohour"],"messageSize":3102,"headerFrom":"<user@example.com>","headerReplyTo":null,"fromAddress":["user@example.com"],"ccAddresses":[],"replyToAddress":[],"toAddresses":["user@example.com"],"xmailer":"Microsoft Outlook 16.0","messageParts":[{"disposition":"inline","sha256":"a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e","md5":"b10a8db164e0754105b7a99be72e3fe5","filename":"text.html","sandboxStatus":null,"oContentType":"text/html","contentType":"text/html"}],"completelyRewritten":false,"id":"401ccabc-1234-123-1234-babc74fce1a4","QID":"3XXXXgaXXX-1","GUID":"qxxlnx-xxxxxNxXGxQxWxPxxxxx0","sender":"user@example.com","recipient":["user@example.com"],"senderIP":"192.0.2.20","messageID":"<user@example.com>"}'
+    key:
+      - spamScore
+      - phishScore
+      - threatsInfoMap[0].threatID
+      - threatsInfoMap[0].threatStatus
+cves: []
+detections:
+  - title: Proofpoint Tap events arriving
+    severity: low
+    signals:
+      - url
+      - classification
+      - clickTime
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "proofpoint_tap_clicks_blocked"'
+optimizations: []
+references:
+  - title: elastic/integrations proofpoint_tap/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proofpoint_tap/data_stream/clicks_blocked/_dev/test/pipeline/test-clicks-blocked.log
+  - title: Pack Generator sample proofpoint_tap_clicks_blocked.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_tap_clicks_blocked.json

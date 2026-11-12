@@ -1,0 +1,83 @@
+id: withsecure-elements
+name: Withsecure Elements
+short: Elements
+vendor: Withsecure
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - withsecure_elements
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Withsecure Elements is logged by the Elastic integrations package withsecure_elements. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: withsecure_elements_incidents
+    desc: 'Elastic integrations fixture, 1 events. Upstream: withsecure_elements/data_stream/incidents/_dev/test/pipeline/test-incident.json'
+  - st: withsecure_elements_security_events
+    desc: 'Elastic integrations fixture, 1 events. Upstream: withsecure_elements/data_stream/security_events/_dev/test/pipeline/test-security-event.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: withsecure_elements
+  Sourcetypes: '2'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: incidentId, incidentPublicId, organizationId, name, status, severity
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Withsecure Elements events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries incidentId, incidentPublicId, organizationId, name, status, severity. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads withsecure_elements and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Incidents
+    sourcetype: withsecure_elements_incidents
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"incidentId":"2c902c73-e2a6-40fd-9532-257ee102e1c1","incidentPublicId":"INC-12345","organizationId":"222298dc-3785-4d2d-a957-f7399c2cd084","name":"Malware Detection","status":"new","severity":"high","riskLevel":"high","riskScore":85.5,"resolution":"unconfirmed","createdTimestamp":"2023-08-09T12:10:43.537Z","updatedTimestamp":"2023-08-09T12:10:43.537Z","initialReceivedTimestamp":"2023-08-09T12:10:43.537Z","categories":["MALWARE"],"sources":["endpoint"]}'
+    key:
+      - incidentId
+      - incidentPublicId
+      - organizationId
+      - name
+  - type: Security Events
+    sourcetype: withsecure_elements_security_events
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":"07a286cc-99ba-3538-8997-557076ff95ab_0","action":"reported","engine":"setting","severity":"info","serverTimestamp":"2023-08-31T09:31:01.092Z","persistenceTimestamp":"2023-08-31T09:31:03.292Z","eventTransactionId":"0000-187cf62797634fef","clientTimestamp":"2023-08-31T07:31:03.292Z","acknowledged":false,"message":"Firewall was turned on","description":"Setting event","organization":{"id":"222298dc-3785-4d2d-a957-f7399c2cd084","name":"my-org"},"target":{"name":"Doe,John DESKTOP","id":"71cceb9f-2728-4ac4-8e63-402cbbf76e18"},"device":{"id":"71cceb9f-2728-4ac4-8e63-402cbbf76e18","name":"Doe,John DESKTOP"},"userName":"John Doe","details":{"profileName":"My Company Profile","path":"C:\\Program Files\\WithSecure\\PSB\\diagnostics\\fsdiag.exe","alertType":"product.path.excluded","throttledCount":"0","profileId":"12444818","profileVersion":"34313431491","hostIpAddress":"192.0.2.20/8","userName":"John Doe","clientTimestamp":"1695889223479"}}'
+    key:
+      - id
+      - action
+      - engine
+      - severity
+cves: []
+detections:
+  - title: Withsecure Elements events arriving
+    severity: low
+    signals:
+      - incidentId
+      - incidentPublicId
+      - organizationId
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "withsecure_elements_incidents"'
+optimizations: []
+references:
+  - title: elastic/integrations withsecure_elements/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/withsecure_elements/data_stream/incidents/_dev/test/pipeline/test-incident.json
+  - title: Pack Generator sample withsecure_elements_incidents.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/withsecure_elements_incidents.json

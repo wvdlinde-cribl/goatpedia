@@ -1,0 +1,67 @@
+id: proxysql
+name: Proxysql
+short: Proxysql
+vendor: Proxysql
+category: swg
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - proxysql
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Proxysql is logged by the Datadog integrations-core package proxysql. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: proxysql
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: proxysql/assets/logs/proxysql_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: proxysql
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Proxysql events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads proxysql and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Proxysql
+    sourcetype: proxysql
+    format: text
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '2020-04-06 08:59:07 MySQL_Monitor.cpp:960:monitor_read_only_thread(): [ERROR] Timeout on read_only check for db:3306 after 2ms. Unable to create a connection. If the server is overload, increase mysql-monitor_connect_timeout. Error: timeout on creating new connection: Can''t connect to MySQL server on ''db'' (115).'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Proxysql events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "proxysql"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core proxysql/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/proxysql/assets/logs/proxysql_tests.yaml
+  - title: Pack Generator sample proxysql.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proxysql.json

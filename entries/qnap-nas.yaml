@@ -1,0 +1,67 @@
+id: qnap-nas
+name: Qnap Nas
+short: Qnap Nas
+vendor: Qnap
+category: storage
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - qnap_nas
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Qnap Nas is logged by the Elastic integrations package qnap_nas. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: qnap_nas
+    desc: 'Elastic integrations fixture, 20 events. Upstream: qnap_nas/data_stream/log/_dev/test/pipeline/test-event.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: qnap_nas
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Qnap Nas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads qnap_nas and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: qnap_nas
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<28>Oct 30 20:28:41 qnap-nas01 qulogd[14629]: event log: Users: admin, Source IP: 198.51.100.25, Computer name: ---, Application: Network & Virtual Switch, Category: Infrastructure, Content: [Network & Virtual Switch] Interface "Adapter 2" disconnected.'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Qnap Nas events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "qnap_nas"'
+optimizations: []
+references:
+  - title: elastic/integrations qnap_nas/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/qnap_nas/data_stream/log/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample qnap_nas.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/qnap_nas.json

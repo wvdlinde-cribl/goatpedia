@@ -1,0 +1,71 @@
+id: lacework
+name: Lacework
+short: Lacework
+vendor: Lacework
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - lacework
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Lacework is logged by the Datadog integrations-extras package lacework. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: lacework
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: lacework/assets/logs/lacework_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: lacework
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: lw_severity, severity, hostname, service, link, details.EVENT_CATEGORY
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Lacework events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries lw_severity, severity, hostname, service, link, details.EVENT_CATEGORY. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads lacework and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Lacework
+    sourcetype: lacework
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"lw_severity":"Info","severity":"info","hostname":"lacework.com","service":"lacework","link":"https://qa1.qa1.corp.lacework.net/ui/investigate/Event/24421?startTime=1573063200000&endTime=1573066800000","details":{"EVENT_CATEGORY":"Aws","START_TIME":"06 Nov 2019 18:00 GMT","SUMMARY":" For account: 631664038012   (zzz-qa-account) : 8 IAM policy arn:aws:iam2001:db8::1aws:policy/AmazonEC2FullAccess attached, deleted, detached or changed  by ...","EVENT_TYPE":"IAMPolicyChanged","EVENT_NAME":"IAM Policy Changed","EVENT_DETAILS":{"data":[{"START_TIME":"2019-11-06T18:00:00Z","END_TIME":"2019-11-06T19:00:00Z","EVENT_MODEL":"CloudTrailCep","EVENT_TYPE":"IAMPolicyChanged","ENTITY_MAP":{"Resource":[{"VALUE":"arn:aws:iam2001:db8::1aws:policy/AmazonEC2FullAccess","mapConfig":{"VALUE":"arn:aws:iam2001:db8::1aws:policy/AmazonEC2FullAccess","NAME":"policyArn"},"NAME":"policyArn"},{"VALUE":"arn:aws:iam2001:db8::1aws:policy/AmazonS3FullAccess","mapConfig":{"VALUE":"arn:aws:iam2001:db8::1aws:policy/AmazonS3FullAccess","NAME":"policyArn"},"NAME":"policyArn"}],"Region":[{"ACCOUNT_LIST":["631664038012"],"mapConfig":{"ACCOUNT_LIST":["631664038012"],"REGION":"us-east-1"},"REGION":"us-east-1"}],"API":[{"SERVICE":"iam.amazonaws.com","API":"AttachUserPolicy","mapConfig":{"SERVICE":"iam.amazonaws.com","API":"AttachUserPolicy"}},{"SERVICE":"iam.amazonaws.com","API":"DetachUserPolicy","mapConfig":{"SERVICE":"iam.amazonaws.com","API":"DetachUserPolicy"}}],"SourceIpAddress":[{"COUNTRY":"United States","CITY":"Portland","IP_ADDRESS":"203.0.113.8","mapConfig":{"COUNTRY":"United States","CITY":"Portland","IP_ADDRESS":"203.0.113.40","REGION":"Oregon"},"REGION":"Oregon"}]},"EVENT_ACTOR":"Aws","EVENT_ID":"24421"}]},"LINK":"https://qa1.qa1.corp.lacework.net/ui/investigate/Event/24421?startTime=1573063200000&endTime=1573066800000","EVENT_ID":24421,"SEVERITY":"5"},"category":"Aws","type":"IAMPolicyChanged","title":" For account: 631664038012   (zzz-qa-account) : 8 IAM policy arn:aws:iam2001:db8::1aws:policy/AmazonEC2FullAccess attached, deleted, detached or changed  by ..."}'
+    key:
+      - lw_severity
+      - severity
+      - hostname
+      - service
+cves: []
+detections:
+  - title: Lacework events arriving
+    severity: low
+    signals:
+      - lw_severity
+      - severity
+      - hostname
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "lacework"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras lacework/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/lacework/assets/logs/lacework_tests.yaml
+  - title: Pack Generator sample lacework.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lacework.json

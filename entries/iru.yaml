@@ -1,0 +1,83 @@
+id: iru
+name: Iru
+short: Iru
+vendor: Iru
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - iru
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Iru is logged by the Elastic integrations package iru. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: iru_audit
+    desc: 'Elastic integrations fixture, 6 events. Upstream: iru/data_stream/audit/_dev/test/pipeline/test-iru-audit-samples.log'
+  - st: iru_device
+    desc: 'Elastic integrations fixture, 5 events. Upstream: iru/data_stream/device/_dev/test/pipeline/test-iru-device-samples.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: iru
+  Sourcetypes: '2'
+  Fixture events: '11'
+  Log format seen: json
+  Fields in the first fixture: id, action, occurred_at, actor_id, actor_type, target_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Iru events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, action, occurred_at, actor_id, actor_type, target_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads iru and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: iru_audit
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"id":"01JNGZW47KZKPXE1JWCFE4PHDW","action":"update","occurred_at":"2025-03-04T16:29:55.253454Z","actor_id":"cf40d6e7-20cb-4da9-84a1-9ad0b7003ca5","actor_type":"user","target_id":"449ec92a-186a-44f2-9421-d5ac6e465eb5","target_type":"blueprint","target_component":"library_items","new_state":{"name":"Example Blueprint","library_items_added":[{"id":"c7a5871a-1683-432f-87d4-30bbd404eb85","name":"Example App"}],"library_items_removed":[],"library_items_scoped":[{"id":"c7a5871a-1683-432f-87d4-30bbd404eb85","name":"Example App"}]},"metadata":{},"admin":{"id":"cf40d6e7-20cb-4da9-84a1-9ad0b7003ca5","email":"user@example.com","first_name":"Example","last_name":"Admin","role":"admin","is_active":true,"locale":"en_US","created_at":"2025-01-01T00:00:00.000000Z","updated_at":"2025-01-01T00:00:00.000000Z"}}'
+    key:
+      - id
+      - action
+      - occurred_at
+      - actor_id
+  - type: Device
+    sourcetype: iru_device
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"device_id":"03f81208-2b6a-4a77-81f5-cf1633bcfb95","device_name":"example-macbook-pro","model":"MacBook Pro (14-inch, 2021)","serial_number":"C02YL00XQ6L4","platform":"Mac","os_version":"14.4.1","supplemental_build_version":"23E224","last_check_in":"2024-07-23T14:11:37.150080Z","user":{"email":"user@example.com","name":"Example User","id":"5344c996-8823-4b37-8d6e-8515fc7c3a0a","is_archived":false},"asset_tag":"ASSET-1001","blueprint_id":"ab102b9d-8e9c-420d-a498-f2a1123091c7","mdm_enabled":true,"agent_installed":true,"is_missing":false,"is_removed":false,"agent_version":"4.5.9 (5160)","first_enrollment":"2024-01-26 16:15:36.087016+00:00","last_enrollment":"2024-05-13 20:09:27.374451+00:00","blueprint_name":"Example Blueprint","lost_mode_status":"","tags":["engineering"]}'
+    key:
+      - device_id
+      - device_name
+      - model
+      - serial_number
+cves: []
+detections:
+  - title: Iru events arriving
+    severity: low
+    signals:
+      - id
+      - action
+      - occurred_at
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "iru_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations iru/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/iru/data_stream/audit/_dev/test/pipeline/test-iru-audit-samples.log
+  - title: Pack Generator sample iru_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/iru_audit.json

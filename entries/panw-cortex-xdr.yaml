@@ -1,0 +1,94 @@
+id: panw-cortex-xdr
+name: Panw Cortex Xdr
+short: Xdr
+vendor: Panw
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - panw_cortex_xdr
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Panw Cortex Xdr is logged by the Elastic integrations package panw_cortex_xdr. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: panw_cortex_xdr
+    desc: 'Elastic integrations fixture, 2 events. Upstream: panw_cortex_xdr/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: panw_cortex_xdr_alerts
+    desc: 'Elastic integrations fixture, 5 events. Upstream: panw_cortex_xdr/data_stream/alerts/_dev/test/pipeline/test-panw-xdr.log'
+  - st: panw_cortex_xdr_incidents
+    desc: 'Elastic integrations fixture, 6 events. Upstream: panw_cortex_xdr/data_stream/incidents/_dev/test/pipeline/test-panw-xdr-incident.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: panw_cortex_xdr
+  Sourcetypes: '3'
+  Fixture events: '13'
+  Log format seen: json
+  Fields in the first fixture: _id, action_file_access_time, action_file_attributes, action_file_create_time, action_file_device_type, action_file_group
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Panw Cortex Xdr events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _id, action_file_access_time, action_file_attributes, action_file_create_time, action_file_device_type, action_file_group. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads panw_cortex_xdr and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: panw_cortex_xdr
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"_id":"c2c455d9f99375d","action_file_access_time":"2023-09-15T12:00:00Z","action_file_attributes":"readonly","action_file_create_time":"2023-09-01T12:00:00Z","action_file_device_type":"Device Type","action_file_group":"gr123","action_file_group_name":"GroupName","action_file_is_anonymous":true,"action_file_last_writer_actor":"Writer Actor","action_file_md5":"d41d8cd98f00b204e9800998ecf8427e","action_file_mod_time":"2023-09-15T12:00:00Z","action_file_mode":"0640","action_file_name":["MyOffice.BackgroundTasks.dll"],"action_file_operation_flags":"Operation Flags","action_file_owner":"Owner","action_file_owner_name":"OwnerName","action_file_path":["C:\\Program Files\\WindowsApps\\Microsoft.MicrosoftOfficeHub_18.2204.1141.0_x64__8wekyb3d8bbwe\\MyOffice.BackgroundTasks.dll"],"action_file_pe_info":"PE info","action_file_prev_type":"Previous Type","action_file_previous_file_name":"file.dll","action_file_previous_file_path":"C:\\PreviousPath\\file.dll","action_file_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","action_file_signature_is_embedded":true,"action_file_signature_product":"File Product","action_file_signature_status":"Verified","action_file_signature_vendor":"File Vendor","action_file_size":123456,"action_file_type":"DLL","action_local_ip":["198.51.100.25"],"action_local_port":[8080]}'
+    key:
+      - _id
+      - action_file_access_time
+      - action_file_attributes
+      - action_file_create_time
+  - type: Alerts
+    sourcetype: panw_cortex_xdr_alerts
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"external_id":"396239671","severity":"high","matching_status":"UNMATCHABLE","end_match_attempt_ts":null,"local_insert_ts":1626347122923,"bioc_indicator":null,"matching_service_rule_id":null,"attempt_counter":null,"bioc_category_enum_key":null,"is_whitelisted":false,"starred":false,"deduplicate_tokens":"af4e477c1e284c3f9b1fff340fddb4d0,57f0d1f4096a45bdb4cd8d4b8a626f15","filter_rule_id":null,"mitre_technique_id_and_name":null,"mitre_tactic_id_and_name":null,"agent_version":null,"agent_device_domain":null,"agent_fqdn":null,"agent_os_type":"NO_HOST","agent_os_sub_type":null,"agent_data_collection_status":null,"mac":"2001:db8::1","events":{"agent_install_type":"NA","agent_host_boot_time":null,"event_sub_type":null,"module_id":null,"association_strength":10,"dst_association_strength":10,"story_id":"MzYzOTQ0MDE1MDI4OTE3NDUyNA==","event_id":"MzYzOTQ0MDE1MDI4OTE3NDUyNA==","event_type":"Network Connections","event_timestamp":1626346867000,"actor_process_instance_id":null,"actor_process_image_path":null,"actor_process_image_name":null,"actor_process_command_line":null,"actor_process_signature_status":"N/A","actor_process_signature_vendor":null,"actor_process_image_sha256":null,"actor_process_image_md5":null,"actor_process_causality_id":null,"actor_causality_id":null,"actor_process_os_pid":null,"actor_thread_thread_id":null,"causality_actor_process_image_name":null,"causality_actor_process_command_line":null,"causality_actor_process_image_path":null,"causality_actor_process_signature_vendor":null,"causality_actor_process_signature_status":"N/A","causality_actor_causality_id":null,"causality_actor_process_execution_time":null,"causality_actor_process_image_md5":null},"alert_id":"2879211","detection_timestamp":1626346849000,"name":"Cisco RV320/RV325 Router Unauthenticated Configuration Export Vulnerability","category":"Vulnerability","endpoint_id":"198.51.100.15","description":"Info-Leak (198.51.100.25/cgi-bin/config.exp)","host_ip":["203.0.113.8"]}'
+    key:
+      - external_id
+      - severity
+      - matching_status
+      - end_match_attempt_ts
+  - type: Incidents
+    sourcetype: panw_cortex_xdr_incidents
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"reply":{"incidents":[],"result_count":0,"total_count":0}}'
+    key:
+      - reply.incidents
+      - reply.result_count
+      - reply.total_count
+cves: []
+detections:
+  - title: Panw Cortex Xdr events arriving
+    severity: low
+    signals:
+      - _id
+      - action_file_access_time
+      - action_file_attributes
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "panw_cortex_xdr"'
+optimizations: []
+references:
+  - title: elastic/integrations panw_cortex_xdr/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/panw_cortex_xdr/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample panw_cortex_xdr.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/panw_cortex_xdr.json

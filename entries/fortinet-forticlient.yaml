@@ -1,0 +1,71 @@
+id: fortinet-forticlient
+name: Fortinet Forticlient
+short: Forticlient
+vendor: Fortinet
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fortinet_forticlient
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Fortinet Forticlient is logged by the Elastic integrations package fortinet_forticlient. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fortinet_forticlient
+    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_forticlient/data_stream/log/_dev/test/pipeline/test-generated.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: fortinet_forticlient
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: header, proto, service, status, src, dst
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fortinet Forticlient events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, proto, service, status, src, dst. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads fortinet_forticlient and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: fortinet_forticlient
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: January 29 06:09:59 boNemoe4402.www.invalid proto=udp service=http status=deny src=203.0.113.8 dst=203.0.113.40 src_port=7178 dst_port=3994 server_app=reeufugi pid=7880 app_name=enderitq traff_direct=external block_count=5286 logon_user=user@example.com msg=failure
+    key:
+      - proto
+      - service
+      - status
+      - src
+cves: []
+detections:
+  - title: Fortinet Forticlient events arriving
+    severity: low
+    signals:
+      - header
+      - proto
+      - service
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fortinet_forticlient"'
+optimizations: []
+references:
+  - title: elastic/integrations fortinet_forticlient/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_forticlient/data_stream/log/_dev/test/pipeline/test-generated.log
+  - title: Pack Generator sample fortinet_forticlient.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_forticlient.json

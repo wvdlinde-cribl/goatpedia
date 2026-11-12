@@ -1,0 +1,71 @@
+id: cloudflare
+name: Cloudflare
+short: Cloudflare
+vendor: Cloudflare
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cloudflare
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cloudflare is logged by the Elastic integrations package cloudflare. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cloudflare_logpull
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare/data_stream/logpull/_dev/test/pipeline/test-http-json.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cloudflare
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: BotScore, BotScoreSrc, CacheCacheStatus, CacheResponseBytes, CacheResponseStatus, CacheTieredFill
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cloudflare events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries BotScore, BotScoreSrc, CacheCacheStatus, CacheResponseBytes, CacheResponseStatus, CacheTieredFill. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cloudflare and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Logpull
+    sourcetype: cloudflare_logpull
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"BotScore":20,"BotScoreSrc":"Verified Bot","CacheCacheStatus":"unknown","CacheResponseBytes":0,"CacheResponseStatus":0,"CacheTieredFill":false,"ClientASN":15169,"ClientCountry":"us","ClientDeviceType":"desktop","ClientIP":"192.0.2.10","ClientIPClass":"noRecord","ClientRequestBytes":2577,"ClientRequestHost":"cf-analytics.com","ClientRequestMethod":"POST","ClientRequestPath":"/wp-cron.php","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://cf-analytics.com/wp-cron.php?doing_wp_cron=1564759748.3962020874023437500000","ClientRequestURI":"/wp-cron.php?doing_wp_cron=1564759748.3962020874023437500000","ClientRequestUserAgent":"WordPress/5.2.2;https://cf-analytics.com","ClientSSLCipher":"ECDHE-ECDSA-AES128-GCM-SHA256","ClientSSLProtocol":"TLSv1.2","ClientSrcPort":55028,"EdgeColoID":14,"EdgeEndTimestamp":"2019-08-02T15:29:08Z","EdgePathingOp":"ban","EdgePathingSrc":"filter_based_firewall","EdgePathingStatus":"captchaNew","EdgeRateLimitAction":"","EdgeRateLimitID":0,"EdgeRequestHost":""}'
+    key:
+      - BotScore
+      - BotScoreSrc
+      - CacheCacheStatus
+      - CacheResponseBytes
+cves: []
+detections:
+  - title: Cloudflare events arriving
+    severity: low
+    signals:
+      - BotScore
+      - BotScoreSrc
+      - CacheCacheStatus
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cloudflare_logpull"'
+optimizations: []
+references:
+  - title: elastic/integrations cloudflare/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cloudflare/data_stream/logpull/_dev/test/pipeline/test-http-json.log
+  - title: Pack Generator sample cloudflare_logpull.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cloudflare_logpull.json

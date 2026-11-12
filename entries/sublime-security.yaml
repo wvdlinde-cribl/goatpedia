@@ -1,0 +1,95 @@
+id: sublime-security
+name: Sublime Security
+short: Security
+vendor: Sublime
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sublime_security
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Sublime Security is logged by the Elastic integrations package sublime_security. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sublime_security_audit
+    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: sublime_security_email_message
+    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/email_message/_dev/test/pipeline/test-email-message.log'
+  - st: sublime_security_message_event
+    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/message_event/_dev/test/pipeline/test-message-event.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: sublime_security
+  Sourcetypes: '3'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: id, type, created_at, data.request.id, data.request.path, data.request.method
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sublime Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, type, created_at, data.request.id, data.request.path, data.request.method. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads sublime_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: sublime_security_audit
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"26704b44-d1b0-4362-8221-579e604f40cb","type":"message_group.search","created_at":"2024-07-30T05:33:47.725649Z","data":{"request":{"id":"ca817b01-cfaa-40ea-ab80-30b6a8e6ef08","path":"/v1/messages/groups/search","method":"GET","query":{},"body":"","api_key_name":"demo mode key","authentication_method":"api_key","ip":"203.0.113.40","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.10 Safari/537.36"}},"created_by":{"id":"6e6eca05-4fea-406b-86d4-b40177e25474","active":true,"first_name":"Bob","last_name":"User","email_address":"user@example.com","phone_number":null,"created_at":"2024-07-12T05:13:47.879426Z","updated_at":"2024-07-12T05:13:47.879426Z","role":"admin","is_enrolled":true,"google_oauth_user_id":"","microsoft_oauth_user_id":""}}'
+    key:
+      - id
+      - type
+      - created_at
+      - data.request.id
+  - type: Email Message
+    sourcetype: sublime_security_email_message
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"body":{"plain":{"raw":"Sublime Security test message.\n"},"current_thread":{"text":"Sublime Security test message."},"html":{"charset":"utf-8","content_transfer_encoding":"base64","display_text":"Sublime Security test message.","raw":"<p>Sublime Security test message.</p>","inner_text":"<p>Sublime Security test message.</p>"},"ips":[{"ip":"192.0.2.20"}],"links":[{"display_text":"click here!","display_url":{"domain":{"domain":"example.com","punycode":"test","root_domain":"example.com","subdomain":"example","tld":"com","valid":true},"scheme":"https","fragment":"top","password":"pass123","path":"/search","port":80,"query_params":"q=elasticsearch","rewrite":{"encoders":["base64"],"original":"test"},"url":"https://example.com/search?q=elasticsearch#top","username":"user12"},"mismatched":true},{"href_url":{"domain":{"domain":"example.com","punycode":"test","root_domain":"example.com","subdomain":"example","tld":"com","valid":true},"scheme":"https","fragment":"top","password":"pass123","path":"/search","port":80,"query_params":"q=elasticsearch","rewrite":{"encoders":["base64"],"original":"test"},"url":"https://example.com/search?q=elasticsearch#top","username":"user12"}}]},"external":{"created_at":"2024-08-02T07:40:25.135939305Z","message_id":"2fe271830bbad5fe3a70abbe7a8c0bfe7refe3ffe","route_type":"sent","spam":false,"spam_folder":true},"attachments":[{"content_id":"abc123","content_transfer_encoding":"base64","content_type":"application/pdf","file_extension":".pdf","file_name":"sample_document.pdf","file_type":"document","md5":"1a2b3c","raw":"JVBERi0xLjMKJcfs4AAQSkZjRgABAQE","sha1":"4d5e6f","sha256":"7g8h9i","size":102400},{"content_id":"xyz456","content_transfer_encoding":"7bit","content_type":"image/jpeg","file_extension":".jpg","file_name":"image_photo.jpg","file_type":"image","md5":"7h8i9j","raw":"/9j/4AAQSkZJRgABAQEJVBERi0xLjMKJd","sha1":"1k2l3m","sha256":"4n5o6p","size":204800}],"headers":{"date":"2019-10-21T18:23:24Z","date_original_offset":"-4","hops":[{"index":0,"fields":[{"name":"To","value":"user@example.com","position":0},{"name":"Subject","value":"Sublime-Security-Standard-Test-String","position":1}]}],"delivered_to":{"domain":{"domain":"example.com","subdomain":"example","tld":"com","email":"user@example.com"}},"ips":[{"ip":"198.51.100.15"}],"mailer":"MyCustomMailer","message_id":"2fe271830bbad5fe3a70abbe7a8c0bfe7refe3ffe","domains":[{"domain":"test.com","subdomain":"test","tld":"com"},{"domain":"example.com","subdomain":"example","tld":"com"}],"reply_to":[{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}}]},"type":{"outbound":true},"mailbox":{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}},"recipients":{"to":[{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}}]},"sender":{"display_name":"Sublime Security Test","email":{"email":"user@example.com","local_part":"testing","domain":{"domain":"sublimesecurity.com","root_domain":"sublimesecurity.com","sld":"sublimesecurity","tld":"com","valid":true}}},"subject":{"subject":"Sublime-Security-Standard-Test-String"},"_meta":{"id":"01911208-633c-7f03-b303-e594d92cf818","canonical_id":"2fe271830bbad5fe3a70abbe7a8c0bfe79eb208a76cde267930d19f0e8cea81c","created_at":"2024-08-02T07:40:25.135939305Z","effective_at":"2024-08-02T07:40:25.135939305Z"},"_errors":[{"field":"Mime-Version","message":"No Mime-Version defined in headers","type":"missing_header_field"}]}'
+    key:
+      - body.plain.raw
+      - body.current_thread.text
+      - body.html.charset
+      - body.html.content_transfer_encoding
+  - type: Message Event
+    sourcetype: sublime_security_message_event
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"ef875384-6868-4e60-819a-e392f3fc1344","canonical_id":"ae608db67f666a7c92729c4a018e24362caea4c3b4b9fa00534a838dc989bab3","created_at":"2024-07-12T05:15:19.061701Z","attack_score_verdict":"suspicious","external_id":"811a4cb9-aa1c-4e81-a0d1-21e163872c08","message_source_id":"257982a1-f106-4c68-bc64-ff032914ed5f","mailbox":{"id":"433fe142-e2e5-4372-84ea-480279543a9b","external_id":null,"email":"user@example.com"},"subject":"Available?","sender":{"email":"user@example.com","display_name":"Alice"},"landed_in_spam":false,"read_at":null,"replied_at":null,"forwarded_at":null,"forward_recipients":[],"recipients":[{"email":"user@example.com"},{"email":"user@example.com"}]}'
+    key:
+      - id
+      - canonical_id
+      - created_at
+      - attack_score_verdict
+cves: []
+detections:
+  - title: Sublime Security events arriving
+    severity: low
+    signals:
+      - id
+      - type
+      - created_at
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sublime_security_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations sublime_security/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sublime_security/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample sublime_security_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sublime_security_audit.json

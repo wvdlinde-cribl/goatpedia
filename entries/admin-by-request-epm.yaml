@@ -1,0 +1,83 @@
+id: admin-by-request-epm
+name: Admin By Request Epm
+short: Epm
+vendor: Admin
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - admin_by_request_epm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Admin By Request Epm is logged by the Elastic integrations package admin_by_request_epm. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: admin_by_request_epm
+    desc: 'Elastic integrations fixture, 1 events. Upstream: admin_by_request_epm/data_stream/events/_dev/test/pipeline/test-events.log'
+  - st: admin_by_request_epm_auditlog
+    desc: 'Elastic integrations fixture, 1 events. Upstream: admin_by_request_epm/data_stream/auditlog/_dev/test/pipeline/test-auditlog.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: admin_by_request_epm
+  Sourcetypes: '2'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: id, eventCode, eventLevel, eventText, eventTime, eventTimeUTC
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Admin By Request Epm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, eventCode, eventLevel, eventText, eventTime, eventTimeUTC. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads admin_by_request_epm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: admin_by_request_epm
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":53820480,"eventCode":92,"eventLevel":0,"eventText":"Execution of file blocked by policy","eventTime":"2022-01-27T12:16:38.817","eventTimeUTC":"2022-01-27T12:16:38.817","computerName":"FTWIN11","userAccount":"TEST","userName":"FastTrack Support","alertAccount":null,"auditLogURL":null,"rollback":false,"additionalData":null,"application":{"file":"msedge.exe","path":"C:\\Program Files (x86)\\Microsoft\\Edge\\Application","name":"Microsoft Edge","vendor":"Microsoft Corporation","version":"msedge.exe","sha256":"3BC499B8B30FE66A91FABC2FF5AE6E6A9452C116AEDCAC7DBC5AEEEAEED2EB9C"}}'
+    key:
+      - id
+      - eventCode
+      - eventLevel
+      - eventText
+  - type: Auditlog
+    sourcetype: admin_by_request_epm_auditlog
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":615669,"traceNo":"34376579","settingsName":"Global","type":"Run As Admin","typeCode":0,"status":"Finished","statusCode":2,"reason":"Need to update reader. It says out of date when trying to open PDF files from our supplier.","approvedBy":"Jim Kerr","deniedReason":null,"deniedBy":null,"ssoValidated":false,"requestTime":"2020-04-01T12:03:00","requestTimeUTC":"2020-04-01T12:03:00","startTime":"2020-04-01T12:03:30","startTimeUTC":"2020-04-01T12:03:30","endTime":"2020-04-01T12:09:11","endTimeUTC":"2020-04-01T12:09:11","responseTime":"00:00:05.4100000","auditlogLink":"https://www.example.com/AuditLog?Page=AppElevations&ID=12&ShowFilter=false","user":{"account":"ACMEPDH","fullName":"Paul David Hewson","email":"user@example.com","phone":"555.345.6789","isAdmin":false},"computer":{"name":"W1005623","platform":"Windows","platformCode":0,"make":"Dell Inc.","model":"XPS 15 9550"},"application":{"file":"readerdc_uk_fb_crd_install.exe","path":"C:\\installers","name":"Adobe Download Manager","vendor":"Adobe Inc.","version":"2.0.0.495s","sha256":"9369FB712545F6B6FEC5FBF8B1DD228E57CA7899933BBE354B7C4351C8700C99","scanResult":"Clean","scanResultCode":0,"threat":null,"virustotalLink":"https://www.example.com/latest-scan/9369FB712545F6B6FEC5FBFC4351C8700C99","preapproved":false},"installs":[{"application":"Adobe Acrobat Reader DC","version":"20.006.20042","vendor":"Adobe Systems Incorporated"}],"uninstalls":[{"application":"Adobe Reader XI (11.0.23)  MUI","version":"11.0.23","vendor":"Adobe Systems Incorporated"}],"elevatedApplications":[{"name":"Adobe Download Manager","path":"C:\\Users\\pdh\\Downloads","file":"readerdc_uk_fb_crd_install.exe","version":"2.0.0.495s","vendor":"Adobe Inc.","sha256":"9369FB712545F6B6FEC5FBF8B1DD228E57CA7899933BBE354B7C4351C8700C99","scanResult":"Clean","scanResultCode":0,"threat":null,"virustotalLink":"https://www.example.com/latest-scan/9369FB712545F6B6FEC5F4B7C4351C8700C99"},{"name":"Adobe Self Extractor","path":"C:\\Users\\pdh\\AppData\\Local\\Adobe\\E1F06F26-140E-4556-A421-788F6C2015BD\\DA1C2141-106A-4BC6-B096-658FCF15DBFC","file":"C12D10CF-96D9-4985-BE1E-00B35267FB0C","version":"20.6.20042.371103","vendor":"Adobe Inc.","sha256":"912525F339CFC46D2CE7402366FC213084D79DEAD70D754F4A73C8BA4AA40650","scanResult":"Clean","scanResultCode":0,"threat":null,"virustotalLink":"https://www.example.com/latest-scan/912525F339CFC46DC8BA4AA40650"}],"scanResults":[{"scanResult":"Clean","scanResultCode":0,"engine":"BitDefender","threat":null},{"scanResult":"Clean","scanResultCode":0,"engine":"CrowdStrike","threat":null}]}'
+    key:
+      - id
+      - traceNo
+      - settingsName
+      - type
+cves: []
+detections:
+  - title: Admin By Request Epm events arriving
+    severity: low
+    signals:
+      - id
+      - eventCode
+      - eventLevel
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "admin_by_request_epm"'
+optimizations: []
+references:
+  - title: elastic/integrations admin_by_request_epm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/admin_by_request_epm/data_stream/events/_dev/test/pipeline/test-events.log
+  - title: Pack Generator sample admin_by_request_epm.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/admin_by_request_epm.json

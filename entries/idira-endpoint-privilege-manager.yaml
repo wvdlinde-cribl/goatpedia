@@ -1,0 +1,71 @@
+id: idira-endpoint-privilege-manager
+name: Idira Endpoint Privilege Manager
+short: Manager
+vendor: Idira
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - idira_endpoint_privilege_manager
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Idira Endpoint Privilege Manager is logged by the Datadog integrations-core package idira_endpoint_privilege_manager. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: idira_endpoint_privilege_manager
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: idira_endpoint_privilege_manager/assets/logs/idira-endpoint-privilege-manager_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: idira_endpoint_privilege_manager
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: fileName, agentEventCount, justificationType, agentId, winEventRecordId, displayName
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Idira Endpoint Privilege Manager events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries fileName, agentEventCount, justificationType, agentId, winEventRecordId, displayName. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads idira_endpoint_privilege_manager and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Idira Endpoint Privilege Manager
+    sourcetype: idira_endpoint_privilege_manager
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"fileName":"MicrosoftWindows.Client.WebExperience","agentEventCount":1,"justificationType":0,"agentId":"9dbcb1f8-5ad9-4294-9724-3842a7cbc0cf","winEventRecordId":0,"displayName":"Windows Web Experience Pack","userIsAdmin":true,"eventCount":1,"jitRequestInterval":0,"computerName":"Test","lastEventDate":"2025-11-26T08:41:25.753Z","modificationTime":"2025-10-27T08:41:26.729Z","arrivalTime":"2025-11-26T08:41:26.791Z","vendor":{"endpoint":"raw-events"},"fileQualifier":"-3678878233479348326","packageName":"MicrosoftWindows.Client.WebExperience","firstEventDate":"2025-11-26T08:41:25.753Z","accessTargetType":"Internet","originalFileName":"","owner":"NT AUTHORITY\\SYSTEM","logonAttemptTypeId":0,"operatingSystemType":"Windows","filePath":"C:\\Program Files\\WindowsApps\\MicrosoftWindows.Client.WebExperience","skippedCount":0,"eventType":"Launch","userName":"Test\\Administrator","threatProtectionActionId":0,"deceptionType":0,"sourceType":"Windows","fileSize":50605}'
+    key:
+      - fileName
+      - agentEventCount
+      - justificationType
+      - agentId
+cves: []
+detections:
+  - title: Idira Endpoint Privilege Manager events arriving
+    severity: low
+    signals:
+      - fileName
+      - agentEventCount
+      - justificationType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "idira_endpoint_privilege_manager"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core idira_endpoint_privilege_manager/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/idira_endpoint_privilege_manager/assets/logs/idira-endpoint-privilege-manager_tests.yaml
+  - title: Pack Generator sample idira_endpoint_privilege_manager.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/idira_endpoint_privilege_manager.json

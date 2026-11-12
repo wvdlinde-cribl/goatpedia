@@ -1,0 +1,67 @@
+id: microsoft-sqlserver
+name: Microsoft Sqlserver
+short: Sqlserver
+vendor: Microsoft
+category: db
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_sqlserver
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Microsoft Sqlserver is logged by the Elastic integrations package microsoft_sqlserver. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_sqlserver
+    desc: 'Elastic integrations fixture, 20 events. Upstream: microsoft_sqlserver/data_stream/log/_dev/test/pipeline/test-sqlserver.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_sqlserver
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Sqlserver events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_sqlserver and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: microsoft_sqlserver
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 2022-07-08 05:42:10.35 Server      Microsoft SQL Server 2019 (RTM-CU16-GDR) (KB5014353) - 15.0.4236.7 (X64)
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Microsoft Sqlserver events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_sqlserver"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_sqlserver/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_sqlserver/data_stream/log/_dev/test/pipeline/test-sqlserver.log
+  - title: Pack Generator sample microsoft_sqlserver.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_sqlserver.json

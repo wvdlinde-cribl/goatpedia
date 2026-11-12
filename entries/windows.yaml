@@ -1,0 +1,105 @@
+id: windows
+name: Windows
+short: Windows
+vendor: Windows
+category: os
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - windows
+  - Elastic integrations
+tags:
+  - elastic
+  - xml
+summary: Windows is logged by the Elastic integrations package windows. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: windows_forwarded
+    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/forwarded/_dev/test/pipeline/test-sysmon-operational-events.json'
+  - st: windows_powershell_operational
+    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/powershell_operational/_dev/test/pipeline/test-events.json'
+  - st: windows_sysmon_operational
+    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/sysmon_operational/_dev/test/pipeline/test-events.json'
+  - st: windows_windows_defender
+    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/windows_defender/_dev/test/pipeline/test-events-windows-defender-events.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: windows
+  Sourcetypes: '4'
+  Fixture events: '80'
+  Log format seen: xml, text
+  Fields in the first fixture: Provider.Name, Provider.Guid, EventID, Version, Level, Task
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Windows events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Provider.Name, Provider.Guid, EventID, Version, Level, Task. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - xml
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads windows and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as xml / text.
+logs:
+  - type: Forwarded
+    sourcetype: windows_forwarded
+    format: xml
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<Event xmlns=''http://schemas.microsoft.com/win/2004/08/events/event''><System><Provider Name=''Microsoft-Windows-Sysmon'' Guid=''{5770385f-c22a-43e0-bf4c-06f5698ffbd9}''/><EventID>22</EventID><Version>5</Version><Level>4</Level><Task>22</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime=''2019-07-18T03:34:02.025223900Z''/><EventRecordID>66</EventRecordID><Correlation/><Execution ProcessID=''2828'' ThreadID=''1684''/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>vagrant-2016</Computer><Security UserID=''S-1-5-18''/></System><EventData><Data Name=''RuleName''></Data><Data Name=''UtcTime''>2019-07-18 03:34:01.239</Data><Data Name=''ProcessGuid''>{fa4a0de6-e8a8-5d2f-0000-001094619900}</Data><Data Name=''ProcessId''>356</Data><Data Name=''QueryName''>go.microsoft.com</Data><Data Name=''QueryStatus''>0</Data><Data Name=''QueryResults''>type:  5 go.microsoft.com.edgekey.net;type:  5 e11290.dspg.akamaiedge.net;::ffff:203.0.113.40;</Data><Data Name=''Image''>C:\Program Files\Internet Explorer\iexplore.exe</Data></EventData></Event>'
+    key:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+      - Version
+  - type: Powershell Operational
+    sourcetype: windows_powershell_operational
+    format: xml
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4105</EventID><Version>1</Version><Level>5</Level><Task>102</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2020-05-13T09:04:04.755232500Z'/><EventRecordID>790</EventRecordID><Correlation ActivityID='{dd68516a-2930-0000-5962-68dd3029d601}'/><Execution ProcessID='4204' ThreadID='1476'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>vagrant</Computer><Security UserID='S-1-5-21-1350058589-2282154016-2764056528-1000'/></System><EventData><Data Name='ScriptBlockId'>f4a378ab-b74f-41a7-a5ef-6dd55562fdb9</Data><Data Name='RunspaceId'>9c031e5c-8d5a-4b91-a12e-b3624970b623</Data></EventData></Event>
+    key:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+      - Version
+  - type: Sysmon Operational
+    sourcetype: windows_sysmon_operational
+    format: xml
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<Event xmlns=''http://schemas.microsoft.com/win/2004/08/events/event''><System><Provider Name=''Microsoft-Windows-Sysmon'' Guid=''{5770385f-c22a-43e0-bf4c-06f5698ffbd9}''/><EventID>22</EventID><Version>5</Version><Level>4</Level><Task>22</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime=''2019-07-18T03:34:02.025223900Z''/><EventRecordID>66</EventRecordID><Correlation/><Execution ProcessID=''2828'' ThreadID=''1684''/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>vagrant-2016</Computer><Security UserID=''S-1-5-18''/></System><EventData><Data Name=''RuleName''></Data><Data Name=''UtcTime''>2019-07-18 03:34:01.239</Data><Data Name=''ProcessGuid''>{fa4a0de6-e8a8-5d2f-0000-001094619900}</Data><Data Name=''ProcessId''>356</Data><Data Name=''QueryName''>go.microsoft.com</Data><Data Name=''QueryStatus''>0</Data><Data Name=''QueryResults''>type:  5 go.microsoft.com.edgekey.net;type:  5 e11290.dspg.akamaiedge.net;::ffff:192.0.2.10;</Data><Data Name=''Image''>C:\Program Files\Internet Explorer\iexplore.exe</Data></EventData></Event>'
+    key:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+      - Version
+  - type: Windows Defender
+    sourcetype: windows_windows_defender
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: Microsoft Defender Antivirus has detected malware or other potentially unwanted software.
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Windows events arriving
+    severity: low
+    signals:
+      - Provider.Name
+      - Provider.Guid
+      - EventID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "windows_forwarded"'
+optimizations: []
+references:
+  - title: elastic/integrations windows/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/windows/data_stream/forwarded/_dev/test/pipeline/test-sysmon-operational-events.json
+  - title: Pack Generator sample windows_forwarded.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/windows_forwarded.json

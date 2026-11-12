@@ -1,0 +1,67 @@
+id: celery
+name: Celery
+short: Celery
+vendor: Celery
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - celery
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Celery is logged by the Datadog integrations-core package celery. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: celery
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: celery/assets/logs/celery_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: celery
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Celery events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads celery and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Celery
+    sourcetype: celery
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '[2025-10-23 20:02:25,658: INFO/MainProcess] Task tasks.multiply[c05345e1-cfa5-43cb-9671-30a98115c5db] received'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Celery events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "celery"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core celery/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/celery/assets/logs/celery_tests.yaml
+  - title: Pack Generator sample celery.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/celery.json

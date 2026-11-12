@@ -1,0 +1,131 @@
+id: vectra-ai
+name: Vectra AI
+short: Vectra AI
+vendor: Vectra
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - vectra_ai
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - cef
+summary: Vectra AI is logged by the Splunk Connect for Syslog package vectra_ai. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: vectra_cognito_accountdetect
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_vectra_ai.py'
+  - st: vectra_cognito_accountscoring
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_vectra_ai.py'
+  - st: vectra_cognito_audit
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_vectra_ai.py'
+  - st: vectra_cognito_campaigns
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_vectra_ai.py'
+  - st: vectra_cognito_health
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_vectra_ai.py'
+  - st: vectra_cognito_hostscoring
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_vectra_ai.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: vectra_ai
+  Sourcetypes: '6'
+  Fixture events: '7'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Vectra AI events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads vectra_ai and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Vectra Cognito Accountdetect
+    sourcetype: vectra_cognito_accountdetect
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<111> Jun 15 13:45:07 sc4s-lab-01 vectra_cef_account_detection -: CEF:0|Vectra Networks|X Series|$version|$d_type|$d_type_vname|$severity|externalId=$detection_id cat=$category dvc=$headend_addr account=$accountflexNumber1Label=threat flexNumber1=$threat flexNumber2Label=certainty flexNumber2=$certainty cs4Label=Vectra Event URL cs4=$href cs5Label=triaged cs5=$triaged dst=$dd_dst_ip dhost=$dd_dst_dns dpt=$dd_dst_port out=$dd_bytes_sent in=$dd_bytes_rcvd start=$UTCTimeStartCEF end=1781531107'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Vectra Cognito Accountscoring
+    sourcetype: vectra_cognito_accountscoring
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<111> Jun 15 13:45:07 sc4s-lab-01 vectra_cef -: CEF:0|Vectra Networks|X Series|$version|asc|Account Score Change|3|externalId=$account_id cat=$category dvc=$headend_addr flexNumber1Label=threat flexNumber1=$threat flexNumber2Label=certainty flexNumber2=$certainty cs1Label=Vectra Event URL cs1=$href start=$UTCTimeStartCEF end=1781531107'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Vectra Cognito Audit
+    sourcetype: vectra_cognito_audit
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<111> Jun 15 13:45:07 sc4s-lab-01 vectra_cef_audit -: CEF:0|Vectra Networks|X Series|5.8|audit|user_action|0|dvc=198.51.100.15 dvchost=sc4s-lab-01 suser=anagarajan spriv=Security Analyst src=None deviceFacility=13 cat=user_action outcome=True msg=session timeout with length 8:07:13'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Vectra Cognito Campaigns
+    sourcetype: vectra_cognito_campaigns
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<111> Jun 15 13:45:07 sc4s-lab-01 vectra_cef -: CEF:0|Vectra Networks|X Series|$version|campaigns|$campaign_name|2| externalId=$campaign_id cat=CAMPAIGNS act=$action dvc=$headend_addr dvchost=sc4s-lab-01 shost=$src_name src=$src_ip suid=$src_hid cs4Label=VectraEventURL cs4=$campaign_link dhost=$dest_name dst=$dest_ip  duid=$dest_id rt=$timestamp reason=$reason cs6Label=VectraDetectionIDcs6=$det_id'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Vectra Cognito Health
+    sourcetype: vectra_cognito_health
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: <111> Jun 15 13:45:07 sc4s-lab-01 CEF:0|Vectra Networks|X Series|$version|health|$type|0|dvc=$headend_addr dvchost=sc4s-lab-01 deviceFacility=14 outcome=$result msg=$message
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Vectra Cognito Hostscoring
+    sourcetype: vectra_cognito_hostscoring
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<111> Jun 15 13:45:07 sc4s-lab-01 vectra_cef -: CEF:0|Vectra Networks|X Series|5.8|hsc|Host Score Change|3|externalId=2765220 cat=HOST SCORING dvc=198.51.100.25 dvchost=sc4s-lab-01 shost=snavpxdevdi2468.corp.firstam.com src=203.0.113.8 dst=203.0.113.40 flexNumber1Label=threat flexNumber1=22 flexNumber2Label=certainty flexNumber2=51 flexNumber3Label=privilege flexNumber3=1 cs3Label=scoreDecreases cs3=False cs4Label=Vectra Event URL cs4=https://192.0.2.10/hosts/2765220 start=1781531107 end=1781531107 cs1Label=sourceKeyAsset cs1=False cs2Label=destKeyAsset cs2=False'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Vectra AI events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "vectra_cognito_accountdetect"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_vectra_ai.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_vectra_ai.py
+  - title: Pack Generator sample vectra_cognito_accountdetect.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vectra_cognito_accountdetect.json

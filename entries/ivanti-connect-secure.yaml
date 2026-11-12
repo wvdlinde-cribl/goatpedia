@@ -1,0 +1,70 @@
+id: ivanti-connect-secure
+name: Ivanti Connect Secure
+short: Secure
+vendor: Ivanti
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ivanti_connect_secure
+  - Datadog integrations-core
+tags:
+  - logtest
+  - kv
+summary: Ivanti Connect Secure is logged by the Datadog integrations-core package ivanti_connect_secure. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ivanti_connect_secure
+    desc: 'Datadog integrations-core fixture, 18 events. Upstream: ivanti_connect_secure/assets/logs/ivanti-connect-secure_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ivanti_connect_secure
+  Sourcetypes: '1'
+  Fixture events: '18'
+  Log format seen: kv
+  Fields in the first fixture: header, result, sent, received
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ivanti Connect Secure events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries header, result, sent, received. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ivanti_connect_secure and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Ivanti Connect Secure
+    sourcetype: ivanti_connect_secure
+    format: kv
+    desc: 18 fixture events in the samples pool (logtest).
+    sample: '937 <134>1 2024-12-04T01:18:01-05:00 test.com PulseSecure: - - - {"message_id":"WEB20174","date":"2024-12-04","timestamp":"1733289822","us_timestamp":"1733289822.723791","opaque_id":"2084","gateway_id":"","gateway_name":"","unique_id":"uid_1234","sev_num":"1","sev_string":"info","source_ip":"198.51.100.25", "macaddr":"", "user":"user@example.com","realm_name":"test-realm","roles":"kit-common, kit-desktops, kit-automation","session_id":"1a2c3acf3b","useragent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.8 Safari/537.36","device_id":"","browser_id":"742cafa1236662fa57a7231740c11111","tenant_id":"","cert_hash":"","additional_details":[],"raw_message":"WebRequest completed, GET to [http://203.0.113.40:8080/test] from [192.0.2.10] result=[200] sent=[62] received=[49280] in [10] seconds"}'
+    key:
+      - result
+      - sent
+      - received
+cves: []
+detections:
+  - title: Ivanti Connect Secure events arriving
+    severity: low
+    signals:
+      - header
+      - result
+      - sent
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ivanti_connect_secure"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ivanti_connect_secure/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ivanti_connect_secure/assets/logs/ivanti-connect-secure_tests.yaml
+  - title: Pack Generator sample ivanti_connect_secure.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ivanti_connect_secure.json

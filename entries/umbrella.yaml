@@ -41,6 +41,8 @@ sourcetypes:
     desc: Secure web gateway / proxy logs (cisco:cloud_security:proxy)
   - st: UMBRELLA_DNS
     desc: Google SecOps (Chronicle) log type for Umbrella DNS
+  - st: cisco_umbrella_dns
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: cisco_umbrella_dns/assets/logs/cisco-umbrella-dns_tests.yaml'
 facts:
   First released: 2012 (OpenDNS Umbrella); OpenDNS resolvers since 2006; Cisco since 2015
   Delivery model: SaaS — global anycast DNS resolvers plus SIG data centers; converging into Cisco Secure Access
@@ -230,6 +232,16 @@ logs:
       - destination_list_ids
       - fw_event_id
     sample: '"2026-11-12 09:16:02","[1360486514]","Example Branch Tunnel","Network Tunnels","OUTBOUND","6","0","10.40.1.25","51544","198.51.100.23","445","prod_aws_eu-central-1_1_0","1482950","BLOCK","","[]","1794474962","1794474962","3","0","180","0","9c1e7d3b4a6c8e0f-7-1794474962-45877"'
+  - type: Cisco Umbrella DNS
+    sourcetype: cisco_umbrella_dns
+    format: json
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '{"date":"2023-12-11","returncode":0,"type":"dns","internalip":"198.51.100.25","allapplications":[{"id":989025,"label":"Some APIs","category":{"id":1,"label":"Application Development and Testing"}}],"identities":[{"deleted":false,"id":617808138,"label":"DESKTOP-Example","type":{"id":9,"label":"Roaming Computers","type":"roaming"}},{"deleted":false,"id":617804059,"label":"Test","type":{"id":1,"label":"Networks","type":"network"}}],"verdict":"blocked","domain":"optimizationguide-pa.someapis.com","time":"09:47:00","policycategories":[{"deprecated":false,"integration":false,"id":190,"label":"Search Engines and Portals","type":"content"}],"categories":[{"deprecated":true,"integration":false,"id":23,"label":"Search Engines","type":"content"},{"deprecated":false,"integration":false,"id":148,"label":"Application","type":"application"}],"externalip":"203.0.113.8","querytype":"A","timestamp":1702288020000}'
+    key:
+      - date
+      - returncode
+      - type
+      - internalip
 cves:
   - id: CVE-2018-0437
     cvss: 7.8

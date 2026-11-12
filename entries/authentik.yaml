@@ -1,0 +1,95 @@
+id: authentik
+name: Authentik
+short: Authentik
+vendor: Authentik
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - authentik
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Authentik is logged by the Elastic integrations package authentik. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: authentik
+    desc: 'Elastic integrations fixture, 20 events. Upstream: authentik/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: authentik_group
+    desc: 'Elastic integrations fixture, 5 events. Upstream: authentik/data_stream/group/_dev/test/pipeline/test-group.log'
+  - st: authentik_user
+    desc: 'Elastic integrations fixture, 20 events. Upstream: authentik/data_stream/user/_dev/test/pipeline/test-user.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: authentik
+  Sourcetypes: '3'
+  Fixture events: '45'
+  Log format seen: json
+  Fields in the first fixture: pk, user.pk, user.email, user.username, action, app
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Authentik events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries pk, user.pk, user.email, user.username, action, app. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads authentik and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: authentik
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"pk":"1e399dbf-bb30-4d0f-acf3-a5275e065cd0","user":{"pk":4,"email":"user@example.com","username":"akadmin"},"action":"policy_execution","app":"authentik.policies.process","context":{"result":{"passing":false,"messages":[],"raw_result":null,"log_messages":[],"source_binding":null,"source_results":[]},"binding":{"pk":"db99e0c8076f40db82de1295a47d0fd7","app":"authentik_policies","name":"Binding from Notification Rule elastic-test #0 to Policy match-all-events","model_name":"policybinding"},"message":"Policy Execution","request":{"obj":{"pk":"20ce67d61faa4eafa7e785944a5ffdfd","app":"authentik_events","name":"elastic-test","model_name":"notificationrule"},"user":{"pk":4,"email":"user@example.com","username":"akadmin"},"context":{"event":{"pk":"e076090e7ae54273928e24da2a292f9f","app":"authentik_events","name":"Event action=login_failed user={''pk'': 4, ''email'': ''user@example.com'', ''username'': ''akadmin''} context={''stage'': {''pk'': ''78aa6805067c4d4cad52322cdfc2f52a'', ''ap...","model_name":"event"}},"http_request":null},"policy_uuid":"e315fac82dab41ce9b7d3eb299510a17"},"client_ip":null,"created":"2024-08-07T06:28:59.565191Z","expires":"2025-08-07T06:28:59.562523Z","brand":{"pk":"df46a0dde5cc4d9397e5cface96e5c9c","app":"authentik_brands","name":"Brand fallback","model_name":"brand"}}'
+    key:
+      - pk
+      - user.pk
+      - user.email
+      - user.username
+  - type: Group
+    sourcetype: authentik_group
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"pk":"29613be9-2db3-4488-9338-60ec7762f60d","num_pk":55003,"name":"AllUsers","is_superuser":false,"parent":null,"parent_name":null,"users":[12,14],"users_obj":null,"attributes":{"ldap_uniq":"S-1-5-21-1234567890-1234567890-1234567890-1234"},"roles":[],"roles_obj":[]}'
+    key:
+      - pk
+      - num_pk
+      - name
+      - is_superuser
+  - type: User
+    sourcetype: authentik_user
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"pk":1090,"username":"mockuser.953","name":"MockUser 953","is_active":true,"last_login":null,"is_superuser":false,"groups":[],"groups_obj":null,"email":"user@example.com","avatar":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NHB4IiBoZWlnaHQ9IjY0cHgiIHZpZXdCb3g9IjAgMCA2NCA2NCIgdmVyc2lvbj0iMS4...","attributes":{"sn":"953","upn":"mockuser.953","ldap_uniq":"S-1-5-21-1234567890-1234567890-1234567890-2234"},"uid":"0c20aac19d914b7abcdef895517d6d9b01234567899abcdefabcdef4f5cd4e99","path":"goauthentik.io/sources/test-ldap/Company/AllUsers","type":"internal","uuid":"abcdef12-1234-5678-9122-abcdefabcdef"}'
+    key:
+      - pk
+      - username
+      - name
+      - is_active
+cves: []
+detections:
+  - title: Authentik events arriving
+    severity: low
+    signals:
+      - pk
+      - user.pk
+      - user.email
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "authentik"'
+optimizations: []
+references:
+  - title: elastic/integrations authentik/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/authentik/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample authentik.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/authentik.json
