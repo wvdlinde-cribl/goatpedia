@@ -359,6 +359,8 @@ references:
     url: https://help.zscaler.com/downloads/zscaler-technology-partners/operations/zscaler-and-cribl-deployment-guide/Zscaler-Cribl-Deployment-Guide-FINAL.pdf
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Zscaler press release — in-the-cloud security services available (August 4, 2008)
+    url: https://www.zscaler.com/press/zscaler-defines-new-standard-cloud-security
 related:
   - zscaler-zpa
   - netskope

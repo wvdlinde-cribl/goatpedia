@@ -157,7 +157,7 @@ logs:
       - pid
       - msg_id
       - object
-    sample: '<85>Nov 12 10:02:11 waf1.example.com notice mcpd[6320]: 01070417:5: AUDIT - client iControl REST, user admin - transaction #48211-3 - object 0 - create { auth user svc_backup { partition-access replace-all-with { all-partitions { role admin } } shell bash } } [Status=Command OK]'
+    sample: '<85>Nov 12 10:02:11 waf1.example.com notice mcpd[6320]: 01070417:5: AUDIT - client tmui, user admin - transaction #48211-3 - object 0 - create { auth user svc_backup { partition-access replace-all-with { all-partitions { role admin } } shell bash } } [Status=Command OK]'
 cves:
   - id: CVE-2022-1388
     cvss: 9.8
@@ -167,7 +167,7 @@ cves:
     title: iControl REST authentication bypass — unauthenticated command execution on the management plane
     affected: BIG-IP (all modules) 16.1.0 – 16.1.2, 15.1.0 – 15.1.5, 14.1.0 – 14.1.4, 13.1.0 – 13.1.4, 12.1.x and 11.6.x (no fix for 11.x/12.x)
     fixed: 17.0.0, 16.1.2.2, 15.1.5.1, 14.1.4.6, 13.1.5
-    detect: "AUDIT lines with client iControl REST creating users or running util bash from unexpected sources. POSTs to /mgmt/tm/util/bash with Connection: X-F5-Auth-Token in proxy/IDS logs. Entries in /var/log/restjavad-audit.*."
+    detect: "F5's published indicators: icrd_child AUDIT lines in /var/log/audit with cmd_data=run util bash …, and /var/log/restjavad-audit.*.log entries with method POST to /mgmt/tm/util/bash (user local/admin) from unexpected source IPs. mcpd 01070417 AUDIT lines creating users or granting the admin role outside change control. On proxy/IDS, POST /mgmt/tm/util/bash whose Connection header lists X-F5-Auth-Token."
     avoid: Patch. Block iControl REST on self IPs and restrict the management interface to a jump-host allow-list. Apply the httpd Connection-header mitigation until patched.
   - id: CVE-2023-46747
     cvss: 9.8
@@ -235,12 +235,12 @@ detections:
     severity: critical
     signals:
       - mcpd AUDIT create auth user with role admin
-      - client iControl REST or tmui
+      - icrd_child AUDIT cmd_data=run util bash
       - user not in admin roster
     why: CVE-2022-1388, CVE-2023-46747 and CVE-2020-5902 all end in attacker-created accounts or commands. The audit log is where it shows.
     kql: |-
       dataset="f5_bigip" process="mcpd" command has "auth user"
-      | where command has "role admin" and client in ("iControl REST","tmui")
+      | where command has "role admin"
       | summarize n=count(), first=min(_time) by host, user, client, command
     mitre:
       - T1190
@@ -316,6 +316,12 @@ references:
     url: https://www.f5.com/company/news/press-releases/f5-launches-advanced-waf-for-multi-cloud-app-security
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: "F5 K17157333 — 01070417:5: AUDIT - client <interface>, user <user name> message"
+    url: https://my.f5.com/manage/s/article/K17157333
+  - title: F5 K64371928 — How to log all iControl REST API requests (restjavad-audit)
+    url: https://my.f5.com/manage/s/article/K64371928
+  - title: CISA AA22-138A — Threat actors exploiting F5 BIG-IP CVE-2022-1388
+    url: https://www.cisa.gov/news-events/cybersecurity-advisories/aa22-138a
 related:
   - imperva-waf
   - cloudflare-waf

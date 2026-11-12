@@ -28,7 +28,7 @@ sourcetypes:
   - st: cisco_meraki
     desc: Pack Generator sourcetype — Meraki device syslog (all roles)
   - st: meraki
-    desc: Splunk TA-meraki syslog sourcetype (SC4S default for Meraki)
+    desc: SC4S sourcetype for all Meraki device syslog (key cisco_meraki), compliant with the Splunk Add-on for Cisco Meraki
   - st: meraki:securityappliances
     desc: Splunk Add-on for Cisco Meraki — MX events via Dashboard API
   - st: meraki:accesspoints

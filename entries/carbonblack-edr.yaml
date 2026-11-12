@@ -326,6 +326,8 @@ references:
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
   - title: MITRE ATT&CK — T1566.001 Spearphishing Attachment
     url: https://attack.mitre.org/techniques/T1566/001/
+  - title: Splunk Add-on for Carbon Black — Source types and CIM
+    url: https://splunk.github.io/splunk-add-on-for-carbon-black/Sourcetypes/
 related:
   - crowdstrike
   - sentinelone

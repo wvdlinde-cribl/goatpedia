@@ -274,6 +274,8 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2021-26855
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: "Microsoft — Security update for Exchange Server 2019, 2016 and 2013: March 2, 2021 (KB5000871)"
+    url: https://support.microsoft.com/en-us/servicing/exchange/server/hotfix/2021/description-of-the-security-update-for-microsoft-exchange-server-2019-2016-and-2013-march-2-2021-kb5
 related:
   - win-security
   - sysmon

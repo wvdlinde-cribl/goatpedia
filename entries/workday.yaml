@@ -29,10 +29,6 @@ sourcetypes:
     desc: User Activity log entries (GET /api/privacy/v1/<tenant>/activityLogging) — task, target, READ/WRITE/DOWNLOAD, IP, user agent
   - st: workday_signon
     desc: Workday account signon records (Get_Workday_Account_Signons web service or a signon RaaS report)
-  - st: workday:useractivity
-    desc: Workday Add-on for Splunk 2.2.0+ user activity sourcetype
-  - st: workday:user_activity
-    desc: Workday Add-on for Splunk (pre-2.2.0) user activity sourcetype, still referenced by CIM mappings
 facts:
   First released: 2006 (Workday HCM); User Activity Logging REST API 2021
   Delivery model: Multi-tenant SaaS (production, sandbox and implementation tenants)

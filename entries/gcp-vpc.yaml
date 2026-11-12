@@ -306,6 +306,8 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2023-46604
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Google Cloud — VPC release notes (VPC Flow Logs GA June 28, 2018)
+    url: https://docs.cloud.google.com/vpc/docs/release-notes
 related:
   - gcp-audit
   - aws-vpc-flow

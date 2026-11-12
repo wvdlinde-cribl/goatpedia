@@ -26,8 +26,8 @@ sourcetypes:
   - st: vmw_syslog
     desc: ESXi / vCenter syslog as received from vmsyslogd (all subloggers in one stream)
   - st: vmw-syslog
-    desc: Splunk Add-on for VMware ESXi Logs input sourcetype
-  - st: vmware:esxlog:hostd
+    desc: Splunk Add-on for VMware ESXi Logs input sourcetype; the add-on rewrites it to vmware:esxlog:<program> at index time
+  - st: vmware:esxlog:Hostd
     desc: Host agent log — VM tasks, API/vSphere Client sessions, login failures
   - st: vmware:esxlog:shell
     desc: ESXi Shell / SSH command history
@@ -119,7 +119,7 @@ logs:
       - pid
     sample: "2026-11-12T02:13:58.737Z esx01.example.com In(14) vobd[2097521]:  [UserLevelCorrelator] 1012726884193us: [vob.user.ssh.session.opened] SSH session was opened for 'root@198.51.100.23'."
   - type: Host agent (hostd)
-    sourcetype: vmware:esxlog:hostd
+    sourcetype: vmware:esxlog:Hostd
     format: text
     share: 30–60 %
     avg: ~300 B
@@ -279,7 +279,7 @@ detections:
       - recent AD group change on ESX Admins
     why: Domain attackers recreate the group to get root on every AD-joined host without touching ESXi credentials.
     kql: |-
-      dataset="esxi_logs" sourcetype="vmware:esxlog:hostd"
+      dataset="esxi_logs" sourcetype="vmware:esxlog:Hostd"
       | where message has "Accepted password for user" and message has "\\"
       | summarize logins=count() by host, message
     mitre:
@@ -319,6 +319,10 @@ references:
     url: https://nvd.nist.gov/vuln/detail/cve-2024-37085
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for VMware ESXi Logs — Source types
+    url: https://docs.splunk.com/Documentation/AddOns/released/VMWesxilogs/SourceTypes
+  - title: Splunk Add-on for VMware ESXi Logs — Install and configure
+    url: https://docs.splunk.com/Documentation/AddOns/released/VMWesxilogs/Install
 related:
   - vmware-nsx
   - active-directory

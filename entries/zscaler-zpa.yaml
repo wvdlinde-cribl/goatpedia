@@ -360,6 +360,10 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2023-28805
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Atlassian — Confluence Security Advisory 2022-06-02 (CVE-2022-26134)
+    url: https://confluence.atlassian.com/doc/confluence-security-advisory-2022-06-02-1130377146.html
+  - title: Zscaler press release — Zscaler Private Access (April 26, 2016)
+    url: https://www.zscaler.com/press/zscaler-private-access-remote-access-without-security-risks-vpns
 related:
   - zscaler-zia
   - netskope

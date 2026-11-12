@@ -28,8 +28,6 @@ sourcetypes:
     desc: Pack Generator sourcetype for public hosted-zone query logs (space-separated, version 1.0)
   - st: aws_route53_resolver
     desc: Pack Generator sourcetype for Route 53 Resolver (VPC) query logs (JSON, incl. DNS Firewall fields)
-  - st: aws:route53
-    desc: Common Splunk sourcetype for Route 53 query logs read from CloudWatch Logs / Firehose
   - st: AWSRoute53Resolver
     desc: Microsoft Sentinel table for Resolver query logs (Amazon Web Services S3 connector)
   - st: AWS_ROUTE_53
@@ -296,6 +294,10 @@ references:
     url: https://attack.mitre.org/techniques/T1071/004/
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: AWS What's New — Route 53 announces DNS query logging (September 2017)
+    url: https://aws.amazon.com/about-aws/whats-new/2017/09/amazon-route-53-announces-support-for-dns-query-logging/
+  - title: AWS What's New — Route 53 Resolver supports VPC DNS query logging (August 2020)
+    url: https://aws.amazon.com/about-aws/whats-new/2020/08/amazon-route-53-resolver-supports-vpc-dns-query-logging/
 related:
   - aws-vpc-flow
   - aws-guardduty

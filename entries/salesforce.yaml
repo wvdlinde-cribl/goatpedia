@@ -39,10 +39,10 @@ sourcetypes:
     desc: SetupAuditTrail object records — admin configuration changes (users, permissions, connected apps, security settings)
   - st: sfdc:logfile
     desc: Splunk Add-on for Salesforce — EventLogFile content
-  - st: sfdc:loginhistory
-    desc: Splunk Add-on for Salesforce — LoginHistory object
-  - st: sfdc:setupaudittrail
-    desc: Splunk Add-on for Salesforce — SetupAuditTrail object
+  - st: sfdc:LoginHistory
+    desc: Splunk Add-on for Salesforce — LoginHistory object (object inputs are named sfdc:<object_name>)
+  - st: sfdc:SetupAuditTrail
+    desc: Splunk Add-on for Salesforce — SetupAuditTrail object input (sfdc:<object_name> pattern)
 facts:
   First released: 1999 (salesforce.com CRM); Event Monitoring 2015 (API v32.0)
   Delivery model: Multi-tenant SaaS on Salesforce instances / Hyperforce (AWS)
@@ -418,6 +418,8 @@ references:
     url: https://github.com/criblpacks/cribl-salesforce-rest-io
   - title: NVD — CVE-2025-43698
     url: https://nvd.nist.gov/vuln/detail/CVE-2025-43698
+  - title: Splunk Add-on for Salesforce — Source types
+    url: https://splunk.github.io/splunk-add-on-for-salesforce/SourceTypes/
 related:
   - slack-audit
   - okta

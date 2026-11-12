@@ -40,7 +40,7 @@ facts:
   Event key: m= message ID + c= category bitmask + pri= priority
   Typical EPS: 100 – 10k (SMB/MSP scale; connection logs dominate)
   Ownership: Francisco Partners (since 2016, previously Dell 2012–2016)
-  Cribl Pack: Sonicwall Firewall Pack (community, Packs Dispensary)
+  Cribl Pack: Sonicwall Firewall Pack (cc-SonicWall-Firewall, community, Packs Dispensary)
 placement:
   slots:
     - edge
@@ -344,6 +344,8 @@ references:
     url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2020-0010
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Cribl Packs Dispensary — Sonicwall Firewall Pack (cc-SonicWall-Firewall)
+    url: https://packs.cribl.io/packs/cc-SonicWall-Firewall
 related:
   - fortigate
   - pan-ngfw

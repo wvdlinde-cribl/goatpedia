@@ -27,8 +27,6 @@ summary: AWS's managed web application firewall. A web ACL attached to CloudFron
 sourcetypes:
   - st: aws_waf_log_json
     desc: Pack Generator sourcetype for AWS WAF full logs (one JSON object per request)
-  - st: aws:firehose:waf
-    desc: Splunk Add-on for AWS sourcetype for WAF logs delivered by Kinesis Data Firehose
   - st: AWSWAF
     desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
   - st: AWS_WAF

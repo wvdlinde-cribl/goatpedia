@@ -275,6 +275,8 @@ references:
     url: https://spring.io/blog/2022/03/31/spring-framework-rce-early-announcement
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Spring — CVE-2022-22965 advisory (affected and fixed versions)
+    url: https://spring.io/security/cve-2022-22965
 related:
   - apache-httpd
   - nginx

@@ -36,8 +36,6 @@ sourcetypes:
     desc: ePO - SaaS Groups API (/epo/v2/groups) — System Tree groups for enrichment
   - st: mcafee:epo:syslog
     desc: Splunk Add-on for McAfee/Trellix ePO — threat events received via ePO syslog forwarding
-  - st: mcafee:epo
-    desc: Splunk Add-on for McAfee/Trellix ePO — events pulled from the ePO SQL database (DB Connect)
 facts:
   First released: ePO 2000 (McAfee); ENS 10 2015; Trellix brand 2022 (McAfee Enterprise + FireEye)
   Platform: Agents for Windows, macOS, Linux; ePO - On-prem on Windows Server + SQL Server; ePO - SaaS
@@ -350,6 +348,8 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2024-4844
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for McAfee ePO Syslog — Source types
+    url: https://docs.splunk.com/Documentation/AddOns/released/McAfeeEPOSyslog/DataTypes
 related:
   - crowdstrike
   - mde

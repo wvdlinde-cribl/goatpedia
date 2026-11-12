@@ -29,8 +29,6 @@ sourcetypes:
     desc: Pack Generator sourcetype for custom format with all version 3–5 fields (VPC/subnet/instance, pkt-* addresses, AWS service, direction, traffic path)
   - st: aws:cloudwatchlogs:vpcflow
     desc: Splunk Add-on for AWS sourcetype for flow logs read from CloudWatch Logs
-  - st: aws:vpcflow
-    desc: Common Splunk sourcetype for flow logs read from S3
   - st: AWSVPCFlow
     desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
   - st: AWS_VPC_FLOW
@@ -302,6 +300,8 @@ references:
     url: https://www.openssh.com/txt/release-9.8
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for AWS — Source types
+    url: https://splunk.github.io/splunk-add-on-for-amazon-web-services/DataTypes/
 related:
   - aws-route53
   - aws-guardduty

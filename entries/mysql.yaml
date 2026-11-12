@@ -326,6 +326,8 @@ references:
     url: https://www.oracle.com/security-alerts/cpuapr2023.html
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MySQL — Product Support EOL Announcements (8.0 to Sustaining Support April 21, 2026)
+    url: https://www.mysql.com/support/eol-notice.html
 related:
   - aws-rds-audit
   - imperva-dam

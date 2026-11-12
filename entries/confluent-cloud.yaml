@@ -302,6 +302,8 @@ references:
     url: https://kafka.apache.org/community/cve-list/
   - title: NVD — CVE-2026-33557
     url: https://nvd.nist.gov/vuln/detail/CVE-2026-33557
+  - title: Apache Kafka CNA record — CVE-2023-25194
+    url: https://cveawg.mitre.org/api/cve/CVE-2023-25194
 related:
   - aws-security-lake
   - cloudtrail

@@ -32,8 +32,6 @@ sourcetypes:
     desc: Security Audit Log files written in the integrity-protection format (length-prefixed records with a per-record hash, kernel parameter "Integrity protection format active")
   - st: sap_hana
     desc: SAP HANA audit trail via syslog (HDB process, semicolon-delimited columns — timestamp, service, host, SID, client IP, policy, level, action, user, status, statement)
-  - st: sap:auditlog
-    desc: Common Splunk community sourcetype for the raw UTF-16LE Security Audit Log files (also seen as sap:sal)
 facts:
   Products: SAP NetWeaver AS ABAP / AS Java, S/4HANA, ECC, BW, Solution Manager; SAP HANA database 2.0
   ABAP audit config: SM19 (classic) or RSAU_CONFIG (SAP_BASIS 7.50+); kernel parameters override rsau/* profile parameters from 7.40
@@ -320,6 +318,10 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2022-22536
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: SAP CNA record — CVE-2020-6287 (SAP Note 2934135)
+    url: https://cveawg.mitre.org/api/cve/CVE-2020-6287
+  - title: SAP CNA record — CVE-2022-22536 (SAP Note 3123396)
+    url: https://cveawg.mitre.org/api/cve/CVE-2022-22536
 related:
   - ibm-db2
   - mysql

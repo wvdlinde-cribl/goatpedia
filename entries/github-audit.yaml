@@ -336,6 +336,8 @@ references:
     url: https://blog.gitguardian.com/compromised-tj-actions/
   - title: GHSA-qmg3-hpqr-gqvc — reviewdog/action-setup compromise (CVE-2025-30154)
     url: https://github.com/reviewdog/reviewdog/security/advisories/GHSA-qmg3-hpqr-gqvc
+  - title: Splunk Add-on for GitHub — Source types
+    url: https://splunk.github.io/splunk-add-on-for-github-audit-log-monitoring/Sourcetypes/
 related:
   - gitlab-audit
   - circleci

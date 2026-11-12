@@ -30,14 +30,8 @@ sourcetypes:
     desc: Cloud Funnel 1.0 — nested JSON (meta / event objects) via the SentinelOne-owned S3 bucket or Kafka
   - st: sentinelone_cloudfunnel_v2
     desc: Cloud Funnel 2.0 — flat dotted-key JSON (src.process.*, tgt.*, event.*) from Singularity Data Lake to a customer bucket
-  - st: sentinelone:channel:threats
-    desc: Splunk SentinelOne App — threats from the management API
-  - st: sentinelone:channel:agents
-    desc: Splunk SentinelOne App — agent inventory
-  - st: sentinelone:channel:activities
-    desc: Splunk SentinelOne App — console activity / audit
   - st: SentinelOne_CL
-    desc: Microsoft Sentinel SentinelOne connector custom table
+    desc: Microsoft Sentinel table of the SentinelOne connector, read by the ASIM SentinelOne parsers (the newer codeless connector writes SentinelOneThreats_CL, SentinelOneActivities_CL, SentinelOneAgents_CL and others)
 facts:
   First released: 2013 (company); Deep Visibility 2018; Cloud Funnel 2.0 2022
   Platform: Windows, macOS, Linux, Kubernetes / containers, cloud workloads
@@ -338,6 +332,10 @@ references:
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
   - title: MITRE ATT&CK — T1562.001 Disable or Modify Tools
     url: https://attack.mitre.org/techniques/T1562/001/
+  - title: Microsoft Learn — List of ASIM parsers (SentinelOne_CL)
+    url: https://learn.microsoft.com/en-us/azure/sentinel/normalization-parsers-list
+  - title: Microsoft Learn — Microsoft Sentinel tables and associated connectors
+    url: https://learn.microsoft.com/en-us/azure/sentinel/sentinel-tables-connectors-reference
 related:
   - crowdstrike
   - mde

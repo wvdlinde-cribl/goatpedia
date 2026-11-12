@@ -315,6 +315,8 @@ references:
     url: https://nvd.nist.gov/vuln/detail/CVE-2026-42945
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for NGINX — Source types
+    url: https://splunk.github.io/splunk-add-on-for-nginx/Sourcetypes/
 related:
   - apache-httpd
   - iis

@@ -309,6 +309,8 @@ references:
     url: https://cert.pl/en/posts/2026/04/CVE-2026-42248/
   - title: MITRE ATLAS
     url: https://atlas.mitre.org
+  - title: "Splunk Security Content — Data Source: Ollama Server (TA-ollama sourcetypes)"
+    url: https://research.splunk.com/sources/a7761a7c-ecaa-4164-8517-959cabfacaf9/
 related:
   - openai
   - mcp

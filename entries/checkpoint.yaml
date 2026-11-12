@@ -46,7 +46,7 @@ facts:
   Log transport: Syslog over TCP/UDP, mutual-TLS 1.2 optional
   Log format: Syslog (default), Splunk, CEF, LEEF, Generic, JSON, LogRhythm, RSA
   Typical EPS: 1k – 50k+ per log server (connection logs dominate)
-  Cribl Pack: Check Point log shaping & filtering pack (Packs Dispensary)
+  Cribl Pack: CheckPoint (cribl-checkpoint, Packs Dispensary) — shapes and filters Check Point logs
 placement:
   slots:
     - edge
@@ -324,6 +324,8 @@ references:
     url: https://advisories.checkpoint.com/defense/advisories/public/2023/cpai-2023-0965.html/
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Cribl Packs Dispensary — CheckPoint (cribl-checkpoint)
+    url: https://packs.cribl.io/packs/cribl-checkpoint
 related:
   - pan-ngfw
   - fortigate
