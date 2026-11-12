@@ -142,7 +142,7 @@ cves:
     detect: "Outbound LDAP/RMI/DNS from Data Lake or Site Collector hosts; ${jndi: strings in logs those components parse."
     avoid: Upgrade Data Lake to i40.3+ and Site Collectors to a patched release; legacy on-prem clusters should be on supported releases or migrated.
   - id: CVE-2020-1472
-    cvss: 10
+    cvss: 5.5
     year: 2020
     kev: true
     scope: traffic

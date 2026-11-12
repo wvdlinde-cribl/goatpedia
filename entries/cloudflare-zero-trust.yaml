@@ -201,7 +201,7 @@ cves:
     detect: Not in Gateway logs. EDR for hard links or junctions created in WARP's ProgramData folder by non-admin users.
     avoid: Update WARP; enforce a minimum client version; remove local admin.
   - id: CVE-2022-2145
-    cvss: 5.8
+    cvss: 7.8
     year: 2022
     kev: false
     scope: device

@@ -221,7 +221,7 @@ cves:
     detect: notice.log LOG4J_ATTEMPT_HEADER, http.log tags LOG4J_RCE, and the log4j log from the corelight/cve-2021-44228 package. Follow-on LDAP (ldap_search) or Java class downloads from the targeted server.
     avoid: Patch Log4j. Block outbound LDAP/RMI from servers. Keep the CVE bundle enabled.
   - id: CVE-2020-1472
-    cvss: 10
+    cvss: 5.5
     year: 2020
     kev: true
     scope: traffic

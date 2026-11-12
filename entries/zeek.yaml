@@ -269,7 +269,7 @@ cves:
     detect: Worker crashes during Kerberos traffic. Gaps in kerberos.log and conn.log.
     avoid: Upgrade. Legacy Bro 2.x sensors should be retired.
   - id: CVE-2020-1472
-    cvss: 10
+    cvss: 5.5
     year: 2020
     kev: true
     scope: traffic

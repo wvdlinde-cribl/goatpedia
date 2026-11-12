@@ -188,7 +188,7 @@ logs:
     sample: '{"id":"7fbc0a97-0000-4cc8-9377-dc94d2ad1e00","createdDateTime":"2026-11-12T09:12:58Z","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"bfb8c366-0000-41a5-b3e3-328f4a3b4484","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.23","clientAppUsed":"Browser","correlationId":"8fe7aa9b-0000-b52e-c6f2-8e4dfc07996b","conditionalAccessStatus":"success","isInteractive":true,"riskLevelDuringSignIn":"medium","resourceDisplayName":"Office 365 Exchange Online","resourceId":"00000002-0000-0ff1-ce00-000000000000","status":{"errorCode":0,"failureReason":"Other."},"deviceDetail":{"deviceId":"","operatingSystem":"Windows10","browser":"Chrome 130.0.0"},"location":{"city":"Amsterdam","countryOrRegion":"NL"}}'
 cves:
   - id: CVE-2025-55241
-    cvss: 9.8
+    cvss: 10
     year: 2025
     kev: false
     scope: device

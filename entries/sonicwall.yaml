@@ -200,7 +200,7 @@ cves:
     detect: SSL-VPN events where the same user's session is reused from a different source IP — SonicWall's advisory names the log message "User <name> Reuse SSLVPN session for the N time(s)" as the sign of the public PoC.
     avoid: Upgrade; if not possible, disable SSL-VPN or restrict it to trusted sources.
   - id: CVE-2026-19868
-    cvss: 7.1
+    cvss: 7.5
     year: 2026
     kev: true
     scope: device

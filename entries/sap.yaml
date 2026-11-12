@@ -152,7 +152,7 @@ logs:
     sample: DATE=2026-11-12 TIME=09:31:05 MANDT=100 USER=RFC_SVC TCODE= REPORT=SAPLSDTX MSGID=CUZ MSGNO=1 CLASS=R TEXT="Generic table access by RFC to USR02 with activity 03" HOST=sapprd01 TERMINAL=198.51.100.23 SUNAME=RFC_SVC CLIENT=100
 cves:
   - id: CVE-2025-31324
-    cvss: 10.0
+    cvss: 9.8
     year: 2025
     kev: true
     scope: device

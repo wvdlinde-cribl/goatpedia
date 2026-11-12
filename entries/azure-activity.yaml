@@ -160,7 +160,7 @@ logs:
     sample: '{"time":"2026-11-12T10:02:44.5512345Z","resourceId":"/SUBSCRIPTIONS/11112222-3333-4444-5555-666677778888/RESOURCEGROUPS/RG-PROD/PROVIDERS/MICROSOFT.STORAGE/STORAGEACCOUNTS/EXAMPLEDATA01","operationName":"MICROSOFT.AUTHORIZATION/POLICIES/DENY/ACTION","category":"Action","resultType":"Failure","resultSignature":"","durationMs":"0","callerIpAddress":"203.0.113.45","correlationId":"cccc2222-dd33-4444-55ee-666666ffffff","identity":{"authorization":{"scope":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/exampledata01","action":"Microsoft.Storage/storageAccounts/write"},"claims":{"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn":"jdoe@example.com","appid":"04b07795-8ddb-461a-bbee-02f9e1bf7b46","ipaddr":"203.0.113.45"}},"level":"Error","location":"global","properties":{"isComplianceCheck":"False","resourceLocation":"westeurope","ancestors":"aaaabbbb-0000-cccc-1111-dddd2222eeee","policies":"[{\"policyDefinitionId\":\"/providers/Microsoft.Authorization/policyDefinitions/4fa4b6c0-31ca-4c0d-b10d-24b96f62a751\",\"policyDefinitionName\":\"Storage accounts should prevent public access\",\"policyDefinitionEffect\":\"Deny\",\"policyAssignmentName\":\"deny-public-storage\"}]","hierarchy":"aaaabbbb-0000-cccc-1111-dddd2222eeee/11112222-3333-4444-5555-666677778888"}}'
 cves:
   - id: CVE-2025-55241
-    cvss: 9.8
+    cvss: 10
     year: 2025
     kev: false
     scope: traffic
@@ -190,7 +190,7 @@ cves:
     detect: Activity Log Microsoft.Web/sites/config/write and listKeys / listsecrets actions from a service principal (appid) outside its pipeline agent IP ranges, or storage listKeys followed by data-plane access.
     avoid: Upgrade the CLI; mask outputs in pipelines; rotate any secret that appeared in build logs; use Key Vault references and managed identities.
   - id: CVE-2021-42306
-    cvss: 6.5
+    cvss: 8.1
     year: 2021
     kev: false
     scope: traffic

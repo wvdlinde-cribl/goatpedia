@@ -156,7 +156,7 @@ cves:
     detect: PROPFIND requests with long If headers ("<http://…") in the W3C log; w3wp.exe crashes on legacy servers.
     avoid: Retire Windows Server 2003; if impossible, disable WebDAV and isolate the host.
   - id: CVE-2021-26855
-    cvss: 9.8
+    cvss: 9.1
     year: 2021
     kev: true
     scope: traffic

@@ -180,7 +180,7 @@ logs:
           instanceType=4
 cves:
   - id: CVE-2020-1472
-    cvss: 10
+    cvss: 5.5
     year: 2020
     kev: true
     scope: device
@@ -190,7 +190,7 @@ cves:
     detect: "4742 'computer account changed' for a DC account with SubjectUserName ANONYMOUS LOGON / password last set changed; System log Netlogon 5827–5829 vulnerable secure-channel events; followed by DCSync (4662) from an unusual host."
     avoid: Patch all DCs; keep enforcement mode on (FullSecureChannelProtection); alert on 5829.
   - id: CVE-2021-42287
-    cvss: 8.8
+    cvss: 7.5
     year: 2021
     kev: true
     scope: device

@@ -180,7 +180,7 @@ cves:
     detect: Connector create/update events (and Connect REST logs) whose client override sasl.jaas.config contains JndiLoginModule; outbound LDAP/RMI connections from Connect workers.
     avoid: Upgrade; set connector.client.config.override.policy=None; validate connector configs; never expose the Connect REST API.
   - id: CVE-2025-55241
-    cvss: 9.8
+    cvss: 10
     year: 2025
     kev: false
     scope: traffic

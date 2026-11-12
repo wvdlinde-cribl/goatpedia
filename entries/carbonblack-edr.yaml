@@ -208,7 +208,7 @@ cves:
     detect: procstart with parent_path ending winword.exe / excel.exe / outlook.exe and path ending msdt.exe, or command_line containing "ms-msdt:" / "IT_BrowseForFile"; follow-on netconn from sdiagnhost.exe.
     avoid: Patch; remove the ms-msdt protocol handler; block Office child processes.
   - id: CVE-2021-40444
-    cvss: 7.8
+    cvss: 8.8
     year: 2021
     kev: true
     scope: traffic

@@ -164,7 +164,7 @@ cves:
     detect: CO/OR entries for *PGM objects created or restored into libraries high in a user's library list (QTEMP, user libs before QSYS); AP entries for adopted authority from unexpected programs.
     avoid: Apply PTFs; remove *USE on CRTxxxPGM / RSTOBJ from general users; keep QSYSLIBL/QUSRLIBL tight.
   - id: CVE-2025-33103
-    cvss: 8.5
+    cvss: 8.8
     year: 2025
     kev: false
     scope: device

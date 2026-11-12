@@ -132,7 +132,7 @@ logs:
     sample: '{"logType":"ExternallySharedCallAccess","userId":"","userEmailAddress":"","eventTime":"2026-11-12T09:02:41.088Z","logRecord":{"callId":"6512398845120039","viewerEmailAddress":"unknown@example.net","ipAddress":"198.51.100.23","sharedByEmailAddress":"jdoe@example.com"}}'
 cves:
   - id: CVE-2025-55241
-    cvss: 9.8
+    cvss: 10
     year: 2025
     kev: false
     scope: traffic
