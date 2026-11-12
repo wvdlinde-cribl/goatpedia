@@ -2,9 +2,282 @@
 id: circleci
 name: CircleCI
 short: CircleCI
+aka:
+  - CircleCI Cloud
+  - CircleCI Server
+  - CircleCI audit log
+  - Audit log streaming
 vendor: CircleCI
 category: devops
-status: stub
-summary: Hosted CI/CD; organisation audit log of contexts, projects, secrets and user actions.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - devops
+  - ci-cd
+  - supply-chain
+  - secrets
+  - audit
+  - json
+  - saas
+summary: "Hosted CI/CD service that builds and deploys code from GitHub, GitLab and Bitbucket. Its organisation audit log records control-plane events — context and environment-variable changes, which jobs pulled context secrets (context.secrets.accessed), API tokens, SSH/checkout keys, members, orbs and workflow lifecycle. Exported on request or streamed to S3 on the Scale plan; job-level data comes from the API."
 sourcetypes:
   - st: circleci
+    desc: CircleCI events — organisation audit log records (JSON) and job/workflow build data pulled from the API
+facts:
+  First released: "2011"
+  Delivery model: CircleCI Cloud (SaaS); CircleCI Server (self-hosted on Kubernetes) for regulated customers
+  Execution: CircleCI-hosted Docker, Linux VM, macOS, Windows, Arm and GPU executors, or self-hosted runners
+  Audit access: Self-serve export (Free 1 request/day, paid 3/day, ≤30 days per request) or streaming to one AWS S3 bucket (Scale plan, forward-looking only)
+  Log format: JSON per event (action, actor, target, payload, occurred_at, success, request, common_fields)
+  Not in the audit log: Job console output, API read access, artifact/cache download history
+  Typical volume: Dominated by workflow-job start/finish and context.secrets.accessed — roughly 3–5 events per job
+  Cribl Pack: None found in the Packs Dispensary — use an S3 source (streaming) or REST Collector against the v2 API
+placement:
+  slots:
+    - cloud
+    - remote
+    - internal
+  items:
+    - slot: cloud
+      title: CircleCI Cloud
+      desc: SaaS control plane and hosted executors. Audit events stream to the customer's S3 bucket; Cribl reads the bucket with an S3 source (SQS notifications).
+    - slot: remote
+      title: Developers and the VCS
+      desc: Developers push to GitHub/GitLab/Bitbucket; webhooks trigger pipelines. Personal API tokens and the CircleCI CLI are used from laptops — session/token theft from a laptop caused the January 2023 incident.
+    - slot: internal
+      title: Self-hosted runners / CircleCI Server
+      desc: Runners inside the corporate network or VPC reach internal systems during deploys. Their host logs (sshd, auditd) complement the control-plane audit log.
+howItWorks:
+  - title: Pipelines, workflows and jobs
+    body: "A VCS push or API trigger creates a pipeline from .circleci/config.yml. Workflows orchestrate jobs; each job runs in an executor and is audited at scheduling, start and finish (workflow.job.start / workflow-job-finish)."
+  - title: Contexts and secrets
+    body: Contexts are org-level sets of environment variables (cloud keys, registry tokens) attached to jobs. Security-group and expression restrictions control which jobs may use them. Every time a job receives a context, CircleCI logs context.secrets.accessed with the job and context in payload.
+  - title: Project secrets and keys
+    body: "Project environment variables, project API tokens, checkout keys (deploy keys / user keys into the VCS) and additional SSH keys are all audited on create/delete. Values are never logged — investigations can only see what was reachable and must rotate."
+  - title: Orbs
+    body: Orbs are shareable packages of config (public registry). Publishing, promoting and namespace creation are audited. Pulling a third-party orb runs someone else's code with your secrets — the CI equivalent of a GitHub Action supply-chain risk.
+  - title: Audit pipeline
+    body: "Events carry id (dedupe key), version (1), action (entity.verb), actor/target/scope/organization blobs with id, type and name, success, request (id, ip_address, client_trace_id) and common_fields (outcome, source_ip, status, timestamp) pre-mapped for SIEMs."
+traffic:
+  handles:
+    - VCS webhooks and OAuth / GitHub App connections
+    - Web app, API v2 and CLI sessions (personal and project tokens)
+    - Contexts and environment variables (secrets)
+    - Checkout, deploy and SSH keys
+    - Orb registry (public and private orbs)
+    - SSH reruns into build executors
+    - Self-hosted runner job assignment
+  flow:
+    - step: Trigger
+      desc: Push, PR, schedule or API call creates a pipeline (trigger_event / build.create).
+    - step: Authorise
+      desc: User, project or token identity checked against org roles and context restrictions.
+    - step: Schedule
+      desc: Workflow jobs queued to an executor or self-hosted runner (workflow-job-scheduled).
+    - step: Inject secrets
+      desc: Context and project variables delivered to the job (context.secrets.accessed).
+    - step: Run
+      desc: Job steps execute; output goes to the job log (not the audit log).
+    - step: Audit
+      desc: Control-plane event written with actor, target, payload and request IP.
+    - step: Collect
+      desc: Events stream to the customer S3 bucket; Cribl S3 source parses JSON and routes.
+logs:
+  - type: Audit log event
+    sourcetype: circleci
+    format: json
+    share: 60–90 %
+    avg: ~900 B
+    desc: One control-plane action. payload is action-specific; request is present when an external request triggered it; common_fields mirrors outcome, source_ip and timestamp for SIEM mapping.
+    key:
+      - action
+      - actor.name
+      - actor.type
+      - target.name
+      - payload.context.name
+      - request.ip_address
+      - success
+      - occurred_at
+    noise:
+      - version
+      - common_fields.status
+      - common_fields.timestamp
+      - common_fields.outcome
+      - scope.type
+      - account.type
+    sample: '{"id":"3f8e2a41-6c7d-4b90-a1e2-5d6f7a8b9c01","version":1,"action":"context.secrets.accessed","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"target":{"id":"9c8b7a6d-1111-4f2e-8d3c-aabbccddeeff","type":"context","name":"prod-aws-deploy"},"payload":{"context":{"id":"9c8b7a6d-1111-4f2e-8d3c-aabbccddeeff","name":"prod-aws-deploy"},"job":{"id":"aa1e394f-42c8-4809-93fc-7ba9f8fc51d2","name":"deploy-prod"},"workflow":{"id":"6a1bd1c8-e3c4-4d7a-b3e4-16cc726cc0ca","name":"release"},"project":{"name":"payments-api"}},"occurred_at":"2026-11-12T09:14:22.318Z","metadata":{},"scope":{"id":"0f1e2d3c-2222-4b5a-9c8d-001122334455","type":"organization","name":"example-org"},"organization":{"id":"0f1e2d3c-2222-4b5a-9c8d-001122334455","type":"organization","name":"example-org"},"account":{"id":"0f1e2d3c-2222-4b5a-9c8d-001122334455","type":"account","name":"example-org"},"success":true,"request":{"id":"7d6c5b4a-3333-4e2f-9a1b-ffeeddccbbaa","ip_address":"203.0.113.77","client_trace_id":""},"common_fields":{"outcome":"success","source_ip":"203.0.113.77","status":"info","timestamp":"2026-11-12T09:14:22.318Z"}}'
+  - type: Token / key change
+    sourcetype: circleci
+    format: json
+    share: < 2 %
+    avg: ~700 B
+    desc: Credential lifecycle events — project.api_token.create, project.ssh_key.create, checkout-key.create, context.env_var.store, org_member.remove. Rare and high value.
+    key:
+      - action
+      - actor.name
+      - target.name
+      - request.ip_address
+      - success
+      - occurred_at
+    noise:
+      - version
+      - common_fields.status
+    sample: '{"id":"b2c3d4e5-4444-4f6a-8b7c-0d1e2f3a4b5c","version":1,"action":"project.api_token.create","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"target":{"id":"5e4d3c2b-5555-4a1b-9c8d-778899aabbcc","type":"project","name":"payments-api"},"payload":{"token":{"label":"ci-sync","scope":"all"}},"occurred_at":"2026-11-12T09:16:03.114Z","metadata":{},"organization":{"id":"0f1e2d3c-2222-4b5a-9c8d-001122334455","type":"organization","name":"example-org"},"success":true,"request":{"id":"1a2b3c4d-6666-4e5f-8a9b-0c1d2e3f4a5b","ip_address":"198.51.100.23","client_trace_id":""},"common_fields":{"outcome":"success","source_ip":"198.51.100.23","status":"info","timestamp":"2026-11-12T09:16:03.114Z"}}'
+  - type: Job / build record (API)
+    sourcetype: circleci
+    format: json
+    share: optional
+    avg: ~1.5 KB
+    desc: Job summary pulled from the CircleCI API (as used by common SIEM add-ons) — status, timings, branch, commit and workflow. Useful for correlating secret access with the code that ran.
+    key:
+      - reponame
+      - branch
+      - status
+      - username
+      - workflows.job_name
+      - workflows.workflow_name
+      - vcs.revision
+      - build_url
+    noise:
+      - avatar_url
+      - queued_time
+      - workflows.upstream_concurrency_map
+    sample: '{"job_time":"2026-11-12T08:13:34.273Z","stop_time":"2026-11-12T08:13:34.273Z","start_time":"2026-11-12T08:10:15.829Z","queued_time":"2026-11-12T08:10:12.764Z","reponame":"payments-api","build_num":942,"build_url":"https://app.circleci.com/pipelines/gh/example-org/payments-api/942","branch":"main","status":"success","project_slug":"gh/example-org/payments-api","fail_reason":null,"build_time_millis":198444,"timedout":false,"username":"example-org","author_name":"jdoe","avatar_url":"","workflows":{"job_name":"deploy-prod","job_id":"aa1e394f-42c8-4809-93fc-7ba9f8fc51d2","workflow_id":"6a1bd1c8-e3c4-4d7a-b3e4-16cc726cc0ca","upstream_concurrency_map":{},"workflow_name":"release"},"vcs":{"type":"github","url":"https://github.com/example-org/payments-api","revision":"68d5575c64352792e6e716a1e909db5f9cb3bc2a","committer_name":"jdoe"}}'
+cves:
+  - id: CVE-2025-30066
+    cvss: 8.6
+    year: 2025
+    kev: true
+    scope: traffic
+    title: tj-actions/changed-files compromise dumped CI secrets into build logs (third-party CI component supply chain — the same risk class as third-party orbs)
+    affected: tj-actions/changed-files v1 through v45.0.7 (tags repointed 2025-03-14/15)
+    fixed: v46
+    detect: CircleCI has no product CVE history; for orb-borne equivalents watch orb.publish.release / orb.version.promote by unexpected actors and context.secrets.accessed by jobs from forked or unfamiliar projects right after a config change.
+    avoid: Pin orbs and actions to exact versions or digests; only allow certified/partner orbs; restrict contexts with security groups and expression restrictions; rotate secrets after any compromise.
+  - id: CVE-2024-3094
+    cvss: 10
+    year: 2024
+    kev: false
+    scope: traffic
+    title: xz/liblzma backdoor inserted through the upstream build process (build-dependency supply chain that CI pipelines consume)
+    affected: xz 5.6.0 and 5.6.1
+    fixed: xz 5.4.x / 5.6.2+ (distribution rollbacks)
+    detect: Not visible in the audit log — correlate job records (vcs.revision, branch, build time) with SBOM/dependency scans; look for pipelines that suddenly pull new base images or toolchains.
+    avoid: Pin and verify dependencies and images by digest; generate SBOMs in CI; review release-tarball vs repository differences.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH regreSSHion unauthenticated RCE (sshd on self-hosted runners and SSH-rerun executors)
+    affected: OpenSSH 8.5p1 to before 9.8p1 (and before 4.4p1) on glibc Linux
+    fixed: OpenSSH 9.8p1
+    detect: Rerun-with-SSH sessions show up as job events triggered by a user; on self-hosted runner hosts, many sshd "Timeout before authentication" lines from one source IP.
+    avoid: Patch runner hosts; restrict who may rerun jobs with SSH; firewall runner SSH to the CircleCI SSH IP ranges.
+detections:
+  - title: Production context accessed by an unexpected job or project
+    severity: high
+    signals:
+      - action=context.secrets.accessed
+      - context name prod*
+      - project or branch not in allow-list
+    why: The CircleCI-recommended high-priority alert. A job from a new project, fork or branch receiving prod cloud keys is how pipeline poisoning becomes cloud compromise.
+    kql: |-
+      dataset="circleci_audit" action="context.secrets.accessed" payload.context.name startswith "prod"
+      | lookup circleci_context_allowlist on payload.context.name, payload.project.name
+      | where isempty(allowed)
+      | project occurred_at, actor.name, payload.project.name, payload.job.name, payload.context.name, request.ip_address
+    mitre:
+      - T1552.001
+      - T1078.004
+  - title: New project API token, SSH key or checkout key
+    severity: high
+    signals:
+      - action in project.api_token.create / project.ssh_key.create / checkout-key.create
+      - actor or source IP new for the org
+    why: Tokens and keys give durable access to CircleCI and, through checkout keys, write access to the repository. They outlive password resets.
+    kql: |-
+      dataset="circleci_audit" action in ("project.api_token.create","project.ssh_key.create","checkout-key.create","release_integration-token-create")
+      | summarize created=count(), targets=make_set(target.name) by actor.name, request.ip_address
+    mitre:
+      - T1098.001
+      - T1528
+  - title: Context or environment variable modified
+    severity: medium
+    signals:
+      - action in context.env_var.store / context.env_var.delete / project.env_var.create / project.env_var.copy
+      - context.restriction.delete
+    why: Swapping a deploy key or removing a context restriction is a quiet way to redirect deployments or widen secret exposure.
+    kql: |-
+      dataset="circleci_audit" action in ("context.env_var.store","context.env_var.delete","context.restriction.delete","context.group_remove","project.env_var.create","project.env_var.copy")
+      | project occurred_at, action, actor.name, target.name, request.ip_address, success
+    mitre:
+      - T1552
+      - T1195.002
+  - title: Bulk member removal or org settings change
+    severity: medium
+    signals:
+      - action=org_member.remove many times
+      - organization.settings.update
+      - group_member.add to admin groups
+    why: Account manipulation — removing defenders or adding attacker accounts — usually happens in bursts.
+    kql: |-
+      dataset="circleci_audit" action in ("org_member.remove","organization.settings.update","group_member.add","role_grant-update")
+      | summarize changes=count(), actions=make_set(action) by actor.name, bin(_time, 15m)
+      | where changes > 5
+    mitre:
+      - T1098
+      - T1531
+  - title: Orb published or promoted by an unusual actor
+    severity: medium
+    signals:
+      - action in orb.publish.release / orb.version.promote / orb.namespace.create
+      - actor not in release engineers
+    why: A malicious orb version runs inside every consumer's pipeline with their secrets — the CircleCI form of the tj-actions compromise.
+    kql: |-
+      dataset="circleci_audit" action in ("orb.publish.release","orb.version.promote","orb.namespace.create","orb.publish.dev")
+      | project occurred_at, action, actor.name, target.name, request.ip_address
+    mitre:
+      - T1195.001
+optimizations:
+  - title: Aggregate workflow-job lifecycle events
+    saving: 30–60 %
+    fn: Aggregations
+    how: Job scheduled/start/finish events are the bulk of the audit stream. Roll them up to jobs and failures per project and workflow per 5 minutes for the SIEM; keep raw copies in the lake.
+    expr: action.startsWith('workflow-job') || action.startsWith('workflow.job')
+  - title: Drop duplicated common_fields and empty blobs
+    saving: 10–20 %
+    fn: Eval
+    how: common_fields duplicates success, request.ip_address and occurred_at; metadata and client_trace_id are usually empty. Keep one copy — or keep common_fields only if the SIEM mapping uses it.
+    expr: "remove: common_fields, metadata (when {}), request.client_trace_id (when '')"
+  - title: Dedupe streamed deliveries
+    saving: 1–5 %
+    fn: Suppress
+    how: CircleCI documents id as the key for duplicate deliveries. Suppress repeats of the same id.
+    expr: "key: `${id}`  allow 1 / 600s"
+  - title: Route secrets and identity events at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: context.*, *token*, *key*, org_member.*, group*, orb.* → SIEM. Workflow lifecycle and project.follow → lake + metrics.
+    expr: /^(context|project\.(api_token|ssh_key|env_var)|checkout-key|org_member|group|orb|role_grant)/.test(action)
+references:
+  - title: CircleCI — Audit logs (events, fields, streaming)
+    url: https://circleci.com/docs/guides/security/audit-logs/
+  - title: CircleCI — Analyze pipelines and job steps during an incident
+    url: https://circleci.com/docs/guides/orchestrate/analyze-pipelines-during-an-incident/
+  - title: CircleCI — Using contexts
+    url: https://circleci.com/docs/guides/security/contexts/
+  - title: CircleCI — January 4, 2023 security incident report
+    url: https://circleci.com/blog/jan-4-2023-incident-report/
+  - title: CISA — Supply chain compromise of tj-actions/changed-files (CVE-2025-30066)
+    url: https://www.cisa.gov/news-events/alerts/2025/03/18/supply-chain-compromise-third-party-github-action-cve-2025-30066
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - github-audit
+  - gitlab-audit
+  - terraform-enterprise
+  - cloudtrail
+  - okta

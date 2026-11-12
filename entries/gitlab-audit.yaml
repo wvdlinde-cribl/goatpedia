@@ -2,10 +2,327 @@
 id: gitlab-audit
 name: GitLab Audit Events
 short: GitLab
+aka:
+  - GitLab CE / EE
+  - GitLab Self-Managed
+  - GitLab Dedicated
+  - GitLab.com
+  - audit_json.log
+  - Audit event streaming
 vendor: GitLab
 category: devops
-status: stub
-summary: Instance, group and project audit events, including streaming audit destinations.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - devops
+  - source-code
+  - ci-cd
+  - supply-chain
+  - audit
+  - json
+  - webhook
+summary: "GitLab's record of who changed what across the instance, groups and projects: sign-ins and failed logins, membership and role changes, access tokens, CI/CD variables, runners, protected branches, Git pushes/pulls and admin settings. Self-managed instances write it to audit_json.log; Ultimate tiers stream it as JSON over HTTP to a SIEM or Cribl. It is the primary log for spotting source-code theft and CI/CD supply-chain tampering."
 sourcetypes:
   - st: gitlab_audit_log
+    desc: Rails audit log file (/var/log/gitlab/gitlab-rails/audit_json.log), one JSON object per line
   - st: gitlab_audit_streaming
+    desc: Audit event streaming payloads (HTTP POST of JSON, optionally batched) from instance or top-level group destinations
+facts:
+  First released: 2011 (GitLab); audit event streaming GA in 15.x (2022)
+  Platform: Ruby on Rails monolith (Puma, Sidekiq, Gitaly, Workhorse) on Linux, Helm/Kubernetes or SaaS
+  Delivery model: GitLab.com (SaaS), GitLab Dedicated (single-tenant SaaS), Self-Managed (Linux package, Helm, Docker)
+  Audit scopes: Instance, top-level group, project; Free tier logs a small subset, Premium/Ultimate the full catalogue (hundreds of event types)
+  Log transport: audit_json.log file (self-managed), Audit Events REST/GraphQL API, streaming to HTTP endpoint, AWS S3 or Google Cloud Logging
+  Log format: JSON; streaming adds event_type and the X-Gitlab-Audit-Event-Type header; batched delivery posts a JSON array
+  Deduplication: GitLab may stream one event more than once — dedupe on id
+  Typical volume: Low for settings changes; 10–100x higher when Git operation events (repository_git_operation) are streamed
+  Cribl Pack: None found in the Packs Dispensary — use an HTTP source plus a JSON parser
+placement:
+  slots:
+    - cloud
+    - internal
+    - dmz
+  items:
+    - slot: cloud
+      title: GitLab.com / Dedicated
+      desc: SaaS tenants stream top-level-group (gitlab.com) or instance (Dedicated) audit events over HTTPS to a public Cribl HTTP source; verify the X-Gitlab-Event-Streaming-Token header.
+    - slot: internal
+      title: Self-managed instance
+      desc: Linux package or Helm install inside the data center. A Cribl Edge agent tails audit_json.log, or the instance streams to an internal Cribl HTTP source.
+    - slot: dmz
+      title: Internet-exposed instance
+      desc: Many self-managed GitLab servers are published for partners and remote developers. This is where the KEV-listed RCE and account-takeover bugs land — audit logs show the after-effects (new admins, tokens, runners).
+howItWorks:
+  - title: Auditable actions
+    body: Rails code calls Gitlab::Audit::Auditor for every auditable change. The event records author (user, deploy key, service account or composite identity), entity (Project, Group, User, Instance), target, IP address and a free-form details object, then is stored in the audit_events tables and written to audit_json.log.
+  - title: Event types
+    body: "Each streamed event carries a stable event_type such as login_failed_with_standard_authentication, user_admin_status_updated, personal_access_token_created, ci_variable_updated, protected_branch_updated, project_visibility_level_updated or repository_git_operation. Destinations can filter by event type."
+  - title: Streaming destinations
+    body: "Instance and top-level-group owners add up to several destinations: HTTP endpoint (up to 20 custom headers, a per-destination verification token in X-Gitlab-Event-Streaming-Token), AWS S3 or Google Cloud Logging. Default content-type is application/x-www-form-urlencoded even though the body is JSON — override to application/json for clean ingestion."
+  - title: Git operation events
+    body: "Pushes, fetches, clones and archive downloads by authenticated users stream as repository_git_operation with details.custom_message.protocol (ssh/http), action (git-upload-pack = read, git-receive-pack = write), written_bytes and the key type used. Anonymous downloads of public projects are not captured."
+  - title: AI and composite identity
+    body: GitLab Duo Agent Platform actions are attributed to a service account; details.human_author_id/name records the human who authorised it, and Duo-related settings changes carry details.duo_related=true. AI audit event streaming (19.1 beta) is off by default.
+traffic:
+  handles:
+    - Web UI and REST/GraphQL API sessions
+    - Git over SSH and HTTPS (push, pull, clone, archive)
+    - Personal, project, group and deploy tokens
+    - CI/CD pipelines, variables and runners
+    - SAML / OIDC / LDAP sign-in and SCIM provisioning
+    - Group and project membership, roles and visibility
+    - Instance admin settings and audit stream configuration
+  flow:
+    - step: Request
+      desc: User, token, deploy key or runner calls the UI, API or Git endpoint (Workhorse / gitlab-shell).
+    - step: Authenticate
+      desc: Password + 2FA, SAML/OIDC, token or SSH key; failures emit login_failed_* events.
+    - step: Authorise
+      desc: Role on the project/group decides if the action is allowed.
+    - step: Change applied
+      desc: Rails updates the setting, membership, token, variable or repository ref.
+    - step: Audit record
+      desc: Gitlab::Audit::Auditor writes the audit_events row and audit_json.log line.
+    - step: Stream
+      desc: Sidekiq posts the JSON to every matching streaming destination (may repeat — dedupe on id).
+    - step: Collect
+      desc: Cribl HTTP source / Edge file monitor parses JSON, routes to SIEM and lake.
+logs:
+  - type: Streamed audit event
+    sourcetype: gitlab_audit_streaming
+    format: json
+    share: 70–95 %
+    avg: ~700 B
+    desc: The streaming payload. Same core fields as the Audit Events API plus event_type; details holds event-specific data (custom_message, author_class, human_author_*). Git operation events dominate volume when enabled.
+    key:
+      - event_type
+      - author_name
+      - entity_path
+      - target_type
+      - target_details
+      - ip_address
+      - details.custom_message.action
+      - created_at
+    noise:
+      - details.author_name
+      - details.target_id
+      - details.target_type
+      - details.target_details
+      - details.ip_address
+      - details.entity_path
+    sample: '{"id":"184522","author_id":412,"entity_id":29,"entity_type":"Project","details":{"author_name":"jdoe","author_class":"User","target_id":29,"target_type":"Project","target_details":"platform/payments-api","custom_message":{"protocol":"http","action":"git-upload-pack","written_bytes":734003200},"ip_address":"203.0.113.77","entity_path":"platform/payments-api"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"platform/payments-api","target_details":"platform/payments-api","created_at":"2026-11-12T09:14:22.318Z","target_type":"Project","target_id":29,"event_type":"repository_git_operation"}'
+  - type: Token / privilege change
+    sourcetype: gitlab_audit_streaming
+    format: json
+    share: 1–5 %
+    avg: ~600 B
+    desc: Account, role and credential changes — personal_access_token_created, user_admin_status_updated, member_created, ci_variable_updated, deploy_key_added. Low volume, highest value.
+    key:
+      - event_type
+      - author_name
+      - target_details
+      - details.custom_message
+      - ip_address
+      - created_at
+    noise:
+      - details.author_name
+      - details.target_id
+    sample: '{"id":"184530","author_id":412,"entity_id":412,"entity_type":"User","details":{"author_name":"jdoe","author_class":"User","target_id":988,"target_type":"PersonalAccessToken","target_details":"ci-sync","custom_message":"Created personal access token with scopes: [:api, :write_repository]"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"jdoe","target_details":"ci-sync","created_at":"2026-11-12T09:16:03.114Z","target_type":"PersonalAccessToken","target_id":988,"event_type":"personal_access_token_created"}'
+  - type: audit_json.log line
+    sourcetype: gitlab_audit_log
+    format: json
+    share: self-managed only
+    avg: ~350 B
+    desc: The on-disk Rails audit log written by every self-managed node. Uses time instead of created_at and change/from/to for settings changes; no event_type on older versions.
+    key:
+      - time
+      - author_name
+      - entity_type
+      - change
+      - from
+      - to
+      - target_details
+    noise:
+      - severity
+      - author_id
+      - entity_id
+    sample: '{"severity":"INFO","time":"2026-11-12T08:41:10.522Z","correlation_id":"01JCX4Q7RZ2N8M3E6V0A9B1C2D","author_id":7,"entity_id":31,"entity_type":"Project","change":"visibility","from":"Private","to":"Public","author_name":"asmith","target_id":31,"target_type":"Project","target_details":"platform/infra-secrets","ip_address":"10.20.30.44","entity_path":"platform/infra-secrets"}'
+cves:
+  - id: CVE-2026-97229
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: Unauthenticated RCE via crafted regular expression in CI/CD configuration (Ruby/Onigmo integer overflow)
+    affected: GitLab CE/EE 19.2 before 19.2.8, 19.3 before 19.3.5, 19.4 before 19.4.2
+    fixed: 19.2.8, 19.3.5, 19.4.2
+    detect: Not logged as an audit event itself — look for its after-effects, i.e. new admins (user_admin_status_updated), new tokens or runners, and ci_* changes by unexpected authors or from new IPs; pipeline config changes on projects nobody owns.
+    avoid: Patch; restrict sign-up and who can create projects/pipelines; keep the instance off the internet or behind SSO/VPN.
+  - id: CVE-2026-85706
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: Unauthenticated arbitrary file read via path traversal in the repository commits API
+    affected: GitLab CE/EE 18.7 before 18.11.12, 19.0 before 19.0.9, 19.1 before 19.1.8, 19.2 before 19.2.6, 19.3 before 19.3.2
+    fixed: 18.11.12, 19.0.9, 19.1.8, 19.2.6, 19.3.2
+    detect: Unauthenticated requests are not audit events — use api_json.log / Workhorse access logs for ../ in commits API paths. In audit events, watch for follow-on use of stolen secrets (gitlab-secrets.json, tokens) — new sessions or tokens from unknown IPs.
+    avoid: Patch; rotate secrets (gitlab-secrets.json, runner and integration tokens) if exposed; front with a WAF.
+  - id: CVE-2023-7028
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: device
+    title: Account takeover — password reset email delivered to an unverified, attacker-supplied address
+    affected: GitLab CE/EE 16.1 before 16.1.6, 16.2 before 16.2.9, 16.3 before 16.3.7, 16.4 before 16.4.5, 16.5 before 16.5.6, 16.6 before 16.6.4, 16.7 before 16.7.2
+    fixed: 16.1.6, 16.2.9, 16.3.7, 16.4.5, 16.5.6, 16.6.4, 16.7.2
+    detect: password_reset_requested followed by user_password_updated and a sign-in from a new IP for the same user; on self-managed, production_json.log POSTs to /users/password with an email array (two addresses).
+    avoid: Patch; enforce 2FA for all users (blocks takeover even with a reset); prefer SSO-only sign-in.
+  - id: CVE-2021-22205
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: device
+    title: Unauthenticated RCE via ExifTool parsing of uploaded image files
+    affected: GitLab CE/EE 11.9 before 13.8.8, 13.9 before 13.9.6, 13.10 before 13.10.3
+    fixed: 13.8.8, 13.9.6, 13.10.3
+    detect: Widely mass-exploited to create admin users — user_created immediately followed by user_admin_status_updated from an unknown IP; uploads to /uploads/user in web logs.
+    avoid: Patch; disable open sign-up; never expose legacy GitLab versions to the internet.
+  - id: CVE-2024-45409
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: ruby-saml signature-wrapping bypass — forged SAML assertions log in as any user (SAML SSO traffic GitLab consumes)
+    affected: ruby-saml before 1.12.3 and 1.13.0–1.16.x; GitLab before 16.11.10, 17.0 before 17.0.8, 17.1 before 17.1.8, 17.2 before 17.2.7, 17.3 before 17.3.3
+    fixed: ruby-saml 1.12.3 / 1.17.0; GitLab 16.11.10, 17.0.8, 17.1.8, 17.2.7, 17.3.3
+    detect: SAML sign-ins for a user with no matching IdP sign-in event (correlate with Okta / Entra logs); sign-ins for admins via SAML from new IPs followed by token creation.
+    avoid: Patch; require 2FA on top of SSO for admins; correlate SP sign-ins with IdP logs.
+detections:
+  - title: New instance administrator
+    severity: critical
+    signals:
+      - event_type=user_admin_status_updated
+      - author not in admin allow-list
+      - often right after user_created
+    why: Mass exploitation of GitLab RCE / takeover bugs ends with an attacker-created admin. Admin grants should be rare and pre-approved.
+    kql: |-
+      dataset="gitlab_audit" event_type in ("user_admin_status_updated","user_created")
+      | summarize admin_grants=countif(event_type=="user_admin_status_updated"), creates=countif(event_type=="user_created"), first=min(_time) by target_details, author_name, ip_address
+      | where admin_grants > 0
+    mitre:
+      - T1098
+      - T1136
+  - title: Bulk repository cloning (source-code theft)
+    severity: high
+    signals:
+      - event_type=repository_git_operation
+      - action=git-upload-pack
+      - many distinct projects or high written_bytes per author
+    why: Exfiltration of source code — a common goal after stolen tokens (and the 2023–2025 wave of repo extortion). Normal developers touch a handful of projects per hour.
+    kql: |-
+      dataset="gitlab_audit" event_type="repository_git_operation" details.custom_message.action="git-upload-pack"
+      | summarize projects=dcount(entity_path), bytes=sum(details.custom_message.written_bytes) by author_name, ip_address, bin(_time, 1h)
+      | where projects > 25 or bytes > 5000000000
+    mitre:
+      - T1213.003
+      - T1567
+  - title: Access token created and used from a new IP
+    severity: high
+    signals:
+      - event_type=personal_access_token_created
+      - api / write_repository scope
+      - creator IP never seen for this user
+    why: Attackers with a hijacked session mint long-lived tokens for persistence; the token survives password resets.
+    kql: |-
+      dataset="gitlab_audit" event_type in ("personal_access_token_created","deploy_key_added","group_access_token_created","project_access_token_created")
+      | lookup gitlab_known_user_ips on author_name, ip_address
+      | where isempty(first_seen)
+      | project created_at, author_name, ip_address, target_details, details.custom_message
+    mitre:
+      - T1098.001
+      - T1528
+  - title: Password-spray / brute force against GitLab sign-in
+    severity: medium
+    signals:
+      - event_type=login_failed_with_standard_authentication
+      - many users per ip_address
+      - user_access_locked
+    why: Self-managed GitLab with local accounts is a direct internet login page; spray precedes account takeover.
+    kql: |-
+      dataset="gitlab_audit" event_type startswith "login_failed"
+      | summarize fails=count(), users=dcount(target_details) by ip_address, bin(_time, 15m)
+      | where fails > 30 or users > 10
+    mitre:
+      - T1110.003
+  - title: CI/CD secret or protected-branch tampering
+    severity: high
+    signals:
+      - event_type in ci_variable_updated / ci_variable_created
+      - protected_branch_updated / protected_branch_allow_force_push_updated
+      - author not a project maintainer
+    why: Changing CI variables or relaxing branch protection is how pipelines are poisoned to push malicious builds or leak cloud credentials.
+    kql: |-
+      dataset="gitlab_audit" event_type in ("ci_variable_created","ci_variable_updated","protected_branch_updated","protected_branch_allow_force_push_updated","protected_branch_removed")
+      | summarize changes=count(), types=make_set(event_type) by author_name, entity_path, ip_address
+    mitre:
+      - T1195.002
+      - T1552
+  - title: Audit stream removed or project made public
+    severity: high
+    signals:
+      - event_type=deleted_instance_audit_event_streaming_destination / destroy_event_streaming_destination
+      - project_visibility_level_updated to Public
+    why: Removing the SIEM stream blinds defenders; flipping a private repo to public is a fast way to leak code or secrets.
+    kql: |-
+      dataset="gitlab_audit" event_type in ("deleted_instance_audit_event_streaming_destination","deleted_group_audit_event_streaming_destination","destroy_event_streaming_destination","project_visibility_level_updated","group_visibility_level_updated")
+      | project created_at, event_type, author_name, entity_path, ip_address, details.custom_message
+    mitre:
+      - T1562.008
+      - T1530
+optimizations:
+  - title: Deduplicate repeated deliveries
+    saving: 1–10 %
+    fn: Suppress
+    how: GitLab can stream the same event more than once. Suppress on the event id over a short window so the SIEM counts each change once.
+    expr: "key: `${id}`  allow 1 / 300s"
+  - title: Strip duplicated details.* copies
+    saving: 20–35 %
+    fn: Eval
+    how: details repeats author_name, target_id, target_type, target_details, ip_address and entity_path from the top level. Remove the copies and keep details.custom_message, author_class and human_author_*.
+    expr: "remove: details.author_name, details.target_id, details.target_type, details.target_details, details.ip_address, details.entity_path"
+  - title: Aggregate Git read operations
+    saving: 30–70 % (when Git operation streaming is on)
+    fn: Aggregations
+    how: Developer and CI fetches (git-upload-pack) are the bulk of volume. Roll up to count and sum(written_bytes) per author, project and IP per 5 minutes for the SIEM; send raw events to the lake for investigations. Keep git-receive-pack (pushes) raw.
+    expr: event_type=='repository_git_operation' && details.custom_message.action=='git-upload-pack'
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Admin, token, member, CI variable, branch protection, visibility and streaming-destination events → SIEM at full fidelity. Git operations and routine settings → lake, replay on demand.
+    expr: event_type=='repository_git_operation' → Lake + metrics  |  else → SIEM
+references:
+  - title: GitLab — Audit event streaming for instances
+    url: https://docs.gitlab.com/administration/compliance/audit_event_streaming/
+  - title: GitLab — Audit event schema and examples
+    url: https://docs.gitlab.com/user/compliance/audit_event_schema/
+  - title: GitLab — Audit event types
+    url: https://docs.gitlab.com/user/compliance/audit_event_types/
+  - title: GitLab — Log system (audit_json.log)
+    url: https://docs.gitlab.com/administration/logs/
+  - title: GitLab patch release 19.4.2 (CVE-2026-97229)
+    url: https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-4-2-released/
+  - title: GitLab patch release 19.3.2 (CVE-2026-85706)
+    url: https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-3-2-released/
+  - title: GitLab CVE records (CVE-2021-22205)
+    url: https://gitlab.com/gitlab-org/cves/-/blob/master/2021/CVE-2021-22205.json
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - github-audit
+  - terraform-enterprise
+  - circleci
+  - okta
+  - entra-id

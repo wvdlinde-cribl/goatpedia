@@ -2,9 +2,347 @@
 id: mcp
 name: Model Context Protocol (MCP) Servers
 short: MCP
+aka:
+  - Model Context Protocol
+  - MCP server
+  - MCP client
+  - MCP gateway
+  - mcp-remote
+  - MCP Inspector
 vendor: Anthropic (open standard)
 category: ai
-status: stub
-summary: JSON-RPC protocol connecting AI agents to tools and data; request/response traffic logged as JSON-RPC.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ai
+  - agents
+  - mcp
+  - json-rpc
+  - llm-tools
+  - supply-chain
+  - json
+summary: "Open protocol (JSON-RPC 2.0) that lets AI clients and agents — Claude, ChatGPT, Cursor, VS Code, n8n, custom agents — discover and call tools, read resources and use prompts exposed by MCP servers, over stdio or Streamable HTTP. Every tool call an agent makes is a tools/call request, so the JSON-RPC stream (captured at an MCP gateway, proxy or SDK log) is the audit trail of what an AI actually did with your files, APIs and credentials."
 sourcetypes:
   - st: mcp_jsonrpc
+    desc: MCP JSON-RPC 2.0 messages (initialize, tools/list, tools/call, resources/read, notifications) as captured by an MCP gateway/proxy or server-side SDK logging, one message per event
+facts:
+  First released: "2024"
+  Governance: Open specification and SDKs on github.com/modelcontextprotocol (originated at Anthropic, November 2024)
+  Wire protocol: JSON-RPC 2.0 — requests, responses and notifications; dated spec revisions (e.g. 2025-06-18, 2025-11-25)
+  Transports: stdio (local subprocess) and Streamable HTTP (single endpoint, optional SSE streaming; Mcp-Session-Id header)
+  Primitives: Server-side tools, resources and prompts; client-side sampling, roots and elicitation
+  Authorization: OAuth 2.1-based for HTTP transports (protected resource metadata, PKCE); none for stdio — the server runs with the user's privileges
+  Logging: Spec-level notifications/message (RFC 5424 levels) sent to the client; no standard audit log — capture at a gateway or in the server
+  SDKs: Official TypeScript, Python, Java, Kotlin, C#, Go, Ruby, Rust and Swift SDKs; reference servers (filesystem, git, fetch, memory …)
+  Cribl Pack: None found in the Packs Dispensary
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+    - remote
+  items:
+    - slot: endpoint
+      title: Local stdio servers
+      desc: The IDE or desktop assistant spawns MCP servers (filesystem, git, shell, SaaS connectors) as child processes with the user's rights and tokens in a JSON config file. Visible only via EDR, server logs or a local proxy.
+    - slot: internal
+      title: MCP gateway / proxy
+      desc: A central gateway brokers tools for many agents, enforcing auth, allow-lists and logging every JSON-RPC message — the best collection point.
+    - slot: cloud
+      title: Remote SaaS MCP servers
+      desc: Vendors expose Streamable HTTP MCP endpoints (OAuth-protected) for their APIs; agents in the cloud call them directly.
+    - slot: remote
+      title: Agent platforms
+      desc: Workflow and agent platforms (n8n, LiteLLM, hosted agents) act as MCP clients and servers, chaining tool calls across systems.
+howItWorks:
+  - title: Initialize
+    body: The client sends initialize with its protocolVersion, capabilities and clientInfo; the server answers with its own capabilities and serverInfo; the client confirms with notifications/initialized. Over HTTP the server assigns an Mcp-Session-Id.
+  - title: Discover
+    body: tools/list, resources/list and prompts/list return names, descriptions and JSON Schemas. Tool descriptions are read by the model — which is why poisoned descriptions (tool poisoning) and silently changed lists (notifications/tools/list_changed, a "rug pull") are attacks.
+  - title: Call
+    body: The model decides to use a tool; the client sends tools/call with name and arguments. The server executes (reads files, runs git, calls an API) and returns content blocks, with isError true for tool-level failures and a JSON-RPC error object for protocol failures.
+  - title: Authorize (HTTP)
+    body: Remote servers act as OAuth 2.1 resource servers. The client discovers the authorization server from protected-resource metadata and obtains a token; servers must validate audience and must not pass the token through to upstream APIs.
+  - title: Observe
+    body: The spec only defines notifications/message logging to the client. For security monitoring, log every request, response and notification at the gateway (or in the SDK transport) with session, user, server and client identity, then ship it to Cribl.
+traffic:
+  handles:
+    - JSON-RPC 2.0 over stdio
+    - Streamable HTTP (POST + optional SSE)
+    - OAuth 2.1 access tokens
+    - Tool arguments and results (files, code, API data)
+    - Resources (file:// and custom URIs)
+    - Prompt templates
+    - Sampling requests back to the client's model
+  flow:
+    - step: Connect
+      desc: Client spawns a stdio server or opens a Streamable HTTP session (OAuth token if remote).
+    - step: Initialize
+      desc: Version and capability negotiation; clientInfo/serverInfo exchanged.
+    - step: List
+      desc: Client fetches tools, resources and prompts — descriptions go into the model context.
+    - step: Call
+      desc: Model chooses a tool; client sends tools/call with arguments.
+    - step: Execute
+      desc: Server acts with its own credentials (filesystem, git, SaaS API).
+    - step: Return
+      desc: Result content (or isError) goes back into the model context — the indirect prompt-injection path.
+    - step: Log
+      desc: Gateway/SDK writes each message; Cribl collects, redacts arguments and routes.
+logs:
+  - type: Tool call request (tools/call)
+    sourcetype: mcp_jsonrpc
+    format: json
+    share: 40–60 %
+    avg: ~600 B
+    desc: The agent's action. The `message` object is the spec JSON-RPC request; the envelope (timestamp, direction, session, user, server) is what a gateway adds and its names vary by product.
+    key:
+      - message.method
+      - message.params.name
+      - message.params.arguments.path
+      - server
+      - user
+      - client_ip
+      - session_id
+    noise:
+      - message.jsonrpc
+      - direction
+    sample: '{"timestamp":"2026-11-12T09:31:07.412Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"10.20.30.41","client":"claude-code/2.1.4","server":"filesystem","message":{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"read_text_file","arguments":{"path":"/home/jdoe/projects/app/.env"}}}}'
+  - type: Tool call result / error
+    sourcetype: mcp_jsonrpc
+    format: json
+    share: 30–50 %
+    avg: ~1–20 KB (content-dependent)
+    desc: The server's answer. isError true marks a tool failure; a JSON-RPC `error` object (code/message) marks protocol failures such as unknown tools or invalid params.
+    key:
+      - message.id
+      - message.result.isError
+      - message.result.content[0].type
+      - message.result.content[0].text
+      - server
+      - session_id
+      - duration_ms
+    noise:
+      - message.jsonrpc
+      - transport
+    sample: '{"timestamp":"2026-11-12T09:31:07.455Z","direction":"server_to_client","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","server":"filesystem","duration_ms":43,"message":{"jsonrpc":"2.0","id":42,"result":{"content":[{"type":"text","text":"Error: Access denied - path outside allowed directories: /home/jdoe/projects/app/.env"}],"isError":true}}}'
+  - type: Session initialize
+    sourcetype: mcp_jsonrpc
+    format: json
+    share: < 5 %
+    avg: ~500 B
+    desc: Who connected with what — client name/version and the protocol version. The inventory record for shadow MCP clients and outdated SDKs.
+    key:
+      - message.method
+      - message.params.protocolVersion
+      - message.params.clientInfo.name
+      - message.params.clientInfo.version
+      - user
+      - client_ip
+      - server
+    noise:
+      - message.params.capabilities.roots.listChanged
+      - message.jsonrpc
+    sample: '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"10.20.30.41","server":"filesystem","message":{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":true}},"clientInfo":{"name":"claude-code","version":"2.1.4"}}}}'
+  - type: Server notification (list_changed / log message)
+    sourcetype: mcp_jsonrpc
+    format: json
+    share: 5–15 %
+    avg: ~250 B
+    desc: Notifications from the server — notifications/message (spec logging, with level/logger/data) and notifications/tools/list_changed, which mid-session means the tool set the model trusts just changed.
+    key:
+      - message.method
+      - message.params.level
+      - message.params.logger
+      - message.params.data
+      - server
+      - session_id
+    noise:
+      - message.jsonrpc
+      - transport
+    sample: '{"timestamp":"2026-11-12T09:44:12.318Z","direction":"server_to_client","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","server":"filesystem","message":{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"warning","logger":"security","data":"Denied access outside allowed roots"}}}'
+cves:
+  - id: CVE-2025-6514
+    cvss: 9.6
+    year: 2025
+    kev: false
+    scope: device
+    title: mcp-remote OS command injection via a malicious server's OAuth authorization_endpoint URL
+    affected: mcp-remote 0.0.5 through 0.1.15
+    detect: Sessions to remote MCP servers not on the approved list; EDR process creation (cmd.exe, powershell, sh) spawned by node running mcp-remote right after an OAuth discovery.
+    avoid: Upgrade mcp-remote; connect only to trusted MCP servers over HTTPS; allow-list remote server URLs at the gateway or egress proxy.
+  - id: CVE-2025-49596
+    cvss: 9.4
+    year: 2025
+    kev: false
+    scope: device
+    title: MCP Inspector missing authentication between client and proxy — unauthenticated requests launch MCP commands over stdio (RCE, browser-reachable)
+    affected: MCP Inspector before 0.14.1
+    fixed: 0.14.1
+    detect: Inspector proxy listening on developer hosts; inbound requests to it from non-loopback addresses; unexpected child processes of the Inspector.
+    avoid: Upgrade; run Inspector only when debugging, bound to localhost with its session token enabled.
+  - id: CVE-2025-53109
+    cvss: 7.3
+    year: 2025
+    kev: false
+    scope: device
+    title: Filesystem reference server symlink bypass — access to files outside the allowed directories
+    affected: Filesystem server before 0.6.4 / 2025.7.01
+    fixed: 0.6.4 / 2025.7.01
+    detect: tools/call arguments.path values that resolve outside the configured roots, or create/modify of symlinks via the server's write tools.
+    avoid: Upgrade; run filesystem servers in a container with only the intended directory mounted.
+  - id: CVE-2025-68143
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: mcp-server-git git_init accepted arbitrary paths — any directory reachable by the server became a git repository for later operations
+    affected: mcp-server-git before 2025.9.25
+    fixed: 2025.9.25
+    detect: tools/call name=git_init (removed in the fix) or git tool calls with repo_path outside expected workspaces.
+    avoid: Upgrade; scope git servers to a fixed repository path; review tool calls that write outside the project.
+  - id: CVE-2025-66414
+    cvss: 8.1
+    year: 2025
+    kev: false
+    scope: device
+    title: MCP TypeScript SDK HTTP servers lacked DNS-rebinding protection by default — a web page could call local MCP tools
+    affected: "@modelcontextprotocol/sdk before 1.24.0"
+    fixed: 1.24.0
+    detect: Requests to localhost MCP HTTP servers with a Host or Origin header that is not localhost; tools/call sessions while the user was browsing.
+    avoid: Upgrade; prefer stdio for local servers; require auth and enable enableDnsRebindingProtection / allowed hosts on HTTP transports.
+  - id: CVE-2026-59822
+    cvss: 8.2
+    year: 2026
+    kev: true
+    scope: traffic
+    title: LiteLLM MCP endpoint authentication bypass — an MCP gateway in front of your tools that let unauthenticated callers through (exploited)
+    affected: LiteLLM proxy before 1.84.0
+    fixed: 1.84.0
+    detect: tools/call or tools/list through the gateway without an authenticated user, or from client_ip values outside the agent network.
+    avoid: Upgrade the gateway; put it behind SSO / network controls; alert on unauthenticated MCP sessions.
+detections:
+  - title: Agent reads secrets or credential files via MCP
+    severity: high
+    signals:
+      - method=tools/call
+      - arguments.path matches .env, .ssh, .aws/credentials, id_rsa, mcp.json, *.pem
+    why: Prompt-injected agents are steered into reading secrets (MITRE ATLAS AML.T0051.001 Indirect Prompt Injection, AML.T0083 Credentials from AI Agent Configuration, AML.T0098 AI Agent Tool Credential Harvesting).
+    kql: |-
+      dataset="mcp" message.method="tools/call"
+      | where message.params.arguments.path has_any (".env", ".ssh", ".aws/credentials", "id_rsa", ".pem", "mcp.json", ".netrc")
+      | project _time, user, client, server, message.params.name, message.params.arguments.path, session_id
+    mitre:
+      - T1552.001
+      - T1005
+  - title: Tool list changed mid-session (rug pull)
+    severity: high
+    signals:
+      - method=notifications/tools/list_changed after the first tools/call in a session
+    why: A server that swaps tool descriptions after approval can inject instructions into the model (ATLAS AML.T0110 AI Agent Tool Poisoning, AML.T0010.005 AI Supply Chain Compromise — AI Agent Tool).
+    kql: |-
+      dataset="mcp" message.method in ("tools/call","notifications/tools/list_changed")
+      | summarize calls=countif(message.method=="tools/call"), changes=countif(message.method=="notifications/tools/list_changed") by session_id, server
+      | where changes > 0 and calls > 0
+    mitre:
+      - T1195.002
+  - title: Command-execution tool invoked
+    severity: medium
+    signals:
+      - tools/call name in run_command, execute, shell, bash, exec, run_terminal_cmd
+      - arguments contain curl, wget, base64, nc, Invoke-WebRequest
+    why: Shell-capable tools turn a prompt injection into code execution (ATLAS AML.T0053 AI Agent Tool Invocation).
+    kql: |-
+      dataset="mcp" message.method="tools/call" message.params.name has_any ("run_command","execute","shell","bash","exec","terminal")
+      | where tostring(message.params.arguments) has_any ("curl ","wget ","base64","nc ","Invoke-WebRequest","/dev/tcp")
+      | project _time, user, server, message.params.name, message.params.arguments
+    mitre:
+      - T1059
+      - T1105
+  - title: High-volume tool calls from one session (possible exfiltration)
+    severity: medium
+    signals:
+      - more than 200 tools/call per session per 10 min
+      - many distinct paths or resources read
+    why: Agents looping over a repo or mailbox and sending results out is the AI-agent exfil pattern (ATLAS AML.T0086 Exfiltration via AI Agent Tool Invocation).
+    kql: |-
+      dataset="mcp" message.method in ("tools/call","resources/read")
+      | summarize calls=count(), targets=dcount(tostring(message.params.arguments.path)) by session_id, user, server, bin(_time, 10m)
+      | where calls > 200 or targets > 100
+    mitre:
+      - T1119
+      - T1567
+  - title: Unknown MCP client or server, or old protocol version
+    severity: low
+    signals:
+      - initialize clientInfo.name not in approved list
+      - server not in registry
+      - protocolVersion older than policy
+    why: Shadow MCP clients and unvetted servers are the supply-chain entry point (ATLAS AML.T0104 Publish Poisoned AI Agent Tool).
+    kql: |-
+      dataset="mcp" message.method="initialize"
+      | lookup mcp_approved_clients on $left.message.params.clientInfo.name == $right.client_name
+      | where isempty(approved)
+      | summarize sessions=count(), users=dcount(user) by message.params.clientInfo.name, message.params.clientInfo.version, server
+    mitre:
+      - T1195.002
+      - T1133
+  - title: Tool errors spike / access denials
+    severity: low
+    signals:
+      - result.isError=true
+      - content text contains Access denied, outside allowed directories, unauthorized
+    why: Repeated denials mean an agent (or attacker driving it) is probing the server's boundaries.
+    kql: |-
+      dataset="mcp" message.result.isError==true
+      | where message.result.content[0].text has_any ("denied","outside allowed","unauthorized","forbidden")
+      | summarize denials=count() by session_id, server, bin(_time, 15m)
+      | where denials > 10
+    mitre:
+      - T1083
+optimizations:
+  - title: Truncate large tool results
+    saving: 50–90 %
+    fn: Eval
+    how: File reads and API results can be tens of KB. Keep the first 1–2 KB of content text plus its length and a hash; keep isError and the error message in full.
+    expr: "message.result.content[0].text = message.result.content[0].text.substring(0, 2048)"
+  - title: Drop pings and progress notifications
+    saving: 10–30 %
+    fn: Drop
+    how: ping requests/responses and notifications/progress carry no security value.
+    expr: "['ping','notifications/progress','notifications/initialized'].includes(message.method)"
+  - title: Sample repetitive discovery calls
+    saving: 5–20 %
+    fn: Sampling
+    how: Clients re-issue tools/list, resources/list and prompts/list often. Keep the first per session (to diff tool descriptions) and sample the rest.
+    expr: message.method && message.method.endsWith('/list')
+  - title: Mask secrets in arguments and results
+    saving: Compliance, not volume
+    fn: Mask
+    how: Tool arguments and results can contain tokens, keys and file contents. Mask provider key shapes and bearer tokens before routing to long-term storage.
+    expr: "Mask on message.params.arguments and message.result.content[0].text — patterns for sk-…, ghp_…, AKIA…, Bearer …"
+references:
+  - title: MCP specification (2025-11-25)
+    url: https://modelcontextprotocol.io/specification/2025-11-25
+  - title: MCP — Tools (tools/list, tools/call, list_changed)
+    url: https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+  - title: MCP — Logging (notifications/message)
+    url: https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/logging
+  - title: MCP — Security best practices
+    url: https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices
+  - title: JFrog — CVE-2025-6514 mcp-remote RCE
+    url: https://research.jfrog.com/vulnerabilities/mcp-remote-command-injection-rce-jfsa-2025-001290844/
+  - title: MCP Inspector advisory GHSA-7f8r-222p-6f5g (CVE-2025-49596)
+    url: https://github.com/modelcontextprotocol/inspector/security/advisories/GHSA-7f8r-222p-6f5g
+  - title: MCP TypeScript SDK advisory GHSA-w48q-cv73-mx4w (CVE-2025-66414)
+    url: https://github.com/modelcontextprotocol/typescript-sdk/security/advisories/GHSA-w48q-cv73-mx4w
+  - title: MITRE ATLAS
+    url: https://atlas.mitre.org
+related:
+  - n8n
+  - openai
+  - ollama
+  - cisco-ai-defense
+  - github-audit
