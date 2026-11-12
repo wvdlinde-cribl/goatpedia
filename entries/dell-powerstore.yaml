@@ -1,0 +1,71 @@
+id: dell-powerstore
+name: Dell Powerstore
+short: Powerstore
+vendor: Dell
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - dell_powerstore
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Dell Powerstore is logged by the Splunk Connect for Syslog package dell_powerstore. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: dell_emc_powerstore
+    desc: 'Splunk Connect for Syslog fixture, 6 events. Upstream: tests/test_dell_powerstore.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: dell_powerstore
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: kv
+  Fields in the first fixture: header, id, user, resource_type, action, client_ip
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Dell Powerstore events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, id, user, resource_type, action, client_ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads dell_powerstore and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Dell Emc Powerstore
+    sourcetype: dell_emc_powerstore
+    format: kv
+    desc: 6 fixture events in the samples pool (sc4s).
+    sample: '<110>Jun 15 13:45:07 sc4s-lab-01 [358]: 2026-06-15T13:45:07.123456+00:00 sc4s-lab-01 PSb8ad27c26647 358@HM3CTZ3 Authentication [PowerStore_audit_event@1139 id="2341" user="admin" resource_type="login_session" action="None" client_ip="192.0.2.20" appliance="APM00243620939" status="success"] User "admin" logged in successfully.'
+    key:
+      - id
+      - user
+      - resource_type
+      - action
+cves: []
+detections:
+  - title: Dell Powerstore events arriving
+    severity: low
+    signals:
+      - header
+      - id
+      - user
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "dell_emc_powerstore"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_dell_powerstore.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_dell_powerstore.py
+  - title: Pack Generator sample dell_emc_powerstore.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dell_emc_powerstore.json

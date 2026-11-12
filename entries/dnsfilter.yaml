@@ -1,0 +1,71 @@
+id: dnsfilter
+name: Dnsfilter
+short: Dnsfilter
+vendor: Dnsfilter
+category: dns
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - dnsfilter
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Dnsfilter is logged by the Datadog integrations-core package dnsfilter. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: dnsfilter
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: dnsfilter/assets/logs/dnsfilter_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: dnsfilter
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: local_user_id, code, policy_id, application_category_id, local_user_name, server_address
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Dnsfilter events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries local_user_id, code, policy_id, application_category_id, local_user_name, server_address. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads dnsfilter and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Dnsfilter
+    sourcetype: dnsfilter
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"local_user_id":4568300,"code":"NOERROR","policy_id":1259000,"application_category_id":8,"local_user_name":"John","server_address":"198.51.100.15","result":"allowed","collection_id":12500,"protocol":"udp","application_name":"Hao123","agenttype":"agent","collections":[12500,12580],"method_name":"Category","mac_address":"c0b883203abc","responsetime":0,"request_address":"198.51.100.25","id":2800,"categories":[40],"local_user_login":"ASSETTAG-EID\\John","agent_type_raw":"windows","agentid":"69290bde-69c4-4205-b320-56a8712b9abc","scheduled_policy_id":56611,"method":20,"categories_names":["Content Servers"],"fqdn":"gum.criteo.com","question_type":"A","network_name":"Your First Network","policy_name":"Your First Policy","server_id":212800,"local_ipv4_address":"203.0.113.8"}'
+    key:
+      - local_user_id
+      - code
+      - policy_id
+      - application_category_id
+cves: []
+detections:
+  - title: Dnsfilter events arriving
+    severity: low
+    signals:
+      - local_user_id
+      - code
+      - policy_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "dnsfilter"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core dnsfilter/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/dnsfilter/assets/logs/dnsfilter_tests.yaml
+  - title: Pack Generator sample dnsfilter.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dnsfilter.json

@@ -1,0 +1,77 @@
+id: hid-bravura-monitor
+name: Hid Bravura Monitor
+short: Monitor
+vendor: Hid
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hid_bravura_monitor
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Hid Bravura Monitor is logged by the Elastic integrations package hid_bravura_monitor. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hid_bravura_monitor
+    desc: 'Elastic integrations fixture, 20 events. Upstream: hid_bravura_monitor/data_stream/log/_dev/test/pipeline/test-hid-bravura-monitor.log'
+  - st: hid_bravura_monitor_winlog
+    desc: 'Elastic integrations fixture, 3 events. Upstream: hid_bravura_monitor/data_stream/winlog/_dev/test/pipeline/test-hid-bravura-monitor-events.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: hid_bravura_monitor
+  Sourcetypes: '2'
+  Fixture events: '23'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Hid Bravura Monitor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads hid_bravura_monitor and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: hid_bravura_monitor
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '2021-01-16 00:38:18.515.1538 - [] idapi.exe [5368,54656] Debug: Thread: 54656, get the client id: 4272'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Winlog
+    sourcetype: hid_bravura_monitor_winlog
+    format: text
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: Database replication queue delay exceeded configured threshold.|Node=domain.bravurasecurity1.corp_pmim|QueueDelay=89239|DelayThreshold=14400
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Hid Bravura Monitor events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hid_bravura_monitor"'
+optimizations: []
+references:
+  - title: elastic/integrations hid_bravura_monitor/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hid_bravura_monitor/data_stream/log/_dev/test/pipeline/test-hid-bravura-monitor.log
+  - title: Pack Generator sample hid_bravura_monitor.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hid_bravura_monitor.json

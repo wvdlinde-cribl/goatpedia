@@ -1,0 +1,71 @@
+id: bluecat-integrity
+name: Bluecat Integrity
+short: Integrity
+vendor: Bluecat
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - bluecat_integrity
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Bluecat Integrity is logged by the Datadog integrations-core package bluecat_integrity. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: bluecat_integrity
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: bluecat_integrity/assets/logs/bluecat-integrity_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: bluecat_integrity
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: json
+  Fields in the first fixture: sourceId, sourcePort, schemaVersion, sourceAddress, responsePort, socketFamily
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Bluecat Integrity events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries sourceId, sourcePort, schemaVersion, sourceAddress, responsePort, socketFamily. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads bluecat_integrity and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Bluecat Integrity
+    sourcetype: bluecat_integrity
+    format: json
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: '{"sourceId":"4201fad9-b30e-1dc5-0833-123456789123","sourcePort":57895,"schemaVersion":"1.0","sourceAddress":"198.51.100.15","responsePort":53,"socketFamily":"INET","source_type":"dnstap","serverId":"bdds2","socketProtocol":"UDP","messageType":"ClientQuery","payloadType":"dnstap","responseAddress":"198.51.100.25","messageTypeId":5,"requestData":{"rcodeName":"NoError","question":[{"domainName":"C-Lab-24.contoso.local.","questionTypeId":6,"class":"IN","questionType":"SOA"}],"header":{"aa":false,"cd":false,"qr":0,"ad":false,"nsCount":0,"rcode":0,"opcode":0,"ra":false,"tc":false,"rd":true,"qdCount":1,"anCount":0,"arCount":0,"id":19267},"time":1772082903782342100,"fullRcode":0},"key":"3f87546e-54ad-4022-9dbc-123456789123","timestamp":"2026-02-26T05:15:04.884701163Z"}'
+    key:
+      - sourceId
+      - sourcePort
+      - schemaVersion
+      - sourceAddress
+cves: []
+detections:
+  - title: Bluecat Integrity events arriving
+    severity: low
+    signals:
+      - sourceId
+      - sourcePort
+      - schemaVersion
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "bluecat_integrity"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core bluecat_integrity/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/bluecat_integrity/assets/logs/bluecat-integrity_tests.yaml
+  - title: Pack Generator sample bluecat_integrity.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bluecat_integrity.json

@@ -46,6 +46,8 @@ sourcetypes:
     desc: ZIA feed delivered with a tab-separated output template
   - st: zscaler_web
     desc: Generic name for ZIA web transaction logs
+  - st: zscaler_zia_alerts
+    desc: 'Elastic integrations fixture, 3 events. Upstream: zscaler_zia/data_stream/alerts/_dev/test/pipeline/test-alerts.log'
 facts:
   First released: 2008 (cloud web security service; now part of the Zero Trust Exchange)
   Delivery model: Multi-tenant SaaS proxy in 150+ Zscaler data centers
@@ -184,6 +186,14 @@ logs:
     noise:
       - pri
     sample: '<114>Nov 12 09:20:04 [192.0.2.10] ZscalerNSS: SIEM Feed connection "Web Logs Feed" to 198.51.100.20:514 lost and unavailable for the past 12.00 minutes'
+  - type: Alerts
+    sourcetype: zscaler_zia_alerts
+    format: text
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '<114>Dec 31 12:01:04 [203.0.113.40] ZscalerNSS: Zscaler cloud configuration connection to  192.0.2.10:443 lost and unavailable for the past 2325.00 minutes'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2025-54982
     cvss: 9.6

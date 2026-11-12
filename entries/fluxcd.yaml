@@ -1,0 +1,71 @@
+id: fluxcd
+name: Fluxcd
+short: Fluxcd
+vendor: Fluxcd
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fluxcd
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Fluxcd is logged by the Datadog integrations-core package fluxcd. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fluxcd
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: fluxcd/assets/logs/fluxcd_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: fluxcd
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: msg, controller, level, namespace, name, controllerGroup
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fluxcd events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries msg, controller, level, namespace, name, controllerGroup. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads fluxcd and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Fluxcd
+    sourcetype: fluxcd
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"msg":"HelmChart/monitoring/monitoring-loki-stack with SourceRef ''HelmRepository/monitoring/grafana-charts'' is in-sync","controller":"helmrelease","level":"info","namespace":"monitoring","name":"loki-stack","controllerGroup":"helm.toolkit.fluxcd.io","reconcileID":"3a8d111e-0116-4057-ad1c-45e8f4ccd424","HelmRelease":{"name":"loki-stack","namespace":"monitoring"},"controllerKind":"HelmRelease","ts":"2024-01-17T11:08:37.330Z"}'
+    key:
+      - msg
+      - controller
+      - level
+      - namespace
+cves: []
+detections:
+  - title: Fluxcd events arriving
+    severity: low
+    signals:
+      - msg
+      - controller
+      - level
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fluxcd"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core fluxcd/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/fluxcd/assets/logs/fluxcd_tests.yaml
+  - title: Pack Generator sample fluxcd.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fluxcd.json

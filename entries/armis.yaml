@@ -1,0 +1,95 @@
+id: armis
+name: Armis
+short: Armis
+vendor: Armis
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - armis
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Armis is logged by the Elastic integrations package armis. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: armis_alert
+    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: armis_device
+    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/device/_dev/test/pipeline/test-device.log'
+  - st: armis_vulnerability
+    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: armis
+  Sourcetypes: '3'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: activityUUIDs[0], activityUUIDs[1], affectedDevicesCount, alertId, classification, connectionIds[0]
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Armis events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries activityUUIDs[0], activityUUIDs[1], affectedDevicesCount, alertId, classification, connectionIds[0]. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads armis and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert
+    sourcetype: armis_alert
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"activityUUIDs":["ec44388f-9530-4ca3-9781-8029905776ef","0b0900f0-b118-4892-86a3-c06f42f848f3"],"affectedDevicesCount":2,"alertId":71,"classification":"Security - Other","connectionIds":["conn-12345","conn-67890"],"description":"The Armis security platform has detected a violation of a policy and generated an alert.","destinationEndpoints":["device-abc","server-xyz"],"deviceIds":[19,469],"lastAlertUpdateTime":"2025-03-29T02:50:06.124100+00:00","mitreAttackLabels":"T1046 - Network Service Scanning","policyId":345,"policyLabels":["Network Anomaly Detection","Threat Detection"],"policyTitle":"Unusual Network Scanning Activity","severity":"Critical","sourceEndpoints":["laptop-001","iot-device-007"],"status":"Unhandled","statusChangeTime":"2025-03-29T02:50:06.124100+00:00","time":"2025-03-29T02:50:06.124100+00:00","title":"[Threat] Heavy Port Scan in Network","type":"System Policy Violation"}'
+    key:
+      - activityUUIDs[0]
+      - activityUUIDs[1]
+      - affectedDevicesCount
+      - alertId
+  - type: Device
+    sourcetype: armis_device
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"accessSwitch":"test Enterprise","boundaries":"Corporate, Guest","businessImpact":"Unassigned","category":"Computers","customProperties":{},"dataSources":[{"firstSeen":"2024-09-13T18:16:00.620093+00:00","instances":[{"firstSeen":"2024-09-13T18:16:00.620093+00:00","lastSeen":"2024-12-07T13:53:32.184177+00:00","name":"test"}],"lastSeen":"2024-12-07T13:53:32.184177+00:00","name":"test","types":["Vulnerability Management"]}],"displayTitle":"49f9ef97_1b8","firstSeen":"2024-09-11T01:13:13.620093+00:00","id":469,"ipAddress":"192.0.2.10","ipv6":["::ffff:192.0.2.20"],"lastSeen":"2025-03-29T02:02:09.124100+00:00","macAddress":"2001:db8::1","manufacturer":"test","model":"test","name":"49f9ef97_1b8","names":"49f9ef97_1b8","operatingSystem":"Windows","operatingSystemVersion":"Server 2016 Standard","protections":[{"creationTime":"Tue, 18 Feb 2025 00:29:19 GMT","deviceId":469,"lastSeenTime":"Tue, 18 Feb 2025 00:29:19 GMT","protectionName":"test"}],"purdueLevel":4,"riskLevel":80,"sensor":{"name":"test","type":"test Controller"},"site":{"location":"Geneva","name":"Geneva Enterprise"},"tags":["Misconfigurations"],"type":"Servers","typeEnum":"SERVER","userIds":[5],"visibility":"Full"}'
+    key:
+      - accessSwitch
+      - boundaries
+      - businessImpact
+      - category
+  - type: Vulnerability
+    sourcetype: armis_vulnerability
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"affectedDevicesCount":7,"attackComplexity":"Medium","attackVector":"Remote","availabilityImpact":"High","avmRating":"CRITICAL","avmRatingManualChangeReason":"Revised due to increased exploit activity","avmRatingManualChangedBy":"security_admin","avmRatingManualUpdateTime":"2025-03-30T12:45:00.000000+00:00","botnets":["Mirai","Mozi"],"cisaDueDate":"2023-06-01T00:00:00.000000+00:00","commonName":"test","confidentialityImpact":"High","cveUid":"CVE-2021-45046","cvssScore":9.8,"cvssScoreV4":"cvss_score1","description":"An advanced exploit of the vulnerability.","epssPercentile":98.5,"epssScore":0.92,"exploitabilityScore":9.5,"firstDetected":"2025-03-25T14:30:00.123456+00:00","firstReferencePublishDate":"2021-12-10T00:00:00.000000+00:00","firstWeaponizedReferencePublishDate":"2021-12-18T00:00:00.000000+00:00","hasRansomware":true,"hasRemediationInfo":"Yes","id":"CVE-2021-45046","impactScore":9.7,"integrityImpact":"Moderate","isWeaponized":true,"lastDetected":"2025-03-29T20:15:45.678901+00:00","latestExploitUpdate":"2025-03-31T08:00:00.000000+00:00"}'
+    key:
+      - affectedDevicesCount
+      - attackComplexity
+      - attackVector
+      - availabilityImpact
+cves: []
+detections:
+  - title: Armis events arriving
+    severity: low
+    signals:
+      - activityUUIDs[0]
+      - activityUUIDs[1]
+      - affectedDevicesCount
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "armis_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations armis/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/armis/data_stream/alert/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample armis_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/armis_alert.json

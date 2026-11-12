@@ -32,6 +32,24 @@ sourcetypes:
     desc: Cloud Funnel 2.0 — flat dotted-key JSON (src.process.*, tgt.*, event.*) from Singularity Data Lake to a customer bucket
   - st: SentinelOne_CL
     desc: Microsoft Sentinel table of the SentinelOne connector, read by the ASIM SentinelOne parsers (the newer codeless connector writes SentinelOneThreats_CL, SentinelOneActivities_CL, SentinelOneAgents_CL and others)
+  - st: sentinel_one_activity
+    desc: 'Elastic integrations fixture, 20 events. Upstream: sentinel_one/data_stream/activity/_dev/test/pipeline/test-pipeline-activity.log'
+  - st: sentinel_one_agent
+    desc: 'Elastic integrations fixture, 1 events. Upstream: sentinel_one/data_stream/agent/_dev/test/pipeline/test-pipeline-agent.log'
+  - st: sentinel_one_alert
+    desc: 'Elastic integrations fixture, 3 events. Upstream: sentinel_one/data_stream/alert/_dev/test/pipeline/test-pipeline-alert.log'
+  - st: sentinel_one_application
+    desc: 'Elastic integrations fixture, 3 events. Upstream: sentinel_one/data_stream/application/_dev/test/pipeline/test-pipeline-application.log'
+  - st: sentinel_one_application_risk
+    desc: 'Elastic integrations fixture, 10 events. Upstream: sentinel_one/data_stream/application_risk/_dev/test/pipeline/test-application-risk.log'
+  - st: sentinel_one_group
+    desc: 'Elastic integrations fixture, 1 events. Upstream: sentinel_one/data_stream/group/_dev/test/pipeline/test-pipeline-group.log'
+  - st: sentinel_one_threat
+    desc: 'Elastic integrations fixture, 4 events. Upstream: sentinel_one/data_stream/threat/_dev/test/pipeline/test-pipeline-threat.log'
+  - st: sentinel_one_threat_event
+    desc: 'Elastic integrations fixture, 4 events. Upstream: sentinel_one/data_stream/threat_event/_dev/test/pipeline/test-pipeline-application.log'
+  - st: sentinel_one_unified_alert
+    desc: 'Elastic integrations fixture, 6 events. Upstream: sentinel_one/data_stream/unified_alert/_dev/test/pipeline/test-pipeline-unified-alert.log'
 facts:
   First released: 2013 (company); Deep Visibility 2018; Cloud Funnel 2.0 2022
   Platform: Windows, macOS, Linux, Kubernetes / containers, cloud workloads
@@ -181,6 +199,96 @@ logs:
       - event.process.counters.crossProcess
       - event.process.counters.moduleLoad
     sample: '{"@timestamp":1762938860110,"meta":{"traceId":"01JCX3M8Q7Z5D2K9W1T4H6B8NA","accountId":"1450129248765485585","osFamily":"windows","computerName":"WS-FIN-042","agentVersion":"S1-WIN/24.2.3.471","siteId":"1450129249210081821","machineType":"laptop","uuid":"a1b2c3d4e5f60718293a4b5c6d7e8f90","seqId":0},"event":{"process":{"name":"powershell.exe","commandLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","integrityLevel":"INTEGRITY_LEVEL_MEDIUM","user":{"name":"CORP\\jdoe","sid":"S-1-5-21-1004336348-1177238915-682003330-1104"},"executable":{"path":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","hashes":{"sha256":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","sha1":"6cbce4a295c163791b60fc23d285e6d84f28ee4c"}},"counters":{"crossProcess":3,"moduleLoad":61,"dnsLookups":1,"netConnOut":1}},"parent":{"name":"WINWORD.EXE"}}}'
+  - type: Activity
+    sourcetype: sentinel_one_activity
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"accountId":"1234567890123456789","accountName":"Default","activityType":1234,"agentId":null,"agentUpdatedVersion":null,"comments":"True","createdAt":"2022-04-18T05:14:08.925421Z","data":{"accountName":"Default","byUser":"API","fullScopeDetails":"Account Default","fullScopeDetailsPath":"test/default","groupName":null,"newValue":true,"role":"Level","scopeLevel":"Account","scopeName":"Default","siteName":null,"userScope":"account","username":"API"},"description":"API","groupId":null,"groupName":null,"hash":null,"id":"1234567890123456789","osFamily":null,"primaryDescription":"The management user API enabled Two factor authentication on the user API.","secondaryDescription":null,"siteId":null,"siteName":null,"threatId":null,"updatedAt":"2022-04-18T05:14:08.922553Z","userId":"1234567890123456789"}'
+    key:
+      - accountId
+      - accountName
+      - activityType
+      - agentId
+  - type: Agent
+    sourcetype: sentinel_one_agent
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"accountId":"12345123451234512345","accountName":"Account Name","activeDirectory":{"computerDistinguishedName":null,"computerMemberOf":[],"lastUserDistinguishedName":null,"lastUserMemberOf":[]},"activeThreats":7,"agentVersion":"12.x.x.x","allowRemoteShell":true,"appsVulnerabilityStatus":"not_applicable","cloudProviders":{},"computerName":"user-test","consoleMigrationStatus":"N/A","coreCount":2,"missingPermissions":["user-action-needed-bluetooth-per","user_action_needed_fda"],"cpuCount":2,"cpuId":"CPU Name","createdAt":"2022-03-18T09:12:00.519500Z","detectionState":null,"domain":"WORKGROUP","encryptedApplications":false,"externalId":"","externalIp":"203.0.113.8","firewallEnabled":true,"firstFullModeTime":null,"groupId":"1234567890123456789","groupIp":"203.0.113.40","groupName":"Default Group","id":"13491234512345","inRemoteShellSession":false,"infected":true,"installerType":".msi","isActive":true}'
+    key:
+      - accountId
+      - accountName
+      - activeDirectory.computerDistinguishedName
+      - activeDirectory.computerMemberOf
+  - type: Alert
+    sourcetype: sentinel_one_alert
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"targetProcessInfo":{"tgtFileCreatedAt":"2018-02-27T04:49:26.257525Z","tgtFileIsSigned":"string","tgtFileOldPath":"string","tgtProcImagePath":"string","tgtProcSignedStatus":"string","tgtFileHashSha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","tgtProcStorylineId":"string","tgtProcPid":"12345","tgtProcCmdLine":"string","tgtProcName":"string","tgtFileModifiedAt":"2018-02-27T04:49:26.257525Z","tgtFileId":"string","tgtProcIntegrityLevel":"unknown","tgtFileHashSha1":"aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d","tgtProcUid":"string","tgtProcessStartTime":"2018-02-27T04:49:26.257525Z","tgtFilePath":"string"},"alertInfo":{"createdAt":"2018-02-27T04:49:26.257525Z","srcIp":"198.51.100.25","incidentStatus":"string","registryOldValue":"string","alertId":"123456789123456789","dstPort":"1234","indicatorName":"string","registryPath":"string","loginType":"string","dstIp":"203.0.113.8","updatedAt":"2018-02-27T04:49:26.257525Z","indicatorDescription":"string","loginsUserName":"string","loginIsSuccessful":"string","indicatorCategory":"string","modulePath":"string","loginAccountSid":"string","dnsResponse":"string","netEventDirection":"string","registryValue":"string","srcMachineIp":"203.0.113.40","registryOldValueType":"string","eventType":"string","analystVerdict":"string","dvEventId":"string","dnsRequest":"string","loginIsAdministratorEquivalent":"string","loginAccountDomain":"string","tiIndicatorType":"string","moduleSha1":"aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"},"sourceProcessInfo":{"integrityLevel":"unknown","pid":"12345","fileHashMd5":"5d41402abc4b2a76b9719d911017c592","filePath":"string","fileSignerIdentity":"string","pidStarttime":"2018-02-27T04:49:26.257525Z","storyline":"string","fileHashSha1":"aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d","uniqueId":"string","user":"string","commandline":"string","name":"string","fileHashSha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","subsystem":"unknown"},"ruleInfo":{"severity":"Low","treatAsThreat":"UNDEFINED","id":"string","scopeLevel":"string","name":"string","description":"string"},"sourceParentProcessInfo":{"integrityLevel":"unknown","pid":"12345","fileHashMd5":"5d41402abc4b2a76b9719d911017c592","filePath":"string","fileSignerIdentity":"string","pidStarttime":"2018-02-27T04:49:26.257525Z","storyline":"string","fileHashSha1":"aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d","uniqueId":"string","user":"string","commandline":"string","name":"string","fileHashSha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824","subsystem":"unknown"},"agentDetectionInfo":{"osFamily":"string","uuid":"string","osName":"string","version":"3.x.x.x","siteId":"123456789123456789","name":"string","machineType":"string","osRevision":"string"},"kubernetesInfo":{"controllerName":"string","node":"string","namespace":"string","namespaceLabels":"string","pod":"string","controllerLabels":"string","controllerKind":"string","cluster":"string","podLabels":"string"},"containerInfo":{"id":"string","name":"string","image":"string","labels":"string"}}'
+    key:
+      - targetProcessInfo.tgtFileCreatedAt
+      - targetProcessInfo.tgtFileIsSigned
+      - targetProcessInfo.tgtFileOldPath
+      - targetProcessInfo.tgtProcImagePath
+  - type: Application
+    sourcetype: sentinel_one_application
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"accountName":"Elastic","applicationInstallationDate":"2023-04-28T07:15:57Z","applicationInstallationPath":null,"applicationName":"7-Zip","coreCount":4,"cpe":"cpe:2.3:a:7-zip:7-zip:22.1:*:*:*:*:*:*:*","cpuCount":2,"detectionDate":"2025-06-02T04:46:51.710561Z","endpointId":"2162143406517023959","endpointName":"DESKTOP-R1E2DQ2","endpointType":"desktop","endpointUuid":"187d5f3c7af341079041baeb9f88a511","fileSize":5601,"groupName":"Default Group","id":"2228104980080385459","osArch":"64 bit","osName":"Windows 10 Pro","osType":"windows","osVersion":"Windows 10 Pro 19044","siteName":"Default site","version":"22.01"}'
+    key:
+      - accountName
+      - applicationInstallationDate
+      - applicationInstallationPath
+      - applicationName
+  - type: Application Risk
+    sourcetype: sentinel_one_application_risk
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"application":"7-Zip 22.01","applicationName":"7-Zip","applicationVendor":"Igor Pavlov","applicationVersion":"22.01","baseScore":"7.00","cveId":"CVE-2025-0411","cvssVersion":"3.1","daysDetected":59,"detectionDate":"2025-06-02T04:46:51.710569Z","endpointId":"2162143406517023959","endpointName":"DESKTOP-R1E2DQ2","endpointType":"desktop","id":"2228104980801805822","lastScanDate":"2025-07-29T19:25:47Z","lastScanResult":"Succeeded","markType":"","markedBy":"abc_host","markedDate":"2025-01-20T07:04:04Z","osType":"windows","publishedDate":"2025-01-20T07:04:04Z","reason":"xyz","severity":"HIGH","status":"Detected"}'
+    key:
+      - application
+      - applicationName
+      - applicationVendor
+      - applicationVersion
+  - type: Group
+    sourcetype: sentinel_one_group
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"createdAt":"2022-04-05T16:01:56.928383Z","creator":"Test User","creatorId":"1234567890123456789","filterId":null,"filterName":null,"id":"1234567890123456789","inherits":true,"isDefault":true,"name":"Default Group","rank":null,"registrationToken":"eyxxxxxxxxxxxxxxxxxxxxkixZxx1xxxxx8xxx2xODA0ZxxxxTIwNjhxxxxxxxxxxxxxxiMWYxx1Ixxnxxxx0=","siteId":"1234567890123456789","totalAgents":1,"type":"static","updatedAt":"2022-04-05T16:01:57.564266Z"}'
+    key:
+      - createdAt
+      - creator
+      - creatorId
+      - filterId
+  - type: Threat
+    sourcetype: sentinel_one_threat
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"agentDetectionInfo":{"accountId":"1234567890123456789","accountName":"Default","agentDetectionState":null,"agentDomain":"WORKGROUP","agentIpV4":"192.0.2.10","agentIpV6":"2001:db8::1","agentLastLoggedInUpn":null,"agentLastLoggedInUserMail":null,"agentLastLoggedInUserName":"","agentMitigationMode":"protect","agentOsName":"linux","agentOsRevision":"1234","agentRegisteredAt":"2022-04-06T08:26:45.515278Z","agentUuid":"fwfbxxxxxxxxxxqcfjfnxxxxxxxxx","agentVersion":"21.x.x","cloudProviders":{},"externalIp":"192.0.2.20","groupId":"1234567890123456789","groupName":"Default Group","siteId":"1234567890123456789","siteName":"Default site"},"agentRealtimeInfo":{"accountId":"1234567890123456789","accountName":"Default","activeThreats":7,"agentComputerName":"test-LINUX","agentDecommissionedAt":null,"agentDomain":"WORKGROUP","agentId":"1234567890123456789","agentInfected":true,"agentIsActive":true,"agentIsDecommissioned":false,"agentMachineType":"server","agentMitigationMode":"detect","agentNetworkStatus":"connected","agentOsName":"linux","agentOsRevision":"1234","agentOsType":"linux","agentUuid":"fwfbxxxxxxxxxxqcfjfnxxxxxxxxx","agentVersion":"21.x.x.1234","groupId":"1234567890123456789","groupName":"Default Group","networkInterfaces":[{"id":"1234567890123456789","inet":["198.51.100.15"],"inet6":["2001:db8::1"],"name":"Ethernet","physical":"00-00-5E-00-53-00"}],"operationalState":"na","rebootRequired":false,"scanAbortedAt":null,"scanFinishedAt":"2022-04-06T09:18:21.090855Z","scanStartedAt":"2022-04-06T08:26:52.838047Z","scanStatus":"finished","siteId":"1234567890123456789","siteName":"Default site","storageName":null},"containerInfo":{"id":null,"image":null,"labels":null,"name":null},"id":"1234567890123456789","indicators":[],"kubernetesInfo":{"cluster":null,"controllerKind":null,"controllerLabels":null,"controllerName":null,"namespace":null,"namespaceLabels":null,"node":null,"pod":null,"podLabels":null},"mitigationStatus":[{"action":"unquarantine","actionsCounters":{"failed":0,"notFound":0,"pendingReboot":0,"success":1,"total":1},"agentSupportsReport":true,"groupNotFound":false,"lastUpdate":"2022-04-06T08:54:17.198002Z","latestReport":"/threats/mitigation-report","mitigationEndedAt":"2022-04-06T08:54:17.101000Z","mitigationStartedAt":"2022-04-06T08:54:17.101000Z","status":"success"},{"action":"kill","actionsCounters":null,"agentSupportsReport":true,"groupNotFound":false,"lastUpdate":"2022-04-06T08:45:55.303355Z","latestReport":null,"mitigationEndedAt":"2022-04-06T08:45:55.297364Z","mitigationStartedAt":"2022-04-06T08:45:55.297363Z","status":"success"}],"threatInfo":{"analystVerdict":"undefined","analystVerdictDescription":"Undefined","automaticallyResolved":false,"browserType":null,"certificateId":"","classification":"Trojan","classificationSource":"Cloud","cloudFilesHashVerdict":"black","collectionId":"1234567890123456789","confidenceLevel":"malicious","createdAt":"2022-04-06T08:45:54.519988Z","detectionEngines":[{"key":"sentinelone_cloud","title":"SentinelOne Cloud"}],"detectionType":"static","engines":["SentinelOne Cloud"],"externalTicketExists":false,"externalTicketId":null,"failedActions":false,"fileExtension":"EXE","fileExtensionType":"Executable","filePath":"default.exe","fileSize":1234,"fileVerificationType":"NotSigned","identifiedAt":"2022-04-06T08:45:53.968000Z","incidentStatus":"unresolved","incidentStatusDescription":"Unresolved","initiatedBy":"agent_policy","initiatedByDescription":"Agent Policy","initiatingUserId":null,"initiatingUsername":null,"isFileless":false},"whiteningOptions":["hash"]}'
+    key:
+      - agentDetectionInfo.accountId
+      - agentDetectionInfo.accountName
+      - agentDetectionInfo.agentDetectionState
+      - agentDetectionInfo.agentDomain
+  - type: Threat Event
+    sourcetype: sentinel_one_threat_event
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"activeContentFileId":"fileid_001","activeContentHash":"hash_001","activeContentPath":"C:\\content\\file1","agentDomain":"domain1","agentGroupId":"group_01","agentId":"agent_001","agentInfected":false,"agentIp":"198.51.100.25","agentIsActive":true,"agentIsDecommissioned":false,"agentMachineType":"x64","agentName":"Agent_1","agentNetworkStatus":"online","agentOs":"Windows 10","agentUuid":"uuid_001","agentVersion":"1.0.5","connectionStatus":"active","createdAt":"2025-10-25T10:15:30Z","direction":"outbound","dnsRequest":"example.com","dnsResponse":"203.0.113.8","dstIp":"203.0.113.40","dstPort":80,"eventType":"network","fileFullName":"C:\\Windows\\explorer.exe","fileId":"file_001","fileMd5":"md5_001","fileSha1":"sha1_001","fileSha256":"sha256_001","fileSize":"1024"}'
+    key:
+      - activeContentFileId
+      - activeContentHash
+      - activeContentPath
+      - agentDomain
+  - type: Unified Alert
+    sourcetype: sentinel_one_unified_alert
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"id":"01911119-abcd-7454-1234-6abcdef67893","aiInvestigation":null,"analystVerdict":"UNDEFINED","analytics":{"category":"Reputation","name":"Agent Policy","typeValue":"STATIC","uid":"analytic-uid-001"},"assets":[{"accessible":true,"agentUuid":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","agentVersion":"192.0.2.20","assetTypeClassifier":"Linux Server","category":"Server","connectivityToConsole":"ONLINE","decommissioned":false,"id":"masked00asset000000000001","lastLoggedInUser":null,"name":"host-masked","origin":"RESOURCES","osType":"LINUX","osVersion":"Linux Ubuntu 24.04.1 LTS 6.8.0-51-generic","pendingReboot":false,"policy":"Default","role":"TARGET","status":"ACTIVE","subcategory":"Other Server"}],"assignee":null,"attackSurfaces":["ENDPOINT"],"availableActionIds":null,"classification":"MALWARE","confidenceLevel":"MALICIOUS","createdAt":"2025-02-04T15:54:59.485Z","dataSources":[],"description":"Linux file events analysis detected a malicious file known to SentinelOne''s Cloud Intelligence","detectedAt":"2025-02-04T15:54:59.485Z","detectionSource":{"product":"CWS","vendor":"SentinelOne"},"detectionTime":{"assets":[{"accessible":true,"asset":null,"cloud":null,"kubernetes":{"clusterName":"prod-cluster-01","containerId":"a1b2c3d4e5f6","containerImageName":"ubuntu:22.04","containerLabels":["app=agent","tier=security"],"containerName":"sentinel-agent","controllerLabels":["app=sentinel"],"controllerName":"sentinel-daemonset","controllerType":"daemonset","namespaceLabels":["env=prod"],"namespaceName":"security","nodeLabels":["node-role=worker"],"nodeName":"worker-node-01","podLabels":["app=sentinel","pod-template-hash=xyz99"],"podName":"sentinel-daemonset-abc12"},"origin":"RESOURCES","scope":{"accountId":"111222333444","accountName":"AccountName","groupName":"Default Group","siteName":"Default site"}}],"attacker":{"host":"attacker.example.com","ip":"198.51.100.15"},"scope":{"accountId":"111222333444","accountName":"AccountName","groupName":"Default Group","siteName":"Default site"},"targetUser":{"domain":"example.com","emailAddress":"user@example.com","name":"John Doe"}},"exclusionHash":null,"externalId":"9876543210987654321","firstSeenAt":"2025-02-04T15:54:59.485Z","lastSeenAt":"2025-03-06T16:42:19.518Z","name":"eicar.com.txt detected as Malware","noteExists":false,"process":{"cmdLine":"/usr/bin/curl -O https://example.com/file.txt","file":{"certSubject":"Example Corp","md5":"5d41402abc4b2a76b9719d911017c592","name":"eicar.com.txt","path":"/tmp/eicar.com.txt","sha1":"aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d","sha256":"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"},"parentName":"curl"},"realTime":{"scope":{"account":{"id":"111222333444","name":"AccountName"},"group":{"id":"3334445556667778889","name":"Default Group"},"site":{"id":"2223334445556667778","name":"Default site"}}},"result":"UNMITIGATED","severity":"MEDIUM","sloDetails":{"timeToResolveData":{"actionComplete":false,"actionDue":30,"completion":3600,"completionTime":null,"status":"IN_PROGRESS","target":60,"targetTime":"2025-02-05T16:00:00.000Z"},"timeToResponseData":{"actionComplete":true,"actionDue":-5,"completion":300,"completionTime":"2025-02-04T16:00:00.000Z","status":"MET","target":15,"targetTime":"2025-02-04T15:55:00.000Z"}},"status":"RESOLVED","storylineId":null,"ticketId":null}'
+    key:
+      - id
+      - aiInvestigation
+      - analystVerdict
+      - analytics.category
 cves:
   - id: CVE-2025-29824
     cvss: 7.8

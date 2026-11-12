@@ -1,0 +1,71 @@
+id: couchbase
+name: Couchbase
+short: Couchbase
+vendor: Couchbase
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - couchbase
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Couchbase is logged by the Elastic integrations package couchbase. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: couchbase_node
+    desc: 'Elastic integrations fixture, 1 events. Upstream: couchbase/data_stream/node/_dev/test/pipeline/test-node-metrics.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: couchbase
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: addressFamily, addressFamilyOnly, clusterCompatibility, clusterMembership, configuredHostname, couchApiBase
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Couchbase events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries addressFamily, addressFamilyOnly, clusterCompatibility, clusterMembership, configuredHostname, couchApiBase. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads couchbase and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Node
+    sourcetype: couchbase_node
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"addressFamily":"inet","addressFamilyOnly":false,"clusterCompatibility":458753,"clusterMembership":"active","configuredHostname":"203.0.113.8:8091","couchApiBase":"http://203.0.113.40:8092/","couchApiBaseHTTPS":"https://192.0.2.10:18092/","cpuCount":4,"externalListeners":[{"afamily":"inet","nodeEncryption":false}],"hostname":"192.0.2.20:8091","interestingStats":{"cmd_get":3,"couch_docs_actual_disk_size":180662848,"couch_docs_data_size":15159455,"couch_spatial_data_size":0,"couch_spatial_disk_size":0,"couch_views_actual_disk_size":769535,"couch_views_data_size":0,"curr_items":15644,"curr_items_tot":15644,"ep_bg_fetched":1,"get_hits":3,"index_data_size":2627525,"index_disk_size":3983391,"mem_used":88866928,"ops":1,"vb_active_num_non_resident":1971,"vb_replica_curr_items":0},"mcdMemoryAllocated":6242,"mcdMemoryReserved":6242,"memoryFree":2721206272,"memoryTotal":8181792768,"nodeEncryption":false,"nodeHash":20429757,"nodeUUID":"101a2dfd1489032e769ba99126a4952f","os":"x86_64-pc-linux-gnu","otpNode":"user@example.com","ports":{"direct":11210,"distTCP":21100,"distTLS":21150,"httpsCAPI":18092,"httpsMgmt":18091},"recoveryType":"none","serverGroup":"Group 1","services":["fts","index"],"status":"healthy","systemStats":{"allocstall":23290,"cpu_cores_available":4,"cpu_stolen_rate":0,"cpu_utilization_rate":35.48799182422075,"mem_free":2721206272,"mem_limit":8181792768,"mem_total":8181792768,"swap_total":4160745472,"swap_used":518635520},"thisNode":true,"uptime":"697032","version":"7.1.0-2556-enterprise"}'
+    key:
+      - addressFamily
+      - addressFamilyOnly
+      - clusterCompatibility
+      - clusterMembership
+cves: []
+detections:
+  - title: Couchbase events arriving
+    severity: low
+    signals:
+      - addressFamily
+      - addressFamilyOnly
+      - clusterCompatibility
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "couchbase_node"'
+optimizations: []
+references:
+  - title: elastic/integrations couchbase/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/couchbase/data_stream/node/_dev/test/pipeline/test-node-metrics.json
+  - title: Pack Generator sample couchbase_node.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/couchbase_node.json

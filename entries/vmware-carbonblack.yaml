@@ -1,0 +1,71 @@
+id: vmware-carbonblack
+name: Vmware Carbonblack
+short: Carbonblack
+vendor: Vmware
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - vmware_carbonblack
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Vmware Carbonblack is logged by the Splunk Connect for Syslog package vmware_carbonblack. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: carbon_black_app_control
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_vmware_carbonblack.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: vmware_carbonblack
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, text, type, subtype, hostname, username
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Vmware Carbonblack events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, text, type, subtype, hostname, username. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads vmware_carbonblack and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Carbon Black App Control
+    sourcetype: carbon_black_app_control
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<134>1 2026-06-15T13:45:07.123456+00:00 sc4s-lab-01 - - - - Carbon Black App Control event:  text="File ''c:\program files\azure advanced threat protection sensor\2.175.15073.51407\winpcap\x86\packet.dll'' [c4e671bf409076a6bf0897e8a11e6f1366d4b21bf742c5e5e116059c9b571363] would have blocked if the rule was not in Report Only mode." type="Policy Enforcement" subtype="Execution block (unapproved file)" hostname="CORP\USER" username="NT AUTHORITY\SYSTEM" date="3/30/2022 3:16:40 PM" ip_address="192.0.2.20" process="c:\program files\azure advanced threat protection sensor\2.175.15073.51407\microsoft.tri.sensor.updater.exe" file_path="c:\program files\azure advanced threat protection sensor\2.175.15073.51407\winpcap\x86\packet.dll" file_name="packet.dll" file_hash="c4e671bf409076a6bf0897e8a11e6f1366d4b21bf742c5e5e116059c9b571363" policy="High Enforcement - Domain Controllers" rule_name="Report read-only memory map operations on unapproved executables by .NET applications" process_key="00000433-0000-23d8-01d8-44491b26f203" server_version="198.51.100.15" file_trust="-2" file_threat="-2" process_trust="-2" process_threat="-2" prevalence="50"'
+    key:
+      - text
+      - type
+      - subtype
+      - hostname
+cves: []
+detections:
+  - title: Vmware Carbonblack events arriving
+    severity: low
+    signals:
+      - header
+      - text
+      - type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "carbon_black_app_control"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_vmware_carbonblack.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_vmware_carbonblack.py
+  - title: Pack Generator sample carbon_black_app_control.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/carbon_black_app_control.json

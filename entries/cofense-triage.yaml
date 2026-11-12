@@ -1,0 +1,71 @@
+id: cofense-triage
+name: Cofense Triage
+short: Cofense Triage
+vendor: Cofense
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cofense_triage
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Cofense Triage is logged by the Datadog integrations-core package cofense_triage. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cofense_triage
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: cofense_triage/assets/logs/cofense-triage_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cofense_triage
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: relationships.owner.links.related, relationships.owner.links.self, relationships.reports.links.related, relationships.reports.links.self, relationships.comments.links.related, relationships.comments.links.self
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cofense Triage events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries relationships.owner.links.related, relationships.owner.links.self, relationships.reports.links.related, relationships.reports.links.self, relationships.comments.links.related, relationships.comments.links.self. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cofense_triage and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Cofense Triage
+    sourcetype: cofense_triage
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"relationships":{"owner":{"links":{"related":"https://triage.example.com/api/public/v2/threat_indicators/17/owner","self":"https://triage.example.com/api/public/v2/threat_indicators/17/relationships/owner"}},"reports":{"links":{"related":"https://triage.example.com/api/public/v2/threat_indicators/17/reports","self":"https://triage.example.com/api/public/v2/threat_indicators/17/relationships/reports"}},"comments":{"links":{"related":"https://triage.example.com/api/public/v2/threat_indicators/17/comments","self":"https://triage.example.com/api/public/v2/threat_indicators/17/relationships/comments"}}},"links":{"self":"https://triage.example.com/api/public/v2/threat_indicators/17"},"attributes":{"threat_level":"Malicious","threat_source":"Triage-UI","updated_at":"2020-10-30T20:58:55.383Z","threat_value":"example.com","threat_type":"Hostname","created_at":"2020-10-30T20:58:55.377Z"},"id":"17","type":"threat_indicators"}'
+    key:
+      - relationships.owner.links.related
+      - relationships.owner.links.self
+      - relationships.reports.links.related
+      - relationships.reports.links.self
+cves: []
+detections:
+  - title: Cofense Triage events arriving
+    severity: low
+    signals:
+      - relationships.owner.links.related
+      - relationships.owner.links.self
+      - relationships.reports.links.related
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cofense_triage"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cofense_triage/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cofense_triage/assets/logs/cofense-triage_tests.yaml
+  - title: Pack Generator sample cofense_triage.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cofense_triage.json

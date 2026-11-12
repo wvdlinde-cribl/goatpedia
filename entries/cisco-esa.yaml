@@ -37,6 +37,8 @@ sourcetypes:
     desc: Splunk Add-on for Cisco ESA name for admin authentication logs
   - st: cisco:esa:http
     desc: Splunk Add-on for Cisco ESA name for HTTP (GUI) logs — sessions and pages accessed
+  - st: cisco_esa_cef
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_cisco_esa.py'
 facts:
   First released: 2003 (IronPort C-Series); Cisco acquired IronPort in 2007
   OS: AsyncOS for Email (current trains 15.5 / 16.0)
@@ -175,6 +177,16 @@ logs:
       - pri
       - log_name
     sample: '<38>Nov 12 09:20:11 authentication_logs: Info: User admin failed authentication.'
+  - type: Cisco Esa Cef
+    sourcetype: cisco_esa_cef
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: 'Jun 15 13:45:07 sc4s-lab-01: CEF:0|Cisco|C100V Email Security Virtual Appliance|13.0.0-283|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5| cs6Label=sc4s-lab-01 cs6=Weak deviceExternalId=111111111111-ZZZZZZZZZZZ ESAMID=81 startTime=Mon Aug 10 09:26:47 2020 deviceInboundInterface=Incoming ESADMARCVerdict=Skipped dvc=203.0.113.8 ESAAttachmentDetails={''sample_ESA_attachment'':   {''AMP'': {''Verdict'': ''FILE UNKNOWN'', ''fileHash'': ''c4b06a7c1886e6785b19a5e59d595b3e6fb38be4903b55b06087948db2a4dc8b''},  ''BodyScanner'': {}}} ESAFriendlyFrom=sample_user deviceDirection=0 ESAMailFlowPolicy=ACCEPT suser=sample_user cs1Label=MailPolicy cs1=DEFAULT act=DQ ESAFinalActionDetails=To POLICY cs4Label=ExternalMsgID cs4=''<dummy@cs4>'' duser=sample_duser ESAHeloIP=203.0.113.40 cfp1Label=SBRSScore cfp1=None ESASDRDomainAge=50 years 10 months 17 days cs3Label=SDRThreatCategory cs3=N/A ESASPFVerdict=None sourceHostName=unknown ESASenderGroup=UNKNOWNLIST sourceAddress=192.0.2.10 ESAICID=91 cs5Label=ESAMsgLanguage cs5=English msg=This is a sample subject cs2Label=GeoLocation cs2=India ESAMsgTooBigFromSender=true ESARateLimitedIP=192.0.2.20 ESADHASource=198.51.100.15 ESAHeloDomain=test.com ESATLSOutConnStatus=Success ESATLSOutProtocol=TLSv1.2 ESATLSOutCipher=ECDHE-RSA-AES128-GCM-SHA256 ESATLSInConnStatus=Success ESATLSInProtocol=TLSv1.2 ESATLSInCipher=ECDHE-RSA-AES128-GCM-SHA256 ESADKIMVerdict=None ESAReplyTo=user@example.com ESAASVerdict=SOCIAL_MAIL ESAAMPVerdict=UNSCANNABLE ESAAVVerdict=UNSCANNABLE ESAGMVerdict=POSITIVE ESACFVerdict=MATCH ESAOFVerdict=POSITIVE ESADLPVerdict=VIOLATION ESAURLDetails={url1:{expanded_url: sample_expanded_url, category: sample_category, wbrs_score: 45, in_attachment: dummy_attachment_file, Attachment_with_url: www.sample.attachment.url.com,},url2:{…}} ESAMARAction= {action:failure;succesful_rcpts=0;failed_recipients=41;filename=dummy_filename.txt} Message Filters Verdict=NO MATCH ESADCID=857 EndTime=Mon Aug 10 09:26:47 2020 ESADaneStatus=failure ESADaneHost=testdomain.com'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
 cves:
   - id: CVE-2025-20393
     cvss: 10

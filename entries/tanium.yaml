@@ -1,0 +1,143 @@
+id: tanium
+name: Tanium
+short: Tanium
+vendor: Tanium
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - tanium
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Tanium is logged by the Datadog integrations-core package tanium. The Pack Generator samples pool holds fixture events for 7 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: tanium
+    desc: 'Datadog integrations-core fixture, 13 events. Upstream: tanium/assets/logs/tanium_tests.yaml'
+  - st: tanium_action_history
+    desc: 'Elastic integrations fixture, 1 events. Upstream: tanium/data_stream/action_history/_dev/test/pipeline/test-action-history.log'
+  - st: tanium_client_status
+    desc: 'Elastic integrations fixture, 1 events. Upstream: tanium/data_stream/client_status/_dev/test/pipeline/test-client-status.log'
+  - st: tanium_discover
+    desc: 'Elastic integrations fixture, 1 events. Upstream: tanium/data_stream/discover/_dev/test/pipeline/test-discover.log'
+  - st: tanium_endpoint_config
+    desc: 'Elastic integrations fixture, 3 events. Upstream: tanium/data_stream/endpoint_config/_dev/test/pipeline/test-endpoint-config.log'
+  - st: tanium_reporting
+    desc: 'Elastic integrations fixture, 1 events. Upstream: tanium/data_stream/reporting/_dev/test/pipeline/test-reporting.log'
+  - st: tanium_threat_response
+    desc: 'Elastic integrations fixture, 7 events. Upstream: tanium/data_stream/threat_response/_dev/test/pipeline/test-threat-response.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: tanium
+  Sourcetypes: '7'
+  Fixture events: '27'
+  Log format seen: json
+  Fields in the first fixture: eid, ackedAt, groupingId, matchType, type, receivedAt
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Tanium events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries eid, ackedAt, groupingId, matchType, type, receivedAt. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads tanium and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Tanium
+    sourcetype: tanium
+    format: json
+    desc: 13 fixture events in the samples pool (logtest).
+    sample: '{"eid":1,"ackedAt":"2024-12-26T06:26:52.692Z","groupingId":2,"matchType":"process","type":"detect.match","receivedAt":"2024-12-26T06:20:09.415Z","lastEIDResolutionAttempt":"2024-12-26T06:20:17.210Z","scanConfigRevisionId":1,"path":"C:\\test.exe","createdAt":"2024-12-26T06:20:09.636Z","alertedAt":"2024-12-26T06:15:52.000Z","Endpoint":{"id":2},"computerName":"AssetTag-EID","details":"","scanConfigId":2,"id":2,"state":"unresolved","intelDocId":79,"updatedAt":"2024-12-26T06:26:52.699Z","severity":"info","findingId":"","priority":"high","firstEIDResolutionAttempt":"2024-12-26T06:20:17.210Z","intelDocRevisionId":1,"guid":"00000000-0000-0000-0000-000000000001","computerIpAddress":"203.0.113.8","intelDoc":{"sourceId":9,"disabledEndpointCount":0,"isSchemaValid":true,"description":"Control panel items can be used to execute arbitrary code and is a well known bypass mechanism for red teams and attackers.","source":{"createdAt":"2024-12-19T18:26:29.536Z","nameSlug":"tanium-signals","name":"Tanium Signals","description":"Tanium authored Signals stream","id":9,"type":"tanium-signals","enabled":true,"updatedAt":"2025-01-06T09:34:08.431Z"},"type":"tanium-signal","intrinsicId":"Control Panel Items","platforms":["windows"],"revisionId":1,"createdAt":"2024-12-19T18:26:40.490Z","typeVersion":"1.0","mitreAttack":{"techniques":[{"name":"System Binary Proxy Execution","id":"T1218"},{"name":"System Binary Proxy Execution: Control Panel","id":"T1218.002"}]},"size":1116,"lastDeploymentTimestamp":"2024-12-19T18:37:38.550Z","name":"Control Panel Items","allowAutoDisable":true,"firstDeploymentTimestamp":"2024-12-19T18:37:38.550Z","throttledFindingCount":0,"disabled":false,"id":79,"updatedAt":"2024-12-19T20:46:41.889Z","status":"HIGH_FIDELITY"}}'
+    key:
+      - eid
+      - ackedAt
+      - groupingId
+      - matchType
+  - type: Action History
+    sourcetype: tanium_action_history
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"Issuer":"tanium","SourceId":12,"Expiration":"2022-10-04T17:38:42","ActionName":"DeployClientConfigurationandSupport[Mac](universal)","Command":"/bin/sh-c''chmodu+xTaniumCX&&./TaniumCXbootstrap--zipbootstrap.zip''","Approver":"tanium","Status":"Closed","DistributeOver":"1minutes","PackageName":"ClientConfigurationandSupport[Mac](universal)","Comment":"","StartTime":"2022-10-04T16:38:42","InsertTime":"2022-10-04T16:38:48","ActionId":6058}'
+    key:
+      - Issuer
+      - SourceId
+      - Expiration
+      - ActionName
+  - type: Client Status
+    sourcetype: tanium_client_status
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"Status":"Leader","LastRegistration":"2022-10-07T09:20:08","ProtocolVersion":315,"ValidKey":1,"ComputerId":"4008511043","HostName":"dhcp-client02.local","ClientNetworkLocation":"203.0.113.40","ServerNetworkLocation":"192.0.2.10","RegisteredWithTLS":1,"SendState":"None","ReceiveState":"None","FullVersion":"192.0.2.20"}'
+    key:
+      - Status
+      - LastRegistration
+      - ProtocolVersion
+      - ValidKey
+  - type: Discover
+    sourcetype: tanium_discover
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"id":1,"MacAddress":"00-00-5E-00-53-00","MacOrganization":"VMware, Inc.","IpAddress":"198.51.100.15","NatIpAddress":"198.51.100.25","HostName":"otelco7_46.test.local","Labels":"","Locations":"","TaniumComputerId":1558993994,"Ports":"22,41000","Os":"Linux","OsGeneration":null,"Managed":1,"Unmanageable":0,"Arp":0,"Nmap":0,"Ping":0,"Connected":0,"AwsApi":0,"CentralizedNmap":0,"SatelliteNmap":0,"CreatedAt":"2022-11-18 09:30:26 +00:00","UpdatedAt":"2022-11-18 10:10:57 +00:00","FirstManagedAt":null,"LastManagedAt":"2022-11-18 10:10:57 +00:00","LastDiscoveredAt":null,"Profile":null,"SatelliteDecId":null,"SatelliteName":null}'
+    key:
+      - id
+      - MacAddress
+      - MacOrganization
+      - IpAddress
+  - type: Endpoint Config
+    sourcetype: tanium_endpoint_config
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"2022-11-02T12:41:21.184847290Z","action":"AUDIT_ACTION_CREATED","user":{"user_id":8,"persona_id":0},"config_item":{"id":1,"domain":"endpoint-config","data_category":"tools","description":"cx-configToolset"},"module":{"solution_id":"01-080-0332","solution_context_id":""},"manifest":{"windows_saved_action_id":18,"non_windows_saved_action_id":19,"manifest_revision":1,"service_uuid":"da6c1f02-71e1-4f4b-bc11-61b0ea85c0ab","item_count":1,"items":[{"domain":"endpoint-config","data_category":"tools","ids":[1]}]}}'
+    key:
+      - timestamp
+      - action
+      - user.user_id
+      - user.persona_id
+  - type: Reporting
+    sourcetype: tanium_reporting
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"Computer Name":"localhost","OS Platform":"Linux","Operating System":"CentOS Linux release 7.9.2009 (Core)","Virtual Platform":"VMware Virtual Platform","Is Virtual":"Yes","Manufacturer":"VMware, Inc.","Model":"VMware Virtual Platform","Count":3}'
+    key:
+      - Computer Name
+      - OS Platform
+      - Operating System
+      - Virtual Platform
+  - type: Threat Response
+    sourcetype: tanium_threat_response
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"id":1181,"table":"LiveConnection","rowId":null,"revision":null,"state":"{\"connectionId\":\"remote:worker-1:2471612214:2\",\"target\":{\"hostname\":\"worker-2\",\"eid\":\"3\"},\"sessionId\":\"bdb90d9c-7165-48f0-b445-2876a12cbc06\"}","userId":5,"userName":"tanium","action":"create","createdAt":"2022-12-28T09:49:16.002Z","updatedAt":"2022-12-28T09:49:16.002Z"}'
+    key:
+      - id
+      - table
+      - rowId
+      - revision
+cves: []
+detections:
+  - title: Tanium events arriving
+    severity: low
+    signals:
+      - eid
+      - ackedAt
+      - groupingId
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "tanium"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core tanium/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/tanium/assets/logs/tanium_tests.yaml
+  - title: Pack Generator sample tanium.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tanium.json

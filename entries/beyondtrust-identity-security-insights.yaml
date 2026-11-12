@@ -1,0 +1,71 @@
+id: beyondtrust-identity-security-insights
+name: Beyondtrust Identity Security Insights
+short: Insights
+vendor: Beyondtrust
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - beyondtrust_identity_security_insights
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Beyondtrust Identity Security Insights is logged by the Datadog integrations-core package beyondtrust_identity_security_insights. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: beyondtrust_identity_security_insights
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: beyondtrust_identity_security_insights/assets/logs/beyondtrust-identity-security-insights_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: beyondtrust_identity_security_insights
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: severity, entityType, entityName, incidentType, link, tenantId
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Beyondtrust Identity Security Insights events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries severity, entityType, entityName, incidentType, link, tenantId. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads beyondtrust_identity_security_insights and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Beyondtrust Identity Security Insights
+    sourcetype: beyondtrust_identity_security_insights
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"severity":"Critical","entityType":"account","entityName":"user@example.com","incidentType":"Detection","link":"https://app.beyondtrust.io/insights/dfrijfr/detections/details/f17987fed-81c9-46f2-8157-67ca3ca2a6b8/instance/1c77442c780bfb068550f6e8c35bec6e","tenantId":"7945s164-2f4b-45a7-8eca-44d36144f061","location":"okta/https://trial-1345678.okta.com","source":"okta/https://trial-1345678.okta.com","incidentId":"1c77442b840bfb068550f6e8c35bec6e","definitionId":"f1201fed-46c9-46f2-8157-67ca3ca2a6b8","timestamp":"07/02/2025 12:45:14"}'
+    key:
+      - severity
+      - entityType
+      - entityName
+      - incidentType
+cves: []
+detections:
+  - title: Beyondtrust Identity Security Insights events arriving
+    severity: low
+    signals:
+      - severity
+      - entityType
+      - entityName
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "beyondtrust_identity_security_insights"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core beyondtrust_identity_security_insights/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/beyondtrust_identity_security_insights/assets/logs/beyondtrust-identity-security-insights_tests.yaml
+  - title: Pack Generator sample beyondtrust_identity_security_insights.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_identity_security_insights.json

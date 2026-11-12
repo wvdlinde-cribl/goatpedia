@@ -1,0 +1,71 @@
+id: azure-openai
+name: Azure Openai
+short: Azure Openai
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_openai
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure Openai is logged by the Elastic integrations package azure_openai. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_openai
+    desc: 'Elastic integrations fixture, 6 events. Upstream: azure_openai/data_stream/logs/_dev/test/pipeline/test-open-ai-gateway.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure_openai
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: DeploymentVersion, Level, Sku, callerIpAddress, category, correlationId
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure Openai events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries DeploymentVersion, Level, Sku, callerIpAddress, category, correlationId. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure_openai and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Logs
+    sourcetype: azure_openai
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"DeploymentVersion":"0.44.18652.0","Level":4,"Sku":"Basic","callerIpAddress":"203.0.113.40","category":"GatewayLogs","correlationId":"99789635-18d0-480f-8182-a3a3c477a6a4","durationMs":176,"isRequestSuccess":true,"location":"East US","operationName":"Microsoft.ApiManagement/GatewayLogs","properties":{"apiId":"azure-openai-service-api","apiRevision":"1","backendMethod":"POST","backendProtocol":"HTTP/1.1","backendRequestBody":"{\"model\": \"gpt-chat-pilot\", \"messages\": [{\"role\": \"user\", \"content\": \"capital of tamilnadu?\"}]}","backendResponseBody":"{\"choices\":[{\"content_filter_results\":{\"custom_blocklists\":[],\"hate\":{\"filtered\":true,\"severity\":\"low\"},\"profanity\":{\"filtered\":false,\"detected\":false},\"self...","backendResponseCode":200,"backendTime":176,"backendUrl":"https://obs-openai-test-01.openai.azure.com/openai/deployments/gpt-chat-pilot/chat/completions?api-version=2024-02-15-preview","cache":"none","clientProtocol":"HTTP/1.1","clientTlsVersion":"1.3","method":"POST","operationId":"ChatCompletions_Create","requestBody":"{\"model\": \"gpt-chat-pilot\", \"messages\": [{\"role\": \"user\", \"content\": \"capital of tamilnadu?\"}]}","requestSize":536,"responseBody":"{\"choices\":[{\"content_filter_results\":{\"custom_blocklists\":[],\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"profanity\":{\"filtered\":false,\"detected\":false},\"se...","responseCode":200,"responseSize":1604,"url":"https://azure-openai-apm.azure-api.net/deployments/gpt-chat-pilot/chat/completions?api-version=2024-02-15-preview"},"resourceId":"/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/OBS-OPENAI-APIM-TEST/PROVIDERS/MICROSOFT.APIMANAGEMENT/SERVICE/AZURE-OPENAI-APM","resultType":"Succeeded","time":"2024-07-02T06:31:31.4465902Z","truncated":0}'
+    key:
+      - DeploymentVersion
+      - Level
+      - Sku
+      - callerIpAddress
+cves: []
+detections:
+  - title: Azure Openai events arriving
+    severity: low
+    signals:
+      - DeploymentVersion
+      - Level
+      - Sku
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_openai"'
+optimizations: []
+references:
+  - title: elastic/integrations azure_openai/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_openai/data_stream/logs/_dev/test/pipeline/test-open-ai-gateway.log
+  - title: Pack Generator sample azure_openai.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_openai.json

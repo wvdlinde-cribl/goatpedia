@@ -1,0 +1,71 @@
+id: f5-distributed-cloud
+name: F5 Distributed Cloud
+short: Cloud
+vendor: F5
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - f5-distributed-cloud
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: F5 Distributed Cloud is logged by the Datadog integrations-extras package f5-distributed-cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: f5_distributed_cloud
+    desc: 'Datadog integrations-extras fixture, 4 events. Upstream: f5-distributed-cloud/assets/logs/f5-distributed-cloud-services_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: f5-distributed-cloud
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: country, kubernetes.container_name, kubernetes.host, kubernetes.pod_id, kubernetes.labels.app, kubernetes.namespace_name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: F5 Distributed Cloud events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries country, kubernetes.container_name, kubernetes.host, kubernetes.pod_id, kubernetes.labels.app, kubernetes.namespace_name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads f5-distributed-cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: F5 Distributed Cloud
+    sourcetype: f5_distributed_cloud
+    format: json
+    desc: 4 fixture events in the samples pool (logtest_extras).
+    sample: '{"country":"PRIVATE","kubernetes":{"container_name":"obelix","host":"master-1","pod_id":"132fa205-2e95-4992-9946-3d5c564e00c7","labels":{"app":"obelix"},"namespace_name":"ves-system","pod_name":"obelix-jmmxx"},"app_type":"","browser_type":"Go-http-client","_visitor_id":"3787e39f1bc8ab68dea0852628e057fe","device_type":"Other","req_headers_size":281,"req_id":"0bde7c0d-9d71-424f-bda1-d2eb083ea115","path":"/","enforcement_mode":"Blocking","hostname":"master-1","app_firewall_name":"kristyfw","src_instance":"UNKNOWN","req_headers":{"Scheme":"https","X-Request-Id":"0bde7c0d-9d71-424f-bda1-d2eb083ea115","User-Agent":"Go-http-client/1.1","X-Forwarded-Proto":"https","X-Forwarded-For":"203.0.113.8","Host":"kristy.xc.aserracorp.com","Accept-Encoding":"gzip","Method":"GET","X-F5-Request-Id":"0bde7c0d-9d71-424f-bda1-d2eb083ea115","X-Envoy-External-Address":"203.0.113.40"},"action":"allow","tag":"svcfw.obelixd.secevent","vhost_id":"ef858b1f-10f0-4495-9553-ade94535e3bd","tenant":"f5-bd-rwaldxii","longitude":"PRIVATE","app":"obelix","method":"GET","as_number":"0","http_version":"HTTP/1.1","dst_instance":"","x_forwarded_for":"192.0.2.10","rsp_size":"300","api_endpoint":"UNKNOWN","sec_event_name":"WAF","authority":"kristy.xc.aserracorp.com","domain":"kristy.xc.aserracorp.com"}'
+    key:
+      - country
+      - kubernetes.container_name
+      - kubernetes.host
+      - kubernetes.pod_id
+cves: []
+detections:
+  - title: F5 Distributed Cloud events arriving
+    severity: low
+    signals:
+      - country
+      - kubernetes.container_name
+      - kubernetes.host
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "f5_distributed_cloud"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras f5-distributed-cloud/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/f5-distributed-cloud/assets/logs/f5-distributed-cloud-services_tests.yaml
+  - title: Pack Generator sample f5_distributed_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/f5_distributed_cloud.json

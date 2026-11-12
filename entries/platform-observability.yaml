@@ -1,0 +1,83 @@
+id: platform-observability
+name: Platform Observability
+short: Observability
+vendor: Platform
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - platform_observability
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Platform Observability is logged by the Elastic integrations package platform_observability. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: platform_observability_kibana_audit
+    desc: 'Elastic integrations fixture, 1 events. Upstream: platform_observability/data_stream/kibana_audit/_dev/test/pipeline/test-kibana-audit-logs.log'
+  - st: platform_observability_kibana_log
+    desc: 'Elastic integrations fixture, 2 events. Upstream: platform_observability/data_stream/kibana_log/_dev/test/pipeline/test-kibana-logs.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: platform_observability
+  Sourcetypes: '2'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: event.action, event.category[0], event.outcome, http.request.method, url.domain, url.path
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Platform Observability events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event.action, event.category[0], event.outcome, http.request.method, url.domain, url.path. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads platform_observability and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Kibana Audit
+    sourcetype: platform_observability_kibana_audit
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"event":{"action":"http_request","category":["web"],"outcome":"unknown"},"http":{"request":{"method":"get"}},"url":{"domain":"localhost","path":"/internal/security/session","port":5601,"scheme":"http"},"user":{"name":"elastic","roles":["superuser"]},"kibana":{"space_id":"default","session_id":"ccZ0sbxrmmJwo+/y2Mn1tmGIrKOuZYaF8voUh0SkA/k="},"trace":{"id":"1c8c5808-d2d6-41fc-8cb7-998aa8996be9"},"ecs":{"version":"8.0.0"},"@timestamp":"2022-06-29T12:05:03.742+00:00","message":"User is requesting [/internal/security/session] endpoint","log":{"level":"INFO","logger":"plugins.security.audit.ecs"},"process":{"pid":7},"transaction":{"id":"f8863d86567119e6"}}'
+    key:
+      - event.action
+      - event.category[0]
+      - event.outcome
+      - http.request.method
+  - type: Kibana Log
+    sourcetype: platform_observability_kibana_log
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"ecs":{"version":"8.0.0"},"@timestamp":"2022-06-29T11:24:17.898+00:00","message":"Trying to authenticate user request to /login.","log":{"level":"DEBUG","logger":"plugins.security.http"},"process":{"pid":7},"trace":{"id":"e6e1c25936546ec690b11a3b78b2a8db"},"transaction":{"id":"3be6994d7f6d5465"}}'
+    key:
+      - ecs.version
+      - '@timestamp'
+      - message
+      - log.level
+cves: []
+detections:
+  - title: Platform Observability events arriving
+    severity: low
+    signals:
+      - event.action
+      - event.category[0]
+      - event.outcome
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "platform_observability_kibana_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations platform_observability/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/platform_observability/data_stream/kibana_audit/_dev/test/pipeline/test-kibana-audit-logs.log
+  - title: Pack Generator sample platform_observability_kibana_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/platform_observability_kibana_audit.json

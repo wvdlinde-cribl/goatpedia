@@ -1,0 +1,67 @@
+id: ray
+name: Ray
+short: Ray
+vendor: Ray
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ray
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Ray is logged by the Datadog integrations-core package ray. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ray
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: ray/assets/logs/ray_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ray
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ray events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ray and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Ray
+    sourcetype: ray
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: '[2023-08-29 08:30:56,041 W 325 362] (python-core-worker-c868e54d820f1c7753223de1a1c88a1e805e2478ddb1453efa390d55) reference_count.cc:396: Tried to decrease ref count for nonexistent object ID: 685e172318b7aa3448435dc2817a544720a5639a0100000003000000'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Ray events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ray"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ray/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ray/assets/logs/ray_tests.yaml
+  - title: Pack Generator sample ray.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ray.json

@@ -1,0 +1,71 @@
+id: twingate
+name: Twingate
+short: Twingate
+vendor: Twingate
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - twingate
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Twingate is logged by the Datadog integrations-extras package twingate. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: twingate
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: twingate/assets/logs/twingate_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: twingate
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: event_type, connector.name, connector.id, resource.address, resource.id, resource.applied_rule
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Twingate events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries event_type, connector.name, connector.id, resource.address, resource.id, resource.applied_rule. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads twingate and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Twingate
+    sourcetype: twingate
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"event_type":"established_connection","connector":{"name":"fine-jackal","id":"41731"},"resource":{"address":"www.twingate.com","id":"504252","applied_rule":"www.twingate.com"},"relays":[{"port":30000,"ip":"192.0.2.20","name":"relaybalancer+https://relays.stg.opstg.com"},{"port":30001,"ip":"198.51.100.15","name":"relaybalancer+https://relays.stg.opstg.com"}],"connection":{"protocol":"tcp","resource_port":443,"client_geo":{"continent":{"code":"EU","name":"Europe"},"country":{"name":"United Kingdom","iso_code":"GB"},"subdivision":{"name":"England"},"as":{"number":"AS56478","route":"203.0.113.8/21","domain":"hyperoptic.com","name":"Hyperoptic Ltd","type":"isp"},"city":{"name":"London"},"timezone":"Europe/London","ipAddress":"203.0.113.40","location":{"latitude":51.5085,"longitude":-0.1257}},"client_ip":"192.0.2.10","cbct_freshness":176,"id":"ba8d113d-6226187c-a-5000100-634fd731-7dcd8","resource_ip":"192.0.2.20"},"journald":{"_PID":"369075","_SYSTEMD_INVOCATION_ID":"79fe4f1561d24c7e97ef10981e97a85d","_CAP_EFFECTIVE":"0","PRIORITY":"6","_SYSTEMD_CGROUP":"/system.slice/twingate-connector.service","_GID":"65326","_SELINUX_CONTEXT":"unconfined\n","_MACHINE_ID":"5a282c8a612e4ce89d37357ab9799753","_COMM":"twingate-connec","_STREAM_ID":"ac0d02dbe26046508ed18e06ba50b941","_BOOT_ID":"22d374d78ac34ffb86b955ebf0524bb1","_SYSTEMD_UNIT":"twingate-connector.service","_TRANSPORT":"stdout","_CMDLINE":"/usr/bin/twingate-connector --systemd-watchdog","SYSLOG_IDENTIFIER":"twingate-connector","_SYSTEMD_SLICE":"system.slice","SYSLOG_FACILITY":"3","_UID":"65326","_HOSTNAME":"ip-172-30-2-209","_EXE":"/usr/bin/twingate-connector"},"user":{"id":"13610","email":"user@example.com"},"device":{"id":"86813"},"remote_network":{"name":"datadog partner","id":"90490"},"timestamp":1666176817571}'
+    key:
+      - event_type
+      - connector.name
+      - connector.id
+      - resource.address
+cves: []
+detections:
+  - title: Twingate events arriving
+    severity: low
+    signals:
+      - event_type
+      - connector.name
+      - connector.id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "twingate"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras twingate/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/twingate/assets/logs/twingate_tests.yaml
+  - title: Pack Generator sample twingate.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/twingate.json

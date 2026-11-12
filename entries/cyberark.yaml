@@ -1,0 +1,83 @@
+id: cyberark
+name: Cyberark
+short: Cyberark
+vendor: Cyberark
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cyberark
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - cef
+summary: Cyberark is logged by the Splunk Connect for Syslog package cyberark. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cyberark_epv_cef
+    desc: 'Splunk Connect for Syslog fixture, 4 events. Upstream: tests/test_cyberark.py'
+  - st: cyberark_pta_cef
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_cyberark.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: cyberark
+  Sourcetypes: '2'
+  Fixture events: '6'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cyberark events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads cyberark and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Cyberark Epv Cef
+    sourcetype: cyberark_epv_cef
+    format: cef
+    desc: 4 fixture events in the samples pool (sc4s).
+    sample: <111>1 2026-06-15T13:45:07Z sc4s-lab-01 CEF:0|Cyber-Ark|Vault|9.20.0000|7|Logon|5|act="Logon" suser=PasswordManager fname= dvc= shost=192.0.2.20 dhost= duser= externalId= app= reason= cs1Label="Affected User Name" cs1= cs2Label="Safe Name" cs2= cs3Label="Device Type" cs3=11111 cs4Label="Database" cs4=222222 cs5Label="Other info" cs5= cn1Label="Request Id" cn1= cn2Label="Ticket Id" cn2=  msg=
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Cyberark Pta Cef
+    sourcetype: cyberark_pta_cef
+    format: cef
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <111>Jun 15 13:45:07 sc4s-lab-01 CEF:0|CyberArk|PTA|2.6.1|20|Privileged account anomaly|8|cs1Label=incidentId cs1=55a32ed8e4b0e4a90114e12c start=1436755482000 deviceCustomDate1Label=detectionDate deviceCustomDate1=1436759065017 msg=Incident updated. Now contains 7 anomalies cs2Label=link cs2=https://198.51.100.15/incidents/55a32ed8e4b0e4a90114e12c
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Cyberark events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cyberark_epv_cef"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_cyberark.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_cyberark.py
+  - title: Pack Generator sample cyberark_epv_cef.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyberark_epv_cef.json

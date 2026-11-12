@@ -1,0 +1,95 @@
+id: trellix-epo-cloud
+name: Trellix Epo Cloud
+short: Cloud
+vendor: Trellix
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - trellix_epo_cloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Trellix Epo Cloud is logged by the Elastic integrations package trellix_epo_cloud. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: trellix_epo_cloud
+    desc: 'Elastic integrations fixture, 3 events. Upstream: trellix_epo_cloud/data_stream/event/_dev/test/pipeline/test-pipeline-event.log'
+  - st: trellix_epo_cloud_device
+    desc: 'Elastic integrations fixture, 4 events. Upstream: trellix_epo_cloud/data_stream/device/_dev/test/pipeline/test-device.log'
+  - st: trellix_epo_cloud_group
+    desc: 'Elastic integrations fixture, 2 events. Upstream: trellix_epo_cloud/data_stream/group/_dev/test/pipeline/test-group.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: trellix_epo_cloud
+  Sourcetypes: '3'
+  Fixture events: '9'
+  Log format seen: json
+  Fields in the first fixture: id, type, links.self, attributes.timestamp, attributes.autoguid, attributes.detectedutc
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Trellix Epo Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, type, links.self, attributes.timestamp, attributes.autoguid, attributes.detectedutc. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads trellix_epo_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: trellix_epo_cloud
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"0102be3a-41db-448c-9a68-bce7c480d443","type":"MVEvents","links":{"self":"/epo/v2/events/0102be3a-41db-448c-9a68-bce7c480d443"},"attributes":{"timestamp":"2023-04-06T23:36:14.041Z","autoguid":"9fcf439b-82d7-425c-1234-abcdefghijklmn","detectedutc":"1680823939000","receivedutc":"1680824174041","agentguid":"8630b925-cbd2-ed11-1234-abcdefghijklmn","analyzer":"ENDP_AM_1070LYNX","analyzername":"Trellix Endpoint Security","analyzerversion":"198.51.100.15","analyzerhostname":"ub20","analyzeripv4":"198.51.100.25","analyzeripv6":"/2001:db8::1","analyzermac":"00005E005300","analyzerdatversion":"5298.0","analyzerengineversion":"6600.9927","analyzerdetectionmethod":"quick scan","sourcehostname":null,"sourceipv4":"203.0.113.8","sourceipv6":"/2001:db8::1","sourcemac":"00005E005300","sourceusername":null,"sourceprocessname":null,"sourceurl":"https://example.com","targethostname":null,"targetipv4":"203.0.113.40","targetipv6":"/2001:db8::1","targetmac":"00005E005300","targetusername":"root","targetport":null,"targetprotocol":null,"targetprocessname":"/usr/sbin/logrotate"}}'
+    key:
+      - id
+      - type
+      - links.self
+      - attributes.timestamp
+  - type: Device
+    sourcetype: trellix_epo_cloud_device
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"314623","type":"devices","links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623"},"attributes":{"name":"localhost","parentId":854691,"agentGuid":"3AF594B1-13D2-ED11-87C6-000000800B73","lastUpdate":"2023-04-07T08:38:35.517+00:00","agentState":0,"nodePath":null,"agentPlatform":"LINUX","agentVersion":"192.0.2.10","nodeCreatedDate":"2023-03-29T12:06:05.877+00:00","managed":"1","tenantId":61399,"tags":"Deployment 2, Deployment, Server","excludedTags":"","managedState":1,"computerName":"localhost","domainName":"(none)","ipAddress":"192.0.2.20","osType":"Linux","osVersion":"3.10","osBuildNumber":0,"cpuType":"Intel(R) Xeon(R) CPU E5-2620 v2 @ 2.10GHz","cpuSpeed":2100,"numOfCpu":4,"totalPhysicalMemory":12409634816,"macAddress":"00005E005300","userName":"N/A","osPlatform":"Server","ipHostName":"localhost","subnetAddress":"","isPortable":"non-portable"},"relationships":{"installedProducts":{"links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623/relationships/installedProducts","related":"https://api.manage.trellix.com/epo/v2/devices/314623/installedProducts"}}}}'
+    key:
+      - id
+      - type
+      - links.self
+      - attributes.name
+  - type: Group
+    sourcetype: trellix_epo_cloud_group
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"id":"1","type":"groups","links":{"self":"https://api.manage.trellix.com/epo/v2/groups/1"},"attributes":{"name":"GlobalRoot","groupTypeId":7,"parentId":0,"l1ParentId":null,"l2ParentId":null,"notes":null,"nodePath":"1","nodeTextPath":"GlobalRoot","nodeTextPath2":"\\"},"relationships":{"subGroups":{"links":{"self":"https://api.manage.trellix.com/epo/v2/groups/1/relationships/subGroups","related":"https://api.manage.trellix.com/epo/v2/groups/1/subGroups"}}}}'
+    key:
+      - id
+      - type
+      - links.self
+      - attributes.name
+cves: []
+detections:
+  - title: Trellix Epo Cloud events arriving
+    severity: low
+    signals:
+      - id
+      - type
+      - links.self
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "trellix_epo_cloud"'
+optimizations: []
+references:
+  - title: elastic/integrations trellix_epo_cloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trellix_epo_cloud/data_stream/event/_dev/test/pipeline/test-pipeline-event.log
+  - title: Pack Generator sample trellix_epo_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trellix_epo_cloud.json

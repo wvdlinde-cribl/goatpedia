@@ -1,0 +1,71 @@
+id: doppler
+name: Doppler
+short: Doppler
+vendor: Doppler
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - doppler
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Doppler is logged by the Datadog integrations-extras package doppler. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: doppler
+    desc: 'Datadog integrations-extras fixture, 4 events. Upstream: doppler/assets/logs/doppler_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: doppler
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: ddsource, createdAt, link, type, title, text
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Doppler events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries ddsource, createdAt, link, type, title, text. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads doppler and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Doppler
+    sourcetype: doppler
+    format: json
+    desc: 4 fixture events in the samples pool (logtest_extras).
+    sample: '{"ddsource":"doppler","createdAt":"2024-07-02T14:24:51.920Z","link":"https://dashboard.doppler.com/workplace/30bd9e7d881446ce1bf8/logs?id=wpmULcSfO9sNxKdVUeaO0HK2","type":"services.datadog.connect","title":"Activity Log: wpmULcSfO9sNxKdVUeaO0HK2","text":"Connected Datadog service","user":{"name":"Nic Manoogian","profile_image_url":"https://www.gravatar.com/avatar/7f447a6cfe4f594f91c149b9c9ca872d?s=500&d=retro","email":"user@example.com","username":"nic"},"workplace":{"name":"Rocketship Co","id":"30bd9e7d881446ce1bf8"},"slug":"wpmULcSfO9sNxKdVUeaO0HK2"}'
+    key:
+      - ddsource
+      - createdAt
+      - link
+      - type
+cves: []
+detections:
+  - title: Doppler events arriving
+    severity: low
+    signals:
+      - ddsource
+      - createdAt
+      - link
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "doppler"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras doppler/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/doppler/assets/logs/doppler_tests.yaml
+  - title: Pack Generator sample doppler.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/doppler.json

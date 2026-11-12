@@ -1,0 +1,71 @@
+id: dagster
+name: Dagster
+short: Dagster
+vendor: Dagster
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - dagster
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Dagster is logged by the Datadog integrations-extras package dagster. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: dagster
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: dagster/assets/logs/dagster-plus_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: dagster
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: run_id, event_type, job_name, service, message, timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Dagster events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries run_id, event_type, job_name, service, message, timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads dagster and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Dagster
+    sourcetype: dagster
+    format: json
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: '{"run_id":"a3bcb088-1640-40dc-9701-4b554c0b9cac","event_type":"STEP_WORKER_STARTED","job_name":"diamond_asset_job","service":"dagster-plus","message":"Executing step \"diamond_final_asset\" in subprocess.","timestamp":"1747684829.8596163","deployment":"prod"}'
+    key:
+      - run_id
+      - event_type
+      - job_name
+      - service
+cves: []
+detections:
+  - title: Dagster events arriving
+    severity: low
+    signals:
+      - run_id
+      - event_type
+      - job_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "dagster"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras dagster/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/dagster/assets/logs/dagster-plus_tests.yaml
+  - title: Pack Generator sample dagster.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dagster.json

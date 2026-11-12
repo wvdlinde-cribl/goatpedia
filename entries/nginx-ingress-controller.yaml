@@ -1,0 +1,87 @@
+id: nginx-ingress-controller
+name: Nginx Ingress Controller
+short: Controller
+vendor: Nginx
+category: web
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - nginx_ingress_controller
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Nginx Ingress Controller is logged by the Datadog integrations-core package nginx_ingress_controller. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: nginx_ingress_controller
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: nginx_ingress_controller/assets/logs/nginx-ingress-controller_tests.yaml'
+  - st: nginx_ingress_controller_access
+    desc: 'Elastic integrations fixture, 20 events. Upstream: nginx_ingress_controller/data_stream/access/_dev/test/pipeline/test-ingest-raw.log'
+  - st: nginx_ingress_controller_error
+    desc: 'Elastic integrations fixture, 20 events. Upstream: nginx_ingress_controller/data_stream/error/_dev/test/pipeline/test-error-raw.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: nginx_ingress_controller
+  Sourcetypes: '3'
+  Fixture events: '60'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Nginx Ingress Controller events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads nginx_ingress_controller and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Nginx Ingress Controller
+    sourcetype: nginx_ingress_controller
+    format: text
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: 203.0.113.8 - [203.0.113.40] - - [07/Dec/2018:18:31:33 +0000] "GET /datadoghq/company?test=var1%20Pl HTTP/1.1" 200 261 "-" "Mozilla/5.0 (Windows NT 5.1; rv:31.0) Gecko/20100101 Firefox/31.0" 1904 0.011 [proxyname-8080] 192.0.2.10:9000 298 0.012 200 abcdefg12345abcdef
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Access
+    sourcetype: nginx_ingress_controller_access
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 192.0.2.20 - - [07/Feb/2020:11:48:51 +0000] "POST /products HTTP/1.1" 200 59 "-" "curl/7.54.0" 89 0.001 [default-web-8080] [] 198.51.100.15:8080 59 0.000 200 529a007902362a5f51385a5fa7049884
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Error
+    sourcetype: nginx_ingress_controller_error
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 'E1215 04:15:13.816036       8 config.go:489] Expected to load root CA config from /var/run/secrets/kubernetes.io/serviceaccount/ca.crt, but got err: open /var/run/secrets/kubernetes.io/serviceaccount/ca.crt: no such file or directory'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Nginx Ingress Controller events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "nginx_ingress_controller"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core nginx_ingress_controller/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/nginx_ingress_controller/assets/logs/nginx-ingress-controller_tests.yaml
+  - title: Pack Generator sample nginx_ingress_controller.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nginx_ingress_controller.json

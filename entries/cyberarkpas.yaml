@@ -1,0 +1,71 @@
+id: cyberarkpas
+name: Cyberarkpas
+short: Cyberarkpas
+vendor: Cyberarkpas
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cyberarkpas
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cyberarkpas is logged by the Elastic integrations package cyberarkpas. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cyberarkpas_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: cyberarkpas/data_stream/audit/_dev/test/pipeline/test-295-retrieve-password.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cyberarkpas
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: format, version, raw, syslog.audit_record.Rfc5424, syslog.audit_record.Vendor, syslog.audit_record.Product
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cyberarkpas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries format, version, raw, syslog.audit_record.Rfc5424, syslog.audit_record.Vendor, syslog.audit_record.Product. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cyberarkpas and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: cyberarkpas_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"format":"elastic","version":"1.0","raw":"<syslog>\n  <audit_record>\n    <Rfc5424>no</Rfc5424>\n    <Vendor>Cyber-Ark</Vendor>\n    <Product>Vault</Product>\n    <Version>11.6.0000</Version>\n    <Message...","syslog":{"audit_record":{"Rfc5424":"no","Vendor":"Cyber-Ark","Product":"Vault","Version":"11.6.0000","MessageID":"295","IsoTimestamp":"2021-03-16T15:01:00Z","Desc":"Retrieve password","Severity":"Info","Issuer":"Prov_PVWA","Action":"Retrieve password","SourceUser":"","TargetUser":"","Safe":"Linux","File":"Root\\Operating System-LINUX-SSH-radiussrv.cyberark.local-admin2","Station":"203.0.113.8","Location":"","Category":"","RequestId":"","Reason":"AIM password request","ExtraDetails":"","Message":"Retrieve password","GatewayStation":"","CAProperties":{"CAProperty":[{"Name":"PolicyID","Value":"LINUX-SSH"},{"Name":"UserName","Value":"admin2"}]}}}}'
+    key:
+      - format
+      - version
+      - raw
+      - syslog.audit_record.Rfc5424
+cves: []
+detections:
+  - title: Cyberarkpas events arriving
+    severity: low
+    signals:
+      - format
+      - version
+      - raw
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cyberarkpas_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations cyberarkpas/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cyberarkpas/data_stream/audit/_dev/test/pipeline/test-295-retrieve-password.log
+  - title: Pack Generator sample cyberarkpas_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyberarkpas_audit.json

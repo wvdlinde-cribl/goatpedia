@@ -1,0 +1,71 @@
+id: secureauth-idp
+name: Secureauth Idp
+short: Secureauth Idp
+vendor: Secureauth
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - secureauth_idp
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Secureauth Idp is logged by the Splunk Connect for Syslog package secureauth_idp. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: secureauth_idp
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_secureauth_idp.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: secureauth_idp
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, UserAgent, UserHostAddress, RequestID, Realm, Appliance
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Secureauth Idp events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, UserAgent, UserHostAddress, RequestID, Realm, Appliance. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads secureauth_idp and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Secureauth Idp
+    sourcetype: secureauth_idp
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <132>1 2026-06-15T13:45:07.123456+00:00 sc4s-lab-01 SecureAuth2 2000 ID00000 [SecureAuth@27389 UserAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/123.00 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/123.00" UserHostAddress="198.51.100.15" RequestID="dddd000d-444e-45cc-aaas-346e12346b60" Realm="SecureAuth2" Appliance="SecureAuth05VM.domain.com" Company="National Title Group Inc" Version="198.51.100.25" PEN="12345" HostName="203.0.113.8" Category="AUDIT" Priority="4" EventID="10020"] Application - Begin request
+    key:
+      - UserAgent
+      - UserHostAddress
+      - RequestID
+      - Realm
+cves: []
+detections:
+  - title: Secureauth Idp events arriving
+    severity: low
+    signals:
+      - header
+      - UserAgent
+      - UserHostAddress
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "secureauth_idp"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_secureauth_idp.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_secureauth_idp.py
+  - title: Pack Generator sample secureauth_idp.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/secureauth_idp.json

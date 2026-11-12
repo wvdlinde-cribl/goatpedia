@@ -30,6 +30,8 @@ sourcetypes:
     desc: Splunk-style name for the same results JSON
   - st: osqueryd.INFO
     desc: Status log file (no official add-on sourcetype; osqueryd.INFO / WARNING / ERROR, Glog text or JSON via logger plugins)
+  - st: osquery_result
+    desc: 'Elastic integrations fixture, 20 events. Upstream: osquery/data_stream/result/_dev/test/pipeline/test-osquery.log'
 facts:
   First released: 2014 (open-sourced by Facebook); Linux Foundation project since 2019
   Platforms: Linux, macOS, Windows (FreeBSD community)
@@ -148,6 +150,16 @@ logs:
       - line
     sample: |-
       W1112 09:16:04.512233 28102 watcher.cpp:349] osqueryd worker (28140) stopping: Maximum sustainable CPU utilization limit exceeded for 12 seconds
+  - type: Result
+    sourcetype: osquery_result
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"action":"removed","calendarTime":"Thu Dec 28 14:40:08 2017 UTC","columns":{"blocks":"122061322","blocks_available":"75966945","blocks_free":"121274885","blocks_size":"4096","device":"/dev/disk1s4","device_alias":"/dev/disk1s4","flags":"345018372","inodes":"9223372036854775807","inodes_free":"9223372036854775804","path":"/private/var/vm","type":"apfs"},"counter":"1","decorations":{"host_uuid":"4AB2906D-5516-5794-AF54-86D1D7F533F3","username":"tsg"},"epoch":"0","hostIdentifier":"192-168-0-4.rdsnet.ro","name":"pack_it-compliance_mounts","unixTime":"1514472008"}'
+    key:
+      - action
+      - calendarTime
+      - columns.blocks
+      - columns.blocks_available
 cves:
   - id: CVE-2026-54000
     cvss: 7

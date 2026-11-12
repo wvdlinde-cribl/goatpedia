@@ -1,0 +1,115 @@
+id: ping-directory
+name: Ping Directory
+short: Ping Directory
+vendor: Ping
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ping_directory
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Ping Directory is logged by the Elastic integrations package ping_directory. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ping_directory_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: ping_directory/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: ping_directory_group
+    desc: 'Elastic integrations fixture, 4 events. Upstream: ping_directory/data_stream/group/_dev/test/pipeline/test-group.log'
+  - st: ping_directory_http_access
+    desc: 'Elastic integrations fixture, 10 events. Upstream: ping_directory/data_stream/http_access/_dev/test/pipeline/test-http-access.log'
+  - st: ping_directory_ldap_access
+    desc: 'Elastic integrations fixture, 15 events. Upstream: ping_directory/data_stream/ldap_access/_dev/test/pipeline/test-ldap-access.log'
+  - st: ping_directory_user
+    desc: 'Elastic integrations fixture, 5 events. Upstream: ping_directory/data_stream/user/_dev/test/pipeline/test-user.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: ping_directory
+  Sourcetypes: '5'
+  Fixture events: '54'
+  Log format seen: text, json, kv
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ping Directory events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads ping_directory and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text / json / kv.
+logs:
+  - type: Audit
+    sourcetype: ping_directory_audit
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '[26/May/2026:14:30:00.000 +0530] SEVERE_WARNING The File-Based Audit Logger has been started'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Group
+    sourcetype: ping_directory_group
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"displayName":"security","members":["uid=alice.smith,ou=People,dc=example,dc=com"],"id":"a7631f14-c7eb-490f-8b94-724b78241e13","meta":{"resourceType":"Group","location":"https://192.0.2.20:2443/scim/v2/Groups/a7631f14-c7eb-490f-8b94-724b78241e13"},"schemas":["urn:ietf:params:scim:schemas:core:2.0:Group"]}'
+    key:
+      - displayName
+      - members[0]
+      - id
+      - meta.resourceType
+  - type: HTTP Access
+    sourcetype: ping_directory_http_access
+    format: kv
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '[25/May/2026:18:54:41.504 +0530] RESULT instanceName="pingdirectory-elastic-test" threadID=164 requestID=0 correlationID="ceb9fea0-0fed-4f01-8f5c-7dcc2149661a" from="198.51.100.15:55188" method="GET" url="https://198.51.100.25:2443/docs" requestHeader="Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7" requestHeader="Connection: keep-alive" requestHeader="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.8 Safari/537.36" requestHeader="Sec-Fetch-Site: none" requestHeader="Sec-Fetch-Dest: document" requestHeader="Host: 203.0.113.40:2443" requestHeader="Accept-Encoding: gzip, deflate, br, zstd" requestHeader="Sec-Fetch-Mode: navigate" requestHeader="sec-ch-ua: ''Chromium'';v=''148'', ''Google Chrome'';v=''148'', ''Not/A)Brand'';v=''99''" requestHeader="sec-ch-ua-mobile: ?0" requestHeader="Cache-Control: max-age=0" requestHeader="Upgrade-Insecure-Requests: 1" requestHeader="sec-ch-ua-platform: ''Windows''" requestHeader="Sec-Fetch-User: ?1" requestHeader="Accept-Language: en-GB,en-US;q=0.9,en;q=0.8" statusCode=302 etime=18.465 responseContentLength=0 responseHeader="X-Frame-Options: SAMEORIGIN" responseHeader="Correlation-Id: ceb9fea0-0fed-4f01-8f5c-7dcc2149661a" responseHeader="Date: Mon, 25 May 2026 13:24:41 GMT" redirectURI="https://192.0.2.10:2443/docs/"'
+    key:
+      - instanceName
+      - threadID
+      - requestID
+      - correlationID
+  - type: Ldap Access
+    sourcetype: ping_directory_ldap_access
+    format: kv
+    desc: 15 fixture events in the samples pool (elastic).
+    sample: '[25/May/2026:18:22:45.267 +0530] CONNECT instanceName="pingdirectory-elastic-test" threadID=198 conn=0 from="192.0.2.20" fromPort=44560 to="198.51.100.15" toPort=1636 protocol="LDAP+TLS" clientConnectionPolicy="default"'
+    key:
+      - instanceName
+      - threadID
+      - conn
+      - from
+  - type: User
+    sourcetype: ping_directory_user
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"displayName":"John Doe","emails":["user@example.com","user@example.com"],"name":{"familyName":"Doe","formatted":"John Doe","givenName":"John"},"title":"DevOps Engineer","userName":"john.doe","userType":"Full-Time","id":"c9bbce6c-7d77-4d93-b674-42b1e8a00606","meta":{"resourceType":"User","location":"https://198.51.100.25:2443/scim/v2/Users/c9bbce6c-7d77-4d93-b674-42b1e8a00606"},"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"]}'
+    key:
+      - displayName
+      - emails[0]
+      - emails[1]
+      - name.familyName
+cves: []
+detections:
+  - title: Ping Directory events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ping_directory_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations ping_directory/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ping_directory/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample ping_directory_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ping_directory_audit.json

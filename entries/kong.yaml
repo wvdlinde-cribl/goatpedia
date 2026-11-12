@@ -1,0 +1,67 @@
+id: kong
+name: Kong
+short: Kong
+vendor: Kong
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - kong
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Kong is logged by the Datadog integrations-core package kong. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: kong
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: kong/assets/logs/kong_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: kong
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Kong events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads kong and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Kong
+    sourcetype: kong
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: 192.0.2.10 - frank [13/Jul/2016:10:55:36 +0000] "GET /apache_pb.gif HTTP/1.0" 200 2326
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Kong events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "kong"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core kong/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/kong/assets/logs/kong_tests.yaml
+  - title: Pack Generator sample kong.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kong.json

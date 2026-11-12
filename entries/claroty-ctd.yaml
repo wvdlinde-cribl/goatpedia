@@ -1,0 +1,95 @@
+id: claroty-ctd
+name: Claroty Ctd
+short: Claroty Ctd
+vendor: Claroty
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - claroty_ctd
+  - Elastic integrations
+tags:
+  - elastic
+  - cef
+summary: Claroty Ctd is logged by the Elastic integrations package claroty_ctd. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: claroty_ctd
+    desc: 'Elastic integrations fixture, 8 events. Upstream: claroty_ctd/data_stream/event/_dev/test/pipeline/test-event.json'
+  - st: claroty_ctd_asset
+    desc: 'Elastic integrations fixture, 6 events. Upstream: claroty_ctd/data_stream/asset/_dev/test/pipeline/test-asset.log'
+  - st: claroty_ctd_baseline
+    desc: 'Elastic integrations fixture, 11 events. Upstream: claroty_ctd/data_stream/baseline/_dev/test/pipeline/test-baseline.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: claroty_ctd
+  Sourcetypes: '3'
+  Fixture events: '25'
+  Log format seen: cef, json
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Claroty Ctd events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads claroty_ctd and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef / json.
+logs:
+  - type: Event
+    sourcetype: claroty_ctd
+    format: cef
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: <30> 2023-08-15T06:33:33Z Site syslog-ActivityLog-Default - - - CEF:0|Claroty|CTD|4.10.0|ActivityLog|Site  Mode|0|CtdTimeGenerated=Aug 15 2023 09:32:11 CtdSite=Default CtdUser= CtdAction=Changed to Operational Mode CtdActionStatus=Success CtdMessage=System was moved to [[Operational Mode]] CtdLogType=System
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+  - type: Asset
+    sourcetype: claroty_ctd_asset
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"active_queries_names":["sample_value"],"active_tasks_names":["sample_value"],"active_scans_names":["sample_value"],"approved":true,"asset_type":2,"asset_type__":"eEndpoint","children":[{"active_queries_names":["sample_value"],"active_tasks_names":["sample_value"],"address":["192.0.2.20:Card 2 \\ Addr 255"],"approved":true,"asset_type":0,"asset_type__":"ePLC","class_type":"OT","criticality":2,"criticality__":"eHigh","custom_informations":[{"category":3,"display_key":"Mode (Card 0)","key":"Mode (Card 0)","priority":0,"type":105,"val":"Remote Run Mode"},{"category":2,"display_key":"Mode (Card 5)","key":"Mode (Card 5)","priority":0,"type":145,"val":"Remote Run Mode"}],"default_gateway":"some_value","display_name":"some_value","domain_workgroup":"some_workgroup","edge_id":1,"edge_last_run":"some_time","firmware":"V7.015","first_seen":"2023-04-17T07:30:31+00:00","ghost":false,"id":33,"installed_antivirus":"some_antivirus","last_entity_seen":"2024-07-04T09:07:30+00:00","last_seen":"2024-07-04T09:07:30+00:00","last_updated":"2024-07-16T09:59:10+00:00","model":"1756-CNB/D 7.015","name":"198.51.100.15:Card 2 \\ Addr 255","network":{"id":1,"name":"Default","resource_id":"1-1","site_id":1},"network_id":1,"os_architecture":"some_arch","os_build":"some_build","os_revision":"some_revision"}],"class_type":"IT","code_sections":[{"filename":"type7","rid":3,"type":"rid3"}],"criticality":0,"criticality__":"eLow","custom_attributes":[{"asset_id":1,"category":{"description":"sdfas","id":1,"name":"Some Asset","resource_id":"1-1","site_id":1},"id":1,"resource_id":"1-1","site_id":1,"value":"some value"}],"custom_informations":[{"category":2,"display_key":"Mode (Card 0)","key":"Mode (Card 0)","priority":0,"type":105,"val":"Remote Run Mode"},{"category":4,"display_key":"Mode (Card 5)","key":"Mode (Card 5)","priority":0,"type":105,"val":"Remote Run Mode"}],"default_gateway":"sample_value","display_name":"sample_value","domain_workgroup":"sample_value","edge_id":1,"edge_last_run":"sample_value","first_seen":"2024-07-16T06:20:33+00:00","ghost":false,"id":79,"insight_names":["End Of Life Assets","Full Match CVEs"],"installed_antivirus":"sample_value","installed_programs_count":10,"last_entity_seen":"2024-07-16T10:07:23+00:00","last_seen":"2024-07-16T10:07:23+00:00","last_updated":"2024-07-16T10:16:42+00:00","mac":["2001:db8::1"],"name":"2001:db8::1 (multicast)","network":{"id":1,"name":"Default","resource_id":"1-1","site_id":1}}'
+    key:
+      - active_queries_names[0]
+      - active_tasks_names[0]
+      - active_scans_names[0]
+      - approved
+  - type: Baseline
+    sourcetype: claroty_ctd_baseline
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"approved":true,"category":3,"category_access":1,"description":"CIP : Service Get Attribute All called on ExtendedDevice","destination_asset_id":64,"destination_entity":{"asset_name":"Chemical_plants","id":3,"ipv4":"203.0.113.8","mac":"2001:db8::1","resource_id":"3-1","virtual_zone_id":3,"virtual_zone_name":"PLC: Rockwell"},"dst_port":44818,"frequency":0,"has_values":false,"hash":7899219255097204000,"id":784,"interval":null,"last_seen":"2023-04-17T07:40:19+00:00","last_updated":"2024-07-04T12:51:10+00:00","protocol":"CIP","resource_id":"784-1","session_state":3,"site_id":1,"source_asset_id":69,"source_entity":{"asset_name":"203.0.113.40","id":50,"ipv4":"192.0.2.10","mac":"2001:db8::1","resource_id":"50-1","virtual_zone_id":23,"virtual_zone_name":"HMI: Other"},"src_port":null,"timestamp":"2023-04-17T07:40:19+00:00","transmission":"TCP / 44818","type":0,"valid":true}'
+    key:
+      - approved
+      - category
+      - category_access
+      - description
+cves: []
+detections:
+  - title: Claroty Ctd events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "claroty_ctd"'
+optimizations: []
+references:
+  - title: elastic/integrations claroty_ctd/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/claroty_ctd/data_stream/event/_dev/test/pipeline/test-event.json
+  - title: Pack Generator sample claroty_ctd.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/claroty_ctd.json

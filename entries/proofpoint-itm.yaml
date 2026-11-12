@@ -1,0 +1,71 @@
+id: proofpoint-itm
+name: Proofpoint Itm
+short: Proofpoint Itm
+vendor: Proofpoint
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - proofpoint_itm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Proofpoint Itm is logged by the Elastic integrations package proofpoint_itm. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: proofpoint_itm_report
+    desc: 'Elastic integrations fixture, 1 events. Upstream: proofpoint_itm/data_stream/report/_dev/test/pipeline/test-alert.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: proofpoint_itm
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: _time, accessedSiteName, accessedUrl, applicationName, collectorId, collectorUrl
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Proofpoint Itm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _time, accessedSiteName, accessedUrl, applicationName, collectorId, collectorUrl. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads proofpoint_itm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Report
+    sourcetype: proofpoint_itm_report
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"_time":"2025-02-25T16:08:11Z","accessedSiteName":"Example Site","accessedUrl":"https://www.example.com","applicationName":"Windows Shell Experience Host","collectorId":"C2C1C429-C002-4FB8-99F4-7F1005ED9889","collectorUrl":"https://code1.preview.observeit.net/","command":"example_command","commandParams":"--example --params","createdAt":"2025-02-25T16:08:11Z","domainName":"code1.observeit.net","endpointId":"E035BBC2-1D72-4F25-9408-2BD807FB7B13","endpointName":"Example Endpoint","host":"host.example.com","id":"7330EB6D-A8BB-4F25-9408-2BD807FB7B13","loginName":"Administrator","observedAt":"2025-02-25T16:08:11Z","os":"Windows","playbackUrl":"https://code1.preview.observeit.net/ObserveIT/SlideViewer.aspx?SessionID=1A8B5249-EDAC-A8BB-4F25-9408-2BD807FB7B13","processExecutable":"shellexexperiencehost","remoteAddress":"192.0.2.10","remoteHostName":"Michaels-MacBoo","risingValue":"2018-06-06T17:43:18.446Z","secondaryDomainName":"n/a","secondaryLoginName":"n/a","sessionUrl":"https://session.example.com/abc123","timezoneOffset":"0","windowTitle":"Start","sessionId":"1A8B52A9-EDAC-448E-9871-79DB21D53C28","databaseName":"example_database","details":"Detailed description of the event."}'
+    key:
+      - _time
+      - accessedSiteName
+      - accessedUrl
+      - applicationName
+cves: []
+detections:
+  - title: Proofpoint Itm events arriving
+    severity: low
+    signals:
+      - _time
+      - accessedSiteName
+      - accessedUrl
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "proofpoint_itm_report"'
+optimizations: []
+references:
+  - title: elastic/integrations proofpoint_itm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proofpoint_itm/data_stream/report/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample proofpoint_itm_report.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_itm_report.json

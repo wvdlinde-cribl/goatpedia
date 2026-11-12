@@ -1,0 +1,71 @@
+id: gravitee
+name: Gravitee
+short: Gravitee
+vendor: Gravitee
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - gravitee
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Gravitee is logged by the Datadog integrations-extras package gravitee. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: gravitee
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: gravitee/assets/logs/gravitee_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: gravitee
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: apiName, hostname, service, requestId, requestEnded, endpointResponse.status
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Gravitee events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries apiName, hostname, service, requestId, requestEnded, endpointResponse.status. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads gravitee and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Gravitee
+    sourcetype: gravitee
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"apiName":"Temperature Conversion","hostname":"23b3c1fc3d25","service":"gio-apim-gateway","requestId":"deffe8bf-7176-4b6b-bfe8-bf71761b6b45","requestEnded":true,"endpointResponse":{"status":0},"entrypointResponse":{"headers":{"X-Gravitee-Transaction-Id":["deffe8bf-7176-4b6b-bfe8-bf71761b6b45"],"Content-Length":["49"],"X-Gravitee-Request-Id":["deffe8bf-7176-4b6b-bfe8-bf71761b6b45"],"Content-Type":["application/json"]},"body":"{\"message\":\"Unauthorized\",\"http_status_code\":401}","status":401},"entrypointRequest":{"headers":{"Cookie":["cookiesession1=678B2878D1E757203AB1586B9AD2D496"],"SOAPAction":["https://www.w3schools.com/xml/CelsiusToFahrenheit"],"Accept":["*/*"],"Connection":["keep-alive"],"User-Agent":["PostmanRuntime/7.44.0"],"X-Gravitee-Api-Key":["ffb674f8-970f-4785-b674-f8970f4785ff"],"X-Gravitee-Transaction-Id":["deffe8bf-7176-4b6b-bfe8-bf71761b6b45"],"Host":["localhost:8082"],"Accept-Encoding":["gzip, deflate, br"],"Postman-Token":["85fdd53e-b179-43a0-8135-f432a5540568"],"Content-Length":["374"],"X-Gravitee-Request-Id":["deffe8bf-7176-4b6b-bfe8-bf71761b6b45"],"Content-Type":["text/xml"]},"method":"POST","uri":"/tempconvert-v4"},"apiId":"297c43be-8c8b-4fcd-bc43-be8c8bdfcdff","endpointRequest":{"method":"POST","uri":""},"status":"info","timestamp":1749198092502}'
+    key:
+      - apiName
+      - hostname
+      - service
+      - requestId
+cves: []
+detections:
+  - title: Gravitee events arriving
+    severity: low
+    signals:
+      - apiName
+      - hostname
+      - service
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "gravitee"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras gravitee/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/gravitee/assets/logs/gravitee_tests.yaml
+  - title: Pack Generator sample gravitee.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/gravitee.json

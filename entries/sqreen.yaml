@@ -1,0 +1,71 @@
+id: sqreen
+name: Sqreen
+short: Sqreen
+vendor: Sqreen
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sqreen
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Sqreen is logged by the Datadog integrations-extras package sqreen. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sqreen
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: sqreen/assets/logs/sqreen_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: sqreen
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: sqreen.event_version, sqreen.detected_at, sqreen.payload.sdk_event_name, sqreen.context.actor.ip.geo.country_code, sqreen.context.actor.ip.geo.city, sqreen.context.actor.ip.geo.latitude
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sqreen events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries sqreen.event_version, sqreen.detected_at, sqreen.payload.sdk_event_name, sqreen.context.actor.ip.geo.country_code, sqreen.context.actor.ip.geo.city, sqreen.context.actor.ip.geo.latitude. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads sqreen and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Sqreen
+    sourcetype: sqreen
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"sqreen":{"event_version":"1.0.0","detected_at":"2021-05-03T18:31:26.143450Z","payload":{"sdk_event_name":"security.invalid_app_token"},"context":{"actor":{"ip":{"geo":{"country_code":"IRL","city":"Dublin","latitude":53.3382,"longitude":-6.2591},"metadata":{"proxy":false,"private":false,"unspecified":false,"reserved":false,"vpn":false,"tor":false,"global":true,"datacenter":{"name":"Amazon AWS","url":"https://aws.amazon.com/"},"network_type":"public","version":4,"multicast":false,"loopback":false},"address":"198.51.100.15"}},"service":{"sqreen_id":"574571ad63b3d20014eddbfe","name":"BackEnd for agents","env":"production"},"http":{"request":{"path":"/sqreen/v1/app-login","remote_ip":"198.51.100.25","scheme":"https","port":5000,"host":"back.sqreen.com","verb":"POST","remote_port":43572,"user_agent":"sqreen-ruby/1.20.3"},"response":{"blocked":false,"status":401}}},"event_name":"sq.dd0.custom_event","signal_id":"sig_bbd37971192d532714542452f30d9438"},"evt":{"name":"sq.dd0.custom_event"},"hostname":"back.sqreen.com","service":"BackEnd for agents","http":{"status_code":401,"method":"POST","useragent":"sqreen-ruby/1.20.3","url":"https://back.sqreen.com:5000/sqreen/v1/app-login"},"env":"production","network":{"client":{"port":"5000","ip":"203.0.113.8"}}}'
+    key:
+      - sqreen.event_version
+      - sqreen.detected_at
+      - sqreen.payload.sdk_event_name
+      - sqreen.context.actor.ip.geo.country_code
+cves: []
+detections:
+  - title: Sqreen events arriving
+    severity: low
+    signals:
+      - sqreen.event_version
+      - sqreen.detected_at
+      - sqreen.payload.sdk_event_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sqreen"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras sqreen/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/sqreen/assets/logs/sqreen_tests.yaml
+  - title: Pack Generator sample sqreen.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sqreen.json

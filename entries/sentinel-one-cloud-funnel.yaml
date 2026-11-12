@@ -1,0 +1,71 @@
+id: sentinel-one-cloud-funnel
+name: Sentinel One Cloud Funnel
+short: Funnel
+vendor: Sentinel
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sentinel_one_cloud_funnel
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Sentinel One Cloud Funnel is logged by the Elastic integrations package sentinel_one_cloud_funnel. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sentinel_one_cloud_funnel
+    desc: 'Elastic integrations fixture, 4 events. Upstream: sentinel_one_cloud_funnel/data_stream/event/_dev/test/pipeline/test-dns.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: sentinel_one_cloud_funnel
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: timestamp, src.process.parent.isStorylineRoot, event.category, src.process.parent.image.sha1, site.id, osSrc.process.isRedirectCmdProcessor
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sentinel One Cloud Funnel events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, src.process.parent.isStorylineRoot, event.category, src.process.parent.image.sha1, site.id, osSrc.process.isRedirectCmdProcessor. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads sentinel_one_cloud_funnel and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: sentinel_one_cloud_funnel
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"18:32:29.495","src.process.parent.isStorylineRoot":true,"event.category":"dns","src.process.parent.image.sha1":"f9bc4c756eab5121ace7ec1cf6a394be0439dec0","site.id":"123456789123456789","osSrc.process.isRedirectCmdProcessor":false,"src.process.image.binaryIsExecutable":true,"src.process.parent.displayName":"VIERO-RMSLaunchBar","osSrc.process.image.md5":"f905359ab27db1dda964d77442735cb8","osSrc.process.crossProcessOpenProcessCount":0,"osSrc.process.publisher":"MICROSOFTWINDOWSPUBLISHER","osSrc.process.crossProcessDupThreadHandleCount":0,"src.process.user":"asdf\\SYSTEM","osSrc.process.indicatorPersistenceCount":0,"src.process.parent.subsystem":"SYS_WIN32","src.process.indicatorRansomwareCount":0,"src.process.crossProcessDupRemoteProcessHandleCount":0,"osSrc.process.crossProcessOutOfStorylineCount":0,"osSrc.process.image.sha1":"bfacfa096a56e3d149634e15e1b6470ff5a03957","src.process.tgtFileCreationCount":6,"osSrc.process.childProcCount":0,"src.process.indicatorInjectionCount":0,"osSrc.process.indicatorReconnaissanceCount":0,"src.process.moduleCount":251,"src.process.parent.name":"VIERO.exe","i.version":"preprocess-lib-1.0","osSrc.process.signedStatus":"signed","sca:atlantisIngestTime":1664811166298,"src.process.image.md5":"421f6d5ec86f6b930646321fc6ed2c46","src.process.indicatorReconnaissanceCount":0}'
+    key:
+      - timestamp
+      - src.process.parent.isStorylineRoot
+      - event.category
+      - src.process.parent.image.sha1
+cves: []
+detections:
+  - title: Sentinel One Cloud Funnel events arriving
+    severity: low
+    signals:
+      - timestamp
+      - src.process.parent.isStorylineRoot
+      - event.category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sentinel_one_cloud_funnel"'
+optimizations: []
+references:
+  - title: elastic/integrations sentinel_one_cloud_funnel/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sentinel_one_cloud_funnel/data_stream/event/_dev/test/pipeline/test-dns.log
+  - title: Pack Generator sample sentinel_one_cloud_funnel.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sentinel_one_cloud_funnel.json

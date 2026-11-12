@@ -1,0 +1,79 @@
+id: barracuda
+name: Barracuda
+short: Barracuda
+vendor: Barracuda
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - barracuda
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Barracuda is logged by the Elastic integrations package barracuda. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: barracuda_waf
+    desc: 'Elastic integrations fixture, 20 events. Upstream: barracuda/data_stream/waf/_dev/test/pipeline/test-access.log'
+  - st: barracuda_wf
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_barracuda.py'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: barracuda
+  Sourcetypes: '2'
+  Fixture events: '22'
+  Log format seen: text, kv
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Barracuda events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads barracuda and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text / kv.
+logs:
+  - type: WAF
+    sourcetype: barracuda_waf
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: <134>2023-03-20 17:24:08.959 +0100  barracuda TR 198.51.100.25 443 203.0.113.8 8210 "-" "-" GET TLSv1.2 203.0.113.40 HTTP/1.1 404 791 293 0 3 192.0.2.10 443 0 "-" INTERNAL DEFAULT PROTECTED INVALID / XDEBUG_SESSION_START=phpstorm http://192.0.2.20:80/?XDEBUG_SESSION_START=phpstorm "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36" 198.51.100.15 8210 "-" "-" "-" "-" 186ffd5d3fc-db6c9f3
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Barracuda Wf
+    sourcetype: barracuda_wf
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <132>1 2026-06-15T13:45:07.123456+00:00 Barracuda - - - - src=198.51.100.25 spt=33217 dst=203.0.113.8 dpt=39971 actionTaken=DENY attackDescription=GEO_IP_BLOCK attackDetails=GeoIP Policy Match sc4s-lab-01 attackGroup=Forceful Browsing attackId=1111 logType=WF app=TLSv1.2 request=/apps/ requestMethod=GET rt=1649197620642 userAgent=Mozilla/5.0 [en] (X11, U; OpenVAS-VT 9.0.3) referer=
+    key:
+      - src
+      - spt
+      - dst
+      - dpt
+cves: []
+detections:
+  - title: Barracuda events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "barracuda_waf"'
+optimizations: []
+references:
+  - title: elastic/integrations barracuda/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/barracuda/data_stream/waf/_dev/test/pipeline/test-access.log
+  - title: Pack Generator sample barracuda_waf.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/barracuda_waf.json

@@ -1,0 +1,71 @@
+id: sanity
+name: Sanity
+short: Sanity
+vendor: Sanity
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sanity
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Sanity is logged by the Datadog integrations-core package sanity. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sanity
+    desc: 'Datadog integrations-core fixture, 4 events. Upstream: sanity/assets/logs/sanity_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: sanity
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: documentType, service, datasetName, action, afterValues.threadId, afterValues._createdAt
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sanity events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries documentType, service, datasetName, action, afterValues.threadId, afterValues._createdAt. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads sanity and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Sanity
+    sourcetype: sanity
+    format: json
+    desc: 4 fixture events in the samples pool (logtest).
+    sample: '{"documentType":"comment","service":"activity-logs","datasetName":"testing-dataset-comments","action":"document.create","afterValues":{"threadId":"8bd8fd8a-96d8-45a0-a27f-e79e3a5313cc","_createdAt":"2025-01-02T09:34:44Z","context":{"notification":{"currentThreadLength":1,"documentTitle":"new1 (2024)","workspaceTitle":"abc","url":"https://studio-with-template.sanity.studio/structure/movie"},"payload":{"workspace":"default"},"tool":""},"_type":"comment","_rev":"PLZU3STmlngeQSXnoPA4gq","_id":"9ded3fab-5df8-43eb-8d3c-f94a44bbd91c","authorId":"ppZaIKjRJ","message":[{"children":[{"_type":"span","text":"commentn1","_key":"74830e586545"}],"_type":"block","style":"normal","_key":"ea0b25ee8e22"}],"_updatedAt":"2025-01-02T09:34:44Z","target":{"path":{"field":"title"},"documentRevisionId":"rYFaT4Hj0JassVhSW9iHEt","documentType":"movie","document":{"_weak":true,"_type":"crossDatasetReference","_ref":"7c1c32ce-e6d5-4832-87e0-3c45accc9004","_dataset":"testing-dataset","_projectId":"6t8g3xid"}},"status":"open"},"documentId":"9ded3fab-5df8-43eb-8d3c-f94a44bbd91c","projectId":"6t8g3xid","timestamp":"2025-01-02T09:34:44Z"}'
+    key:
+      - documentType
+      - service
+      - datasetName
+      - action
+cves: []
+detections:
+  - title: Sanity events arriving
+    severity: low
+    signals:
+      - documentType
+      - service
+      - datasetName
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sanity"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core sanity/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/sanity/assets/logs/sanity_tests.yaml
+  - title: Pack Generator sample sanity.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sanity.json

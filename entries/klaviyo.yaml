@@ -1,0 +1,71 @@
+id: klaviyo
+name: Klaviyo
+short: Klaviyo
+vendor: Klaviyo
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - klaviyo
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Klaviyo is logged by the Datadog integrations-core package klaviyo. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: klaviyo
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: klaviyo/assets/logs/klaviyo_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: klaviyo
+  Sourcetypes: '1'
+  Fixture events: '6'
+  Log format seen: json
+  Fields in the first fixture: metric_name, profile_id, attributes.datetime, attributes.uuid, attributes.timestamp, attributes.event_properties._ip
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Klaviyo events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries metric_name, profile_id, attributes.datetime, attributes.uuid, attributes.timestamp, attributes.event_properties._ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads klaviyo and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Klaviyo
+    sourcetype: klaviyo
+    format: json
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '{"metric_name":"Received Email","profile_id":"01JXZDTRS5ZWET33T7930NVH2X","attributes":{"datetime":"2025-07-10T20:41:13+00:00","uuid":"37d77a80-5dce-11f0-8001-1ce63ac70994","timestamp":1752180073,"event_properties":{"_ip":"198.51.100.25","$event_id":"1752180073","Email Domain":"klaviyo-demo.com","Subject":"Internal Klaviyo - Subject Line","Campaign Name":"Internal Klaviyo - Test Campaign Name"}},"links":{"self":"https://a.klaviyo.com/api/events/6jsMbujVKTe/"},"id":"6jsMbujVKTe","type":"event"}'
+    key:
+      - metric_name
+      - profile_id
+      - attributes.datetime
+      - attributes.uuid
+cves: []
+detections:
+  - title: Klaviyo events arriving
+    severity: low
+    signals:
+      - metric_name
+      - profile_id
+      - attributes.datetime
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "klaviyo"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core klaviyo/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/klaviyo/assets/logs/klaviyo_tests.yaml
+  - title: Pack Generator sample klaviyo.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/klaviyo.json

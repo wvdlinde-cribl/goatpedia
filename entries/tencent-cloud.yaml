@@ -1,0 +1,107 @@
+id: tencent-cloud
+name: Tencent Cloud
+short: Tencent Cloud
+vendor: Tencent
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - tencent_cloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Tencent Cloud is logged by the Elastic integrations package tencent_cloud. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: tencent_cloud_audit
+    desc: 'Elastic integrations fixture, 5 events. Upstream: tencent_cloud/data_stream/audit/_dev/test/pipeline/test-audit-log.log'
+  - st: tencent_cloud_clb
+    desc: 'Elastic integrations fixture, 10 events. Upstream: tencent_cloud/data_stream/clb/_dev/test/pipeline/test-clb-log.log'
+  - st: tencent_cloud_cos
+    desc: 'Elastic integrations fixture, 5 events. Upstream: tencent_cloud/data_stream/cos/_dev/test/pipeline/test-cos-log.log'
+  - st: tencent_cloud_scf
+    desc: 'Elastic integrations fixture, 6 events. Upstream: tencent_cloud/data_stream/scf/_dev/test/pipeline/test-scf-log.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: tencent_cloud
+  Sourcetypes: '4'
+  Fixture events: '26'
+  Log format seen: json
+  Fields in the first fixture: userIdentity.principalId, userIdentity.accountId, userIdentity.secretId, userIdentity.sessionContext, userIdentity.type, userIdentity.userName
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Tencent Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries userIdentity.principalId, userIdentity.accountId, userIdentity.secretId, userIdentity.sessionContext, userIdentity.type, userIdentity.userName. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads tencent_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: tencent_cloud_audit
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"userIdentity":{"principalId":"PRINCIPAL_ID_PLACEHOLDER","accountId":"ACCOUNT_ID_PLACEHOLDER","secretId":"AKID_PLACEHOLDER","sessionContext":"{\"token\": \"TOKEN_PLACEHOLDER\", \"ua\": \"\", \"userIp\": \"198.51.100.25\", \"uin\": PRINCIPAL_ID_PLACEHOLDER, \"ownerUin\": ACCOUNT_ID_PLACEHOLDER, \"appId\": APP_ID_PLAC...","type":"TencentCloudService","userName":"TKE_QCSRole","roleSessionName":"cls-access"},"eventRegion":"ap-chengdu","eventVersion":2,"errorCode":"0","errorMessage":"permission verify","requestID":"REQUEST_ID_PLACEHOLDER","eventType":"ApiCall","actionType":"Read","httpMethod":"POST","apiErrorCode":"0","apiErrorMessage":"","userAgent":"SDK_GO_1.0.438","eventTime":1739981156,"sensitiveAction":"0","sourceIPAddress":"203.0.113.8","resourceType":"monitor","eventName":"DescribeStatisticData","eventSource":"monitor.internal.tencentcloudapi.com","resourceSet":[],"requestParameters":"{\"Module\": \"monitor\", \"Namespace\": \"QCE/TKE2\", \"MetricNames\": [\"K8sNodeCpuUsageMax\", \"K8sNodeCpuUsage\", \"K8sNodeMemUsage\", \"K8sNodeMemUsageMax\", \"K8sNodeLanO...","responseElements":"{}","resourceName":"","tags":[""]}'
+    key:
+      - userIdentity.principalId
+      - userIdentity.accountId
+      - userIdentity.secretId
+      - userIdentity.sessionContext
+  - type: Clb
+    sourcetype: tencent_cloud_clb
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"":"","__FILENAME__":"access.log","__HOSTNAME__":"","__SOURCE__":"203.0.113.40","__TIMESTAMP__":1744700691023199,"bytes_sent":360,"connection":10837231457,"connection_requests":1,"http_host":"onlyforlex.com","http_referer":"-","http_traceparent":"-","http_user_agent":"python-requests/2.31.0","http_x_forwarded_for":"192.0.2.10","lb_id":"lb-fdsg2t63","protocol_type":"http","proxy_host":1378118,"remote_addr":"192.0.2.20","remote_port":1214,"request":"HEAD /app HTTP/1.1","request_length":149,"request_method":"HEAD","request_time":0.002,"server_addr":"198.51.100.15","server_name":"onlyforlex.com","server_port":80,"server_protocol":"HTTP/1.1","ssl_cipher":"-","ssl_handshake_time":"-","ssl_protocol":"-","ssl_session_reused":"-"}'
+    key:
+      - __FILENAME__
+      - __HOSTNAME__
+      - __SOURCE__
+      - __TIMESTAMP__
+  - type: Cos
+    sourcetype: tencent_cloud_cos
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"__FILENAME__":"","__HOSTNAME__":"","__SOURCE__":"","__TIMESTAMP__":1744606385000,"accountId":100013811111,"bucketName":"loganalysis-1301873956","deltaDataSize":0,"eventName":"GETBucket","eventSource":"cos.ap-chengdu.myqcloud.com","eventTime":"2025-04-14T04:53:05Z","eventVersion":1,"logSourceType":"USER","objectSize":"-","qcsRegion":"ap-chengdu","range":"-","referer":"-","remoteIp":"203.0.113.8","reqBytesSent":0,"reqMethod":"GET","reqPath":"/","reqQcsSource":"-","requestId":"NjdmYzk0YjFfMTgyMDYzNjRfY2MzNF80OTI2YjAw","requestUri":"GET /loganalysis-1301873956?continuation-token=QqXH4lGCYfoJVu%2BLEm2ACCbFcwoVjpIq%2B2JaWGSNcQ4TpbDGFDaGFWXLumcq0C%2FlIq9czQiWjJgtKczpwyuvxek4tKyLCRevyYiCUMO5...","requester":"100013811111:100006272255","resBytesSent":389448,"resErrorCode":"-","resErrorMsg":"-","resHttpCode":200,"resTotalTime":58,"storageClass":"-"}'
+    key:
+      - __FILENAME__
+      - __HOSTNAME__
+      - __SOURCE__
+      - __TIMESTAMP__
+  - type: Scf
+    sourcetype: tencent_cloud_scf
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"SCF_Alias":"","SCF_Duration":0,"SCF_FunctionName":"news-data","SCF_Level":"INFO","SCF_LogTime":1743588002032140800,"SCF_MemUsage":15949824,"SCF_Message":"Init Report RequestId: 0f1cb948-a9c7-4df1-a03d-d8df6db277f3 Coldstart: 844ms (InitRuntime: 21ms InitFunction: 823ms) Memory: 128MB MemUsage: 15.21MB","SCF_Namespace":"default","SCF_Qualifier":"$LATEST","SCF_RequestId":"0f1cb948-a9c7-4df1-a03d-d8df6db277f3","SCF_RetryNum":0,"SCF_StartTime":1743588001117,"SCF_StatusCode":202,"SCF_Type":"Platform","__FILENAME__":"","__HOSTNAME__":"","__SOURCE__":"203.0.113.40","__TIMESTAMP__":1743588002032140}'
+    key:
+      - SCF_Alias
+      - SCF_Duration
+      - SCF_FunctionName
+      - SCF_Level
+cves: []
+detections:
+  - title: Tencent Cloud events arriving
+    severity: low
+    signals:
+      - userIdentity.principalId
+      - userIdentity.accountId
+      - userIdentity.secretId
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "tencent_cloud_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations tencent_cloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tencent_cloud/data_stream/audit/_dev/test/pipeline/test-audit-log.log
+  - title: Pack Generator sample tencent_cloud_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tencent_cloud_audit.json

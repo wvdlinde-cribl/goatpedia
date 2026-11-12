@@ -1,0 +1,119 @@
+id: island-browser
+name: Island Browser
+short: Island Browser
+vendor: Island
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - island_browser
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Island Browser is logged by the Elastic integrations package island_browser. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: island_browser_admin_actions
+    desc: 'Elastic integrations fixture, 17 events. Upstream: island_browser/data_stream/admin_actions/_dev/test/pipeline/test-admin-actions.log'
+  - st: island_browser_audit
+    desc: 'Elastic integrations fixture, 7 events. Upstream: island_browser/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: island_browser_compromised_credential
+    desc: 'Elastic integrations fixture, 5 events. Upstream: island_browser/data_stream/compromised_credential/_dev/test/pipeline/test-compromised-credential.log'
+  - st: island_browser_device
+    desc: 'Elastic integrations fixture, 10 events. Upstream: island_browser/data_stream/device/_dev/test/pipeline/test-device.log'
+  - st: island_browser_user
+    desc: 'Elastic integrations fixture, 5 events. Upstream: island_browser/data_stream/user/_dev/test/pipeline/test-user.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: island_browser
+  Sourcetypes: '5'
+  Fixture events: '44'
+  Log format seen: json
+  Fields in the first fixture: entityType, entityId, actionType, actionDomain, entityName, timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Island Browser events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries entityType, entityId, actionType, actionDomain, entityName, timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads island_browser and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Admin Actions
+    sourcetype: island_browser_admin_actions
+    format: json
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: '{"entityType":"User","entityId":"auth0|30e45685-6701-4c92-bcdd-49e53c7853bd","actionType":"Create","actionDomain":"UserManagement","entityName":"user@example.com","timestamp":"2025-08-28T11:04:18.985019Z","userId":"auth0|1e396c45-b365-4207-ae78-b35b10c06aaf","email":"API|Testing API Key","sourceIp":"192.0.2.10","apiKeyName":"Testing API Key","tenantId":"elastic-testing","id":"b2f2209f-756f-4065-8cfb-d6d1878bfa2e","createdDate":"2025-08-28T11:04:18.985287Z","updatedDate":"2025-08-28T11:04:18.985287Z"}'
+    key:
+      - entityType
+      - entityId
+      - actionType
+      - actionDomain
+  - type: Audit
+    sourcetype: island_browser_audit
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"id":"0554e3ab-618a-4171-a5d7-33555ac4476b","createdDate":"2025-09-09T09:24:36.278692Z","updatedDate":"2025-09-09T09:24:36.278693Z","tenantId":"elastic-testing","userId":"auth0|cbbf1398-e567-4e6f-8929-5a786ffc2486","deviceId":"7748cf6a-1a23-4572-b5ee-129962616b25","clientEventId":"d14e7489-e627-4cf8-bf89-daeb6c4b6a55","userName":"John Doe","email":"user@example.com","type":"Navigation","verdict":"Allowed","verdictReason":"Navigation allowed by policy","timestamp":"2025-09-09T13:29:38.000Z","processedDate":"2025-09-09T13:29:39.123456Z","topLevelUrl":"https://example.com","country":"India","region":"Asia","urlWebCategories":["Business","Technology"],"saasApplicationName":"Microsoft 365","saasApplicationCategory":"Productivity","urlWebReputation":85,"tabId":935959881,"ruleId":"rule-12345","ruleName":"Standard Navigation Policy","screenshotFileName":"screenshot_20250909_132938.png","keystrokes":"example search query","details":"{\n  \"navigation_details\": {\n    \"referrer\": \"https://google.com\",\n    \"user_agent\": \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\"\n  },\n  \"policy_versi...","incognito":false,"submittedUrl":"https://example.com/page","sourceIp":"192.0.2.20"}'
+    key:
+      - id
+      - createdDate
+      - updatedDate
+      - tenantId
+  - type: Compromised Credential
+    sourcetype: island_browser_compromised_credential
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"breachSource":"Ransomware Attack - April 2025","compromisedDate":"2024-09-13T00:00:00Z","createdDate":"2024-09-21T09:46:00Z","email":"user@example.com","id":"cc-10364-ae99d-20364","impactedDomain":"enterprise.io","status":"Unresolved","tenantId":"tenant-005-tech","updatedDate":"2024-09-21T14:40:00Z","username":"john.doe364"}'
+    key:
+      - breachSource
+      - compromisedDate
+      - createdDate
+      - email
+  - type: Device
+    sourcetype: island_browser_device
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"id":"device-xyz-001","createdDate":"2025-08-05T09:07:23.735Z","updatedDate":"2025-08-05T09:07:23.735Z","tenantId":"tenant-1234-abcd","machineId":"MCHN123456","machineName":"CORP-LAPTOP-45","machineModel":"Dell Latitude 7420","serialNumber":"SN1234567890","userName":"Aditya Sharma","userId":"user-5678-defg","email":"user@example.com","osPlatform":"Windows","islandPlatform":"Browser","osVersion":"Windows 11 Pro 22H2","browserVersion":"1.18.2.1001","chromiumVersion":"116.0.5845.97","extensionVersion":"2.5.0","updaterVersion":"3.1.0","lastSeen":"2025-08-05T09:07:23.735Z","policyUpdateTime":"2025-08-05T09:06:00.000Z","diskEncrypted":true,"latestSecurityUpdateId":"KB5028185","osUserName":"CORP\\adityas","status":"Active","spmProtected":true,"internalIpAddress":"198.51.100.25","externalIpAddress":"203.0.113.8","osDomain":"CORP.LOCAL","systemIntegrityProtection":true,"osFirewallEnabled":true}'
+    key:
+      - id
+      - createdDate
+      - updatedDate
+      - tenantId
+  - type: User
+    sourcetype: island_browser_user
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"id":"f3d9a7c8-42b1-4f19-9b51-8a3c56e6d912","createdDate":"2025-08-15T10:30:00Z","updatedDate":"2025-08-18T14:45:00Z","tenantId":"acme-tenant-001","userId":"user-12345","userType":"Management","userStatus":"Active","groups":["Admins","Security"],"connectionName":"AzureAD","allowedTenantsIds":["acme-tenant-001","partner-tenant-002"],"firstName":"John","lastName":"Doe","email":"user@example.com","lastLogin":"2025-08-18T14:40:10Z","lastSeen":"2025-08-18T14:41:55Z","invitationDate":"2025-08-10T09:00:00Z","expirationDate":null,"emailVerified":true,"userSource":"Email","claims":{},"scimId":null}'
+    key:
+      - id
+      - createdDate
+      - updatedDate
+      - tenantId
+cves: []
+detections:
+  - title: Island Browser events arriving
+    severity: low
+    signals:
+      - entityType
+      - entityId
+      - actionType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "island_browser_admin_actions"'
+optimizations: []
+references:
+  - title: elastic/integrations island_browser/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/island_browser/data_stream/admin_actions/_dev/test/pipeline/test-admin-actions.log
+  - title: Pack Generator sample island_browser_admin_actions.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/island_browser_admin_actions.json

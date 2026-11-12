@@ -1,0 +1,83 @@
+id: hashicorp-vault
+name: Hashicorp Vault
+short: Vault
+vendor: Hashicorp
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hashicorp_vault
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Hashicorp Vault is logged by the Elastic integrations package hashicorp_vault. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hashicorp_vault
+    desc: 'Elastic integrations fixture, 12 events. Upstream: hashicorp_vault/data_stream/log/_dev/test/pipeline/test-log.log'
+  - st: hashicorp_vault_audit
+    desc: 'Elastic integrations fixture, 13 events. Upstream: hashicorp_vault/data_stream/audit/_dev/test/pipeline/test-audit.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: hashicorp_vault
+  Sourcetypes: '2'
+  Fixture events: '25'
+  Log format seen: json
+  Fields in the first fixture: '@level, @message, @module, @timestamp, error, lease_id'
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Hashicorp Vault events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @level, @message, @module, @timestamp, error, lease_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads hashicorp_vault and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: hashicorp_vault
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"@level":"error","@message":"failed to revoke lease","@module":"expiration","@timestamp":"2021-07-16T06:30:48.194192Z","error":"failed to revoke entry: resp: (*logical.Response)(nil) err: RequestError: send request failed\ncaused by: Post \"https://iam.amazonaws.com/\": dial tcp: lookup ...","lease_id":"aws/creds/ddns-updater/oS5t84TSPRoYF2gX8McPyw4u"}'
+    key:
+      - '@level'
+      - '@message'
+      - '@module'
+      - '@timestamp'
+  - type: Audit
+    sourcetype: hashicorp_vault_audit
+    format: json
+    desc: 13 fixture events in the samples pool (elastic).
+    sample: '{"time":"2020-12-01T20:29:04.356625452Z","type":"request","auth":{"client_token":"hmac-sha256:9cc3baa3c2bd7a4b233ca1fdcf69df91c8f2a9f14ddda54a4039190f581dd327","accessor":"hmac-sha256:eb605bd7f8a5ceb951b9ab42cae6d6c3f12f203cb2c2a78e33e899f77dceb931","display_name":"oidc-12349999999999999999","policies":["default","group-admin"],"token_policies":["default","group-admin"],"metadata":{"account_id":"12349999999999999999","email":"user@example.com","role":"gmail"},"entity_id":"e4f5c67a-6f7e-789d-ae56-a1fe3ae23046","token_type":"service","token_ttl":3600,"token_issue_time":"2020-12-01T20:28:40Z"},"request":{"id":"cd09708b-11cc-2985-648b-cfe262cf7e50","operation":"update","mount_type":"system","client_token":"hmac-sha256:9cc3baa3c2bd7a4b233ca1fdcf69df91c8f2a9f14ddda54a4039190f581dd327","client_token_accessor":"hmac-sha256:eb605bd7f8a5ceb951b9ab42cae6d6c3f12f203cb2c2a78e33e899f77dceb931","namespace":{"id":"root"},"path":"sys/capabilities-self","data":{"paths":["hmac-sha256:fd04b28916cb60f622b1ebce308b339b468f5da93fa735f985f4435049627a27"]},"remote_address":"203.0.113.40"}}'
+    key:
+      - time
+      - type
+      - auth.client_token
+      - auth.accessor
+cves: []
+detections:
+  - title: Hashicorp Vault events arriving
+    severity: low
+    signals:
+      - '@level'
+      - '@message'
+      - '@module'
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hashicorp_vault"'
+optimizations: []
+references:
+  - title: elastic/integrations hashicorp_vault/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hashicorp_vault/data_stream/log/_dev/test/pipeline/test-log.log
+  - title: Pack Generator sample hashicorp_vault.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hashicorp_vault.json

@@ -1,0 +1,83 @@
+id: symantec-endpoint-security
+name: Symantec Endpoint Security
+short: Security
+vendor: Symantec
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - symantec_endpoint_security
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Symantec Endpoint Security is logged by the Elastic integrations package symantec_endpoint_security. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: symantec_endpoint_security
+    desc: 'Elastic integrations fixture, 11 events. Upstream: symantec_endpoint_security/data_stream/event/_dev/test/pipeline/test-category-system.log'
+  - st: symantec_endpoint_security_incident
+    desc: 'Elastic integrations fixture, 2 events. Upstream: symantec_endpoint_security/data_stream/incident/_dev/test/pipeline/test-incident.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: symantec_endpoint_security
+  Sourcetypes: '2'
+  Fixture events: '13'
+  Log format seen: json
+  Fields in the first fixture: analysis, category_id, module.url, time, timezone, type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Symantec Endpoint Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries analysis, category_id, module.url, time, timezone, type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads symantec_endpoint_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: symantec_endpoint_security
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"analysis":"Test Analysis","category_id":5,"module":{"url":"www.actor-module-url-text.com/download/trouble"},"time":"2024-02-29T02:00:00Z","timezone":12345678901,"type":"Test Type","type_id":8002}'
+    key:
+      - analysis
+      - category_id
+      - module.url
+      - time
+  - type: Incident
+    sourcetype: symantec_endpoint_security_incident
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"customer_uid":"TEST-JvOsaJktSS-eyL-dXhxOvA","incident_uid":"8e7edfb1-27d2-4837-98ca-e7d794119c3b","type":"INCIDENT_CREATION","resolution_id":1,"conclusion":"Suspicious Activity","remediation":"Investigate further activity at the endpoint by downloading a full dump of the endpoint''s recorded data. Give particular attention to activities performed by...","priority_id":4,"category_id":1,"modified":"2023-04-26T22:01:58.648+00:00","state_id":1,"id":4,"product_uid":"31B0C880-0229-49E8-94C5-48D56B1BD7B9","device_time":1682545570400,"ref_incident_uid":102110,"rule_name":"Advanced Attack Technique","created":"2023-04-26T21:46:10.400+00:00","type_id":8075,"incident_url":"https://sep.securitycloud.symantec.com/v2/incidents/incidentListing/8e7edfb1-27d2-4837-98ca-e7d794119c3b/details","message":"Victim-2:Signed Binary Proxy Execution, Deobfuscate/Decode Files or Information, Command and Scripting Interpreter: PowerShell, System Services: Service Exec...","version":"1.0","product_name":"Symantec Integrated Cyber Defense Manager","event_id":8075004,"domain_uid":"TEST-ZBg_IqnyTAijNjP2BOOcuw","detection_type":"Advanced Analytics","severity_id":4,"time":1682545570400,"suspected_breach":"Yes"}'
+    key:
+      - customer_uid
+      - incident_uid
+      - type
+      - resolution_id
+cves: []
+detections:
+  - title: Symantec Endpoint Security events arriving
+    severity: low
+    signals:
+      - analysis
+      - category_id
+      - module.url
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "symantec_endpoint_security"'
+optimizations: []
+references:
+  - title: elastic/integrations symantec_endpoint_security/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/symantec_endpoint_security/data_stream/event/_dev/test/pipeline/test-category-system.log
+  - title: Pack Generator sample symantec_endpoint_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_endpoint_security.json

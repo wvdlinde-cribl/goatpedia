@@ -1,0 +1,71 @@
+id: workato
+name: Workato
+short: Workato
+vendor: Workato
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - workato
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Workato is logged by the Datadog integrations-core package workato. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: workato
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: workato/assets/logs/workato_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: workato
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: completed_at, recipe.name, recipe.job_succeeded_count, recipe.lifetime_task_count, recipe.description, recipe.id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Workato events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries completed_at, recipe.name, recipe.job_succeeded_count, recipe.lifetime_task_count, recipe.description, recipe.id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads workato and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Workato
+    sourcetype: workato
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"completed_at":"2025-06-14T16:17:14.000-07:00","recipe":{"name":"MDM Migrate","job_succeeded_count":6244,"lifetime_task_count":12473,"description":"","id":62567615,"folder_id":25081370,"tags":["critical","capture"]},"project":{"name":"Admin Ops","description":"","id":12466695,"folder_id":25081360},"started_at":"2025-06-14T16:17:11.000-07:00","is_error":false,"id":"j-ATC9XJmT-hGWfsa","title":"Scheduler by Workato: new recurring event: Scheduled time=2025-06-14T16:17:11.164120-07:00, Scheduled day=Saturday, and Scheduled week=23","status":"success","duration":3000000}'
+    key:
+      - completed_at
+      - recipe.name
+      - recipe.job_succeeded_count
+      - recipe.lifetime_task_count
+cves: []
+detections:
+  - title: Workato events arriving
+    severity: low
+    signals:
+      - completed_at
+      - recipe.name
+      - recipe.job_succeeded_count
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "workato"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core workato/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/workato/assets/logs/workato_tests.yaml
+  - title: Pack Generator sample workato.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/workato.json

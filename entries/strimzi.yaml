@@ -1,0 +1,67 @@
+id: strimzi
+name: Strimzi
+short: Strimzi
+vendor: Strimzi
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - strimzi
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Strimzi is logged by the Datadog integrations-core package strimzi. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: strimzi
+    desc: 'Datadog integrations-core fixture, 7 events. Upstream: strimzi/assets/logs/strimzi_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: strimzi
+  Sourcetypes: '1'
+  Fixture events: '7'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Strimzi events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads strimzi and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Strimzi
+    sourcetype: strimzi
+    format: text
+    desc: 7 fixture events in the samples pool (logtest).
+    sample: '2023-09-21T08:25:27.244309295Z stdout F 2023-09-21 08:25:27 INFO  AbstractOperator:510 - Reconciliation #55(timer) Kafka(kafka/my-cluster): reconciled'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Strimzi events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "strimzi"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core strimzi/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/strimzi/assets/logs/strimzi_tests.yaml
+  - title: Pack Generator sample strimzi.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/strimzi.json

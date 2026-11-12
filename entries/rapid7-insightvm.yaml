@@ -1,0 +1,95 @@
+id: rapid7-insightvm
+name: Rapid7 Insightvm
+short: Insightvm
+vendor: Rapid7
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - rapid7_insightvm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Rapid7 Insightvm is logged by the Elastic integrations package rapid7_insightvm. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: rapid7_insightvm_asset
+    desc: 'Elastic integrations fixture, 3 events. Upstream: rapid7_insightvm/data_stream/asset/_dev/test/pipeline/test-asset.log'
+  - st: rapid7_insightvm_asset_vulnerability
+    desc: 'Elastic integrations fixture, 5 events. Upstream: rapid7_insightvm/data_stream/asset_vulnerability/_dev/test/pipeline/test-asset-vulnerability.log'
+  - st: rapid7_insightvm_vulnerability
+    desc: 'Elastic integrations fixture, 3 events. Upstream: rapid7_insightvm/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: rapid7_insightvm
+  Sourcetypes: '3'
+  Fixture events: '11'
+  Log format seen: json
+  Fields in the first fixture: assessed_for_policies, assessed_for_vulnerabilities, critical_vulnerabilities, exploits, id, ip
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Rapid7 Insightvm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries assessed_for_policies, assessed_for_vulnerabilities, critical_vulnerabilities, exploits, id, ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads rapid7_insightvm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Asset
+    sourcetype: rapid7_insightvm_asset
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"assessed_for_policies":false,"assessed_for_vulnerabilities":true,"critical_vulnerabilities":0,"exploits":0,"id":"452534235-25a7-40a3-9321-28ce0b5cc90e-default-asset-199","ip":"198.51.100.15","last_assessed_for_vulnerabilities":"2020-03-20T19:19:42.611Z","last_scan_end":"2020-03-20T19:19:42.611Z","last_scan_start":"2020-03-20T19:18:13.611Z","malware_kits":0,"moderate_vulnerabilities":2,"os_architecture":"x86_64","os_description":"CentOS Linux 2.6.18","os_family":"Linux","os_name":"Linux","os_system_name":"CentOS Linux","os_type":"General","os_vendor":"CentOS","os_version":"2.6.18","risk_score":0,"severe_vulnerabilities":0,"tags":[{"name":"lab","type":"SITE"}],"total_vulnerabilities":2,"new":[],"remediated":[]}'
+    key:
+      - assessed_for_policies
+      - assessed_for_vulnerabilities
+      - critical_vulnerabilities
+      - exploits
+  - type: Asset Vulnerability
+    sourcetype: rapid7_insightvm_asset_vulnerability
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"assessed_for_policies":false,"assessed_for_vulnerabilities":true,"credential_assessments":[],"critical_vulnerabilities":5,"exploits":0,"host_name":"ub22-50-6-126","id":"8babcdef-5678-5678-1234-cabcdef0123e-default-asset-7","ip":"198.51.100.25","last_assessed_for_vulnerabilities":"2025-05-27T19:54:43.777Z","last_scan_end":"2025-05-27T19:54:43.777Z","last_scan_start":"2025-05-27T19:53:43.777Z","mac":"2001:db8::1","malware_kits":0,"moderate_vulnerabilities":1,"os_architecture":"x86_64","os_description":"Ubuntu Linux 22.04","os_family":"Linux","os_name":"Linux","os_system_name":"Ubuntu Linux","os_type":"","os_vendor":"Ubuntu","os_version":"22.04","risk_score":5656,"severe_vulnerabilities":6,"tags":[{"name":"rapid7 insight agents","type":"SITE"}],"total_vulnerabilities":12,"type":"guest","unique_identifiers":[{"id":"B7123456-5678-1234-ABCD-6F6ABCDEFA91","source":"dmidecode"},{"id":"cababcdefabcd0123456789f16d7061a","source":"R7 Agent"}],"vulnerability":{"check_id":null,"first_found":"2025-05-14T13:52:10Z","key":"/root/infaagent/jdk/lib/jrt-fs.jar","last_found":"2025-05-27T19:54:43.777Z","nic":null,"port":null,"proof":"<p><p>Vulnerable OS: Ubuntu Linux 22.04<p></p></p><p>Vulnerable software installed: Azul Systems JRE 17.54.22 (/root/infaagent/jdk/lib/jrt-fs.jar)</p></p>","protocol":null,"reintroduced":null,"solution_fix":"<p>\n    Download and upgrade to the latest version of Azul Zulu from <a href=\"https://www.azul.com/downloads/\">here.</a></p>","solution_id":"azul-zulu-upgrade-latest","solution_summary":"Upgrade Azul Zulu to the latest version","solution_type":"workaround","status":"VULNERABLE_VERS","vulnerability_id":"azul-zulu-cve-2025-21502","added":"2025-02-05T00:00:00Z","categories":"Azul Systems,Azul Zulu,Java,Web","cves":"CVE-2025-21502","cvss_v2_access_complexity":"high","cvss_v2_access_vector":"network","cvss_v2_authentication":"none","cvss_v2_availability_impact":"none","cvss_v2_confidentiality_impact":"partial","cvss_v2_exploit_score":4.927999973297119,"cvss_v2_impact_score":4.938243839970231,"cvss_v2_integrity_impact":"partial","cvss_v2_score":4,"cvss_v2_vector":"(AV:N/AC:H/Au:N/C:P/I:P/A:N)","cvss_v3_attack_complexity":"high","cvss_v3_attack_vector":"network"}}'
+    key:
+      - assessed_for_policies
+      - assessed_for_vulnerabilities
+      - credential_assessments
+      - critical_vulnerabilities
+  - type: Vulnerability
+    sourcetype: rapid7_insightvm_vulnerability
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"added":"2018-05-16T00:00:00Z","categories":"7-Zip,Remote Execution","cves":"CVE-2016-2334","cvss_v2_access_complexity":"medium","cvss_v2_access_vector":"network","cvss_v2_authentication":"none","cvss_v2_availability_impact":"complete","cvss_v2_confidentiality_impact":"complete","cvss_v2_exploit_score":8.5888,"cvss_v2_impact_score":10.000845,"cvss_v2_integrity_impact":"complete","cvss_v2_score":9.3,"cvss_v2_vector":"AV:N/AC:M/Au:N/C:C/I:C/A:C","cvss_v3_attack_complexity":"low","cvss_v3_attack_vector":"local","cvss_v3_availability_impact":"high","cvss_v3_confidentiality_impact":"high","cvss_v3_exploit_score":1.8345766,"cvss_v3_impact_score":5.873119,"cvss_v3_integrity_impact":"high","cvss_v3_privileges_required":"none","cvss_v3_scope":"unchanged","cvss_v3_score":7.8,"cvss_v3_user_interaction":"required","cvss_v3_vector":"CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H","denial_of_service":false,"description":"Heap-based buffer overflow in the NArchive2001:db8::1NHfs2001:db8::1CHandler2001:db8::1ExtractZlibFile method in 7zip before 16.00 and p7zip allows remote at...","exploits":[],"id":"7-zip-cve-2016-2334","links":[{"href":"http://www.securityfocus.com/bid/90531","id":"90531","rel":"advisory","source":"bid"},{"href":"http://nvd.nist.gov/vuln/detail/CVE-2016-2334","id":"CVE-2016-2334","rel":"advisory","source":"cve"}]}'
+    key:
+      - added
+      - categories
+      - cves
+      - cvss_v2_access_complexity
+cves: []
+detections:
+  - title: Rapid7 Insightvm events arriving
+    severity: low
+    signals:
+      - assessed_for_policies
+      - assessed_for_vulnerabilities
+      - critical_vulnerabilities
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "rapid7_insightvm_asset"'
+optimizations: []
+references:
+  - title: elastic/integrations rapid7_insightvm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/rapid7_insightvm/data_stream/asset/_dev/test/pipeline/test-asset.log
+  - title: Pack Generator sample rapid7_insightvm_asset.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/rapid7_insightvm_asset.json

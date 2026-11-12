@@ -1,0 +1,71 @@
+id: vonage
+name: Vonage
+short: Vonage
+vendor: Vonage
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - vonage
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Vonage is logged by the Datadog integrations-core package vonage. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: vonage
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: vonage/assets/logs/vonage_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: vonage
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: country, changed_from, latency, date_finalized, network, error_code_description
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Vonage events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries country, changed_from, latency, date_finalized, network, error_code_description. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads vonage and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Vonage
+    sourcetype: vonage
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"country":"IN","changed_from":"","latency":"","date_finalized":"","network":"405862","error_code_description":"","concatenated":"true","country_name":"India","from":"918060290593","currency":"","date_received":"2025-05-05T10:35:14+00:00","id":"56379def-5102-4357-8677-572ca1a892b1","direction":"outbound","account_ref":"","total_price":"0.07522000","client_ref":"1|c000d643-6e45-453b-9829-10820b0de7be|1746441314087|ap-southeast-1","validity_period":"250506113513100+","network_name":"Reliance Jio Infocomm Limited - Karnataka","message_id":"56379def-5102-4357-8677-572ca1a892b1","account_id":"bf8d8cc9","udh":"BQADIwQE","forced_from":"","error_code":"12","to":"91636365187","status":"rejected"}'
+    key:
+      - country
+      - changed_from
+      - latency
+      - date_finalized
+cves: []
+detections:
+  - title: Vonage events arriving
+    severity: low
+    signals:
+      - country
+      - changed_from
+      - latency
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "vonage"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core vonage/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/vonage/assets/logs/vonage_tests.yaml
+  - title: Pack Generator sample vonage.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vonage.json

@@ -1,0 +1,71 @@
+id: jmeter
+name: Jmeter
+short: Jmeter
+vendor: Jmeter
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jmeter
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Jmeter is logged by the Datadog integrations-core package jmeter. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jmeter
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: jmeter/assets/logs/jmeter_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: jmeter
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: sample_start_time, response_code, headers_size, sample_label, group_threads, latency
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jmeter events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries sample_start_time, response_code, headers_size, sample_label, group_threads, latency. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads jmeter and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Jmeter
+    sourcetype: jmeter
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"sample_start_time":1617786558198,"response_code":429,"headers_size":475,"sample_label":"Github request","group_threads":9,"latency":64,"idle_time":0,"error_count":1,"url":"https://github.com/test","sent_bytes":110,"thread_group":"Thread Group","body_size":1474,"http_method":"GET","content_type":"text/html; charset=utf-8","load_time":64,"bytes":1949,"sample_end_time":1617786558262,"thread_name":"Thread Group 1-94","connect_time":48,"data_type":"text","sample_count":1,"all_threads":9,"data_encoding":"utf-8"}'
+    key:
+      - sample_start_time
+      - response_code
+      - headers_size
+      - sample_label
+cves: []
+detections:
+  - title: Jmeter events arriving
+    severity: low
+    signals:
+      - sample_start_time
+      - response_code
+      - headers_size
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jmeter"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core jmeter/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/jmeter/assets/logs/jmeter_tests.yaml
+  - title: Pack Generator sample jmeter.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jmeter.json

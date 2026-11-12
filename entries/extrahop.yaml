@@ -1,0 +1,95 @@
+id: extrahop
+name: Extrahop
+short: Extrahop
+vendor: Extrahop
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - extrahop
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Extrahop is logged by the Datadog integrations-core package extrahop. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: extrahop
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: extrahop/assets/logs/extrahop_tests.yaml'
+  - st: extrahop_detection
+    desc: 'Elastic integrations fixture, 3 events. Upstream: extrahop/data_stream/detection/_dev/test/pipeline/test-pipeline-detection.log'
+  - st: extrahop_investigation
+    desc: 'Elastic integrations fixture, 4 events. Upstream: extrahop/data_stream/investigation/_dev/test/pipeline/test-investigation.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: extrahop
+  Sourcetypes: '3'
+  Fixture events: '9'
+  Log format seen: json
+  Fields in the first fixture: appliance_id, mod_time, create_time, risk_score, end_time, description
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Extrahop events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries appliance_id, mod_time, create_time, risk_score, end_time, description. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads extrahop and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Extrahop
+    sourcetype: extrahop
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"appliance_id":8,"mod_time":1709049465950,"create_time":1709048931113,"risk_score":37,"end_time":1708646400000,"description":"[VMware 81C347](https://test.cloud.extrahop.com#/metrics/devices/f614c22480364499a52ebf71eed7bd49.00505681c3470000/overview?from=1708636140&interval_type=DT&...","mitre_tactics":[{"name":"Discovery","id":"TA0007","url":"https://attack.mitre.org/tactics/TA0007"}],"mitre_techniques":[{"legacy_ids":["T1046"],"name":"Network Service Scanning","id":"T1046","url":"https://attack.mitre.org/techniques/T1046"}],"title":"TCP SYN Scan","type":"tcp_syn_scan","url":"https://test.cloud.extrahop.com/extrahop/#/detections/detail/34359738432/?from=1708635240&until=1708647300&interval_type=DT","recommended":false,"start_time":1708636140001,"update_time":1708650000000,"is_user_created":false,"id":34359738432,"categories":["sec.recon","sec"],"participants":[{"external":false,"role":"offender","object_type":"device","object_value":"203.0.113.40","id":6190704,"object_id":34359738588},{"external":false,"role":"victim","object_type":"device","object_value":"192.0.2.10","id":6190653,"object_id":34359738485}]}'
+    key:
+      - appliance_id
+      - mod_time
+      - create_time
+      - risk_score
+  - type: Detection
+    sourcetype: extrahop_detection
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":25769804127,"start_time":1750935450304,"update_time":1751347620747,"title":"Expiring SSL/TLS Server Certificate","description":"[dc1\\.i\\.rx\\.tours](https://extrahop-bd.cloud.extrahop.com#/metrics/devices/71c6ffe3ae8548bbbb9bf279c912d3ae.0e9442d930570000/overview?from=1750935450&interv...","risk_score":15,"type":"expiring_cert_individual","recommended_factors":["top_offender"],"recommended":false,"categories":["sec","sec.hardening"],"properties":{"certificate":"dc1.attack.local:RSA_2048:3e426a1a3b2c2cae4cb51ec46b6c8a88"},"participants":[{"role":"offender","scanner_service":"revealX-test","endpoint":"server","external":false,"object_id":25769803777,"object_type":"device","object_value":"198.51.100.25","hostname":"dc1.i.rx.tours","username":"user@example.com","id":7121}],"ticket_id":3041,"assignee":"john.doe","status":"open","resolution":"no_action_taken","mitre_tactics":[{"id":"TA0007","name":"Discovery","url":"https://attack.mitre.org/tactics/TA0007"}],"mitre_techniques":[{"id":"T1087","name":"Account Discovery","url":"https://attack.mitre.org/techniques/T1087","legacy_ids":["T1087"]}],"appliance_id":6,"is_user_created":false,"mod_time":1750935535971,"create_time":1750935466182,"url":"https://extrahop-bd.cloud.extrahop.com/extrahop/#/detections/detail/25769804127/?from=1750934550&until=1751348520&interval_type=DT"}'
+    key:
+      - id
+      - start_time
+      - update_time
+      - title
+  - type: Investigation
+    sourcetype: extrahop_investigation
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":3,"notes":"Investigate Internally with AD logs","status":"closed","creation_time":1747825693321,"update_time":1747825693321,"last_interaction_time":1748613881434,"name":"BloodHound Enumeration Investigation","assessment":"benign_true_positive","created_by":"user@example.com","assignee":"user1","last_interaction_by":"user1","description":"This investigation focuses on potential enumeration behavior observed through BloodHound. Review AD logs and user group mappings to verify intent and exposure.","investigation_types":["Active Directory","Threat Hunting"],"is_user_created":true,"start_time":1747825693321,"end_time":1748613881434,"detections":[25769803958],"url":"https://example.com/#/detections/investigations/3"}'
+    key:
+      - id
+      - notes
+      - status
+      - creation_time
+cves: []
+detections:
+  - title: Extrahop events arriving
+    severity: low
+    signals:
+      - appliance_id
+      - mod_time
+      - create_time
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "extrahop"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core extrahop/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/extrahop/assets/logs/extrahop_tests.yaml
+  - title: Pack Generator sample extrahop.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/extrahop.json

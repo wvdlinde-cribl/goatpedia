@@ -1,0 +1,71 @@
+id: azure-network-watcher-vnet
+name: Azure Network Watcher Vnet
+short: Vnet
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_network_watcher_vnet
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure Network Watcher Vnet is logged by the Elastic integrations package azure_network_watcher_vnet. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_network_watcher_vnet
+    desc: 'Elastic integrations fixture, 1 events. Upstream: azure_network_watcher_vnet/data_stream/log/_dev/test/pipeline/test-vnet.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure_network_watcher_vnet
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: time, flowLogVersion, flowLogGUID, macAddress, category, flowLogResourceID
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure Network Watcher Vnet events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, flowLogVersion, flowLogGUID, macAddress, category, flowLogResourceID. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure_network_watcher_vnet and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: azure_network_watcher_vnet
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"time":"2022-09-14T09:00:52.5625085Z","flowLogVersion":4,"flowLogGUID":"abcdef01-2345-6789-0abc-def012345678","macAddress":"0022487bC205","category":"FlowLogFlowEvent","flowLogResourceID":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/NETWORKWATCHERRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKWATCHERS/NETWORKWATCHER_EASTUS2EUAP/FL...","targetResourceID":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Network/virtualNetworks/myVNet","operationName":"FlowLogFlowEvent","flowRecords":{"flows":[{"aclID":"00000000-1234-abcd-ef00-c1c2c3c4c5c6","flowGroups":[{"rule":"DefaultRule_AllowInternetOutBound","flowTuples":["1663146003599,192.0.2.20,198.51.100.15,23956,443,6,O,B,NX,0,0,0,0","1663146003606,198.51.100.25,203.0.113.8,36776,443,6,O,E,NX,22,2217,33,0"]}]}]}}'
+    key:
+      - time
+      - flowLogVersion
+      - flowLogGUID
+      - macAddress
+cves: []
+detections:
+  - title: Azure Network Watcher Vnet events arriving
+    severity: low
+    signals:
+      - time
+      - flowLogVersion
+      - flowLogGUID
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_network_watcher_vnet"'
+optimizations: []
+references:
+  - title: elastic/integrations azure_network_watcher_vnet/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_network_watcher_vnet/data_stream/log/_dev/test/pipeline/test-vnet.log
+  - title: Pack Generator sample azure_network_watcher_vnet.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_network_watcher_vnet.json

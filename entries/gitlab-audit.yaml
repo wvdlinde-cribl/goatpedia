@@ -29,6 +29,22 @@ sourcetypes:
     desc: Rails audit log file (/var/log/gitlab/gitlab-rails/audit_json.log), one JSON object per line
   - st: gitlab_audit_streaming
     desc: Audit event streaming payloads (HTTP POST of JSON, optionally batched) from instance or top-level group destinations
+  - st: gitlab
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: gitlab/assets/logs/gitlab_tests.yaml'
+  - st: gitlab_api
+    desc: 'Elastic integrations fixture, 10 events. Upstream: gitlab/data_stream/api/_dev/test/pipeline/test-gitlab-api.log'
+  - st: gitlab_application
+    desc: 'Elastic integrations fixture, 20 events. Upstream: gitlab/data_stream/application/_dev/test/pipeline/test-application.log'
+  - st: gitlab_audit
+    desc: 'Elastic integrations fixture, 4 events. Upstream: gitlab/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: gitlab_auth
+    desc: 'Elastic integrations fixture, 5 events. Upstream: gitlab/data_stream/auth/_dev/test/pipeline/test-auth.log'
+  - st: gitlab_pages
+    desc: 'Elastic integrations fixture, 6 events. Upstream: gitlab/data_stream/pages/_dev/test/pipeline/test-pages.log'
+  - st: gitlab_production
+    desc: 'Elastic integrations fixture, 9 events. Upstream: gitlab/data_stream/production/_dev/test/pipeline/test-gitlab-production.log'
+  - st: gitlab_sidekiq
+    desc: 'Elastic integrations fixture, 3 events. Upstream: gitlab/data_stream/sidekiq/_dev/test/pipeline/test-gitlab-sidekiq.log'
 facts:
   First released: 2011 (GitLab); audit event streaming GA in 15.x (2022)
   Platform: Ruby on Rails monolith (Puma, Sidekiq, Gitaly, Workhorse) on Linux, Helm/Kubernetes or SaaS
@@ -149,6 +165,86 @@ logs:
       - author_id
       - entity_id
     sample: '{"severity":"INFO","time":"2026-11-12T08:41:10.522Z","correlation_id":"01JCX4Q7RZ2N8M3E6V0A9B1C2D","author_id":7,"entity_id":31,"entity_type":"Project","change":"visibility","from":"Private","to":"Public","author_name":"asmith","target_id":31,"target_type":"Project","target_details":"platform/infra-secrets","ip_address":"10.20.30.44","entity_path":"platform/infra-secrets"}'
+  - type: Gitlab
+    sourcetype: gitlab
+    format: kv
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: 2019-06-18_08:29:19.19738 level=info ts=2019-06-18T08:29:19.197296937Z caller=cluster.go:649 component=cluster msg="gossip settled; proceeding" elapsed=10.013689387s
+    key:
+      - level
+      - ts
+      - caller
+      - component
+  - type: API
+    sourcetype: gitlab_api
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"time":"2024-04-29T17:06:12.231Z","severity":"INFO","duration_s":0.01969,"db_duration_s":0,"view_duration_s":0.01969,"status":200,"method":"GET","path":"/api/v4/geo/proxy","params":[],"host":"localhost","remote_ip":"203.0.113.8","ua":"Go-http-client/1.1","route":"/api/:version/geo/proxy","db_count":0,"db_write_count":0,"db_cached_count":0,"db_txn_count":0,"db_replica_txn_count":0,"db_primary_txn_count":0,"db_main_txn_count":0,"db_ci_txn_count":0,"db_main_replica_txn_count":0,"db_ci_replica_txn_count":0,"db_replica_count":0,"db_primary_count":0,"db_main_count":0,"db_ci_count":0,"db_main_replica_count":0,"db_ci_replica_count":0,"db_replica_cached_count":0}'
+    key:
+      - time
+      - severity
+      - duration_s
+      - db_duration_s
+  - type: Application
+    sourcetype: gitlab_application
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"severity":"INFO","time":"2024-05-10T17:49:45.825Z","correlation_id":"01HXHSYJJQNY08JV4JF2B69ZDR","meta.caller_id":"ProjectCacheWorker","meta.remote_ip":"192.0.2.20","meta.feature_category":"source_code_management","meta.user":"root","meta.user_id":1,"meta.project":"root/test_1","meta.root_namespace":"root","meta.client_id":"user/1","meta.root_caller_id":"ProjectsController#create","message":"Updating statistics for project 1"}'
+    key:
+      - severity
+      - time
+      - correlation_id
+      - meta.caller_id
+  - type: Audit
+    sourcetype: gitlab_audit
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"severity":"INFO","time":"2024-05-10T17:46:49.065Z","correlation_id":"01HXHSTQ5A02PJVVW2H8FZZ77A","meta.caller_id":"SessionsController#create","meta.remote_ip":"198.51.100.15","meta.feature_category":"system_access","meta.user":"root","meta.user_id":1,"meta.client_id":"user/1","author_id":1,"author_name":"Administrator","entity_id":1,"entity_type":"User","created_at":"2024-05-10T17:46:49.058+00:00","with":"standard","target_id":1,"target_type":"User","target_details":"Administrator"}'
+    key:
+      - severity
+      - time
+      - correlation_id
+      - meta.caller_id
+  - type: Auth
+    sourcetype: gitlab_auth
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"severity":"ERROR","time":"2023-04-19T22:14:25.893Z","correlation_id":"01GYDSAKAN2SPZPAMJNRWW5H8S","message":"Rack_Attack","env":"blocklist","remote_ip":"198.51.100.25","request_method":"GET","path":"/group/project.git/info/refs?service=git-upload-pack"}'
+    key:
+      - severity
+      - time
+      - correlation_id
+      - message
+  - type: Pages
+    sourcetype: gitlab_pages
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"level":"info","msg":"GitLab Pages Daemon","revision":"52b2899","time":"2020-04-22T17:53:12Z","version":"1.17.0"}'
+    key:
+      - level
+      - msg
+      - revision
+      - time
+  - type: Production
+    sourcetype: gitlab_production
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"method":"GET","path":"/-/metrics","format":"html","controller":"MetricsController","action":"index","status":200,"time":"2024-04-03T21:02:19.168Z","params":[],"redis_calls":8,"redis_duration_s":0.00289,"redis_read_bytes":1392,"redis_write_bytes":445,"redis_feature_flag_calls":8,"redis_feature_flag_duration_s":0.00289,"redis_feature_flag_read_bytes":1392,"redis_feature_flag_write_bytes":445,"db_count":0,"db_write_count":0,"db_cached_count":0,"db_txn_count":0,"db_replica_txn_count":0,"db_primary_txn_count":0,"db_main_txn_count":0,"db_ci_txn_count":0,"db_main_replica_txn_count":0,"db_ci_replica_txn_count":0,"db_replica_count":0,"db_primary_count":0,"db_main_count":0,"db_ci_count":0}'
+    key:
+      - method
+      - path
+      - format
+      - controller
+  - type: Sidekiq
+    sourcetype: gitlab_sidekiq
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"severity":"INFO","time":"2018-04-03T22:57:22.071Z","queue":"cronjob:update_all_mirrors","args":[],"class":"UpdateAllMirrorsWorker","retry":false,"queue_namespace":"cronjob","jid":"06aeaa3b0aadacf9981f368e","created_at":"2018-04-03T22:57:21.930Z","enqueued_at":"2018-04-03T22:57:21.931Z","pid":10077,"worker_id":"sidekiq_0","message":"UpdateAllMirrorsWorker JID-06aeaa3b0aadacf9981f368e: done: 0.139 sec","job_status":"done","duration":0.139,"completed_at":"2018-04-03T22:57:22.071Z","db_duration":0.05,"db_duration_s":0.0005,"gitaly_duration":0,"gitaly_calls":0}'
+    key:
+      - severity
+      - time
+      - queue
+      - args
 cves:
   - id: CVE-2026-97229
     cvss: 10

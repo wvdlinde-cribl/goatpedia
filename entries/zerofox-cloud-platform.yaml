@@ -1,0 +1,71 @@
+id: zerofox-cloud-platform
+name: Zerofox Cloud Platform
+short: Platform
+vendor: Zerofox
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - zerofox_cloud_platform
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Zerofox Cloud Platform is logged by the Datadog integrations-core package zerofox_cloud_platform. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: zerofox_cloud_platform
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: zerofox_cloud_platform/assets/logs/zerofox-cloud-platform_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: zerofox_cloud_platform
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: severity, notes, rule_name, perpetrator.name, perpetrator.id, perpetrator.display_name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Zerofox Cloud Platform events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries severity, notes, rule_name, perpetrator.name, perpetrator.id, perpetrator.display_name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads zerofox_cloud_platform and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Zerofox Cloud Platform
+    sourcetype: zerofox_cloud_platform
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"severity":1,"notes":"","rule_name":"Advanced Domain Analysis - Typosquat Match","perpetrator":{"name":"Concealed","id":2031456789,"display_name":"Concealed","type":"page","url":"hxxp://example.com","content":"Test content","timestamp":"2017-01-10T11:00:00+00:00","network":"domains"},"escalated":false,"content_created_at":"2017-01-10T11:00:00+00:00","rule_group_id":132,"alert_type":"search query","network":"domains","tags":["irrelevant"],"rule_id":34521,"offending_content_url":"hxxp://example.com","reviewed":false,"assignee":"user@example.com","id":1092345687,"asset":{"image":"https://example.com/media/","name":"Web Domains","entity_group":{"name":"Default","id":4321},"id":10419120},"logs":[{"actor":"ZeroFox Platform Specialist","subject":"","action":"modify tags","id":1234567890,"detail":"","timestamp":"2023-01-25T00:40:24+00:00"},{"actor":"","subject":"","action":"open","id":1234567290,"detail":"","timestamp":"2023-01-25T00:40:24+00:00"}],"last_modified":"2025-02-26T14:27:56Z","entity":{"image":"https://example.com/media/","name":"Web Domains","entity_group":{"name":"Default","id":4321},"id":10419120},"status":"Open","timestamp":"2025-02-26T13:37:23+00:00"}'
+    key:
+      - severity
+      - notes
+      - rule_name
+      - perpetrator.name
+cves: []
+detections:
+  - title: Zerofox Cloud Platform events arriving
+    severity: low
+    signals:
+      - severity
+      - notes
+      - rule_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "zerofox_cloud_platform"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core zerofox_cloud_platform/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/zerofox_cloud_platform/assets/logs/zerofox-cloud-platform_tests.yaml
+  - title: Pack Generator sample zerofox_cloud_platform.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zerofox_cloud_platform.json

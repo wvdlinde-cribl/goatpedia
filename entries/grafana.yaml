@@ -1,0 +1,71 @@
+id: grafana
+name: Grafana
+short: Grafana
+vendor: Grafana
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - grafana
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Grafana is logged by the Elastic integrations package grafana. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: grafana
+    desc: 'Elastic integrations fixture, 12 events. Upstream: grafana/data_stream/logs/_dev/test/pipeline/test-json-log.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: grafana
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: json
+  Fields in the first fixture: branch, commit, compiled, level, logger, msg
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Grafana events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries branch, commit, compiled, level, logger, msg. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads grafana and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Logs
+    sourcetype: grafana
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"branch":"release-12.3.2","commit":"df2547decd50d14defa20ec9ce1c2e2bc9462d72","compiled":"2026-02-16T20:59:06Z","level":"info","logger":"settings","msg":"Starting Grafana","t":"2026-02-16T20:59:06.216437276Z","version":"12.3.2"}'
+    key:
+      - branch
+      - commit
+      - compiled
+      - level
+cves: []
+detections:
+  - title: Grafana events arriving
+    severity: low
+    signals:
+      - branch
+      - commit
+      - compiled
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "grafana"'
+optimizations: []
+references:
+  - title: elastic/integrations grafana/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/grafana/data_stream/logs/_dev/test/pipeline/test-json-log.json
+  - title: Pack Generator sample grafana.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/grafana.json

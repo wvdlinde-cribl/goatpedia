@@ -1,0 +1,71 @@
+id: stormshield
+name: Stormshield
+short: Stormshield
+vendor: Stormshield
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - stormshield
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Stormshield is logged by the Elastic integrations package stormshield. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: stormshield
+    desc: 'Elastic integrations fixture, 20 events. Upstream: stormshield/data_stream/log/_dev/test/pipeline/test-firewall.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: stormshield
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: id, time, fw, tz, startime, SavedEvaluation
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Stormshield events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, time, fw, tz, startime, SavedEvaluation. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads stormshield and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: stormshield
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: id=firewall time="2024-03-08 17:29:51" fw="stormy-1" tz=+0000 startime="2024-03-08 17:29:51" SavedEvaluation=621 DynamicMem=0 HostMem=0 FragMem=0 ICMPMem=0 ConnMem=0 AssocMem=0 EtherStateMem=0 IPStateMem=0 DTrackMem=0 Logged=11 LogOverflow=0 HostrepMax=0 HostrepScore=0 HostrepRequests=0 PvmFacts=0 PvmOverflow=0 Accepted=105 Blocked=0 Byte(i/o)=10592/14285 Fragmented=0 TCPPacket=0 TCPByte(i/o)=0/0 TCPConn=0 TCPConnNatSrc=0 TCPConnNatDst=0 TCPConnNoNatSrc=0 TCPConnNoNatDst=0 UDPPacket=104 UDPByte(i/o)=10283/14285 UDPConn=0 UDPConnNatSrc=0 UDPConnNatDst=0 UDPConnNoNatSrc=0 UDPConnNoNatDst=0 ICMPPacket=1 ICMPByte(i/o)=309/0 IPStatePacket=0 IPStateByte(i/o)=0/0 IPStateConn=0 IPStateConnNatSrc=0 IPStateConnNatDst=0 IPStateConnNoNatSrc=0 IPStateConnNoNatDst=0 SCTPAssocPacket=0 SCTPAssocByte(i/o)=0/0 SCTPAssoc=0 EtherStatePacket=0 EtherStateByte(i/o)=0/0 EtherStateConn=0 TLSCertCacheEntriesNb=0 TLSCertCacheLookup(miss/total)=0/0 TLSCertCacheInsert=0 TLSCertCacheFlushOp=0 TLSCertCachePurgeOp=0 TLSCertCacheFlushedNb=0 TLSCertCachePurgedNb=0 TLSCertCacheExpiredNb=0 logtype="filterstat"
+    key:
+      - id
+      - time
+      - fw
+      - tz
+cves: []
+detections:
+  - title: Stormshield events arriving
+    severity: low
+    signals:
+      - id
+      - time
+      - fw
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "stormshield"'
+optimizations: []
+references:
+  - title: elastic/integrations stormshield/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/stormshield/data_stream/log/_dev/test/pipeline/test-firewall.log
+  - title: Pack Generator sample stormshield.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/stormshield.json

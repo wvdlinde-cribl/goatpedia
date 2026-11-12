@@ -1,0 +1,71 @@
+id: juniper-srx-firewall
+name: Juniper Srx Firewall
+short: Firewall
+vendor: Juniper
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - juniper_srx_firewall
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Juniper Srx Firewall is logged by the Datadog integrations-core package juniper_srx_firewall. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: juniper_srx_firewall
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: juniper_srx_firewall/assets/logs/juniper-srx-firewall_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: juniper_srx_firewall
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: tunnel-inspection, user-type, reason, packet-incoming-interface, bytes-from-client, source-tenant
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Juniper Srx Firewall events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries tunnel-inspection, user-type, reason, packet-incoming-interface, bytes-from-client, source-tenant. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads juniper_srx_firewall and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Juniper Srx Firewall
+    sourcetype: juniper_srx_firewall
+    format: json
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: '{"tunnel-inspection":"Off","user-type":"N/A","reason":"idle Timeout","packet-incoming-interface":"ge-0/0/1.0","bytes-from-client":"650","source-tenant":"N/A","peer-destination-port":"0","nat-connection-tag":"0","src-vrf-grp":"N/A","connection-tag":"0","service-name":"junos-https","hostname":"NA NA","session-flag":"0","policy-name":"default-permit","destination-address":"198.51.100.15","packets-from-server":"8","nat-destination-port":"443","src-nat-rule-name":"snat_pat","nat-source-address":"198.51.100.25","destination-service":"N/A","peer-source-port":"0","source-zone-name":"trust","secure-web-proxy-session-type":"NA","bytes-from-server":"6268","tunnel-inspection-policy-set":"root","application-characteristics":"N/A","peer-source-address":"203.0.113.8","session-id":"105822","source-port":"50267","roles":"N/A"}'
+    key:
+      - tunnel-inspection
+      - user-type
+      - reason
+      - packet-incoming-interface
+cves: []
+detections:
+  - title: Juniper Srx Firewall events arriving
+    severity: low
+    signals:
+      - tunnel-inspection
+      - user-type
+      - reason
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "juniper_srx_firewall"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core juniper_srx_firewall/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/juniper_srx_firewall/assets/logs/juniper-srx-firewall_tests.yaml
+  - title: Pack Generator sample juniper_srx_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_srx_firewall.json

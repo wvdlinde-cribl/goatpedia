@@ -1,0 +1,71 @@
+id: fly-io
+name: Fly Io
+short: Fly Io
+vendor: Fly
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fly_io
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Fly Io is logged by the Datadog integrations-core package fly_io. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fly_io
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: fly_io/assets/logs/fly_io_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: fly_io
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: fly.app.instance, fly.app.name, fly.region, log.level, host, env
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fly Io events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries fly.app.instance, fly.app.name, fly.region, log.level, host, env. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads fly_io and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Fly Io
+    sourcetype: fly_io
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"fly":{"app":{"instance":"32882401c3294","name":"datadog-agent-example"},"region":"ewr"},"log":{"level":"info"},"host":"32882401c3294","env":"flyenv","event":{"provider":"app"},"message":"2024-07-17 15:12:03 UTC | TRACE | INFO | (pkg/trace/info/stats.go:98 in LogAndResetStats) | [lang:python lang_version:3.8.19 interpreter:CPython tracer_versi...","ddsource":"fly_io","timestamp":"2024-07-17T15:12:03.753496132Z"}'
+    key:
+      - fly.app.instance
+      - fly.app.name
+      - fly.region
+      - log.level
+cves: []
+detections:
+  - title: Fly Io events arriving
+    severity: low
+    signals:
+      - fly.app.instance
+      - fly.app.name
+      - fly.region
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fly_io"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core fly_io/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/fly_io/assets/logs/fly_io_tests.yaml
+  - title: Pack Generator sample fly_io.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fly_io.json

@@ -1,0 +1,71 @@
+id: trend-micro-email-security
+name: Trend Micro Email Security
+short: Security
+vendor: Trend
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - trend_micro_email_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Trend Micro Email Security is logged by the Datadog integrations-core package trend_micro_email_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: trend_micro_email_security
+    desc: 'Datadog integrations-core fixture, 3 events. Upstream: trend_micro_email_security/assets/logs/trend-micro-email-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: trend_micro_email_security
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: attachments[0].fileName, attachments[0].sha256, attachments[1].fileName, attachments[1].sha256, deliveryTime, subject
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Trend Micro Email Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries attachments[0].fileName, attachments[0].sha256, attachments[1].fileName, attachments[1].sha256, deliveryTime, subject. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads trend_micro_email_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Trend Micro Email Security
+    sourcetype: trend_micro_email_security
+    format: json
+    desc: 3 fixture events in the samples pool (logtest).
+    sample: '{"attachments":[{"fileName":"test1.zip","sha256":"f78960148721b59dcb563b9964a4d47e2a834a4259f46cd12db7c1cfe82ff32e"},{"fileName":"test2.zip","sha256":"329436266f3927e89ea961e26855c8bd1f51401d92babd6627e493295376daf5"}],"deliveryTime":"2024-01-01T01:01:05Z","subject":"response sample","deliveredTo":"203.0.113.8","messageID":"<user@example.com>","genTime":"2024-01-01T01:01:01Z","type":"accepted_traffic","headerTo":["user@example.com","user@example.com"],"headerFrom":"user@example.com","size":66390,"sender":"user@example.com","embeddedUrls":["http://example1.com","http://example2.com"],"vendor":{"endpoint":"mail-tracking"},"recipient":"user@example.com","action":"Delivered","mailID":"73173f80-2e0e-46df-b2dc-a62e80167067","details":"250 2.0.0 Ok: queued as 3CBEFC0811","tlsInfo":"upstreamTLS: TLS 1.2; downstreamTLS: TLS 1.2","senderIP":"203.0.113.40","timestamp":"2024-01-01T01:01:02Z","direction":"in"}'
+    key:
+      - attachments[0].fileName
+      - attachments[0].sha256
+      - attachments[1].fileName
+      - attachments[1].sha256
+cves: []
+detections:
+  - title: Trend Micro Email Security events arriving
+    severity: low
+    signals:
+      - attachments[0].fileName
+      - attachments[0].sha256
+      - attachments[1].fileName
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "trend_micro_email_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core trend_micro_email_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/trend_micro_email_security/assets/logs/trend-micro-email-security_tests.yaml
+  - title: Pack Generator sample trend_micro_email_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trend_micro_email_security.json

@@ -1,0 +1,71 @@
+id: hpe-jetdirect
+name: HPE Jetdirect
+short: HPE Jetdirect
+vendor: HPE
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - hpe_jetdirect
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: HPE Jetdirect is logged by the Splunk Connect for Syslog package hpe_jetdirect. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: hpe_jetdirect
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_hpe_jetdirect.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: hpe_jetdirect
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, time, user, source_IP, outcome, interface
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: HPE Jetdirect events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, time, user, source_IP, outcome, interface. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads hpe_jetdirect and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: HPE Jetdirect
+    sourcetype: hpe_jetdirect
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<29> printer: Device Administrator Password modified; time="2026-Jun-15 01:45 PM (UTC-00:00)" user="admin" source_IP="sc4s-lab-01" outcome=success interface=Wired'
+    key:
+      - time
+      - user
+      - source_IP
+      - outcome
+cves: []
+detections:
+  - title: HPE Jetdirect events arriving
+    severity: low
+    signals:
+      - header
+      - time
+      - user
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "hpe_jetdirect"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_hpe_jetdirect.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_hpe_jetdirect.py
+  - title: Pack Generator sample hpe_jetdirect.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hpe_jetdirect.json

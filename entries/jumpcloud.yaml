@@ -1,0 +1,71 @@
+id: jumpcloud
+name: Jumpcloud
+short: Jumpcloud
+vendor: Jumpcloud
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jumpcloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Jumpcloud is logged by the Elastic integrations package jumpcloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jumpcloud
+    desc: 'Elastic integrations fixture, 3 events. Upstream: jumpcloud/data_stream/events/_dev/test/pipeline/test-events.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: jumpcloud
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: '@version, version, client_ip, event_type, id, initiated_by.email'
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jumpcloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @version, version, client_ip, event_type, id, initiated_by.email. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads jumpcloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: jumpcloud
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"@version":"1","version":"2","client_ip":"198.51.100.25","event_type":"user_login_attempt","id":"63c264c6c1bd55c1b7e901a5","initiated_by":{"email":"user@example.com","id":"123456789abcdef123456789","type":"user"},"mfa":false,"organization":"1234abcdef123456789abcde","service":"directory","success":true,"timestamp":"2023-01-14T08:20:06.495Z","username":"user.name"}'
+    key:
+      - '@version'
+      - version
+      - client_ip
+      - event_type
+cves: []
+detections:
+  - title: Jumpcloud events arriving
+    severity: low
+    signals:
+      - '@version'
+      - version
+      - client_ip
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jumpcloud"'
+optimizations: []
+references:
+  - title: elastic/integrations jumpcloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/jumpcloud/data_stream/events/_dev/test/pipeline/test-events.json
+  - title: Pack Generator sample jumpcloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jumpcloud.json

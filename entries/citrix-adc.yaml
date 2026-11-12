@@ -1,0 +1,103 @@
+id: citrix-adc
+name: Citrix Adc
+short: Citrix Adc
+vendor: Citrix
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - citrix_adc
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Citrix Adc is logged by the Elastic integrations package citrix_adc. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: citrix_adc
+    desc: 'Elastic integrations fixture, 20 events. Upstream: citrix_adc/data_stream/log/_dev/test/pipeline/test-citrix-waf-native.log'
+  - st: citrix_adc_interface
+    desc: 'Elastic integrations fixture, 1 events. Upstream: citrix_adc/data_stream/interface/_dev/test/pipeline/test-interface-metrics.log'
+  - st: citrix_adc_lbvserver
+    desc: 'Elastic integrations fixture, 2 events. Upstream: citrix_adc/data_stream/lbvserver/_dev/test/pipeline/test-lbvserver-metrics.log'
+  - st: citrix_adc_service
+    desc: 'Elastic integrations fixture, 1 events. Upstream: citrix_adc/data_stream/service/_dev/test/pipeline/test-service-metrics.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: citrix_adc
+  Sourcetypes: '4'
+  Fixture events: '24'
+  Log format seen: text, json
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Citrix Adc events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads citrix_adc and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text / json.
+logs:
+  - type: Log
+    sourcetype: citrix_adc
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 'Jun 22 19:14:37 <local0.info> 192.0.2.10 06/22/2015:19:14:37 GMT ns 0-PPE-1 : default APPFW APPFW_cross-site scripting 60 0 : 192.0.2.20 616-PPE1 y/3upt2K8ySWWId3Kavbxyni7Rw0000 pr_ffc http://aaron.stratum8.net/FFC/login.php?login_name=abc&passwd=12345&drinking_pref=on&text_area=%3Cscript%3E%0D%0A&loginButton=ClickToLogin&as_sfid=AAAAAAWEXcNQLlSokNmqaYF6dvfqlChNzSMsdyO9JXOJomm2vBwAMOqZIChv21EcgBc3rexIUcfm0vckKlsgoOeC_BArx1Ic4NLxxkWMtrJe4H7SOfkiv9NL7AG4juPIanTvVo%3D&as_fid=feeec8758b41740eedeeb6b35b85dfd3d5def30c Cross-site script check failed for field text_area="Bad tag: script" <blocked>'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Interface
+    sourcetype: citrix_adc_interface
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"curintfstate":"UP","curlinkdowntime":"00:00:11","curlinkstate":"DOWN","curlinkuptime":"5.00:34:24","errdroppedrxpkts":"4525300","errdroppedrxpktsrate":16,"errdroppedtxpkts":"0","errdroppedtxpktsrate":0,"errifindiscards":"0","errifindiscardsrate":0,"errlinkhangs":"0","errnicmuted":"0","errpktrx":"0","errpktrxrate":0,"errpkttx":"0","errpkttxrate":0,"id":"0/1","interfacealias":"","jumbopktsreceived":"0","jumbopktsreceivedrate":0,"jumbopktstransmitted":"0","jumbopktstransmittedrate":0,"linkreinits":"0","macmovedrate":0,"netscalerpktsrate":7,"nicerrdisables":"0","nicerrifoutdiscards":"0","nicerrifoutdiscardsrate":0,"nicmulticastpktsrate":0,"nicrxstalls":"0"}'
+    key:
+      - curintfstate
+      - curlinkdowntime
+      - curlinkstate
+      - curlinkuptime
+  - type: Lbvserver
+    sourcetype: citrix_adc_lbvserver
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"name":"cpx_default_dns_vserver","avgcltttlb":"4","cltresponsetimeapdex":1,"vsvrsurgecount":"4","establishedconn":"4","inactsvcs":"1","vslbhealth":"67","primaryipaddress":"198.51.100.15","primaryport":0,"type":"DNS","state":"UP","actsvcs":"2","cpuusagepm":"10","tothits":"10","hitsrate":10,"totalrequests":"10","requestsrate":10,"totalresponses":"2","responsesrate":2,"totalrequestbytes":"2","requestbytesrate":2,"totalresponsebytes":"6","responsebytesrate":6,"totalh2requests":"6","h2requestsrate":6,"totalh2responses":"7","h2responsesrate":7,"totalpktsrecvd":"7","pktsrecvdrate":7,"totalpktssent":"8"}'
+    key:
+      - name
+      - avgcltttlb
+      - cltresponsetimeapdex
+      - vsvrsurgecount
+  - type: Service
+    sourcetype: citrix_adc_service
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"name":"nshttpd-gui-198.51.100.25-80","throughput":"0","throughputrate":0,"avgsvrttfb":"17","primaryipaddress":"203.0.113.8","primaryport":80,"servicetype":"HTTP","state":"UP","totalrequests":"12578","requestsrate":0,"totalresponses":"12578","responsesrate":0,"totalrequestbytes":"7091409","requestbytesrate":69,"totalresponsebytes":"23688619","responsebytesrate":151,"curclntconnections":"5","surgecount":"0","cursrvrconnections":"1","svrestablishedconn":"1","curreusepool":"1","maxclients":"0","curload":"0","totalconnreassemblyqueue75":"0","totalconnreassemblyqueueflush":"0","httpmaxhdrszpkts":"0","httpmaxhdrfldlenpkts":"0","tcpmaxooopkts":"0","curtflags":"0","totsvrttlbtransactions":"0"}'
+    key:
+      - name
+      - throughput
+      - throughputrate
+      - avgsvrttfb
+cves: []
+detections:
+  - title: Citrix Adc events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "citrix_adc"'
+optimizations: []
+references:
+  - title: elastic/integrations citrix_adc/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/citrix_adc/data_stream/log/_dev/test/pipeline/test-citrix-waf-native.log
+  - title: Pack Generator sample citrix_adc.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/citrix_adc.json

@@ -36,6 +36,8 @@ sourcetypes:
     desc: Google SecOps (Chronicle) log type for Juniper SRX
   - st: Syslog
     desc: Microsoft Sentinel table used by the Juniper SRX (syslog) data connector
+  - st: juniper_junos_idp_structured
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_juniper_junos_rfc5424.py'
 facts:
   First released: 2008 (SRX5800); Junos OS since 1998
   OS: Junos OS (FreeBSD-based); releases like 22.4R3, 23.4R2, 24.2R2 with -S service releases
@@ -190,6 +192,16 @@ logs:
       - pid
     sample: |-
       <38>Nov 12 09:31:07 srx-edge-01 sshd[50212]: SSHD_LOGIN_FAILED: Login failed for user 'root' from host '198.51.100.23'
+  - type: Juniper Junos Idp Structured
+    sourcetype: juniper_junos_idp_structured
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <165>1 2026-06-15T13:45:07.123Z sc4s-lab-01 RT_IDP - IDP_ATTACK_LOG_EVENT [junos@2636.198.51.100.15.135 epoch-time="1507845354" message-type="SIG" source-address="198.51.100.25" source-port="45610" destination-address="118.127.xx.xx" destination-port="80" protocol-name="TCP" service-name="SERVICE_IDP" application-name="HTTP" rule-name="9" rulebase-name="IPS" policy-name="Recommended" export-id="15229" repeat-count="0" action="DROP" threat-severity="HIGH" attack-name="TROJAN:ZMEU-BOT-SCAN" nat-source-address="203.0.113.8" nat-source-port="0" nat-destination-address="172.xx.xx.xx" nat-destination-port="0" elapsed-time="0" inbound-bytes="0" outbound-bytes="0" inbound-packets="0" outbound-packets="0" source-zone-name="sec-zone-name-internet" source-interface-name="reth0.XXX" destination-zone-name="dst-sec-zone1-outside" destination-interface-name="reth1.xxx" packet-log-id="0" alert="no" username="N/A" roles="N/A" message="-"]
+    key:
+      - epoch-time
+      - message-type
+      - source-address
+      - source-port
 cves:
   - id: CVE-2023-36845
     cvss: 9.8

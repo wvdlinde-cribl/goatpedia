@@ -1,0 +1,107 @@
+id: swimlane
+name: Swimlane
+short: Swimlane
+vendor: Swimlane
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - swimlane
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Swimlane is logged by the Elastic integrations package swimlane. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: swimlane_audit_logs
+    desc: 'Elastic integrations fixture, 2 events. Upstream: swimlane/data_stream/audit_logs/_dev/test/pipeline/test-events.log'
+  - st: swimlane_swimlane_api
+    desc: 'Elastic integrations fixture, 2 events. Upstream: swimlane/data_stream/swimlane_api/_dev/test/pipeline/test-events.log'
+  - st: swimlane_tenant_api
+    desc: 'Elastic integrations fixture, 1 events. Upstream: swimlane/data_stream/tenant_api/_dev/test/pipeline/test-events.log'
+  - st: swimlane_turbine_api
+    desc: 'Elastic integrations fixture, 2 events. Upstream: swimlane/data_stream/turbine_api/_dev/test/pipeline/test-events.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: swimlane
+  Sourcetypes: '4'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: $type, accountId, actionType, authenticationType, category, description
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Swimlane events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries $type, accountId, actionType, authenticationType, category, description. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads swimlane and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit Logs
+    sourcetype: swimlane_audit_logs
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"$type":"Core.Models.ElasticAudit.AuditLogSchema, Core","accountId":"8b1cb48d-bfd6-4a4c-8e87-703555319925","actionType":"Update","authenticationType":"JWT","category":"Record","description":"user@example.com updated report 68095b8dce404ef1b500f7e8","endpoint":"/app/a8FJwIi_XeE5big7m","eventOutcome":"Success","eventTime":"2025-04-23T22:17:40.362641Z","id":"68095b8dce404ef1b500f7e8","isAdmin":true,"newValue":"{\"GroupBys\":[],\"Aggregates\":[],\"ApplicationIds\":[\"a8FJwIi_XeE5big7m\"],\"Keywords\":null,\"Columns\":[\"68095b8dce404ef1b500f7e6\"],\"Sorts\":{\"68095b8dce404ef1b500f7...","sourceIp":["198.51.100.25"],"tenantId":"5941becf-5ac4-493e-97eb-50da36f80582","user":"user@example.com","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.8 Safari/537.36","userId":"01966448-16a7-7474-9f83-40b1dd9a2fb2"}'
+    key:
+      - $type
+      - accountId
+      - actionType
+      - authenticationType
+  - type: Swimlane API
+    sourcetype: swimlane_swimlane_api
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"EventTime":"2025-04-10T19:26:36.0810390Z","User":"user@example.com","UserId":"1af3bd48-d46e-490f-c015-004d198d0558","Category":"Settings","LogSource":"api","LogType":"Audit","Description":"user@example.com created a new permission","AccountId":"5fbee706-0909-4t1a-ada7-3e8e2a1f3117","TenantId":"5941becf-5ac4-493e-97eb-50da36f80582","SourceIp":"::ffff:203.0.113.40","UserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.10 Safari/537.36","ActionType":"Create","Id":"a7SAfL4_XghbfVNQm","NewValue":"{\"Permission\":{\"Access\":12743,\"Id\":\"a6VKjVcgS7I5a3sl0\",\"Fields\":{}},\"Source\":{\"Type\":\"Role\",\"Id\":\"0196201d-ba14-76a3-9a0c-2fbf1510f458\",\"Name\":\"Tier-2 IR Spe...","EventOutcome":"Success","Endpoint":"/app/aK_JIlwxET4gA7RWN","IsAdmin":"True","AuthenticationType":"JWT"}'
+    key:
+      - EventTime
+      - User
+      - UserId
+      - Category
+  - type: Tenant API
+    sourcetype: swimlane_tenant_api
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"EventTime":"2025-04-09T22:09:49.89364Z","User":"user@example.com","UserId":"1af3bd48-d46e-490f-c015-004d198d0558","Category":"Login","LogSource":"Tenant Service","LogType":"Audit","LoggedInUserId":"1af3bd48-d46e-490f-c015-004d198d0558","Description":"Failed login attempt registered for the swimlane user user@example.com, current failed login attempts:1","RequestEndPoint":"://","SourceIp":"192.0.2.20, 198.51.100.15","EndPoint":"turbine.domain.tld/api/users/login","UserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36","IsAdmin":"False","ActionType":"Login","EventOutcome":"Failure","LogLevel":"INFO"}'
+    key:
+      - EventTime
+      - User
+      - UserId
+      - Category
+  - type: Turbine API
+    sourcetype: swimlane_turbine_api
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"level":"info","time":"2025-04-10T20:32:26.677Z","instance":"api-turbine-api-55674d58c-xphlb-d56157c8-db02-4c48-a6a7-02c1abf40598","host":"turbine-api-55674d58c-xphlb","service":"turbine-api","version":"25.0.7 (gh-readonly-queue/release/25.0/pr-9272-d5359d7a7f3aa093359ca89a42a5c009fd000b17:b6f5d273)","LogType":"Audit","EventTime":"2025-04-10T20:32:26.677Z","TenantId":"5941becf-5ac4-493e-97eb-50da36e80582","AccountId":"5fbee706-0909-4f1a-ada7-3e8e2a1f3117","User":"user@example.com","UserId":"1af3bd48-d46e-490f-b015-004c198d0558","Category":"Asset","Description":"user@example.com Created asset 67f82ada9deafb2d6ec46987","ActionType":"Create","Id":"67f82ada9deafb2d6ec46987","NewValue":"{\"name\":\"ECK\",\"title\":\"ECK\",\"description\":\"\",\"testingEnabled\":false,\"interval\":15,\"poolId\":\"67f702c8921c9ee6262ed50a\",\"status\":\"inactive\",\"docSchemaVersion\":...","SourceIp":["203.0.113.8"],"UserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36","EventOutcome":"Success","Endpoint":"/v1/asset","Referer":"https://turbine.domain.tld/account/5fbee706-0909-4f1a-ada7-3e8e2a1f3117/tenant/5941becf-5ac4-493e-97eb-50da36e80582/canvas/assets","IsAdmin":true,"AuthenticationType":"JWT"}'
+    key:
+      - level
+      - time
+      - instance
+      - host
+cves: []
+detections:
+  - title: Swimlane events arriving
+    severity: low
+    signals:
+      - $type
+      - accountId
+      - actionType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "swimlane_audit_logs"'
+optimizations: []
+references:
+  - title: elastic/integrations swimlane/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/swimlane/data_stream/audit_logs/_dev/test/pipeline/test-events.log
+  - title: Pack Generator sample swimlane_audit_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/swimlane_audit_logs.json

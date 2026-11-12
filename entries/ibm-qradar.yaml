@@ -1,0 +1,71 @@
+id: ibm-qradar
+name: IBM Qradar
+short: IBM Qradar
+vendor: IBM
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ibm_qradar
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: IBM Qradar is logged by the Elastic integrations package ibm_qradar. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ibm_qradar_offense
+    desc: 'Elastic integrations fixture, 3 events. Upstream: ibm_qradar/data_stream/offense/_dev/test/pipeline/test-offense.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: ibm_qradar
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: last_persisted_time, username_count, description, rules[0].type, rules[0].owner, rules[0].identifier
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: IBM Qradar events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries last_persisted_time, username_count, description, rules[0].type, rules[0].owner, rules[0].identifier. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads ibm_qradar and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Offense
+    sourcetype: ibm_qradar_offense
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"last_persisted_time":1756882705000,"username_count":0,"description":"Unknown log event\n","rules":[{"type":"CRE_RULE","owner":"admin","identifier":"SYSTEM-1443","base_host_id":0,"capacity_timestamp":0,"origin":"SYSTEM","creation_date":1273171233573,"rule_type":"EVENT","enabled":false,"modification_date":1756982944636,"linked_rule_identifier":null,"name":"Devices with High Event Rates","average_capacity":0,"id":100408,"base_capacity":0}],"event_count":1,"flow_count":0,"assigned_to":"temp_user","security_category_count":1,"follow_up":false,"source_address_ids":[12],"source_count":1,"inactive":true,"protected":false,"closing_user":null,"destination_networks":["other"],"source_network":"other","category_count":1,"close_time":null,"remote_destination_count":1,"start_time":1756378368336,"magnitude":1,"last_updated_time":1756378368336,"credibility":1,"id":14,"categories":["Unknown Generic Log Event"],"severity":1,"policy_category_count":0,"log_sources":[{"type_name":"GenericLogDSM","type_id":67,"name":"SIM Generic Log DSM-7 :: qradardev522","id":62}],"closing_reason_id":null,"device_count":1}'
+    key:
+      - last_persisted_time
+      - username_count
+      - description
+      - rules[0].type
+cves: []
+detections:
+  - title: IBM Qradar events arriving
+    severity: low
+    signals:
+      - last_persisted_time
+      - username_count
+      - description
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ibm_qradar_offense"'
+optimizations: []
+references:
+  - title: elastic/integrations ibm_qradar/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ibm_qradar/data_stream/offense/_dev/test/pipeline/test-offense.log
+  - title: Pack Generator sample ibm_qradar_offense.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ibm_qradar_offense.json

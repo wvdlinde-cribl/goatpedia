@@ -31,6 +31,8 @@ sourcetypes:
     desc: Splunk Add-on for F5 BIG-IP — TMOS system and audit syslog (mcpd AUDIT, httpd, restjavad)
   - st: F5_ASM
     desc: Google SecOps (Chronicle) log type for F5 ASM / Advanced WAF
+  - st: f5_bigip
+    desc: 'Splunk Connect for Syslog fixture, 3 events. Upstream: tests/test_f5_bigip.py'
 facts:
   First released: ASM from F5's 2004 MagniFire (TrafficShield) acquisition. Advanced WAF launched April 2018
   Platform: BIG-IP TMOS (current trains 15.1, 16.1, 17.1, 17.5) on iSeries/rSeries/VELOS appliances, BIG-IP VE, cloud marketplaces
@@ -158,6 +160,14 @@ logs:
       - msg_id
       - object
     sample: '<85>Nov 12 10:02:11 waf1.example.com notice mcpd[6320]: 01070417:5: AUDIT - client tmui, user admin - transaction #48211-3 - object 0 - create { auth user svc_backup { partition-access replace-all-with { all-partitions { role admin } } shell bash } } [Status=Command OK]'
+  - type: F5 Bigip
+    sourcetype: f5_bigip
+    format: text
+    desc: 3 fixture events in the samples pool (sc4s).
+    sample: '<166>Jun 15 13:45:07 test-f5- info audit_forwarder[16218]: audit_forwarder started.'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2022-1388
     cvss: 9.8

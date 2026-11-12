@@ -1,0 +1,71 @@
+id: lambdatest
+name: Lambdatest
+short: Lambdatest
+vendor: Lambdatest
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - lambdatest
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Lambdatest is logged by the Datadog integrations-extras package lambdatest. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: lambdatest
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: lambdatest/assets/logs/lambdatest_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: lambdatest
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: test_ended_at, product, test_url, duration_in_secs, test_env_os, test_env_resolution
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Lambdatest events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries test_ended_at, product, test_url, duration_in_secs, test_env_os, test_env_resolution. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads lambdatest and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Lambdatest
+    sourcetype: lambdatest
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"test_ended_at":"2022-04-02 06:24:42","product":"Manual App Testing Real Device","test_url":"apps.apple.com","duration_in_secs":505,"test_env_os":"iOS 12.4","test_env_resolution":"1920x1080","test_started_at":"2022-04-02 06:16:17","test_env_browser":"Safari 12","hostname":"LambdaTest","service":"LambdaTest","tunnel_used":0,"test_env_device":"iPhone 7 Plus","id":"106749034","test_created_at":"2022-04-02 06:16:16","status":"Manual device test was a success","test_id":"opmg2-uzd6r-5gq2j-14p2w"}'
+    key:
+      - test_ended_at
+      - product
+      - test_url
+      - duration_in_secs
+cves: []
+detections:
+  - title: Lambdatest events arriving
+    severity: low
+    signals:
+      - test_ended_at
+      - product
+      - test_url
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "lambdatest"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras lambdatest/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/lambdatest/assets/logs/lambdatest_tests.yaml
+  - title: Pack Generator sample lambdatest.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lambdatest.json

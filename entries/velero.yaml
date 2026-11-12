@@ -1,0 +1,71 @@
+id: velero
+name: Velero
+short: Velero
+vendor: Velero
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - velero
+  - Datadog integrations-core
+tags:
+  - logtest
+  - kv
+summary: Velero is logged by the Datadog integrations-core package velero. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: velero
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: velero/assets/logs/velero_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: velero
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: kv
+  Fields in the first fixture: time, level, msg, backup, group, logSource
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Velero events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries time, level, msg, backup, group, logSource. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads velero and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Velero
+    sourcetype: velero
+    format: kv
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: time="2025-03-14T16:28:19Z" level=info msg="Listing items" backup=velero/nginx-backup group=velero.io/v2alpha1 logSource="pkg/backup/item_collector.go:524" namespace=resource=datadownloads
+    key:
+      - time
+      - level
+      - msg
+      - backup
+cves: []
+detections:
+  - title: Velero events arriving
+    severity: low
+    signals:
+      - time
+      - level
+      - msg
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "velero"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core velero/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/velero/assets/logs/velero_tests.yaml
+  - title: Pack Generator sample velero.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/velero.json

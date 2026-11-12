@@ -1,0 +1,71 @@
+id: cisco-tvcs
+name: Cisco Tvcs
+short: Cisco Tvcs
+vendor: Cisco
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_tvcs
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Cisco Tvcs is logged by the Splunk Connect for Syslog package cisco_tvcs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_tvcs
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_cisco_tvcs.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: cisco_tvcs
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, UTCTime, Module, Level, Action, Local-ip
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Tvcs events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, UTCTime, Module, Level, Action, Local-ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads cisco_tvcs and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Cisco Tvcs
+    sourcetype: cisco_tvcs
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<166> 2026-06-15T13:45:07Z sc4s-lab-01 tvcs: tvcs: UTCTime="2020-11-18 19:55:58,980" Module="network.sip" Level="INFO":  Action="Received" Local-ip="198.51.100.25" Local-port="26999" Src-ip="203.0.113.8" Src-port="5060" Detail="Receive Response Code=100, Method=REGISTER, CSeq=2113, To=sip:+user@example.com, Call-ID=38ed18ae-4e3c0023-15d22215-5d1c0b88@203.0.113.40, From-Tag=38ed18ae4e3c072f02842674-263fafe9, To-Tag=, Msg-Hash=12083697096016829312, Local-SessionID=, Remote-SessionID="'
+    key:
+      - UTCTime
+      - Module
+      - Level
+      - Action
+cves: []
+detections:
+  - title: Cisco Tvcs events arriving
+    severity: low
+    signals:
+      - header
+      - UTCTime
+      - Module
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_tvcs"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_cisco_tvcs.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_cisco_tvcs.py
+  - title: Pack Generator sample cisco_tvcs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_tvcs.json

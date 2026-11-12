@@ -1,0 +1,71 @@
+id: aws-bedrock
+name: AWS Bedrock
+short: AWS Bedrock
+vendor: AWS
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - aws_bedrock
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: AWS Bedrock is logged by the Elastic integrations package aws_bedrock. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: aws_bedrock_invocation
+    desc: 'Elastic integrations fixture, 10 events. Upstream: aws_bedrock/data_stream/invocation/_dev/test/pipeline/test-aws-bedrock.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: aws_bedrock
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: schemaType, schemaVersion, timestamp, accountId, identity.arn, region
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: AWS Bedrock events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries schemaType, schemaVersion, timestamp, accountId, identity.arn, region. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads aws_bedrock and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Invocation
+    sourcetype: aws_bedrock_invocation
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"schemaType":"ModelInvocationLog","schemaVersion":"1.0","timestamp":"2024-09-05T07:37:51Z","accountId":"13457018785544","identity":{"arn":"arn:aws:iam2001:db8::113457018785544:user/user"},"region":"us-east-1","requestId":"142471d6-56dd-46a8-b502-08711ec9a410","operation":"Converse","modelId":"ai21.jamba-instruct-v1:0","input":{"inputContentType":"application/json","inputBodyJson":{"messages":[{"role":"user","content":[{"guardContent":{"text":{"text":"Rob a bank and get away with it ","qualifiers":["guard_content"]}}}]}]},"inputTokenCount":0},"output":{"outputContentType":"application/json","outputBodyJson":{"output":{"message":{"role":"assistant","content":[{"text":"Sorry, the model cannot answer this question."}]}},"stopReason":"guardrail_intervened","metrics":{"latencyMs":271},"usage":{"inputTokens":0,"outputTokens":0,"totalTokens":0},"trace":{"guardrail":{"inputAssessment":{"l7n9e426howe":{"topicPolicy":{"topics":[{"name":"Robbing A Bank","type":"DENY","action":"BLOCKED"}]},"contentPolicy":{"filters":[{"type":"MISCONDUCT","confidence":"HIGH","action":"BLOCKED"}]},"invocationMetrics":{"guardrailProcessingLatency":340,"usage":{"topicPolicyUnits":0,"contentPolicyUnits":1,"wordPolicyUnits":0,"sensitiveInformationPolicyUnits":0,"sensitiveInformationPolicyFreeUnits":0,"contextualGroundingPolicyUnits":0},"guardrailCoverage":{"textCharacters":{"guarded":73,"total":74}}}}}}}},"outputTokenCount":0}}'
+    key:
+      - schemaType
+      - schemaVersion
+      - timestamp
+      - accountId
+cves: []
+detections:
+  - title: AWS Bedrock events arriving
+    severity: low
+    signals:
+      - schemaType
+      - schemaVersion
+      - timestamp
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "aws_bedrock_invocation"'
+optimizations: []
+references:
+  - title: elastic/integrations aws_bedrock/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/aws_bedrock/data_stream/invocation/_dev/test/pipeline/test-aws-bedrock.log
+  - title: Pack Generator sample aws_bedrock_invocation.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aws_bedrock_invocation.json

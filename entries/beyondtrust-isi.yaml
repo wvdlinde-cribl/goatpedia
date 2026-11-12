@@ -1,0 +1,71 @@
+id: beyondtrust-isi
+name: Beyondtrust Isi
+short: Isi
+vendor: Beyondtrust
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - beyondtrust_isi
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Beyondtrust Isi is logged by the Elastic integrations package beyondtrust_isi. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: beyondtrust_isi_incident
+    desc: 'Elastic integrations fixture, 4 events. Upstream: beyondtrust_isi/data_stream/incident/_dev/test/pipeline/test-incident.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: beyondtrust_isi
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: entityType, source, link, severity, definitionSummary, timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Beyondtrust Isi events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries entityType, source, link, severity, definitionSummary, timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads beyondtrust_isi and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Incident
+    sourcetype: beyondtrust_isi_incident
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"entityType":"TEST Account","source":"https://test-fake.okta.com,https://another-test-fake.okta.com","link":"https://app.beyondtrust.io/insights/TEST_f34a35b0-b34a-43ca-ac31-1a2ee7db38c3/detections/details/TEST_06c0e85f-390b-4967-9e23-b0b1630b9f6b/instance/TEST_70ca...","severity":"Medium","definitionSummary":"TEST Account Associated With Personal Email Address","timestamp":"04/20/2026 07:14:08","incidentType":"Detection","incidentId":"TEST_70ca6c38-0175-435d-814a-a9121079c5e3","definitionId":"TEST_06c0e85f-390b-4967-9e23-b0b1630b9f6b","entityName":"TEST user@example.com,TEST user@example.com","location":"okta_instance/https://test-fake.okta.com,okta_instance/https://another-test-fake.okta.com","tenantId":"TEST_f34a35b0-b34a-43ca-ac31-1a2ee7db38c3"}'
+    key:
+      - entityType
+      - source
+      - link
+      - severity
+cves: []
+detections:
+  - title: Beyondtrust Isi events arriving
+    severity: low
+    signals:
+      - entityType
+      - source
+      - link
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "beyondtrust_isi_incident"'
+optimizations: []
+references:
+  - title: elastic/integrations beyondtrust_isi/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beyondtrust_isi/data_stream/incident/_dev/test/pipeline/test-incident.log
+  - title: Pack Generator sample beyondtrust_isi_incident.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_isi_incident.json

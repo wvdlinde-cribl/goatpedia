@@ -1,0 +1,131 @@
+id: tenable-io
+name: Tenable Io
+short: Tenable Io
+vendor: Tenable
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - tenable_io
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Tenable Io is logged by the Datadog integrations-core package tenable_io. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: tenable_io
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: tenable_io/assets/logs/tenable-io_tests.yaml'
+  - st: tenable_io_asset
+    desc: 'Elastic integrations fixture, 10 events. Upstream: tenable_io/data_stream/asset/_dev/test/pipeline/test-asset.log'
+  - st: tenable_io_audit
+    desc: 'Elastic integrations fixture, 5 events. Upstream: tenable_io/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: tenable_io_plugin
+    desc: 'Elastic integrations fixture, 3 events. Upstream: tenable_io/data_stream/plugin/_dev/test/pipeline/test-plugin.log'
+  - st: tenable_io_scan
+    desc: 'Elastic integrations fixture, 4 events. Upstream: tenable_io/data_stream/scan/_dev/test/pipeline/test-scan.log'
+  - st: tenable_io_vulnerability
+    desc: 'Elastic integrations fixture, 4 events. Upstream: tenable_io/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: tenable_io
+  Sourcetypes: '6'
+  Fixture events: '28'
+  Log format seen: json
+  Fields in the first fixture: crud, actor.name, actor.id, action, received, id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Tenable Io events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries crud, actor.name, actor.id, action, received, id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads tenable_io and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Tenable Io
+    sourcetype: tenable_io
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"crud":"c","actor":{"name":"user@example.com","id":"68acaf69-baea-1111-a987-a49a61f0e5f8"},"action":"session.create","received":"2023-10-31T21:07:03.126Z","id":"22ccc11034484fff8c9673b411111111","is_failure":false,"fields":[{"value":"session","key":"X-Access-Type"},{"value":"192.0.2.20, 198.51.100.15, 198.51.100.25","key":"X-Forwarded-For"}],"target":{"id":"cabff33","type":"Session"}}'
+    key:
+      - crud
+      - actor.name
+      - actor.id
+      - action
+  - type: Asset
+    sourcetype: tenable_io_asset
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"id":"95c2725c-7298-4a44-8a1d-63131ca3f01f","has_agent":false,"has_plugin_results":true,"created_at":"2017-12-31T20:40:44.535Z","terminated_at":"2017-12-31T20:40:44.535Z","terminated_by":"user","updated_at":"2018-12-31T22:27:58.599Z","deleted_at":"2017-12-31T20:40:44.535Z","deleted_by":"user","first_seen":"2017-12-31T20:40:23.447Z","last_seen":"2018-12-31T22:27:52.869Z","first_scan_time":"2017-12-31T20:40:23.447Z","last_scan_time":"2018-03-31T22:27:52.869Z","last_authenticated_scan_date":"2017-12-31T20:40:44.535Z","last_licensed_scan_date":"2018-12-31T22:27:52.869Z","last_scan_id":"00283024-afee-44ea-b467-db5a6ed9fd50ab8f7ecb158c480e","last_schedule_id":"72284901-7c68-42b2-a0c4-c1e75568849df60557ee0e264228","azure_vm_id":"12","azure_resource_id":"12","gcp_project_id":"12","gcp_zone":"12","gcp_instance_id":"12","aws_ec2_instance_ami_id":"12","aws_ec2_instance_id":"12","agent_uuid":"22","bios_uuid":"33","aws_owner_id":"44","aws_availability_zone":null,"aws_region":null,"aws_vpc_id":null}'
+    key:
+      - id
+      - has_agent
+      - has_plugin_results
+      - created_at
+  - type: Audit
+    sourcetype: tenable_io_audit
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"id":"a4e9177aa45c48c9d46a2f24c5f97b24","action":"user.authenticate.password","crud":"u","is_failure":true,"received":"2018-12-31T23:09:40Z","description":null,"actor":{"id":"da1499fd-afdb-4fb9-bfb6-9defec2f0f09","name":"user@example.com"},"is_anonymous":null,"target":{"id":"da1499fd-afdb-4fb9-bfb6-9defec2f0f09","name":"user@example.com","type":"User"},"fields":[{"key":"message","value":"Invalid credentials."},{"key":"sessionToken","value":"-"}]}'
+    key:
+      - id
+      - action
+      - crud
+      - is_failure
+  - type: Plugin
+    sourcetype: tenable_io_plugin
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":13670,"name":"Test Core 1 : kernel-2.4.22-1.2140.nptl (2003-047)","attributes":{"vpr":{"score":5.5,"updated":"2018-07-19T00:00:00Z","drivers":{"age_of_vuln":{"lower_bound":366,"upper_bound":730},"threat_recency":{"lower_bound":366,"upper_bound":730},"exploit_code_maturity":"UNPROVEN","cvss_impact_score_predicted":false,"cvss3_impact_score":5.9,"threat_intensity_last28":"VERY_LOW","threat_sources_last28":["No recorded events"],"product_coverage":"LOW"}},"plugin_modification_date":"2018-07-19T00:00:00Z","plugin_version":"1.17","exploited_by_malware":false,"description":"Various RTC drivers had the potential to leak...","unsupported_by_vendor":false,"cvss_temporal_score":0,"patch_publication_date":"2004-01-07T00:00:00Z","see_also":["http://example.com/u?07bc9e7f"],"default_account":false,"exploit_available":false,"cve":["CVE-2003-0984"],"exploit_framework_canvas":false,"cvss_base_score":4.6,"solution":"Update the affected packages.","cvss_vector":{"raw":"AV:L/AC:L/Au:N/C:P/I:P/A:P","AccessVector":"Local-access","Availability-Impact":"Partial","Authentication":"None required","Integrity-Impact":"Partial","AccessComplexity":"Low","Confidentiality-Impact":"Partial"},"exploit_framework_exploithub":false,"cpe":["p-cpe:/a:Testproject:Test:kernel-source","cpe:/o:Testproject:Test_core:1"],"plugin_publication_date":"2004-07-23T00:00:00Z","exploit_framework_core":false,"in_the_news":false,"has_patch":true,"xref":["Test:2003-047"],"malware":false,"exploit_framework_d2_elliot":false,"xrefs":[{"type":"Test","id":"2003-047"}],"risk_factor":"Medium","synopsis":"The remote Test Core host is missing a security update.","cvss3_temporal_score":0,"exploited_by_nessus":false}}'
+    key:
+      - id
+      - name
+      - attributes.vpr.score
+      - attributes.vpr.updated
+  - type: Scan
+    sourcetype: tenable_io_scan
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"control":true,"creation_date":1683282785,"enabled":true,"id":195,"last_modification_date":1683283158,"legacy":false,"name":"Client Discovery","owner":"user@example.com","policy_id":194,"read":false,"rrules":"FREQ=WEEKLY;INTERVAL=1;BYDAY=FR","schedule_uuid":"11c56dea-as5f-65ce-ad45-9978045df65ecade45b6e3a76871","shared":true,"starttime":"20220708T033000","status":"completed","template_uuid":"a1efc3b4-cd45-a65d-fbc4-0079ebef4a56cd32a05ec2812bcf","timezone":"America/Los_Angeles","has_triggers":false,"type":"remote","permissions":128,"user_permissions":128,"uuid":"a456ef1c-cbd4-ad41-f654-119b766ff61f","wizard_uuid":"32cbd657-fe65-a45e-a45f-0079eb89e56a1c23fd5ec2812bcf","progress":100,"total_targets":21,"status_times":{"initializing":2623,"pending":52799,"processing":1853,"publishing":300329,"running":15759}}'
+    key:
+      - control
+      - creation_date
+      - enabled
+      - id
+  - type: Vulnerability
+    sourcetype: tenable_io_vulnerability
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"asset":{"fqdn":"example.com","hostname":"198.51.100.25","uuid":"cf165808-6a31-48e1-9cf3-c6c3174df51d","ipv4":"203.0.113.8","operating_system":["Apple Mac OS X 10.5.8"],"network_id":"00000000-0000-0000-0000-000000000000","tracked":true},"output":"The observed version of Google Chrome is : \n Chrome/21.0.1180.90","plugin":{"cve":["CVE-2016-1620","CVE-2016-1614"],"cvss_base_score":9.3,"cvss_temporal_score":6.9,"cvss_temporal_vector":{"exploitability":"Unproven","remediation_level":"Official-fix","report_confidence":"Confirmed","raw":"E:U/RL:OF/RC:C"},"cvss_vector":{"access_complexity":"Medium","access_vector":"Network","authentication":"None required","confidentiality_impact":"Complete","integrity_impact":"Complete","availability_impact":"Complete","raw":"AV:N/AC:M/Au:N/C:C/I:C/A:C"},"description":"The version of Google Chrome on the remote host is prior to 48.0.2564.82 and is affected by the following vulnerabilities: \n\n - An unspecified vulnerability ...","family":"Web Clients","family_id":1000020,"has_patch":false,"id":9062,"name":"Google Chrome &lt; 48.0.2564.82 Multiple Vulnerabilities","risk_factor":"HIGH","see_also":["http://googlechromereleases.blogspot.com/2016/01/beta-channel-update_20.html"],"solution":"Update the Chrome browser to 48.0.2564.82 or later.","synopsis":"The remote host is utilizing a web browser that is affected by multiple vulnerabilities.","vpr":{"score":5.9,"drivers":{"age_of_vuln":{"lower_bound":366,"upper_bound":730},"exploit_code_maturity":"UNPROVEN","cvss_impact_score_predicted":false,"cvss3_impact_score":5.9,"threat_intensity_last28":"VERY_LOW","threat_sources_last28":["No recorded events"],"product_coverage":"LOW"},"updated":"2019-12-31T10:08:58Z"}},"port":{"port":"0","protocol":"TCP"},"scan":{"completed_at":"2018-12-31T20:59:47Z","schedule_uuid":"6f7db010-9cb6-4870-b745-70a2aea2f81ce1b6640fe8a2217b","started_at":"2018-12-31T20:59:47Z","uuid":"0e55ec5d-c7c7-4673-a618-438a84e9d1b78af3a9957a077904"},"severity":"low","severity_id":3,"severity_default_id":3,"severity_modification_type":"NONE","first_found":"2018-12-31T20:59:47Z","last_found":"2018-12-31T20:59:47Z","indexed":"2022-11-30T14:09:12.061Z","state":"OPEN"}'
+    key:
+      - asset.fqdn
+      - asset.hostname
+      - asset.uuid
+      - asset.ipv4
+cves: []
+detections:
+  - title: Tenable Io events arriving
+    severity: low
+    signals:
+      - crud
+      - actor.name
+      - actor.id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "tenable_io"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core tenable_io/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/tenable_io/assets/logs/tenable-io_tests.yaml
+  - title: Pack Generator sample tenable_io.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tenable_io.json

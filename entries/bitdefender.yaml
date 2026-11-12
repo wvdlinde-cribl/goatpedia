@@ -1,0 +1,71 @@
+id: bitdefender
+name: Bitdefender
+short: Bitdefender
+vendor: Bitdefender
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - bitdefender
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Bitdefender is logged by the Elastic integrations package bitdefender. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: bitdefender_push_notifications
+    desc: 'Elastic integrations fixture, 20 events. Upstream: bitdefender/data_stream/push_notifications/_dev/test/pipeline/test-push-notification.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: bitdefender
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: computer_name, computer_fqdn, computer_ip, computer_id, product_installed, aph_type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Bitdefender events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries computer_name, computer_fqdn, computer_ip, computer_id, product_installed, aph_type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads bitdefender and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Push Notifications
+    sourcetype: bitdefender_push_notifications
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"computer_name":"FC-EXCHANGE-01","computer_fqdn":"fc-exchange-01.fc.dom","computer_ip":"192.0.2.10","computer_id":"59b7d9bfa849af3a1465b7e4","product_installed":"BEST","aph_type":"phishing","url":"http://example.com/account/support/","status":"aph_blocked","last_blocked":"2017-09-14T08:49:43.000Z","count":1,"companyId":"623c18fb12fb8700396d6375","module":"aph","_testEvent_":true}'
+    key:
+      - computer_name
+      - computer_fqdn
+      - computer_ip
+      - computer_id
+cves: []
+detections:
+  - title: Bitdefender events arriving
+    severity: low
+    signals:
+      - computer_name
+      - computer_fqdn
+      - computer_ip
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "bitdefender_push_notifications"'
+optimizations: []
+references:
+  - title: elastic/integrations bitdefender/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bitdefender/data_stream/push_notifications/_dev/test/pipeline/test-push-notification.json
+  - title: Pack Generator sample bitdefender_push_notifications.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bitdefender_push_notifications.json

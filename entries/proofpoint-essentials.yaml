@@ -1,0 +1,71 @@
+id: proofpoint-essentials
+name: Proofpoint Essentials
+short: Essentials
+vendor: Proofpoint
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - proofpoint_essentials
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Proofpoint Essentials is logged by the Elastic integrations package proofpoint_essentials. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: proofpoint_essentials_threat
+    desc: 'Elastic integrations fixture, 14 events. Upstream: proofpoint_essentials/data_stream/threat/_dev/test/pipeline/test-threat.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: proofpoint_essentials
+  Sourcetypes: '1'
+  Fixture events: '14'
+  Log format seen: json
+  Fields in the first fixture: event_type, url, classification, clickTime, threatTime, userAgent
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Proofpoint Essentials events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_type, url, classification, clickTime, threatTime, userAgent. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads proofpoint_essentials and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Threat
+    sourcetype: proofpoint_essentials_threat
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"event_type":"clicks_blocked","url":"https://www.example.com/?name=john","classification":"phish","clickTime":"2022-03-21T07:52:11.000Z","threatTime":"2022-03-18T14:54:20.000Z","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36 Edg/99.0.1150.39","id":"8760d0fc-1234-1234-1234-2exxfxxxxx1xd","clickIP":"203.0.113.8","sender":"user@example.com","recipient":"user@example.com","senderIP":"203.0.113.40","GUID":"x11xxxx1-12f9-111x-x12x-1x1x123456xx","threatID":"3xx97xx852c66a7xx761450xxxxxx9f4ffaxxxxxxxxxxxxxxx7a76481xx","threatStatus":"active","messageID":"user@example.com"}'
+    key:
+      - event_type
+      - url
+      - classification
+      - clickTime
+cves: []
+detections:
+  - title: Proofpoint Essentials events arriving
+    severity: low
+    signals:
+      - event_type
+      - url
+      - classification
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "proofpoint_essentials_threat"'
+optimizations: []
+references:
+  - title: elastic/integrations proofpoint_essentials/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proofpoint_essentials/data_stream/threat/_dev/test/pipeline/test-threat.log
+  - title: Pack Generator sample proofpoint_essentials_threat.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_essentials_threat.json

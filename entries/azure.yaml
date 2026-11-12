@@ -1,0 +1,215 @@
+id: azure
+name: Azure
+short: Azure
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure is logged by the Elastic integrations package azure. The Pack Generator samples pool holds fixture events for 13 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure
+    desc: 'Elastic integrations fixture, 20 events. Upstream: azure/data_stream/events/_dev/test/pipeline/test-invalid-categoryvalue.log'
+  - st: azure_aadgraphactivitylogs
+    desc: 'Elastic integrations fixture, 6 events. Upstream: azure/data_stream/aadgraphactivitylogs/_dev/test/pipeline/test-aadgraph-activity.log'
+  - st: azure_activitylogs
+    desc: 'Elastic integrations fixture, 18 events. Upstream: azure/data_stream/activitylogs/_dev/test/pipeline/test-activitylogs-edgecases.log'
+  - st: azure_application_gateway
+    desc: 'Elastic integrations fixture, 17 events. Upstream: azure/data_stream/application_gateway/_dev/test/pipeline/test-application-gateway-raw.log'
+  - st: azure_auditlogs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: azure/data_stream/auditlogs/_dev/test/pipeline/test-audit-logs-sample.log'
+  - st: azure_eventhub
+    desc: 'Elastic integrations fixture, 3 events. Upstream: azure/data_stream/eventhub/_dev/test/pipeline/test-eventhub-raw.log'
+  - st: azure_firewall_logs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: azure/data_stream/firewall_logs/_dev/test/pipeline/test-networkrules-raw.log'
+  - st: azure_graphactivitylogs
+    desc: 'Elastic integrations fixture, 18 events. Upstream: azure/data_stream/graphactivitylogs/_dev/test/pipeline/test-activitylogs-raw.log'
+  - st: azure_identity_protection
+    desc: 'Elastic integrations fixture, 15 events. Upstream: azure/data_stream/identity_protection/_dev/test/pipeline/test-userriskevents-raw.log'
+  - st: azure_platformlogs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: azure/data_stream/platformlogs/_dev/test/pipeline/test-platformlogs-invalid-raw.log'
+  - st: azure_provisioning
+    desc: 'Elastic integrations fixture, 14 events. Upstream: azure/data_stream/provisioning/_dev/test/pipeline/test-provisioninglogs-raw.log'
+  - st: azure_signinlogs
+    desc: 'Elastic integrations fixture, 7 events. Upstream: azure/data_stream/signinlogs/_dev/test/pipeline/test-managed-identity-sample.log'
+  - st: azure_springcloudlogs
+    desc: 'Elastic integrations fixture, 14 events. Upstream: azure/data_stream/springcloudlogs/_dev/test/pipeline/test-springcloudlogs-edgecases.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure
+  Sourcetypes: '13'
+  Fixture events: '192'
+  Log format seen: json
+  Fields in the first fixture: ActivityStatusValue, Caller, CallerIpAddress, CategoryValue, Claims, Claims_d.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries ActivityStatusValue, Caller, CallerIpAddress, CategoryValue, Claims, Claims_d.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: azure
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"ActivityStatusValue":"Active","Caller":"Microsoft.Advisor","CallerIpAddress":"192.0.2.10","CategoryValue":"Recommendation","Claims":"{\"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress\":\"Microsoft.Advisor\"}","Claims_d":{"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress":"Microsoft.Advisor"},"CorrelationId":"aa6ee2d0-2dd0-4dc3-8e68-f6acf9a47408","EventDataId":"fff41641-2501-407a-bbc5-2b144b1f7e99","EventSubmissionTimestamp":"2025-08-02T09:42:47.3766735Z","HTTPRequest":"{\"clientIpAddress\":\"192.0.2.20\"}","Level":"Informational","OperationNameValue":"Microsoft.Advisor/recommendations/available/action","Properties":"{\"recommendationSchemaVersion\":\"1.0\"}","Properties_d":{"activityStatusValue":"Active","caller":"Microsoft.Advisor","eventDataId":"redacted","eventSubmissionTimestamp":"2025-08-02T09:42:47.3766735Z","httpRequest":"{\"clientIpAddress\":\"198.51.100.15\"}","recommendationCategory":"Security","recommendationImpact":"Medium","recommendationName":"test","recommendationResourceLink":"redacted","recommendationSchemaVersion":"1.0","recommendationType":"9b2b7b94-321b-4868-b50f-46a3921386f1","resource":"redacted","resourceGroup":"redacted","resourceProviderValue":"MICROSOFT.SECURITY","subscriptionId":"redacted"},"ResourceGroup":"redacted","ResourceProviderValue":"MICROSOFT.SECURITY","SourceSystem":"Azure","SubscriptionId":"redacted","TenantId":"redacted","TimeGenerated":"2025-08-02T09:42:47.3766735Z","Type":"AzureActivity","_Internal_WorkspaceResourceId":"redacted","_ItemId":"redacted","_ResourceId":"redacted","_SubscriptionId":"redacted"}'
+    key:
+      - ActivityStatusValue
+      - Caller
+      - CallerIpAddress
+      - CategoryValue
+  - type: Aadgraphactivitylogs
+    sourcetype: azure_aadgraphactivitylogs
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"category":"AzureADGraphActivityLogs","location":"WestUS","operationName":"AAD Graph Activity","properties":{"__UDI_RequiredFields_EventTime":639140000000000000,"__UDI_RequiredFields_RegionScope":"NA","__UDI_RequiredFields_TenantId":"ab30785b-417f-42a4-b5dc-8f9051718acb","__UDI_RequiredFields_UniqueId":"00000001-0001-0001-0001-000000000001","actorType":"User","apiVersion":"1.6","appId":"04b07795-8ddb-461a-bbee-02f9e1bf7b46","callerIpAddress":"198.51.100.25","clientAuthMethod":0,"deviceId":"","directAccessSource":"Gateway","durationMs":59,"env_cloud_role":"restdirectoryservice","httpMethod":"GET","httpStatusCode":200,"identityProvider":"https://sts.windows.net/ab30785b-417f-42a4-b5dc-8f9051718acb/","issuedAt":"5/7/2026 1:50:39 PM","location":"WestUS","requestId":"00000001-0001-0001-0001-000000000001","requestUri":"/v2/ab30785b-417f-42a4-b5dc-8f9051718acb/users","responseSizeBytes":54662,"roles":"","scopes":"62e90394-69f5-4237-9190-012177145e10","servicePrincipalId":"","sessionId":"5a5a5a5a-5a5a-5a5a-5a5a-5a5a5a5a5a5a","signInActivityId":"AAAAAAAAAAAAAAAAAAAAAA==","tenantId":"ab30785b-417f-42a4-b5dc-8f9051718acb","timeGenerated":"2026-05-07T15:19:33.5368860Z","userAgent":"azure-graph-test-client/1.0","userId":"b37ec517-0a34-4266-b627-f7bb0d679d70"},"tenantId":"ab30785b-417f-42a4-b5dc-8f9051718acb"}'
+    key:
+      - category
+      - location
+      - operationName
+      - properties.__UDI_RequiredFields_EventTime
+  - type: Activitylogs
+    sourcetype: azure_activitylogs
+    format: json
+    desc: 18 fixture events in the samples pool (elastic).
+    sample: '{"category":"ResourceHealth","correlationId":"1c867fe2-050c-4a74-bb1c-a83b15246fdd","level":"Information","operationName":"Microsoft.Resourcehealth/healthevent/Updated/action","properties":{"eventCategory":"ResourceHealth","eventProperties":{"cause":"PlatformInitiated"}},"resourceId":"/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.domainRegistration","resultType":"Updated","time":"2021-05-25T22:04:07.22Z"}'
+    key:
+      - category
+      - correlationId
+      - level
+      - operationName
+  - type: Application Gateway
+    sourcetype: azure_application_gateway
+    format: json
+    desc: 17 fixture events in the samples pool (elastic).
+    sample: '{"resourceId":"/SUBSCRIPTIONS/23103928-B2CF-472A-8CDB-0146E2849129/RESOURCEGROUPS/PEERINGTEST/PROVIDERS/MICROSOFT.NETWORK/APPLICATIONGATEWAYS/Application-Gateway-Name","operationName":"ApplicationGatewayAccess","timestamp":"2017-04-26T19:27:38Z","category":"ApplicationGatewayAccessLog","properties":{"instanceId":"ApplicationGatewayRole_IN_0","clientIP":"203.0.113.8","clientPort":46886,"httpMethod":"GET","requestUri":"/phpmyadmin/scripts/setup.php","requestQuery":"X-AzureApplicationGateway-CACHE-HIT=0&SERVER-ROUTED=203.0.113.40&X-AzureApplicationGateway-LOG-ID=874f1f0f-6807-41c9-b7bc-f3cfa74aa0b1&SERVER-STATUS=404","userAgent":"-","httpStatus":404,"httpVersion":"HTTP/1.0","receivedBytes":65,"sentBytes":553,"timeTaken":205,"sslEnabled":"off","host":"www.contoso.com","originalHost":"www.contoso.com"}}'
+    key:
+      - resourceId
+      - operationName
+      - timestamp
+      - category
+  - type: Auditlogs
+    sourcetype: azure_auditlogs
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"time":"2022-01-22T18:15:02.5168093Z","resourceId":"/tenants/4bbb79f7-5724-4c9e-95f3-de075f6ec090/providers/Microsoft.aadiam","operationName":"Add service principal credentials","operationVersion":"1.0","category":"AuditLogs","tenantId":"4bbb79f7-5724-4c9e-95f3-de075f6ec090","resultSignature":"None","durationMs":0,"callerIpAddress":"192.0.2.10","correlationId":"53161141-e3f4-4944-85b6-7b953f17265e","identity":"Managed Service Identity","Level":4,"properties":{"id":"Directory_53161141-e3f4-4944-85b6-7b953f17265e_6X649_134684731","category":"ApplicationManagement","correlationId":"53161141-e3f4-4944-85b6-7b953f17265e","result":"success","resultReason":"","activityDisplayName":"Add service principal credentials","activityDateTime":"2022-01-22T18:15:02.5168093+00:00","loggedByService":"Core Directory","operationType":"Update","userAgent":null,"initiatedBy":{"app":{"appId":null,"displayName":"Managed Service Identity","servicePrincipalId":"b9814691-9ca1-4e55-a1ac-8ef5dd010ec0","servicePrincipalName":null}},"targetResources":[{"id":"a7d5dcbe-0627-4ddf-a2f4-86b6785bcc42","displayName":"billing-test-wus","type":"ServicePrincipal","modifiedProperties":[{"displayName":"KeyDescription","oldValue":"[\"[KeyIdentifier=7dffcdc5-f2d5-43ae-86f1-682561befd4b,KeyType=AsymmetricX509Cert,KeyUsage=Verify,DisplayName=CN=a70a7931-c387-4dce-9f35-fbf95bdcc91e]\",\"[KeyI...","newValue":"[\"[KeyIdentifier=c9c0b961-a80a-4a71-9c3a-b67b33edf874,KeyType=AsymmetricX509Cert,KeyUsage=Verify,DisplayName=CN=a70a7931-c387-4dce-9f35-fbf95bdcc91e]\",\"[KeyI..."},{"displayName":"Included Updated Properties","oldValue":null,"newValue":"\"KeyDescription\""}],"administrativeUnits":[]}],"additionalDetails":[{"key":"User-Agent","value":"Microsoft Azure Graph Client Library 2.1.17-internal"},{"key":"AppId","value":"a70a7931-c387-4dce-9f35-fbf95bdcc91e"}]}}'
+    key:
+      - time
+      - resourceId
+      - operationName
+      - operationVersion
+  - type: Eventhub
+    sourcetype: azure_eventhub
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"category":"AuditLogs","correlationId":"8a4de8b5-095c-47d0-a96f-a75130c61d53","durationMs":0,"identity":"Device Registration Service","level":"Informational","operationName":"Update device","operationVersion":"1.0","properties":{"activityDateTime":"2019-10-18T15:30:51.0273716+00:00","activityDisplayName":"Update device","category":"Device","correlationId":"8a4de8b5-095c-47d0-a96f-a75130c61d53","id":"Directory_ESQ","initiatedBy":{"app":{"appId":"id","displayName":"Device Registration Service","servicePrincipalId":"8a4de8b5-095c-47d0-a96f-a75130c61d53","servicePrincipalName":"Core"}},"loggedByService":"Core Directory","operationType":"Update","result":"success","resultReason":"","targetResources":[{"displayName":"LAPTOP-12","id":"8a4de8b5-095c-47d0-a96f-a75130c61d53","modifiedProperties":[{"displayName":"Included Updated Properties","newValue":"\"\"","oldValue":""}],"type":"Device"}]},"resourceId":"/tenants/8a4de8b5-095c-47d0-a96f-a75130c61d53/providers/Microsoft.aadiam","resultSignature":"None","tenantId":"8a4de8b5-095c-47d0-a96f-a75130c61d53","time":"2019-10-18T15:30:51.0273716Z"}'
+    key:
+      - category
+      - correlationId
+      - durationMs
+      - identity
+  - type: Firewall Logs
+    sourcetype: azure_firewall_logs
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"category":"AzureFirewallNetworkRule","operationName":"AzureFirewallNetworkRuleLog","properties":{"msg":"ICMP Type=8 request from 192.0.2.20 to 198.51.100.15. Action: Deny. "},"resourceId":"/SUBSCRIPTIONS/23103928-B2CF-472A-8CDB-0146E2849129/RESOURCEGROUPS/TEST-FW-RG/PROVIDERS/MICROSOFT.NETWORK/AZUREFIREWALLS/TEST-FW01","time":"2022-06-08T16:54:58.8492560Z"}'
+    key:
+      - category
+      - operationName
+      - properties.msg
+      - resourceId
+  - type: Graphactivitylogs
+    sourcetype: azure_graphactivitylogs
+    format: json
+    desc: 18 fixture events in the samples pool (elastic).
+    sample: '{"Level":4,"callerIpAddress":"2001:db8::1","category":"MicrosoftGraphActivityLogs","correlationId":"f7739da0-e6d1-4e3f-985a-64937fbge347","durationMs":462680,"location":"West Europe","operationName":"Microsoft Graph Activity","operationVersion":"v1.0","properties":{"apiVersion":"v1.0","appId":"a5a68e12-268a-3c91-a5e2-b9254e67hb29","atContent":"","clientAuthMethod":"2","clientRequestId":"2fe56789-a848-4c93-9d2c-5675972aejk9","durationMs":462680,"identityProvider":"https://sts.windows.net/a140785b-418d-4344-a4ec-8e9648919gdb/","ipAddress":"2001:db8::1","location":"West Europe","operationId":"f7739da0-e6d1-4e3f-985a-64937fbge347","requestId":"f7739da0-e6d1-4e3f-985a-64937fbge347","requestMethod":"GET","requestUri":"https://graph.microsoft.com/v1.0/organization/a140785b-418d-4344-a4ec-8e9648919gdb?$select=Id,DisplayName,CreatedDateTime,ReplicationScope,Country,CountryLet...","responseSizeBytes":364,"responseStatusCode":200,"roles":"Organization.Read.All User.Read.All","scopes":null,"servicePrincipalId":"f2aq4c71-31e3-5066-92g3-4b3dfbav50f0","signInActivityId":"sign-in_ActivityId","tenantId":"a140785b-418d-4344-a4ec-8e9648919gdb","timeGenerated":"2024-03-07T11:47:00.6442361Z","tokenIssuedAt":"2024-03-07T11:42:00Z","userAgent":"python-requests/2.27.1","userId":null,"wids":"1997b4d3-0g8d-90cb-bhj8-d89n3121e90"},"resourceId":"/TENANTS/A140785B-418D-4344-A4EC-8E9648919GDB/PROVIDERS/MICROSOFT.AADIAM","resultSignature":"200","tenantId":"a140785b-418d-4344-a4ec-8e9648919gdb","time":"2024-03-07T11:47:00.6442361Z"}'
+    key:
+      - Level
+      - callerIpAddress
+      - category
+      - correlationId
+  - type: Identity Protection
+    sourcetype: azure_identity_protection
+    format: json
+    desc: 15 fixture events in the samples pool (elastic).
+    sample: '{"time":"8/22/2022 6:07:16 PM","resourceId":"/tenants/5611623b-9128-461e-9d7f-a0d9c270ead2/providers/microsoft.aadiam","operationName":"User Risk Detection","operationVersion":"1.0","category":"UserRiskEvents","tenantId":"5611623b-9128-461e-9d7f-a0d9c270ead2","resultSignature":"None","durationMs":0,"callerIpAddress":"198.51.100.25","correlationId":"ce0ed07f9ccf5be15e4b97d2979af6569b1f67db87ddc9b88b5bb743ea091e47","identity":"joe danger","Level":4,"location":"de","properties":{"id":"ce0ed07f9ccf5be15e4b97d2979af6569b1f67db87ddc9b88b5bb743ea091e47","requestId":"e1b6d9d7-5fc0-4638-ae1a-e0abceb92200","correlationId":"266133c2-fabb-492f-9ebf-bdf12317b817","riskType":"anonymizedIPAddress","riskEventType":"anonymizedIPAddress","riskState":"atRisk","riskLevel":"high","riskDetail":"none","source":"IdentityProtection","detectionTimingType":"realtime","activity":"signin","ipAddress":"203.0.113.8","location":{"city":"Dresden","state":"Sachsen","countryOrRegion":"DE","geoCoordinates":{"altitude":0,"latitude":51.0714,"longitude":13.7399}},"activityDateTime":"2022-08-22T18:05:06.133Z","detectedDateTime":"2022-08-22T18:05:06.133Z","lastUpdatedDateTime":"2022-08-22T18:07:16.894Z","userId":"51e26eae-d07b-44e5-bb0b-249f49569a8c","userDisplayName":"Joe Danger","userPrincipalName":"user@example.com","additionalInfo":"[{\"Key\":\"userAgent\",\"Value\":\"Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0\"}]","tokenIssuerType":"AzureAD","resourceTenantId":null,"homeTenantId":"5611623b-9128-461e-9d7f-a0d9c270ead2","userType":"member","crossTenantAccessType":"none"}}'
+    key:
+      - time
+      - resourceId
+      - operationName
+      - operationVersion
+  - type: Platformlogs
+    sourcetype: azure_platformlogs
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"resourceId":"/SUBSCRIPTIONS/SUBSCRIPTION/RESOURCEGROUPS/ET-AZURE-INTEGRATION-TESTING/PROVIDERS/MICROSOFT.NETWORK/APPLICATIONGATEWAYS/LANGERGATEWAY","operationName":"ApplicationGatewayAccess","time":"2020-10-11T20:30:59Z","category":"ApplicationGatewayAccessLog","properties":{"instanceId":"ApplicationGatewayRole_IN_1","clientIP":"203.0.113.40","clientPort":18234,"httpMethod":"GET","requestUri":"/nmaplowercheck1602448229","requestQuery":"X-AzureApplicationGateway-CACHE-HIT=0","userAgent":"Mozilla/5.0","httpStatus":502,"httpVersion":"HTTP/1.1","receivedBytes":108,"sentBytes":1636,"timeTaken":78,"sslEnabled":"off","host":"IP","originalHost":"IP"}}'
+    key:
+      - resourceId
+      - operationName
+      - time
+      - category
+  - type: Provisioning
+    sourcetype: azure_provisioning
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"time":"2022-08-23T13:36:50.3538931Z","resourceId":"/tenants/5611623b-9128-461e-9d7f-a0d9c270ead2/providers/Microsoft.aadiam","operationName":"Provisioning activity","operationVersion":"1.0","category":"ProvisioningLogs","tenantId":"5611623b-9128-461e-9d7f-a0d9c270ead2","resultType":"Skipped","durationMs":828,"correlationId":"54416401-eef2-461c-8de7-385dde2b3cba","identity":"d6cbb0bd-c3ec-6455-bd3e-4282141ce369","Level":4,"properties":{"id":"d6cbb0bd-c3ec-6455-bd3e-4282141ce369","activityDateTime":"2022-08-23T13:36:50.3538931Z","tenantId":"5611623b-9128-461e-9d7f-a0d9c270ead2","jobId":"DropboxSCIMOutDelta.5611623b9128461e9d7fa0d9c270ead2.d6163622-bdf8-4b26-976f-7d573c638e2a","cycleId":"cc305635-a28e-4139-a056-42b5102933fe","changeId":"54416401-eef2-461c-8de7-385dde2b3cba","action":"Create","provisioningAction":"create","servicePrincipal":{"Id":"74866461-3754-40ed-a743-9c88ff29643e","Name":"Dropbox Business"},"sourceSystem":{"details":{},"Id":"bab3751f-8f21-4657-8fce-698f7391dbdd","Name":"Azure Active Directory"},"targetSystem":{"details":{"ApplicationId":"97e0a159-74ec-4db1-918a-c03a9c3b6b81","ServicePrincipalId":"74866461-3754-40ed-a743-9c88ff29643e","ServicePrincipalDisplayName":"Dropbox Business"},"Id":"011a448f-1441-4336-8c20-e2d2cef9c410","Name":"Dropbox"},"initiatedBy":{"Type":"system","Id":"","Name":"Azure AD Provisioning Service"},"sourceIdentity":{"identityType":"User","details":{"id":"7383d412-41f2-478f-a317-7396cc32ce9e","odatatype":"User","DisplayName":"Ellie","UserPrincipalName":"user@example.com"},"Id":"7383d412-41f2-478f-a317-7396cc32ce9e","Name":"Ellie"},"targetIdentity":{"identityType":"urn:ietf:params:scim:schemas:core:2.0:User","details":{},"Id":"","Name":""},"provisioningStatusInfo":{"Status":"skipped","errorInformation":null},"statusInfo":{"Status":2},"provisioningSteps":[{"name":"EntryImportAdd","provisioningStepType":0,"status":0,"description":"Received User ''user@example.com'' change of type (Add) from Azure Active Directory","details":{"objectId":"7383d412-41f2-478f-a317-7396cc32ce9e","accountEnabled":"True","displayName":"Ellie","givenName":"Ellie","mailNickname":"ellie","userPrincipalName":"user@example.com","IsSoftDeleted":"False","appRoleAssignments":"User"}},{"name":"EntrySynchronizationScoping","provisioningStepType":1,"status":0,"description":"Determine if User in scope by evaluating against each scoping filter","details":{"Active in the source system":"True","Assigned to the application":"True","User has the required role":"True","Scoping filter evaluation passed":"True","ScopeEvaluationResult":"{}"}}],"modifiedProperties":[],"durationInMilliseconds":828}}'
+    key:
+      - time
+      - resourceId
+      - operationName
+      - operationVersion
+  - type: Signinlogs
+    sourcetype: azure_signinlogs
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"time":"2022-01-24T04:59:49.2279838Z","resourceId":"/tenants/4bbb79f7-5724-4c9e-95f3-de075f6ec090/providers/Microsoft.aadiam","operationName":"Sign-in activity","operationVersion":"1.0","category":"ManagedIdentitySignInLogs","tenantId":"4bbb79f7-5724-4c9e-95f3-de075f6ec090","resultType":"0","resultSignature":"None","durationMs":0,"correlationId":"ad8c289f-a81d-4959-bacc-c5774ab9baaa","Level":4,"properties":{"id":"a08869a8-3b15-46e4-8de3-273849e60100","createdDateTime":"2022-01-24T04:59:49.2279838+00:00","userId":null,"appId":"b3b975ac-995b-426e-8b5d-363a165df41c","ipAddress":"","status":{"errorCode":0},"location":{"city":"","state":"","countryOrRegion":"","geoCoordinates":{"latitude":0,"longitude":0}},"correlationId":"ad8c289f-a81d-4959-bacc-c5774ab9baaa","conditionalAccessStatus":"notApplied","appliedConditionalAccessPolicies":[],"isInteractive":false,"tokenIssuerType":"AzureAD","processingTimeInMilliseconds":0,"riskDetail":"none","riskLevelAggregated":"low","riskLevelDuringSignIn":"low","riskState":"none","resourceDisplayName":"Windows Azure Service Management API","resourceId":"797f4846-ba00-4fd7-ba43-dac1f8f63013","servicePrincipalName":"testplatformlogslube","servicePrincipalId":"9d370547-cb61-4753-be23-68534909af90","flaggedForReview":false,"isTenantRestricted":false,"crossTenantAccessType":"none","uniqueTokenIdentifier":"YTA4ODY5YTgtM2IxNS00NmU0LThkZTMtMjczODQ5ZTYwMTAw","incomingTokenType":"none","authenticationProtocol":"none"}}'
+    key:
+      - time
+      - resourceId
+      - operationName
+      - operationVersion
+  - type: Springcloudlogs
+    sourcetype: azure_springcloudlogs
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"time":"2021-07-01T19:30:30.535404056Z","LogFormat":"RAW","resourceId":"/SUBSCRIPTIONS/EDD63B67-0BA2-4837-A4EB-CD484E9FF623/RESOURCEGROUPS/SA-HEMANT/PROVIDERS/MICROSOFT.APPPLATFORM/SPRING/HM-SC-PETCLINIC","operationName":"Microsoft.AppPlatform/Spring/logs","category":"ApplicationConsole","level":"Informational","callerIpAddress":"2001:db8::1","properties":{"Log":"2021-07-01 19:30:30.535 INFO 1 --- [oundedElastic-9] c.c.c.ConfigServicePropertySourceLocator : Located environment: name=admin-server, profiles=[mysql], lab...","Stream":"stdout","AppName":"admin-server","InstanceName":"admin-server-default-12-8459d44f68-g4b5f","ServiceId":"c41fd000b1a5450eb234039376da26de","ServiceName":"hm-sc-petclinic"}}'
+    key:
+      - time
+      - LogFormat
+      - resourceId
+      - operationName
+cves: []
+detections:
+  - title: Azure events arriving
+    severity: low
+    signals:
+      - ActivityStatusValue
+      - Caller
+      - CallerIpAddress
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure"'
+optimizations: []
+references:
+  - title: elastic/integrations azure/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure/data_stream/events/_dev/test/pipeline/test-invalid-categoryvalue.log
+  - title: Pack Generator sample azure.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure.json

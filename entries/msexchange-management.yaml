@@ -1,0 +1,67 @@
+id: msexchange-management
+name: Msexchange Management
+short: Management
+vendor: Msexchange
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - msexchange_management
+  - Splunk attack_data
+tags:
+  - attack_data
+  - text
+summary: Msexchange Management is logged by the Splunk attack_data package msexchange_management. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: msexchange_management
+    desc: 'Splunk attack_data fixture, 20 events. Upstream: datasets/attack_techniques/T1059.001/exchange/msexchangemanagement.log'
+facts:
+  Where the sample comes from: Splunk attack_data
+  Integration package: msexchange_management
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Splunk attack_data
+      desc: Fixtures were harvested from splunk/attack_data. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Msexchange Management events in this library are the test fixtures shipped with splunk/attack_data (d192cc5844). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Splunk attack_data package reads msexchange_management and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Msexchange Management
+    sourcetype: msexchange_management
+    format: text
+    desc: 20 fixture events in the samples pool (attack_data).
+    sample: 11/21/2022 08:09:04 PM
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Msexchange Management events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "msexchange_management"'
+optimizations: []
+references:
+  - title: splunk/attack_data datasets/attack_techniques
+    url: https://github.com/splunk/attack_data/blob/d192cc584459ec4c33dae772de132d6a070abcb8/datasets/attack_techniques/T1059.001/exchange/msexchangemanagement.log
+  - title: Pack Generator sample msexchange_management.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/msexchange_management.json

@@ -1,0 +1,83 @@
+id: ping-one
+name: Ping One
+short: Ping One
+vendor: Ping
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ping_one
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Ping One is logged by the Datadog integrations-core package ping_one. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ping_one
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: ping_one/assets/logs/ping-one_tests.yaml'
+  - st: ping_one_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: ping_one/data_stream/audit/_dev/test/pipeline/test-pipeline-audit.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ping_one
+  Sourcetypes: '2'
+  Fixture events: '21'
+  Log format seen: json
+  Fields in the first fixture: result.description, result.status, createdAt, actors.client.environment.id, actors.client.name, actors.client.id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ping One events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries result.description, result.status, createdAt, actors.client.environment.id, actors.client.name, actors.client.id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ping_one and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Ping One
+    sourcetype: ping_one
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"result":{"description":"Passed role access control","status":"SUCCESS"},"createdAt":"2024-07-01T09:28:18.244Z","actors":{"client":{"environment":{"id":"77624d50-34ef-4fe8-bf56-375fcb8wregwc69eb"},"name":"PingOne Admin Console","id":"84daa836-7c81-4505-9cac-b9428d4gwrg5695d","href":"https://api.pingone.com.au/v1/environments/77624d50-34ef-4fe8-bf56-375fcb8c6wegrg9eb/applications/84daa836-7c81-4505-9cac-b9428gwrgwd45695d","type":"CLIENT"},"user":{"environment":{"id":"77624wred50-34ef-4fe8-bf56-375fcb8c6wterwret9eb"},"name":"user@example.com","id":"9c6awertcf81-2d00-412a-b62c-fccbe74cegrw730a","href":"https://api.pingone.com.au/v1/environments/77624d50-34ef-4fe8-bf56-375fcb8twrec69eb/users/9c6acf81-2d00-412a-b62c-fccbgsdfe74c730a","type":"USER","population":{"id":"312d7495-f0ff-4d10-b579-954f1664wre64ca"}}},"_links":{"self":{"href":"https://api.pingone.com.au/v1/environments/77624d50-34ef-4fe8-bf56-375fcb8ctyrt69eb/activities/e157rtwr9fb1-d2b6-4892-b3e6-9fd5a52d0d03"}},"recordedAt":"2024-07-01T09:28:18.229Z","action":{"description":"User Access Allowed","type":"USER.ACCESS_ALLOWED"},"resources":[{"environment":{"id":"77624dgsj50-34ef-4fe8-bf56-375fcb8c69eb"},"name":"user@example.com","id":"9c6acf81-2d00-412a-b62c-fccbe74crgw730a","href":"https://api.pingone.com.au/v1/environments/77624d50-34ef-4fe8-bf56-375fcb8geruc69eb/users/9c6acf81-2d00-412a-b62c-fccbe74ctew730a","type":"USER","population":{"id":"312d7495-f0ff-4d10-b579-954f1wtg66464ca"}}],"correlationId":"f49d6werg6e3-630e-401rgw6-8f7d-5f6d7082d46e","internalCorrelation":{"transactionId":"fbf3e62gwrge-af77-4486-a3c7-43a7b4b49476"},"id":"e1579fb1-d2b6-4892-b3e6-9fd5agegwrg52d0d03","source":{"ipAddress":"203.0.113.8","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36 Edg/192.0.2.10"}}'
+    key:
+      - result.description
+      - result.status
+      - createdAt
+      - actors.client.environment.id
+  - type: Audit
+    sourcetype: ping_one_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"_links":{"self":{"href":"https://api.pingone.asia/v1/environments/abc12abc-12ab-1234-1abc-abc123abc123/activities/123abc123-12ab-1234-1abc-abc123abc12"}},"id":"123abc123-12ab-1234-1abc-abc123abc12","recordedAt":"2022-07-06T06:12:00.400Z","createdAt":"2022-07-06T06:12:00.697Z","correlationId":"123abc123-12ab-1234-1abc-abc123abc12","action":{"type":"ACTION.CREATED","description":"Action Created"},"resources":[{"type":"SIGN_ON_POLICY","id":"123abc123-12ab-1234-1abc-abc123abc12","name":"123abc123-12ab-1234-1abc-abc123abc12","environment":{"id":"abc12abc-12ab-1234-1abc-abc123abc123"},"href":"https://api.pingone.asia/v1/environments/abc12abc-12ab-1234-1abc-abc123abc123/signOnPolicies/123abc123-12ab-1234-1abc-abc123abc12/actions/123abc123-12ab-1234..."}],"result":{"status":"SUCCESS","description":"Created Action 123abc123-12ab-1234-1abc-abc123abc12"}}'
+    key:
+      - _links.self.href
+      - id
+      - recordedAt
+      - createdAt
+cves: []
+detections:
+  - title: Ping One events arriving
+    severity: low
+    signals:
+      - result.description
+      - result.status
+      - createdAt
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ping_one"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ping_one/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ping_one/assets/logs/ping-one_tests.yaml
+  - title: Pack Generator sample ping_one.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ping_one.json

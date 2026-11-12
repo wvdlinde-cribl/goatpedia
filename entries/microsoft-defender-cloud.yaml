@@ -1,0 +1,71 @@
+id: microsoft-defender-cloud
+name: Microsoft Defender Cloud
+short: Cloud
+vendor: Microsoft
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_defender_cloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Microsoft Defender Cloud is logged by the Elastic integrations package microsoft_defender_cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_defender_cloud
+    desc: 'Elastic integrations fixture, 4 events. Upstream: microsoft_defender_cloud/data_stream/event/_dev/test/pipeline/test-alert.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_defender_cloud
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: securityEventDataEnrichment.action, securityEventDataEnrichment.apiVersion, securityEventDataEnrichment.isSnapshot, securityEventDataEnrichment.interval, id, name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Defender Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries securityEventDataEnrichment.action, securityEventDataEnrichment.apiVersion, securityEventDataEnrichment.isSnapshot, securityEventDataEnrichment.interval, id, name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_defender_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: microsoft_defender_cloud
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"securityEventDataEnrichment":{"action":"Write","apiVersion":"2019-01-01-preview","isSnapshot":false,"interval":"00:00:00"},"id":"/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/Microsoft.Security/regulatoryComplianceStandards/Microsoft-cloud-security-benchmark/regulatoryC...","name":"45cfe080-ceb1-a91e-9743-71551ed24e94","type":"Microsoft.Security/regulatoryComplianceStandards/regulatoryComplianceControls/regulatoryComplianceAssessments","properties":{"description":"Log Analytics agent should be installed on virtual machine scale sets","state":"Skipped","passedResources":0,"failedResources":0,"skippedResources":1,"assessmentType":"AssessmentResult","assessmentDetailsLink":"https://portal.azure.com/#blade/Microsoft_Azure_Security/RecommendationsBlade/assessmentKey/45cfe080-ceb1-a91e-9743-71551ed24e94/initiativeId/Microsoft-cloud..."}}'
+    key:
+      - securityEventDataEnrichment.action
+      - securityEventDataEnrichment.apiVersion
+      - securityEventDataEnrichment.isSnapshot
+      - securityEventDataEnrichment.interval
+cves: []
+detections:
+  - title: Microsoft Defender Cloud events arriving
+    severity: low
+    signals:
+      - securityEventDataEnrichment.action
+      - securityEventDataEnrichment.apiVersion
+      - securityEventDataEnrichment.isSnapshot
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_defender_cloud"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_defender_cloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_defender_cloud/data_stream/event/_dev/test/pipeline/test-alert.log
+  - title: Pack Generator sample microsoft_defender_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_defender_cloud.json

@@ -1,0 +1,119 @@
+id: cyera
+name: Cyera
+short: Cyera
+vendor: Cyera
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cyera
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cyera is logged by the Elastic integrations package cyera. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cyera
+    desc: 'Elastic integrations fixture, 5 events. Upstream: cyera/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: cyera_audit
+    desc: 'Elastic integrations fixture, 6 events. Upstream: cyera/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: cyera_classification
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cyera/data_stream/classification/_dev/test/pipeline/test-classification.log'
+  - st: cyera_datastore
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cyera/data_stream/datastore/_dev/test/pipeline/test-datastore.log'
+  - st: cyera_issue
+    desc: 'Elastic integrations fixture, 4 events. Upstream: cyera/data_stream/issue/_dev/test/pipeline/test-issue.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cyera
+  Sourcetypes: '5'
+  Fixture events: '22'
+  Log format seen: json
+  Fields in the first fixture: account.name, account.platform, account.uid, affectedDataClassAppearances[0].recordsCount.recordsCount, affectedDataClassAppearances[0].recordsCount.dataClass.classificationName, affectedDataClassAppearances[0].recordsCount.dataClass.uid
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cyera events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries account.name, account.platform, account.uid, affectedDataClassAppearances[0].recordsCount.recordsCount, affectedDataClassAppearances[0].recordsCount.dataClass.classificationName, affectedDataClassAppearances[0].recordsCount.dataClass.uid. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cyera and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: cyera
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"account":{"name":"stark-industries","platform":"Azure","uid":"acc-0197fa56"},"affectedDataClassAppearances":[{"recordsCount":{"recordsCount":12500,"dataClass":{"classificationName":"Credit Card Number","uid":"dc-001"}}},{"recordsCount":{"recordsCount":4300,"dataClass":{"classificationName":"US Social Security Number","uid":"dc-002"}}}],"affectedObjectsCount":6,"affectedObjectsDiff":2,"affectedRecordsDiff":310,"automaticScanning":{},"changedClassificationUid":"cls-xyz789","classificationName":"Sensitive PII","classifications":[{"classificationName":"Financial Data","uid":"cls-fin-001"},{"classificationName":"PII","uid":"cls-pii-001"}],"cloudProvider":"Azure","datastoreUserTags":["finance","customer-data"],"datastore":{"dataOwner":"Finance Dept","infrastructure":"Azure SQL","name":"stark-db-prod","recordsAtHighRisk":5000,"uid":"ds-12345","userTags":["restricted","prod"],"vpcId":"vpc-0f12c34d"},"date":"2025-08-28T10:15:00Z","deploymentName":"stark-prod-deployment","domainName":"stark-industries.com","expectedM365SensitivityLabelAssignmentsCount":12,"failedM365SensitivityLabelAssignmentsCount":2,"frequency":"daily","inPlatformIdentifier":"sqlserver-01","isDomainTrusted":true,"isReportDeleted":false,"isReportExpired":false,"issueName":"PII exposure in production datastore","issueUid":"issue-0197-xyzt","issue":{"policy":{"name":"PII Protection Policy","uid":"pol-7890","useCases":["Data Privacy","Compliance"]},"resolution":"Mitigated","resolutionNote":"Records encrypted, access restricted.","riskStatus":"Mitigated","uid":"issue-abc-123"},"issues":[{"policy":{"name":"Data Retention Policy","uid":"pol-4567","useCases":["Retention","Compliance"]},"resolution":"Open","resolutionNote":"","riskStatus":"Unmitigated","uid":"issue-002"},{"policy":{"name":"Access Control Policy","uid":"pol-8910","useCases":["Security","Access Control"]},"resolution":"In Progress","resolutionNote":"Pending approval from admin.","riskStatus":"Partially Mitigated","uid":"issue-003"}],"m365AssignedSensitivityLabelName":"Confidential - Finance","originalSensitivity":"Low","originalSensitivityDisplayName":"Low Sensitivity","policy":{"name":"Confidential Data Handling Policy","uid":"pol-9988","useCases":["Confidentiality","Access Restriction"]}}'
+    key:
+      - account.name
+      - account.platform
+      - account.uid
+      - affectedDataClassAppearances[0].recordsCount.recordsCount
+  - type: Audit
+    sourcetype: cyera_audit
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"frontegg_id":"5324ccd7-c588-4683-962e-219eaaaed8da","vendorId":"2dc00405-79cd-457b-b288-a119c6f0c7b7","tenantId":"854c25fb-84d6-49ac-a593-5cafb24f769e","severity":"Info","ip":"203.0.113.40","email":"user@example.com","action":"User logged in","description":"User logged in to the application","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.10 Safari/537.36","createdAt":"2025-08-25T09:12:44.376Z","updatedAt":"2025-08-25T09:12:44.376Z","environmentName":"Global"}'
+    key:
+      - frontegg_id
+      - vendorId
+      - tenantId
+      - severity
+  - type: Classification
+    sourcetype: cyera_classification
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"uid":"0197c403-c3a5-7a94-8319-b9278a68b89d","name":"Address","sensitivity":"Internal","sensitivityDisplayName":"Internal","defaultSensitivity":"Internal","defaultSensitivityDisplayName":"Internal","context":{"role":"Customer","tokenization":"Plain","geoLocations":["California","EU"],"synthetic":false,"dataSubjectAge":"None","businessContext":[{"key":"business","value":"contextbusiness"}],"identified":false,"identifiability":"PossiblyIdentifiable"},"classificationGroup":"Personal","dataCategory":"Personal","collections":["Learned","File"],"customCollections":["Custom1","Custom2"],"frameworks":["GDPR - Personal","Reportable Data Breach"],"learned":false,"classificationLevel":"Element","dataClassName":"Address","classificationName":"Address"}'
+    key:
+      - uid
+      - name
+      - sensitivity
+      - sensitivityDisplayName
+  - type: Datastore
+    sourcetype: cyera_datastore
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"name":"mockinsurance-mysql-eastus","datastoreSizeInGiB":"0.1096641831","lastModifiedTime":"2025-08-14T06:17:54.858Z","driveId":"3b4d83a8-1fe3-498d-b3d6-8cb15feceabc","arn":"arn:aws:s32001:db8::1example-bucket","discoveredDate":"2025-08-28T15:42:11.982Z","provider":"AWS","uid":"0198a421-92f3-4e89-bb2a-6d5b1229c1ef","type":"AWS_RDS_INSTANCE","dataType":"Structured","infrastructure":"aws-rds-instance","engine":"mysql","cloudProviderUrl":"https://console.aws.amazon.com/rds/home?region=us-east-1#database:id=mockinsurance-mysql-eastus;is-cluster=false","scanningState":"Scanned","ghost":false,"regions":["us-east-1"],"vpc":"vpc-0ab12345def67890","owner":"user@example.com","sensitivity":"Sensitive","sensitivityDisplayName":"Confidential","recordCountBySensitivity":{"VerySensitive":1325,"Sensitive":8450,"Internal":3120,"NotSensitive":2150,"Unclassified":0},"account":{"name":"AWS Account mock Industries","inPlatformIdentifier":"123456789012"},"classificationGroups":["Financial","Personal"],"issues":{"open":1,"closed":2,"inProgress":1},"cloudProviderTags":[{"key":"BusinessUnit","value":"Insurance"},{"key":"CostCenter","value":"44321"}],"collections":["Learned"],"customCollections":["Custom 1","Custom 2"],"frameworks":["PCI DSS","GDPR"],"classificationLevel":"Element","learned":true}'
+    key:
+      - name
+      - datastoreSizeInGiB
+      - lastModifiedTime
+      - driveId
+  - type: Issue
+    sourcetype: cyera_issue
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"uid":"mock-uid-12345","cloudProviderTags":[{"key":"providerTag","value":"mock-tag"}],"resolution":"Accept risk","resolutionNote":"the issue was closed in version X.Y.Z","name":"Credit card number in plain text","severity":"Critical","createdDate":"2025-07-02T09:32:02.787Z","updatedDate":"2025-07-25T04:09:41.965Z","status":"Open","riskStatus":"Unmitigated","datastoreName":"Mock User/OneDrive","datastoreUid":"mock-datastore-uid-001","provider":"Microsoft365","infrastructure":"OneDrive","engine":"one-drive","regions":["Americas"],"risk":{"policyUid":"mock-policy-uid-001","useCases":["DataSprawl","DataEncryption"],"frameworks":["PCI DSS","PHIPA"],"description":"According to PCI DSS section 3.4 if PAN storage is unavoidable, the data must be rendered unreadable wherever it is stored. Acceptable methods include hashin..."},"data":{"recordsAtRisk":999,"affectedRecords":999,"objectsAtRisk":5,"dataClassesUids":["mock-dataclass-uid-001","mock-dataclass-uid-002"]},"account":{"name":"MockAccount","inPlatformIdentifier":"mock-platform-id-001"},"classificationGroups":["Personal","Financial"],"datastoreCloudProviderTags":[{"key":"key1","value":"mock-value"}],"datastoreUserTags":[{"uid":"mock-user-uid","key":"env","value":"mock-env"}],"owner":"muskan","datastoreOwners":[{"datastoreOwnerUid":"mock-datastore-owner-001","email":"user@example.com","ownerType":"application-owner","sources":["SaaSOwner"]},{"datastoreOwnerUid":"mock-datastore-owner-001","email":"user@example.com","ownerType":null,"sources":["SaaSOwner"]}],"remediationAdvice":"- Evaluate the need for storing credit card data. If unnecessary, delete it.\n- Encrypt sensitive data.\n- Use masking or tokenization where applicable.","policyUid":"mock-policy-uid-001","itsmTickets":[{"uid":"mock-ticket-001","vendorTicketId":"JIRA-MOCK-123","vendorLink":"https://mockcompany.atlassian.net/browse/JIRA-MOCK-123","vendorStatus":"In Progress"}]}'
+    key:
+      - uid
+      - cloudProviderTags[0].key
+      - cloudProviderTags[0].value
+      - resolution
+cves: []
+detections:
+  - title: Cyera events arriving
+    severity: low
+    signals:
+      - account.name
+      - account.platform
+      - account.uid
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cyera"'
+optimizations: []
+references:
+  - title: elastic/integrations cyera/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cyera/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample cyera.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyera.json

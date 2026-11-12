@@ -1,0 +1,67 @@
+id: wazuh
+name: Wazuh
+short: Wazuh
+vendor: Wazuh
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - wazuh
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Wazuh is logged by the Datadog integrations-core package wazuh. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: wazuh
+    desc: 'Datadog integrations-core fixture, 12 events. Upstream: wazuh/assets/logs/wazuh_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: wazuh
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Wazuh events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads wazuh and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Wazuh
+    sourcetype: wazuh
+    format: text
+    desc: 12 fixture events in the samples pool (logtest).
+    sample: '<132>Sep 19 08:25:04 ub20 ossec: {"timestamp":"2024-09-19T08:25:04.210+0530","rule":{"level":7,"description":"Dpkg (Debian Package) half configured.","id":"2904","firedtimes":7,"mail":false,"groups":["syslog","dpkg","config_changed"],"pci_dss":["10.6.1","10.2.7"],"gpg13":["4.10"],"gdpr":["IV_35.7.d"],"hipaa":["164.312.b"],"nist_800_53":["AU.6","AU.14"],"tsc":["CC7.2","CC7.3","CC6.8","CC8.1"]},"agent":{"id":"000","name":"ub20"},"manager":{"name":"ub20"},"id":"1726714504.1044193","full_log":"2024-09-19 08:25:02 status half-configured linux-headers-5.15.0-119:all 5.15.0-119.129","decoder":{"name":"dpkg-decoder"},"data":{"dpkg_status":"status half-configured","package":"linux-headers-5.15.0-119","arch":"all","version":"5.15.0-119.129"},"location":"/var/log/dpkg.log"}'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Wazuh events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "wazuh"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core wazuh/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/wazuh/assets/logs/wazuh_tests.yaml
+  - title: Pack Generator sample wazuh.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/wazuh.json

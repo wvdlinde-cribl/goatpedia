@@ -1,0 +1,71 @@
+id: thycotic-ss
+name: Thycotic Ss
+short: Thycotic Ss
+vendor: Thycotic
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - thycotic_ss
+  - Elastic integrations
+tags:
+  - elastic
+  - cef
+summary: Thycotic Ss is logged by the Elastic integrations package thycotic_ss. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: thycotic_ss
+    desc: 'Elastic integrations fixture, 2 events. Upstream: thycotic_ss/data_stream/logs/_dev/test/pipeline/test-thycotic-ss.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: thycotic_ss
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Thycotic Ss events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads thycotic_ss and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Logs
+    sourcetype: thycotic_ss
+    format: cef
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: 'Nov 10 13:13:32 THYCOTICSS02 CEF:0|Thycotic Software|Secret Server|11.3.000001|10004|SECRET - VIEW|2|msg=[[SecretServer]] Event: [Secret] Action: [View] By User: U.Admin Item Name: Admin User Personal Admin Account - example\adminuser (Item Id: 12) Container Name: Admin User (Container Id: 11)  suid=2 suser=U.Admin cs4=Unlimited Administrator cs4Label=suser Display Name src=192.0.2.10 rt=Nov 10 2022 13:13:23 fname=Admin User Personal Admin Account - example\adminuser fileType=Secret fileId=12 cs3Label=Folder cs3=Admin User'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Thycotic Ss events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "thycotic_ss"'
+optimizations: []
+references:
+  - title: elastic/integrations thycotic_ss/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/thycotic_ss/data_stream/logs/_dev/test/pipeline/test-thycotic-ss.json
+  - title: Pack Generator sample thycotic_ss.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/thycotic_ss.json

@@ -1,0 +1,71 @@
+id: mapr
+name: Mapr
+short: Mapr
+vendor: Mapr
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mapr
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Mapr is logged by the Datadog integrations-core package mapr. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mapr
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: mapr/assets/logs/mapr_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: mapr
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: hostname, @timestamp, fqdn, level, service, clusterId
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mapr events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries hostname, @timestamp, fqdn, level, service, clusterId. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads mapr and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Mapr
+    sourcetype: mapr
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"hostname":"mapr-lab-2-dhk4.c.datadog-integrations-lab.internal","@timestamp":"2019-09-13T23:56:30.634Z","fqdn":"mapr-lab-2-dhk4","level":"INFO","service":"mapr-demo","clusterId":7616098736519857000,"tag":"mfs_maprdb","thread":"NIOServerCxn.Factory:203.0.113.40/192.0.2.10:5181:NIOServerCnxn","message":"db/partition.cc:7566 Scheduled flush of 5 idle partition(s), poolSz 0 pendingDrainSz 0 waiters 0","class":"DB","event_time":"2019-09-13T23:56:30.634Z"}'
+    key:
+      - hostname
+      - '@timestamp'
+      - fqdn
+      - level
+cves: []
+detections:
+  - title: Mapr events arriving
+    severity: low
+    signals:
+      - hostname
+      - '@timestamp'
+      - fqdn
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mapr"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core mapr/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/mapr/assets/logs/mapr_tests.yaml
+  - title: Pack Generator sample mapr.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mapr.json

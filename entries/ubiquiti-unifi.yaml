@@ -1,0 +1,71 @@
+id: ubiquiti-unifi
+name: Ubiquiti Unifi
+short: Ubiquiti Unifi
+vendor: Ubiquiti
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ubiquiti_unifi
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Ubiquiti Unifi is logged by the Splunk Connect for Syslog package ubiquiti_unifi. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ubiquiti_unifi_firewall
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_ubiquiti_unifi.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: ubiquiti_unifi
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, [LAN_LOCAL-default-A]IN, OUT, MAC, SRC, DST
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ubiquiti Unifi events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, [LAN_LOCAL-default-A]IN, OUT, MAC, SRC, DST. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads ubiquiti_unifi and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Ubiquiti Unifi Firewall
+    sourcetype: ubiquiti_unifi_firewall
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<27>Jun 15 13:45:07 usg-sc4s-lab-01 kernel: [LAN_LOCAL-default-A]IN=eth0.2004 OUT= MAC= SRC=198.51.100.25 DST=203.0.113.8 LEN=348 TOS=0x00 PREC=0x00 TTL=255 ID=32463 DF PROTO=UDP SPT=5353 DPT=5353 LEN=328'
+    key:
+      - '[LAN_LOCAL-default-A]IN'
+      - OUT
+      - MAC
+      - SRC
+cves: []
+detections:
+  - title: Ubiquiti Unifi events arriving
+    severity: low
+    signals:
+      - header
+      - '[LAN_LOCAL-default-A]IN'
+      - OUT
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ubiquiti_unifi_firewall"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_ubiquiti_unifi.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_ubiquiti_unifi.py
+  - title: Pack Generator sample ubiquiti_unifi_firewall.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ubiquiti_unifi_firewall.json

@@ -1,0 +1,67 @@
+id: argo-workflows
+name: Argo Workflows
+short: Argo Workflows
+vendor: Argo
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - argo_workflows
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Argo Workflows is logged by the Datadog integrations-core package argo_workflows. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: argo_workflows
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: argo_workflows/assets/logs/argo_workflows_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: argo_workflows
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Argo Workflows events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads argo_workflows and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Argo Workflows
+    sourcetype: argo_workflows
+    format: text
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: I0305 15:28:44.902685       1 leaderelection.go:248] attempting to acquire leader lease argo/workflow-controller...
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Argo Workflows events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "argo_workflows"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core argo_workflows/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/argo_workflows/assets/logs/argo_workflows_tests.yaml
+  - title: Pack Generator sample argo_workflows.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/argo_workflows.json

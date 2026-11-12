@@ -1,0 +1,71 @@
+id: jfrog-platform-cloud
+name: Jfrog Platform Cloud
+short: Cloud
+vendor: Jfrog
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jfrog_platform_cloud
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Jfrog Platform Cloud is logged by the Datadog integrations-extras package jfrog_platform_cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jfrog_platform_cloud
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: jfrog_platform_cloud/assets/logs/jfrog_artifactory_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: jfrog_platform_cloud
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: tenant_id, hostname, instance_name, ddtags, service, company_name
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jfrog Platform Cloud events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries tenant_id, hostname, instance_name, ddtags, service, company_name. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads jfrog_platform_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Jfrog Platform Cloud
+    sourcetype: jfrog_platform_cloud
+    format: json
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: '{"tenant_id":"partnership-test-company-0","hostname":"jfrog-cloud","instance_name":"instance1","ddtags":"key1:val1,key2:val2,key3:val3","service":"jfrog.saas.rt.artifactory.access","company_name":"JFrog Test Company","message":{"log_timestamp":"2024-04-22T18:46:18.610Z","action_response":"ACCEPTED DELETE","log_type":"artifactory-access","trace_id":"7d4c40fbd47e5459","repository_path":"generic-local:jfrog_platform_cloud_logs_2.png","user_name":"danielmi","ip_address":"198.51.100.15","message":"for client","type":"token"},"ddsource":"jfrog_artifactory"}'
+    key:
+      - tenant_id
+      - hostname
+      - instance_name
+      - ddtags
+cves: []
+detections:
+  - title: Jfrog Platform Cloud events arriving
+    severity: low
+    signals:
+      - tenant_id
+      - hostname
+      - instance_name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jfrog_platform_cloud"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras jfrog_platform_cloud/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/jfrog_platform_cloud/assets/logs/jfrog_artifactory_tests.yaml
+  - title: Pack Generator sample jfrog_platform_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jfrog_platform_cloud.json

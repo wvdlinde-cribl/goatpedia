@@ -1,0 +1,87 @@
+id: microsoft-exchange-server
+name: Microsoft Exchange Server
+short: Server
+vendor: Microsoft
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_exchange_server
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Microsoft Exchange Server is logged by the Elastic integrations package microsoft_exchange_server. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_exchange_server_imap4_pop3
+    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_exchange_server/data_stream/imap4_pop3/_dev/test/pipeline/test-imap4-pop3.json'
+  - st: microsoft_exchange_server_messagetracking
+    desc: 'Elastic integrations fixture, 7 events. Upstream: microsoft_exchange_server/data_stream/messagetracking/_dev/test/pipeline/test-messagetracking.log'
+  - st: microsoft_exchange_server_smtp
+    desc: 'Elastic integrations fixture, 7 events. Upstream: microsoft_exchange_server/data_stream/smtp/_dev/test/pipeline/test-smtp.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_exchange_server
+  Sourcetypes: '3'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Exchange Server events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_exchange_server and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Imap4 Pop3
+    sourcetype: microsoft_exchange_server_imap4_pop3
+    format: text
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: 2024-01-24T15:31:51.231Z,00000000000ABC12,2,203.0.113.40:110,192.0.2.10:12345,ccw.altitude,163,10,34,pass,*****,"R=OK;Msg=""Proxy:Host123.domain.tld:1995:SSL;ProxySuccess"";ActivityContextData=0cb2fd35-94c0-44de-9860-134d27654078",
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Messagetracking
+    sourcetype: microsoft_exchange_server_messagetracking
+    format: text
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: 2024-01-25T15:16:09.843Z,,,,exchange-mail,No suitable shadow servers,,SMTP,HAREDIRECTFAIL,70971234566456,<user@example.com>,2fd37dca-1234-5bfb-175d-08dc1db88f52,user@example.com,,15054,1,,,Undelivered Mail Returned to Sender,user@example.com,user@example.com,,Incoming,,,,S:DeliveryPriority=Normal;S:OriginalFromAddress=user@example.com;S:AccountForest=my.domain.com,Email,dc69df25-1234-564c-41c4-08dc1db88f7f,15.02.0330.005
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Smtp
+    sourcetype: microsoft_exchange_server_smtp
+    format: text
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: 2024-01-25T15:14:39.460Z,Inbound Proxy Internal Send Connector,08DC1DB8591B22A0,0,,192.0.2.20:2525,*,None,Set Session Permissions
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Microsoft Exchange Server events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_exchange_server_imap4_pop3"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_exchange_server/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_exchange_server/data_stream/imap4_pop3/_dev/test/pipeline/test-imap4-pop3.json
+  - title: Pack Generator sample microsoft_exchange_server_imap4_pop3.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_exchange_server_imap4_pop3.json

@@ -1,0 +1,131 @@
+id: abnormal-security
+name: Abnormal Security
+short: Security
+vendor: Abnormal
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - abnormal_security
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Abnormal Security is logged by the Elastic integrations package abnormal_security. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: abnormal_security_ai_security_mailbox
+    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/ai_security_mailbox/_dev/test/pipeline/test-ai-security-mailbox.log'
+  - st: abnormal_security_ai_security_mailbox_not_analyzed
+    desc: 'Elastic integrations fixture, 3 events. Upstream: abnormal_security/data_stream/ai_security_mailbox_not_analyzed/_dev/test/pipeline/test-ai-security-mailbox-not-analyzed.log'
+  - st: abnormal_security_audit
+    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: abnormal_security_case
+    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/case/_dev/test/pipeline/test-case.log'
+  - st: abnormal_security_threat
+    desc: 'Elastic integrations fixture, 6 events. Upstream: abnormal_security/data_stream/threat/_dev/test/pipeline/test-threat.log'
+  - st: abnormal_security_vendor_case
+    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/vendor_case/_dev/test/pipeline/test-case.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: abnormal_security
+  Sourcetypes: '6'
+  Fixture events: '29'
+  Log format seen: json
+  Fields in the first fixture: campaignId, firstReported, lastReported, messageId, subject, fromName
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Abnormal Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries campaignId, firstReported, lastReported, messageId, subject, fromName. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads abnormal_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: AI Security Mailbox
+    sourcetype: abnormal_security_ai_security_mailbox
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"campaignId":"0c70588a-049c-3c35-9a23-217ddf0a53b5","firstReported":"2024-07-26T10:30:06Z","lastReported":"2024-07-26T10:30:06Z","messageId":"7063250485337877109","subject":"Days of Understanding 2024","fromName":"user@example.com","fromAddress":"user@example.com","recipientName":"john","recipientAddress":"user@example.com","judgementStatus":"Safe","overallStatus":"No Action Needed","attackType":"Attack Type: Graymail"}'
+    key:
+      - campaignId
+      - firstReported
+      - lastReported
+      - messageId
+  - type: AI Security Mailbox Not Analyzed
+    sourcetype: abnormal_security_ai_security_mailbox_not_analyzed
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"abx_message_id":-7361381340273524000,"recipient":{"email":"user@example.com","name":"Phishing Test"},"reported_datetime":"2025-03-06T17:27:15Z","reporter":{"email":"user@example.com","name":"Reporter Test"},"subject":"Re: Subject","not_analyzed_reason":"ROUTED_SUBMISSION"}'
+    key:
+      - abx_message_id
+      - recipient.email
+      - recipient.name
+      - reported_datetime
+  - type: Audit
+    sourcetype: abnormal_security_audit
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"action":"update_remediation_status","actionDetails":{"providedReason":"null","requestUrl":"/v1.0/search_v2/666/purge_messages/"},"category":"search-and-respond-notifications","sourceIp":"198.51.100.25","status":"SUCCESS","tenantName":"","timestamp":"2024-07-17 15:39:32.141000+00:00","user":{"email":"user@example.com"}}'
+    key:
+      - action
+      - actionDetails.providedReason
+      - actionDetails.requestUrl
+      - category
+  - type: Case
+    sourcetype: abnormal_security_case
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"caseId":11151468,"affectedEmployee":"user@example.com","analysis":"SIGN_IN","case_status":"Acknowledged (Attack resolved)","customerVisibleTime":"2024-01-05T12:33:25+00:00","firstObserved":"2024-01-05T12:33:25+00:00","remediation_status":"Not remediated","severity":"Account Takeover","severity_level":"LOW","threatIds":[]}'
+    key:
+      - caseId
+      - affectedEmployee
+      - analysis
+      - case_status
+  - type: Threat
+    sourcetype: abnormal_security_threat
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"abxMessageId":-4898763529198204000,"abxMessageIdStr":"-4898763529198204348","abxPortalUrl":"https://portal.abnormalsecurity.com/home/threat-center/remediation-history/-4898763529198204348","attachmentCount":0,"attachmentNames":[],"attackStrategy":"Unknown Sender","attackType":"Reconnaissance","attackVector":"Text","attackedParty":"Employee (Other)","autoRemediated":true,"fromAddress":"user@example.com","fromName":"user@example.com","impersonatedParty":"None / Others","internetMessageId":"<user@example.com>","isRead":false,"postRemediated":false,"receivedTime":"2024-07-17T23:35:18Z","recipientAddress":"user@example.com","remediationStatus":"Auto-Remediated","remediationTimestamp":"2024-07-17T23:35:24.850565Z","sentTime":"2024-07-17T23:35:08Z","subject":"Let''s Connect: Coffee Chat Next Week?","threatId":"437dc979-e828-380a-52f4-98f9b1132e49","toAddresses":["user@example.com"],"ccEmails":["user@example.com"],"replyToEmails":[],"returnPath":"user@example.com","senderDomain":"example.com","senderIpAddress":"203.0.113.8","summaryInsights":["Unusual Sender"]}'
+    key:
+      - abxMessageId
+      - abxMessageIdStr
+      - abxPortalUrl
+      - attachmentCount
+  - type: Vendor Case
+    sourcetype: abnormal_security_vendor_case
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"vendorCaseId":1234,"vendorDomain":"example.com","firstObservedTime":"2025-03-01T10:00:00Z","lastModifiedTime":"2025-03-01T12:00:00Z","insights":[{"highlight":"Suspicious Activity","description":"Detected unusual login patterns."}],"timeline":[{"eventTimestamp":"2025-03-01T10:00:00Z","senderAddress":"user@example.com","recipientAddress":"user@example.com","subject":"Unusual Login Alert","markedAs":"Suspicious","threatId":"abcd1234-5678-90ef-ghij-klmnopqrstuv"}]}'
+    key:
+      - vendorCaseId
+      - vendorDomain
+      - firstObservedTime
+      - lastModifiedTime
+cves: []
+detections:
+  - title: Abnormal Security events arriving
+    severity: low
+    signals:
+      - campaignId
+      - firstReported
+      - lastReported
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "abnormal_security_ai_security_mailbox"'
+optimizations: []
+references:
+  - title: elastic/integrations abnormal_security/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/abnormal_security/data_stream/ai_security_mailbox/_dev/test/pipeline/test-ai-security-mailbox.log
+  - title: Pack Generator sample abnormal_security_ai_security_mailbox.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/abnormal_security_ai_security_mailbox.json

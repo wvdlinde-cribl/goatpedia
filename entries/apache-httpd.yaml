@@ -31,6 +31,8 @@ sourcetypes:
     desc: Splunk Add-on for Apache Web Server access log sourcetype
   - st: apache:error
     desc: Splunk Add-on for Apache Web Server error log sourcetype
+  - st: apache_error
+    desc: 'Elastic integrations fixture, 16 events. Upstream: apache/data_stream/error/_dev/test/pipeline/test-error-basic.log'
 facts:
   First released: 1995 (2.4 branch since 2012)
   Current version: 2.4.71 (released 2026-11-11); 2.2 end of life since 2018
@@ -143,6 +145,14 @@ logs:
       - pid
       - tid
     sample: '[Thu Nov 12 02:14:22.508123 2026] [core:error] [pid 2104:tid 140231887] [client 203.0.113.45:51522] AH00126: Invalid URI in request GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd HTTP/1.1'
+  - type: Error
+    sourcetype: apache_error
+    format: text
+    desc: 16 fixture events in the samples pool (elastic).
+    sample: '[Mon Dec 26 16:22:08 2016] [error] [client 203.0.113.40] File does not exist: /var/www/favicon.ico'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
 cves:
   - id: CVE-2021-41773
     cvss: 9.8

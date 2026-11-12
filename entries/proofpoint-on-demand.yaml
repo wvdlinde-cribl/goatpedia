@@ -1,0 +1,95 @@
+id: proofpoint-on-demand
+name: Proofpoint On Demand
+short: Demand
+vendor: Proofpoint
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - proofpoint_on_demand
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Proofpoint On Demand is logged by the Datadog integrations-core package proofpoint_on_demand. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: proofpoint_on_demand
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: proofpoint_on_demand/assets/logs/proofpoint-on-demand_tests.yaml'
+  - st: proofpoint_on_demand_mail
+    desc: 'Elastic integrations fixture, 19 events. Upstream: proofpoint_on_demand/data_stream/mail/_dev/test/pipeline/test-mail.log'
+  - st: proofpoint_on_demand_message
+    desc: 'Elastic integrations fixture, 10 events. Upstream: proofpoint_on_demand/data_stream/message/_dev/test/pipeline/test-message.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: proofpoint_on_demand
+  Sourcetypes: '3'
+  Fixture events: '30'
+  Log format seen: json
+  Fields in the first fixture: msgParts, guid, filter.suborgs.rcpts[0], filter.suborgs.sender, filter.routeDirection, filter.actions[0].module
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Proofpoint On Demand events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries msgParts, guid, filter.suborgs.rcpts[0], filter.suborgs.sender, filter.routeDirection, filter.actions[0].module. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads proofpoint_on_demand and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Proofpoint On Demand
+    sourcetype: proofpoint_on_demand
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"msgParts":[],"guid":"AAaaA1a30A6A5AA6aaacAAa11a1aAAAA","filter":{"suborgs":{"rcpts":["0"],"sender":"0"},"routeDirection":"outbound","actions":[{"module":"access","action":"accept","isFinal":"True","rule":"system"}],"delivered":{"rcpts":["user@example.com"]},"durationSecs":0.049325,"disposition":"accept","routes":["allow_relay","firewallsafe"],"verified":{"rcpts":["user@example.com"]},"msgSizeBytes":1777,"qid":"11AAa1AA1111111"},"ts":"2025-05-11T07:05:02.318134-0700","metadata":{"origin":{"data":{"version":"8.22.0.1767","theater":"us","agent":"a0072552.ppops.net","cid":"pod_hosted"}}},"envelope":{"from":"user@example.com","rcpts":["user@example.com"]},"connection":{"sid":"11a3aa1aaa","host":"localhost","ip":"192.0.2.20","protocol":"smtp:smtp","country":"**","tls":{"inbound":{"version":"TLSv1.3","cipher":"TLS_AES_256_GCM_SHA384","cipherBits":256}},"helo":"user@example.com","resolveStatus":"ok"},"msg":{"header":{"to":["user@example.com"],"message-id":["user@example.com"],"from":["user@example.com"],"subject":["Entertainment"]},"lang":"","sizeBytes":1777,"parsedAddresses":{},"normalizedHeader":{"to":["user@example.com"],"message-id":["user@example.com"],"from":["user@example.com"],"subject":["About Entertainment"]}}}'
+    key:
+      - msgParts
+      - guid
+      - filter.suborgs.rcpts[0]
+      - filter.suborgs.sender
+  - type: Mail
+    sourcetype: proofpoint_on_demand_mail
+    format: json
+    desc: 19 fixture events in the samples pool (elastic).
+    sample: '{"pps":{"agent":"example.proofpoint.com","cid":"mmg_abcd001"},"ts":"2023-08-17T14:54:12.949180-07:00","data":"2017-08-17T14:54:12.949180-07:00 example sendmail[30641]: ABcDqYbx123123: to=user@example.com, ctladdr=<user@example.com> (8/0), delay=00:00:00, xdelay=00:00...","sm":{"tls":{"verify":"NONE"},"stat":"Sent","qid":"ABcDqYbx123123","dsn":"2.0.0","mailer":"*file*","to":["user@example.com"],"ctladdr":"<user@example.com> (8/0)","delay":"00:00:00","xdelay":"00:00:00","pri":35342},"id":"ZeYABCDefghN0123456OyA"}'
+    key:
+      - pps.agent
+      - pps.cid
+      - ts
+      - data
+  - type: Message
+    sourcetype: proofpoint_on_demand_message
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"connection":{"country":"**","helo":"m0000123.ppops.net","host":"localhost","ip":"198.51.100.15","protocol":"smtp:smtp","resolveStatus":"ok","sid":"3y8abcd123","tls":{"inbound":{"cipher":"ECDHE-RSA-AES256-GCM-SHA384","cipherBits":256,"version":"TLSv1.2"}}},"envelope":{"from":"user@example.com","rcpts":["user@example.com"]},"filter":{"actions":[{"action":"accept","isFinal":true,"module":"access","rule":"system"}],"delivered":{"rcpts":["user@example.com"]},"disposition":"accept","durationSecs":0.11872,"msgSizeBytes":1127,"qid":"44ABCDm0000123","routeDirection":"outbound","routes":["allow_relay","firewallsafe"],"suborgs":{"rcpts":["0"],"sender":"0"},"verified":{"rcpts":["user@example.com"]}},"guid":"vRq4ZIFWHXbuABCDEFghij0U4VvIc71x","metadata":{"origin":{"data":{"agent":"m0000123.ppops.net","cid":"pphosted_prodmgt_hosted","version":"8.21.0.1358"}}},"msg":{"header":{"from":["\"(Cron Daemon)\" <user@example.com>"],"message-id":["<user@example.com>"],"subject":["Cron <pps@m0000123> /opt/proofpoint/resttimer.pl"],"to":["user@example.com"]},"lang":"","normalizedHeader":{"from":["\"(Cron Daemon)\" <user@example.com>"],"message-id":["user@example.com"],"subject":["Cron <pps@m0000123> /opt/proofpoint/resttimer.pl"],"to":["user@example.com"]},"parsedAddresses":{},"sizeBytes":1151},"msgParts":[],"ts":"2024-05-22T12:10:03.058340-0700"}'
+    key:
+      - connection.country
+      - connection.helo
+      - connection.host
+      - connection.ip
+cves: []
+detections:
+  - title: Proofpoint On Demand events arriving
+    severity: low
+    signals:
+      - msgParts
+      - guid
+      - filter.suborgs.rcpts[0]
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "proofpoint_on_demand"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core proofpoint_on_demand/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/proofpoint_on_demand/assets/logs/proofpoint-on-demand_tests.yaml
+  - title: Pack Generator sample proofpoint_on_demand.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_on_demand.json

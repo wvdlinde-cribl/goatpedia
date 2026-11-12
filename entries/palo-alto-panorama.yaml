@@ -1,0 +1,67 @@
+id: palo-alto-panorama
+name: Palo Alto Panorama
+short: Panorama
+vendor: Palo
+category: ngfw
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - palo_alto_panorama
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Palo Alto Panorama is logged by the Datadog integrations-core package palo_alto_panorama. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: palo_alto_panorama
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: palo_alto_panorama/assets/logs/palo-alto-panorama_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: palo_alto_panorama
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Palo Alto Panorama events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads palo_alto_panorama and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Palo Alto Panorama
+    sourcetype: palo_alto_panorama
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: <190>Jan 18 12:46:54 PA-VM serial=42808DUMMY733|type=TRAFFIC|subtype=end|time_generated=Jan 25 2024 11:02:57 GMT|src=192.0.2.20|dst=198.51.100.15|natsrc=198.51.100.25|natdst=203.0.113.8|rule=LAN-WAN|suser=|duser=|app=incomplete|vsys=vsys1|from=LAN|to=WAN|inboundif=ethernet1/1|outboundif=ethernet1/2|logset=POC-Dash-DD-204-9099|sessionid=15281|repeatcnt=1|sport=42071|dport=233|natsport=46973|natdport=233|flags=0x40001b|proto=tcp|act=allow|bytes=134|bytes_sent=74|bytes_received=60|pkt=2|start=2024/01/18 12:46:45|elapsed=0|cat=any|seq=7288183648727243213|actflag=0x0|sloc=203.0.113.40-192.0.2.10|dloc=192.0.2.20-198.51.100.15|pktsent=1|pktrcvd=1|sessionendreason=tcp-rst-from-server|vsysname=|dvc=PA-VM|actsrc=from-policy|suuid=|duuid=|tunnelid=0|monitortag=|parentid=0|parentst=|tunnel=N/A|associd=0|chunk=0|chunksent=0|chunkrcvd=0|ruleuuid=9d526565-xxyy-4e35-9c2e-6f54430132ec|http2conn=0|appflap=0|policyid=|link=|dynusrgrp=|xffip=|scat=|sprofile=|smodel=|sven=|sosfam=|sosver=|shost=|smac=|dcat=|dprofile=|dmodel=|dven=|dosfam=|dosver=|dhost=|dmac=|contid=|podnamespace=|podname=|sedl=|dedl=|hostid=|srnum=|sdag=|ddag=|sessionown=|subcatapp=unknown|appcat=unknown|apptech=unknown|apprisk=1|appchar=|appcont=|tunneledapp=incomplete|appsaas=no|appstate=no|offloaded=0|flowtype=|cluster=
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Palo Alto Panorama events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "palo_alto_panorama"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core palo_alto_panorama/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/palo_alto_panorama/assets/logs/palo-alto-panorama_tests.yaml
+  - title: Pack Generator sample palo_alto_panorama.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/palo_alto_panorama.json

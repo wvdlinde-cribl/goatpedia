@@ -1,0 +1,67 @@
+id: cisco-secure-web-appliance
+name: Cisco Secure Web Appliance
+short: Appliance
+vendor: Cisco
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_secure_web_appliance
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Cisco Secure Web Appliance is logged by the Datadog integrations-core package cisco_secure_web_appliance. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_secure_web_appliance
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: cisco_secure_web_appliance/assets/logs/cisco-secure-web-appliance_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cisco_secure_web_appliance
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Secure Web Appliance events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cisco_secure_web_appliance and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Cisco Secure Web Appliance
+    sourcetype: cisco_secure_web_appliance
+    format: text
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: '<38>Sep 25 12:13:55 Crest.CSWA accesslogs: Info: 1727246631.866 93971 198.51.100.15 TCP_MISS/200 8560 CONNECT tunnel://csp.withgoogle.com:443/ - DIRECT/csp.withgoogle.com application/octet-stream DEFAULT_CASE_12-DefaultGroup-match_network-NONE-NONE-NONE-DefaultGroup-NONE <"IW_comp",3.0,1,"-",-,-,-,1,"-",-,-,-,"-",1,-,"-","-",-,-,"IW_comp,IW_csec",-,"-","Computers and Internet","-","Unknown","Unknown","-","-",0.73,0,-,"-","-",1,"-",-,-,"-","-",-,1,"-",-,-> - -'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Cisco Secure Web Appliance events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_secure_web_appliance"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cisco_secure_web_appliance/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cisco_secure_web_appliance/assets/logs/cisco-secure-web-appliance_tests.yaml
+  - title: Pack Generator sample cisco_secure_web_appliance.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_secure_web_appliance.json

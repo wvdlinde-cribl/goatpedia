@@ -1,0 +1,83 @@
+id: microsoft-intune
+name: Microsoft Intune
+short: Intune
+vendor: Microsoft
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - microsoft_intune
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Microsoft Intune is logged by the Elastic integrations package microsoft_intune. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: microsoft_intune_audit
+    desc: 'Elastic integrations fixture, 3 events. Upstream: microsoft_intune/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: microsoft_intune_managed_device
+    desc: 'Elastic integrations fixture, 20 events. Upstream: microsoft_intune/data_stream/managed_device/_dev/test/pipeline/test-managed-device.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: microsoft_intune
+  Sourcetypes: '2'
+  Fixture events: '23'
+  Log format seen: json
+  Fields in the first fixture: time, tenantId, category, operationName, properties.ActivityDate, properties.ActivityResultStatus
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Microsoft Intune events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, tenantId, category, operationName, properties.ActivityDate, properties.ActivityResultStatus. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads microsoft_intune and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: microsoft_intune_audit
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"time":"2026-02-12T06:43:08.8107000Z","tenantId":"3adb963c-8e61-48e8-a06d-6dbb0dacea39","category":"AuditLogs","operationName":"Delete DeviceManagementConfigurationPolicy","properties":{"ActivityDate":"2/12/2026 6:43:08 AM","ActivityResultStatus":1,"ActivityType":1,"Actor":{"ActorType":1,"Application":"5926fc8e-304e-4f59-8bed-58ca97cc39a4","ApplicationName":"Microsoft Intune portal extension","IsDelegatedAdmin":false,"Name":null,"ObjectId":"1ce0bf0b-1a79-4caf-b932-4658cf273074","PartnerTenantId":"00000000-0000-0000-0000-000000000000","UserPermissions":["*"],"UPN":"user@example.com"},"AdditionalDetails":"Key = AccountQuotaEntityValue = DeviceConfiguration\r\n","AuditEventId":"73537880-bdd5-4a62-8251-68a3a4c7bdbe","Category":3,"RelationId":null,"TargetDisplayNames":["Testing1"],"TargetObjectIds":["916dc511-df99-45da-8eb6-1ac55579e16f"],"Targets":[{"ModifiedProperties":[{"Name":"Name","Old":null,"New":"Testing1"}],"Name":"Testing1"}]},"resultType":"Success","resultDescription":"None","correlationId":"aa49be9b-7f26-41cf-9e42-bca545ca88b4","identity":"user@example.com"}'
+    key:
+      - time
+      - tenantId
+      - category
+      - operationName
+  - type: Managed Device
+    sourcetype: microsoft_intune_managed_device
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"time":"2023-10-27T00:10:43.5547000Z","tenantId":"3adb963c-8e61-48e8-a06d-6dbb0dacea39","category":"Devices","operationName":"Devices","resultType":"None","properties":{"DeviceId":"6c4217e6-bc89-4e7f-a04c-129f04866de4","DeviceName":"CLW555TEST","UPN":"user@example.com","LastContact":"2023-10-26 12:23:58.7994868","OSVersion":"10.0.22621.2428","OS":"Windows","CompliantState":"Compliant","Ownership":"Corporate","ManagedBy":"Intune","Model":"20U1A006IG","SerialNumber":"PF2C55YE","Manufacturer":"LENOVO","CreatedDate":"2023-10-20 06:55:27.6237465","DeviceState":"Managed","UserEmail":"user@example.com","UserName":"CDP User IS-38411","IMEI":"","PhoneNumber":"","DeviceRegistrationState":"Registered","ReferenceId":"f18bd540-d5e4-46e0-8ddd-3d03a59e4e14","ManagedDeviceName":"cdp.38411_Windows_10/20/2023_6:55 AM","GraphDeviceIsManaged":true,"CategoryName":"","EncryptionStatusString":"True","SubscriberCarrierNetwork":"","JoinType":"Azure AD joined","SupervisedStatusString":"False","WifiMacAddress":"A87EEABC6AC9","StorageTotal":243406,"StorageFree":205247}}'
+    key:
+      - time
+      - tenantId
+      - category
+      - operationName
+cves: []
+detections:
+  - title: Microsoft Intune events arriving
+    severity: low
+    signals:
+      - time
+      - tenantId
+      - category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "microsoft_intune_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations microsoft_intune/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_intune/data_stream/audit/_dev/test/pipeline/test-audit.log
+  - title: Pack Generator sample microsoft_intune_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_intune_audit.json

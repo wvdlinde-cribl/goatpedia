@@ -1,0 +1,71 @@
+id: valence-security
+name: Valence Security
+short: Security
+vendor: Valence
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - valence_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Valence Security is logged by the Datadog integrations-core package valence_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: valence_security
+    desc: 'Datadog integrations-core fixture, 13 events. Upstream: valence_security/assets/logs/valence-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: valence_security
+  Sourcetypes: '1'
+  Fixture events: '13'
+  Log format seen: json
+  Fields in the first fixture: alert_type_details.severity, alert_type_details.sourceKind, alert_type_details.mitreAttackTactics[0], alert_type_details.mitreAttackTactics[1], alert_type_details.name, alert_type_details.description
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Valence Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries alert_type_details.severity, alert_type_details.sourceKind, alert_type_details.mitreAttackTactics[0], alert_type_details.mitreAttackTactics[1], alert_type_details.name, alert_type_details.description. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads valence_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Valence Security
+    sourcetype: valence_security
+    format: json
+    desc: 13 fixture events in the samples pool (logtest).
+    sample: '{"alert_type_details":{"severity":"High","sourceKind":"valenceDefined","mitreAttackTactics":["TA0003","TA0004"],"name":"Privileged Administrator Role Assigned","description":"A highly privileged role has been assigned to a service principal, application, or user within Entra ID, potentially indicating an unauthorized privilege esc...","disabled":false,"mitreAttackTechniques":["T1098.003","T1078.004"],"defaultSeverity":"High","vuid":"VALENCE:_2001:db8::1_:ALERT_TYPE:_2001:db8::1_2001:db8::1_:AzureActiveDirectory.PrivilegedRoleAssigned","platform":"Microsoft 365"},"alert":{"alertTypeVuid":"VALENCE:_2001:db8::1_:ALERT_TYPE:_2001:db8::1_2001:db8::1_:AzureActiveDirectory.PrivilegedRoleAssigned","connectorUids":["4___Microsoft365___Fetch___Microsoft365Primary"],"creationTimestamp":1767161389,"summaryLine":"user@example.com granted the privileged role \"Global Administrator\" to the user user@example.com.","vuid":"VALENCE:_:ynetlDeUbl:_:ALERT:_2001:db8::1_2001:db8::1_:a7c3f9d1-8b4e-4e6a-9f21-1c7b2a9d4e53","events":[{"eventId":"f3a9b7d2-6c41-4e8b-91fa-0d5e8c2b7a19","actorType":"User","eventSummary":"","aux":{"ModifiedProperties[1]":{"OldValue":"","NewValue":"Global Administrator","Name":"Role.DisplayName"},"Target[3]":{"Type":"5","ID":"user@example.com"},"AzureActiveDirectoryEventType":"1","ModifiedProperties[3]":{"OldValue":"","NewValue":"TenantAdmins","Name":"Role.WellKnownObjectName"},"Target[1]":{"Type":"2","ID":"f8d2c6a4-3b1e-4f97-8a5d-9e7c0b2a1645"},"UserKey":"user@example.com","Actor[3]":{"Type":"2","ID":"00000006-0000-0bb1-ce00-000000000000"},"Actor[1]":{"Type":"3","ID":"9F2B7A603E4C1D85"},"Operation":"Add member to role.","OrganizationId":"1c9b7f5e-8d2a-4e63-96a1-4b0d2f8c7e39","IntraSystemId":"e3a1f9d8-7c2b-4a6e-91d4-b5f8c0a2e317","RecordType":"8","Version":"1","Actor[5]":{"Type":"2","ID":"5d9e12af-3c7a-4f1b-8e64-b0a7c4d92e18"},"SupportTicketId":"","ExtendedProperties[1]":{"Value":"Role","Name":"extendedAuditEventCategory"},"ActorContextId":"1c9b7f5e-8d2a-4e63-96a1-4b0d2f8c7e39","ModifiedProperties[2]":{"OldValue":"","NewValue":"b6a7e9f2-5d41-4c8a-9b73-2f0e1d6c8a55","Name":"Role.TemplateId"},"Target[2]":{"Type":"2","ID":"User"},"Target[0]":{"Type":"2","ID":"User_f8d2c6a4-3b1e-4f97-8a5d-9e7c0b2a1645"},"ObjectId":"user@example.com","ResultStatus":"Success","ModifiedProperties[0]":{"OldValue":"","NewValue":"4d8f2c1b-9e73-4a56-8f9c-1e6b7a2d5c40","Name":"Role.ObjectID"},"Target[4]":{"Type":"3","ID":"C39E5B104A7D82F6"},"Actor[2]":{"Type":"1","ID":"Microsoft Office 365 Portal"},"Actor[0]":{"Type":"5","ID":"user@example.com"},"Workload":"AzureActiveDirectory","Actor[6]":{"Type":"2","ID":"User"},"TargetContextId":"1c9b7f5e-8d2a-4e63-96a1-4b0d2f8c7e39","UserId":"user@example.com"},"ip":"203.0.113.40","connectorDisplayName":"Microsoft 365 Primary","eventResultDetails":"Success","targetType":"","userAgent":"Mobile Safari - 17.5","eventResult":"Success","platform":"Microsoft 365","actorUser":{"name":"Test 1","id":"user@example.com","email":"user@example.com"},"target":{"name":"Test 2","id":"user@example.com","email":"user@example.com"},"connectorUid":"4___Microsoft365___Fetch___Microsoft365Primary","eventTime":{"timestampKind":"exact","timestamp":1767161389},"action":{"actionType":"AzureActiveDirectory","actionDescription":"Added a user to an admin role in Microsoft 365.","actionName":"Add member to role."}}],"status":"Open"}}'
+    key:
+      - alert_type_details.severity
+      - alert_type_details.sourceKind
+      - alert_type_details.mitreAttackTactics[0]
+      - alert_type_details.mitreAttackTactics[1]
+cves: []
+detections:
+  - title: Valence Security events arriving
+    severity: low
+    signals:
+      - alert_type_details.severity
+      - alert_type_details.sourceKind
+      - alert_type_details.mitreAttackTactics[0]
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "valence_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core valence_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/valence_security/assets/logs/valence-security_tests.yaml
+  - title: Pack Generator sample valence_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/valence_security.json

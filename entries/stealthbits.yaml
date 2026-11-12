@@ -1,0 +1,71 @@
+id: stealthbits
+name: Stealthbits
+short: Stealthbits
+vendor: Stealthbits
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - stealthbits
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Stealthbits is logged by the Splunk Connect for Syslog package stealthbits. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: netwrix_stealthintercept
+    desc: 'Splunk Connect for Syslog fixture, 3 events. Upstream: tests/test_stealthbits.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: stealthbits
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: kv
+  Fields in the first fixture: header, PolicyName, Domain, Server, ServerAddress, Perpetrator
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Stealthbits events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, PolicyName, Domain, Server, ServerAddress, Perpetrator. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads stealthbits and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Netwrix Stealthintercept
+    sourcetype: netwrix_stealthintercept
+    format: kv
+    desc: 3 fixture events in the samples pool (sc4s).
+    sample: '<166>Jun 15 13:45:07 sc4s-lab-01 StealthINTERCEPT - Authentication Auth failed - PolicyName="AD: Unsuccessful Account Authentications" Domain="TST" Server="TST\jsmith" ServerAddress="192.0.2.20" Perpetrator="TST\jsmith" ClientHost="SB9PCDC01.TST.TSTUSA.CORP" ClientAddress="198.51.100.15" TargetHost="SB9PCDC01.XX.XXXX.CORP" TargetHostIP="198.51.100.25" ModifiedObject="TST\xxx" DistinguishedName="CN=Smith\, xxx,OU=User,OU=Windows 7,DC=TST,DC=XXX,DC=CORP" ObjectClass="user" SuccessfulChange="False" BlockedEvent="False" AttributeName="" Operation="" NewAttributeValue="" OldAttributeValue=""'
+    key:
+      - PolicyName
+      - Domain
+      - Server
+      - ServerAddress
+cves: []
+detections:
+  - title: Stealthbits events arriving
+    severity: low
+    signals:
+      - header
+      - PolicyName
+      - Domain
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "netwrix_stealthintercept"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_stealthbits.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_stealthbits.py
+  - title: Pack Generator sample netwrix_stealthintercept.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/netwrix_stealthintercept.json

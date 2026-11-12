@@ -1,0 +1,95 @@
+id: tenable-sc
+name: Tenable Sc
+short: Tenable Sc
+vendor: Tenable
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - tenable_sc
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Tenable Sc is logged by the Elastic integrations package tenable_sc. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: tenable_sc_asset
+    desc: 'Elastic integrations fixture, 4 events. Upstream: tenable_sc/data_stream/asset/_dev/test/pipeline/test-asset.log'
+  - st: tenable_sc_plugin
+    desc: 'Elastic integrations fixture, 4 events. Upstream: tenable_sc/data_stream/plugin/_dev/test/pipeline/test-plugin.log'
+  - st: tenable_sc_vulnerability
+    desc: 'Elastic integrations fixture, 8 events. Upstream: tenable_sc/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: tenable_sc
+  Sourcetypes: '3'
+  Fixture events: '16'
+  Log format seen: json
+  Fields in the first fixture: ip, uuid, score, total, severityInfo, severityLow
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Tenable Sc events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries ip, uuid, score, total, severityInfo, severityLow. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads tenable_sc and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Asset
+    sourcetype: tenable_sc_asset
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"ip":"203.0.113.40","uuid":"4add65d0-27fc-491c-91ba-3f498a61f49e","score":"307","total":"150","severityInfo":"131","severityLow":"0","severityMedium":"9","severityHigh":"4","severityCritical":"6","macAddress":"2001:db8::1","policyName":"Basic Agent Scan","pluginSet":"201901281542","netbiosName":"UNKNOWN\\RNKMIGAUV2L8ZEYF.EXAMPLE","dnsName":"rnkmigauv2l8zeyf.example","osCPE":"cpe:/o:microsoft:windows_102001:db8::1x64-home","biosGUID":"9e8c4d43-982b-4405-a76c-d56c1d6cf117","tpmID":"","mcafeeGUID":"","lastAuthRun":"","lastUnauthRun":"","hostUniqueness":"repositoryID,ip,dnsName","uniqueness":"repositoryID,ip,dnsName","repository":{"id":"2","name":"Staged-Large","description":"","sciID":"1","dataFormat":"IPv4"}}'
+    key:
+      - ip
+      - uuid
+      - score
+      - total
+  - type: Plugin
+    sourcetype: tenable_sc_plugin
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"id":"137395","name":"RHEL 7 : gettext (RHSA-2020:2485)","description":"The remote Redhat Enterprise Linux 7 host has packages installed that are affected by a vulnerability as referenced in the RHSA-2020:2485 advisory.\n\n  - gett...","type":"active","copyright":"This script is Copyright (C) 2020-2021 and is owned by Tenable, Inc. or an Affiliate thereof.","version":"1.8","sourceFile":"redhat-RHSA-2020-2485.nasl","dependencies":"ssh_get_info.nasl,redhat_repos.nasl","requiredPorts":"","requiredUDPPorts":"","cpe":"cpe:/o:redhat:rhel_aus:7.7\ncpe:/o:redhat:rhel_e4s:7.6\ncpe:/o:redhat:rhel_e4s:7.7\ncpe:/o:redhat:rhel_eus:7.7\ncpe:/o:redhat:rhel_tus:7.7\np-cpe:/a:redhat:enterp...","srcPort":null,"dstPort":null,"protocol":"","riskFactor":"High","solution":"Update the affected packages.","seeAlso":"https://cwe.mitre.org/data/definitions/416.html\nhttps://access.redhat.com/security/cve/CVE-2018-18751\nhttps://access.redhat.com/errata/RHSA-2020:2485\nhttps:/...","synopsis":"The remote Red Hat host is missing a security update.","checkType":"local","exploitEase":"No known exploits are available","exploitAvailable":"false","exploitFrameworks":"","cvssVector":"AV:N/AC:L/Au:N/C:P/I:P/A:P/E:U/RL:OF/RC:C","cvssVectorBF":"2164860004","baseScore":"7.5","temporalScore":"5.5","cvssV3Vector":"AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H/E:U/RL:O/RC:C","cvssV3VectorBF":"10809321768","cvssV3BaseScore":"9.8","cvssV3TemporalScore":"8.5"}'
+    key:
+      - id
+      - name
+      - description
+      - type
+  - type: Vulnerability
+    sourcetype: tenable_sc_vulnerability
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"pluginID":"10107","severity":{"id":"0","name":"Info","description":"Informative"},"hasBeenMitigated":"1","acceptRisk":"0","recastRisk":"0","ip":"192.0.2.10","uuid":"","port":"443","protocol":"TCP","pluginName":"HTTP Server Type and Version","firstSeen":"1570291573","lastSeen":"1632586125","exploitAvailable":"No","exploitEase":"","exploitFrameworks":"","synopsis":"A web server is running on the remote host.","description":"This plugin attempts to determine the type and the version of the remote web server.","solution":"","seeAlso":"http://www.nessus.org/","riskFactor":"None","stigSeverity":"","vprScore":"","vprContext":"[]","baseScore":"","temporalScore":"","cvssVector":"","cvssV3BaseScore":"5","cvssV3TemporalScore":"5","cvssV3Vector":"","cpe":""}'
+    key:
+      - pluginID
+      - severity.id
+      - severity.name
+      - severity.description
+cves: []
+detections:
+  - title: Tenable Sc events arriving
+    severity: low
+    signals:
+      - ip
+      - uuid
+      - score
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "tenable_sc_asset"'
+optimizations: []
+references:
+  - title: elastic/integrations tenable_sc/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tenable_sc/data_stream/asset/_dev/test/pipeline/test-asset.log
+  - title: Pack Generator sample tenable_sc_asset.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tenable_sc_asset.json

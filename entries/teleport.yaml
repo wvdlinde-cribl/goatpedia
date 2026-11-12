@@ -1,0 +1,79 @@
+id: teleport
+name: Teleport
+short: Teleport
+vendor: Teleport
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - teleport
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Teleport is logged by the Datadog integrations-core package teleport. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: teleport
+    desc: 'Datadog integrations-core fixture, 7 events. Upstream: teleport/assets/logs/teleport_tests.yaml'
+  - st: teleport_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: teleport/data_stream/audit/_dev/test/pipeline/test-teleport-all-events.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: teleport
+  Sourcetypes: '2'
+  Fixture events: '27'
+  Log format seen: text, json
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Teleport events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads teleport and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text / json.
+logs:
+  - type: Teleport
+    sourcetype: teleport
+    format: text
+    desc: 7 fixture events in the samples pool (logtest).
+    sample: 2024-06-24T15:36:48Z INFO [AUDIT]     user.login addr.remote:203.0.113.8:19954 cluster_name:teleport-plint code:T1000W ei:0 error:[invalid username, password or second factor] event:user.login method:local success:false time:2024-06-24T15:36:48.688Z uid:f9ec53d9-0263-43a3-a5e6-fc41351e63bb user:teleport-admin user_agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36 events/emitter.go:288
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+  - type: Audit
+    sourcetype: teleport_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"args":{"database":"projects/project-id/instances/instance-id/databases/prod-db","session_count":100,"session_template":{}},"cluster_name":"root","code":"TSPN001W","db_name":"prod-db","db_origin":"dynamic","db_protocol":"spanner","db_service":"teleport-spanner","db_type":"spanner","db_uri":"spanner.googleapis.com:443","db_user":"some-user","error":"access to db denied. User does not have permissions. Confirm database user and name.","event":"db.session.spanner.rpc","message":"access to db denied. User does not have permissions. Confirm database user and name.","procedure":"BatchCreateSessions","sid":"04364984-a6d0-4e2c-93c7-5c44e2359502","success":false,"time":"2024-03-13T01:25:48.568Z","uid":"1de57538-2eea-438b-a52d-3098f8093b28","user":"user@example.com"}'
+    key:
+      - args.database
+      - args.session_count
+      - args.session_template
+      - cluster_name
+cves: []
+detections:
+  - title: Teleport events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "teleport"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core teleport/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/teleport/assets/logs/teleport_tests.yaml
+  - title: Pack Generator sample teleport.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/teleport.json

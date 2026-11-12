@@ -1,0 +1,83 @@
+id: neon-cyber
+name: Neon Cyber
+short: Neon Cyber
+vendor: Neon
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - neon_cyber
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Neon Cyber is logged by the Elastic integrations package neon_cyber. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: neon_cyber
+    desc: 'Elastic integrations fixture, 6 events. Upstream: neon_cyber/data_stream/events/_dev/test/pipeline/test-events.log'
+  - st: neon_cyber_detections
+    desc: 'Elastic integrations fixture, 3 events. Upstream: neon_cyber/data_stream/detections/_dev/test/pipeline/test-detections.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: neon_cyber
+  Sourcetypes: '2'
+  Fixture events: '9'
+  Log format seen: json
+  Fields in the first fixture: id, deployment_id, client_id, registration_id, event_type, event_timestamp
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Neon Cyber events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, deployment_id, client_id, registration_id, event_type, event_timestamp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads neon_cyber and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: neon_cyber
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"id":"67739497-055a-4ead-ac18-6af8482b93ff","deployment_id":"ec080215-913c-490c-bb81-a1baa311ee45","client_id":"3fcbb274-4dbb-4d77-b1e7-7336fcd3a609","registration_id":"25249c89-542d-4c59-b3f5-e455aeba0a54","event_type":"geo","event_timestamp":"2025-09-30T19:24:27.909+00:00","inserted_at":"2025-09-30T19:24:29.837364+00:00","updated_at":"2025-09-30T19:24:29.837364+00:00","agent":"1.2.25","arch":"x86-64","display":"Chrome","name":"chrome","os":"win","ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36","version":"198.51.100.15","latitude":11.1111,"longitude":-0.111,"ip":"198.51.100.25","ip_latitude":11.1111,"ip_longitude":-0.111,"asn":7922,"asn_isp":"COMCAST-7922","city":"Portland","country":"US","postal_code":"97214","region_code":"OR","region_name":"Oregon","tab_id":null,"url":null,"frame_id":null}'
+    key:
+      - id
+      - deployment_id
+      - client_id
+      - registration_id
+  - type: Detections
+    sourcetype: neon_cyber_detections
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"344d53e6-43b4-4cdd-84ad-9421a5f6dc31","deployment_id":"ec080215-913c-490c-bb81-a1baa311ee45","client_id":"d19143bd-3a34-4c7e-886b-87f643df4835","registration_id":"a00db187-ad55-4074-8a84-d085555abe29","detection_type":"form","detection_subtype":null,"detection_timestamp":"2025-10-10T17:09:32.988+00:00","inserted_at":"2025-10-13T18:13:16.648002+00:00","updated_at":"2025-10-13T18:13:16.648002+00:00","source":"Compromised Credential","description":null,"tab_id":12345,"url":"https://support.notanapp.com","incognito":false,"agent":"1.2.4","arch":"arm64","display":"Chrome","name":"chrome","os":"linux","ua":"Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.8 Safari/537.36","version":"203.0.113.40","latitude":11.1111,"longitude":-0.111,"ip_latitude":11.1111,"ip_longitude":-0.111,"asn":9105,"asn_isp":"TalkTalk","city":"Brighton","country":"GB","postal_code":"BN3"}'
+    key:
+      - id
+      - deployment_id
+      - client_id
+      - registration_id
+cves: []
+detections:
+  - title: Neon Cyber events arriving
+    severity: low
+    signals:
+      - id
+      - deployment_id
+      - client_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "neon_cyber"'
+optimizations: []
+references:
+  - title: elastic/integrations neon_cyber/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/neon_cyber/data_stream/events/_dev/test/pipeline/test-events.log
+  - title: Pack Generator sample neon_cyber.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/neon_cyber.json

@@ -1,0 +1,71 @@
+id: fortinet-fortiproxy
+name: Fortinet Fortiproxy
+short: Fortiproxy
+vendor: Fortinet
+category: swg
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fortinet_fortiproxy
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Fortinet Fortiproxy is logged by the Elastic integrations package fortinet_fortiproxy. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fortinet_fortiproxy
+    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_fortiproxy/data_stream/log/_dev/test/pipeline/test-example.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: fortinet_fortiproxy
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: date, time, tz, logid, type, subtype
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fortinet Fortiproxy events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries date, time, tz, logid, type, subtype. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads fortinet_fortiproxy and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: fortinet_fortiproxy
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: date=2017-11-15 time=11:44:16 tz="-0700" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="vdom1" eventtime=1510775056 srcip=192.0.2.10 srcname="pc1" srcport=40772 srcintf="port12" srcintfrole="undefined" dstip=192.0.2.20 dstname="fortiguard.com" dstport=443 dstintf="port11" dstintfrole="undefined" poluuid="707a0d88-c972-51e7-bbc7-4d421660557b" sessionid=8058 proto=6 action="close" policyid=1 policytype="policy" policymode="learn" service="HTTPS" dstcountry="United States" srccountry="Reserved" trandisp="snat" transip=198.51.100.15 transport=40772 appid=40568 app="HTTPS.BROWSER" appcat="Web.Client" apprisk="medium" duration=2 sentbyte=1850 rcvdbyte=39898 sentpkt=25 rcvdpkt=37 utmaction="allow" countapp=1 devtype="Linux PC" osname="Linux" mastersrcmac="2001:db8::1" srcmac="2001:db8::1" srcserver=0 utmref=0-220586
+    key:
+      - date
+      - time
+      - tz
+      - logid
+cves: []
+detections:
+  - title: Fortinet Fortiproxy events arriving
+    severity: low
+    signals:
+      - date
+      - time
+      - tz
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fortinet_fortiproxy"'
+optimizations: []
+references:
+  - title: elastic/integrations fortinet_fortiproxy/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_fortiproxy/data_stream/log/_dev/test/pipeline/test-example.log
+  - title: Pack Generator sample fortinet_fortiproxy.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortiproxy.json

@@ -1,0 +1,67 @@
+id: ambari
+name: Ambari
+short: Ambari
+vendor: Ambari
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ambari
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Ambari is logged by the Datadog integrations-core package ambari. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ambari
+    desc: 'Datadog integrations-core fixture, 9 events. Upstream: ambari/assets/logs/ambari_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ambari
+  Sourcetypes: '1'
+  Fixture events: '9'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ambari events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ambari and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Ambari
+    sourcetype: ambari
+    format: text
+    desc: 9 fixture events in the samples pool (logtest).
+    sample: 2019-05-25 19:11:43,731  INFO [MessageBroker-2] WebSocketMessageBrokerStats:113 - WebSocketSession[1 current WS(0)-HttpStream(1)-HttpPoll(0), 1010 total, 931 closed abnormally (931 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(17)-CONNECTED(17)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 33627], outboundChannelpool size = 0, active threads = 0, queued tasks = 0, completed tasks = 11157], sockJsScheduler[pool size = 4, active threads = 1, queued tasks = 2, completed tasks = 1061738]
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Ambari events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ambari"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ambari/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ambari/assets/logs/ambari_tests.yaml
+  - title: Pack Generator sample ambari.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ambari.json

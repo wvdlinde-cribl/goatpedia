@@ -1,0 +1,67 @@
+id: watchguard-firebox
+name: Watchguard Firebox
+short: Firebox
+vendor: Watchguard
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - watchguard_firebox
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Watchguard Firebox is logged by the Elastic integrations package watchguard_firebox. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: watchguard_firebox
+    desc: 'Elastic integrations fixture, 20 events. Upstream: watchguard_firebox/data_stream/log/_dev/test/pipeline/test-traffic.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: watchguard_firebox
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Watchguard Firebox events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads watchguard_firebox and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: watchguard_firebox
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<142>May 10 15:19:06 WatchGuard-Firebox FVE6035FD3AE3 (2024-01-10T09:49:05) firewall[10]: msg_id="3000-0148" Allow Firebox 0-External 52 tcp 20 127 198.51.100.25 203.0.113.8 62443 80 offset 8 S 832026162 win 8192 (HTTP-00)'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Watchguard Firebox events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "watchguard_firebox"'
+optimizations: []
+references:
+  - title: elastic/integrations watchguard_firebox/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/watchguard_firebox/data_stream/log/_dev/test/pipeline/test-traffic.log
+  - title: Pack Generator sample watchguard_firebox.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/watchguard_firebox.json

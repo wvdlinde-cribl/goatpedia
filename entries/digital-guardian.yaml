@@ -1,0 +1,71 @@
+id: digital-guardian
+name: Digital Guardian
+short: Guardian
+vendor: Digital
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - digital_guardian
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Digital Guardian is logged by the Elastic integrations package digital_guardian. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: digital_guardian_arc
+    desc: 'Elastic integrations fixture, 4 events. Upstream: digital_guardian/data_stream/arc/_dev/test/pipeline/test-dg-arc.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: digital_guardian
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: dg_comment, dg_description, dg_guid, dg_name, dg_tenant, dg_utype
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Digital Guardian events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries dg_comment, dg_description, dg_guid, dg_name, dg_tenant, dg_utype. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads digital_guardian and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Arc
+    sourcetype: digital_guardian_arc
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"dg_comment":"-","dg_description":"This file outlook.exe was going to [user@example.com]","dg_guid":"1dc3c1fa-5474-4fc0-a7c3-74ff42d28e5e","dg_name":"test has attached a Salesforce data to an email","dg_tenant":"279b59f3-02f3-44ea-a7c3-9bac2eb0224d","dg_utype":"Incident","inc_assign":"test@dgdemo","inc_creator":"dg","inc_id":"230523-WIQHA","inc_mtime":"2023-05-23 06:56:39","inc_sev":"Critical","inc_state":"Created"}'
+    key:
+      - dg_comment
+      - dg_description
+      - dg_guid
+      - dg_name
+cves: []
+detections:
+  - title: Digital Guardian events arriving
+    severity: low
+    signals:
+      - dg_comment
+      - dg_description
+      - dg_guid
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "digital_guardian_arc"'
+optimizations: []
+references:
+  - title: elastic/integrations digital_guardian/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/digital_guardian/data_stream/arc/_dev/test/pipeline/test-dg-arc.log
+  - title: Pack Generator sample digital_guardian_arc.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/digital_guardian_arc.json

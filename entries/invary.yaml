@@ -1,0 +1,71 @@
+id: invary
+name: Invary
+short: Invary
+vendor: Invary
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - invary
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Invary is logged by the Datadog integrations-extras package invary. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: invary
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: invary/assets/logs/invary_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: invary
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: node.name, node.processor, node.uptime, node.tags[0], node.tags[1], endpoint
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Invary events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries node.name, node.processor, node.uptime, node.tags[0], node.tags[1], endpoint. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads invary and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Invary
+    sourcetype: invary
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"node":{"name":"tim-attestd-dell","processor":"x86_64","uptime":172094,"tags":["linux","local"]},"endpoint":"yeadwuk1favadnv2gshbwt9qe","checks":[{"result":"SUCCESSFUL","name":"required.nodes"},{"result":"SUCCESSFUL","name":"jump.tables"}],"created":"2023-10-19T14:28:52.604920282Z","kernel":{"release":"6.2.0-34-generic","name":"Linux","version":"#34~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep  7 13:12:03 UTC 2"},"organization":"qf7a4cty3whfcms98f9qaqm62","id":"wakbaswdv0awdp6z0f76d0vxm","passed":["required.nodes","jump.tables"],"distribution":{"vendor":"ubuntu","release":"22.04","codename":"jammy"},"measurement":{"nodes":2863050,"edges":9681866,"modules":249},"status":"SUCCESSFUL"}'
+    key:
+      - node.name
+      - node.processor
+      - node.uptime
+      - node.tags[0]
+cves: []
+detections:
+  - title: Invary events arriving
+    severity: low
+    signals:
+      - node.name
+      - node.processor
+      - node.uptime
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "invary"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras invary/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/invary/assets/logs/invary_tests.yaml
+  - title: Pack Generator sample invary.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/invary.json

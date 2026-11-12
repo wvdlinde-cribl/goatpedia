@@ -1,0 +1,71 @@
+id: forcepoint-web
+name: Forcepoint Web
+short: Forcepoint Web
+vendor: Forcepoint
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - forcepoint_web
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Forcepoint Web is logged by the Splunk Connect for Syslog package forcepoint_web. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: forcepoint_web
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_forcepoint_web.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: forcepoint_web
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, vendor, product, product_version, action, severity
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Forcepoint Web events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, vendor, product, product_version, action, severity. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads forcepoint_web and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Forcepoint Web
+    sourcetype: forcepoint_web
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <134>Jun 15 13:45:07 sc4s-lab-01 vendor=Websense 9f product=Security product_version=7.7.0 action=permitted severity=7 category=755 user=LDAP://user7 OU=Users,OU=Beijing,DC=com/TEST\, TEST_NAME src_host=192.0.2.10 src_port=61435 dst_host=HOST-013 dst_ip=192.0.2.20 dst_port=25404 bytes_out=4074 bytes_in=12328 http_response=200 http_method=POST http_content_type=image/gif;charset=UTF-8 http_user_agent=Mozilla/3.0 (Windows; U; Windows NT 6.1; es-def; rv:198.51.100.15) Gecko/2009060215 Firefox/8.0.11 (.NET CLR 8.5.30729) http_proxy_status_code=200 reason=- disposition=2573 policy=role-8**Default role=4 duration=63 url=http://test_web.com/contents/content1.jpg unknownfield=-
+    key:
+      - vendor
+      - product
+      - product_version
+      - action
+cves: []
+detections:
+  - title: Forcepoint Web events arriving
+    severity: low
+    signals:
+      - header
+      - vendor
+      - product
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "forcepoint_web"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_forcepoint_web.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_forcepoint_web.py
+  - title: Pack Generator sample forcepoint_web.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/forcepoint_web.json

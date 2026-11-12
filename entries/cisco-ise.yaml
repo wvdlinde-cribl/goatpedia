@@ -1,0 +1,71 @@
+id: cisco-ise
+name: Cisco Ise
+short: Cisco Ise
+vendor: Cisco
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_ise
+  - Elastic integrations
+tags:
+  - elastic
+  - kv
+summary: Cisco Ise is logged by the Elastic integrations package cisco_ise. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_ise
+    desc: 'Elastic integrations fixture, 20 events. Upstream: cisco_ise/data_stream/log/_dev/test/pipeline/test-pipeline-failed-attempts.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cisco_ise
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: kv
+  Fields in the first fixture: header, ConfigVersionId, Address, Port, DestinationIPAddress, DestinationPort
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Ise events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, ConfigVersionId, Address, Port, DestinationIPAddress, DestinationPort. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cisco_ise and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Log
+    sourcetype: cisco_ise
+    format: kv
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '<181>Mar 2 09:09:13 cisco-ise-host CISE_Failed_Attempts 0000075134 1 0 2022-03-02 09:09:13.790 +00:00 0000075201 5405 NOTICE Failed-Attempt: RADIUS Request dropped, ConfigVersionId=1364, Device IP Address=192.0.2.20, Device Port=42946, DestinationIPAddress=198.51.100.15, DestinationPort=1812, Protocol=Radius, NetworkDeviceName=testDevice, User-Name=testDevice1, NAS-IP-Address=198.51.100.25, NAS-Port=1, Service-Type=Framed, Session-Timeout=30, Calling-Station-ID=00-23-DF-00-00-01, NAS-Port-Type=Wireless - IEEE 802.11, NAS-Port-Id=G0/25, NetworkDeviceProfileName=Cisco, NetworkDeviceProfileId=b0699505-3150-4215-a80e-6753d45bf56c, AcsSessionID=cisco-ise-host/435083133/47, FailureReason=11036 The Message-Authenticator RADIUS attribute is invalid, Step=11001, Step=11017, Step=11036, Step=5405, NetworkDeviceGroups=IPSEC#Is IPSEC Device#No, NetworkDeviceGroups=Location#All Locations, NetworkDeviceGroups=Device Type#All Device Types, DTLSSupport=Unknown, Model Name=Unknown, Network Device Profile=Cisco, Location=Location#All Locations, Device Type=Device Type#All Device Types, IPSEC=IPSEC#Is IPSEC Device#No,'
+    key:
+      - ConfigVersionId
+      - Address
+      - Port
+      - DestinationIPAddress
+cves: []
+detections:
+  - title: Cisco Ise events arriving
+    severity: low
+    signals:
+      - header
+      - ConfigVersionId
+      - Address
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_ise"'
+optimizations: []
+references:
+  - title: elastic/integrations cisco_ise/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisco_ise/data_stream/log/_dev/test/pipeline/test-pipeline-failed-attempts.log
+  - title: Pack Generator sample cisco_ise.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_ise.json

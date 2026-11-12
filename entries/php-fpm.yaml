@@ -1,0 +1,83 @@
+id: php-fpm
+name: Php Fpm
+short: Php Fpm
+vendor: Php
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - php_fpm
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Php Fpm is logged by the Elastic integrations package php_fpm. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: php_fpm_pool
+    desc: 'Elastic integrations fixture, 1 events. Upstream: php_fpm/data_stream/pool/_dev/test/pipeline/test-pool-metrics.log'
+  - st: php_fpm_process
+    desc: 'Elastic integrations fixture, 1 events. Upstream: php_fpm/data_stream/process/_dev/test/pipeline/test-process-metrics.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: php_fpm
+  Sourcetypes: '2'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: pool, process manager, start time, start since, accepted conn, listen queue
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Php Fpm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries pool, process manager, start time, start since, accepted conn, listen queue. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads php_fpm and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Pool
+    sourcetype: php_fpm_pool
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"pool":"www","process manager":"dynamic","start time":1667299161,"start since":4803,"accepted conn":485,"listen queue":0,"max listen queue":0,"listen queue len":0,"idle processes":1,"active processes":1,"total processes":2,"max active processes":1,"max children reached":0,"slow requests":0}'
+    key:
+      - pool
+      - process manager
+      - start time
+      - start since
+  - type: Process
+    sourcetype: php_fpm_process
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"pool":"www","process manager":"dynamic","start time":1667299161,"start since":515234,"accepted conn":16647,"listen queue":0,"max listen queue":0,"listen queue len":0,"idle processes":1,"active processes":1,"total processes":2,"max active processes":1,"max children reached":0,"slow requests":0,"processes":{"pid":183251,"state":"Running","start time":1667299161,"start since":515234,"requests":8324,"request duration":208,"request method":"GET","request uri":"/status?json&full","content length":0,"user":"-","script":"-","last request cpu":0,"last request memory":0}}'
+    key:
+      - pool
+      - process manager
+      - start time
+      - start since
+cves: []
+detections:
+  - title: Php Fpm events arriving
+    severity: low
+    signals:
+      - pool
+      - process manager
+      - start time
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "php_fpm_pool"'
+optimizations: []
+references:
+  - title: elastic/integrations php_fpm/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/php_fpm/data_stream/pool/_dev/test/pipeline/test-pool-metrics.log
+  - title: Pack Generator sample php_fpm_pool.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/php_fpm_pool.json

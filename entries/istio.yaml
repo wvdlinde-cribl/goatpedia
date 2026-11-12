@@ -1,0 +1,81 @@
+id: istio
+name: Istio
+short: Istio
+vendor: Istio
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - istio
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Istio is logged by the Datadog integrations-core package istio. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: istio
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: istio/assets/logs/istio_tests.yaml'
+  - st: istio_access_logs
+    desc: 'Elastic integrations fixture, 20 events. Upstream: istio/data_stream/access_logs/_dev/test/pipeline/test-access-logs.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: istio
+  Sourcetypes: '2'
+  Fixture events: '22'
+  Log format seen: json, text
+  Fields in the first fixture: instance, level, latency, destination, responseSize, time
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Istio events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries instance, level, latency, destination, responseSize, time. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads istio and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json / text.
+logs:
+  - type: Istio
+    sourcetype: istio
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"instance":"newlog.xxxxx.istio-system","level":"warn","latency":"968.030256ms","destination":"productpage","responseSize":4415,"time":"2018-09-15T20:46:35.982761Z","source":"istio-ingressgateway","user":"unknown","responseCode":200}'
+    key:
+      - instance
+      - level
+      - latency
+      - destination
+  - type: Access Logs
+    sourcetype: istio_access_logs
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '[2022-07-20T09:52:24.955Z] "GET /details/0 HTTP/1.1" 200 - via_upstream - "-" 0 178 2 1 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.114 Safari/537.36" "785918d6-06b6-9312-bf77-6d9bd968dc21" "details:9080" "203.0.113.40:9080" inbound|9080|| 192.0.2.10:47889 192.0.2.20:9080 198.51.100.15:39696 outbound_.9080_._.details.default.svc.cluster.local default'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Istio events arriving
+    severity: low
+    signals:
+      - instance
+      - level
+      - latency
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "istio"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core istio/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/istio/assets/logs/istio_tests.yaml
+  - title: Pack Generator sample istio.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/istio.json

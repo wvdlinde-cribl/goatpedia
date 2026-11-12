@@ -1,0 +1,67 @@
+id: openstack
+name: Openstack
+short: Openstack
+vendor: Openstack
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - openstack
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Openstack is logged by the Datadog integrations-core package openstack. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: openstack
+    desc: 'Datadog integrations-core fixture, 5 events. Upstream: openstack/assets/logs/openstack_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: openstack
+  Sourcetypes: '1'
+  Fixture events: '5'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Openstack events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads openstack and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Openstack
+    sourcetype: openstack
+    format: text
+    desc: 5 fixture events in the samples pool (logtest).
+    sample: 192.0.2.10 - - [05/Apr/2019:15:21:40 +0000] "GET /placement/resource_providers/fe0a06b8-9d03-4bb5-9790-3e142edbd996/allocations HTTP/1.1" 200 346 "-" "nova-compute keystoneauth1/3.13.1 python-requests/2.21.0 CPython/2.7.12"
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Openstack events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "openstack"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core openstack/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/openstack/assets/logs/openstack_tests.yaml
+  - title: Pack Generator sample openstack.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/openstack.json

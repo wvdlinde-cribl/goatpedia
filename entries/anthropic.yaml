@@ -1,0 +1,71 @@
+id: anthropic
+name: Anthropic
+short: Anthropic
+vendor: Anthropic
+category: ai
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - anthropic
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Anthropic is logged by the Elastic integrations package anthropic. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: anthropic_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: anthropic/data_stream/audit/_dev/test/pipeline/test-anthropic-audit-generated.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: anthropic
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: id, created_at, organization_id, organization_uuid, type, actor.type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Anthropic events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, created_at, organization_id, organization_uuid, type, actor.type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads anthropic and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: anthropic_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"id":"activity_01EXAMPLEaccdel00","created_at":"2026-05-26T09:00:00Z","organization_id":"org_01EXAMPLEabcdef123456789","organization_uuid":"91011112-1314-4151-6171-8191a1b1c1d1","type":"account_deleted","actor":{"type":"user_actor","email_address":"user@example.com","user_id":"user_01EXAMPLEadmin01","ip_address":"192.0.2.20","user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}}'
+    key:
+      - id
+      - created_at
+      - organization_id
+      - organization_uuid
+cves: []
+detections:
+  - title: Anthropic events arriving
+    severity: low
+    signals:
+      - id
+      - created_at
+      - organization_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "anthropic_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations anthropic/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/anthropic/data_stream/audit/_dev/test/pipeline/test-anthropic-audit-generated.log
+  - title: Pack Generator sample anthropic_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/anthropic_audit.json

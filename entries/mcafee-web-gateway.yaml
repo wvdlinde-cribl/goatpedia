@@ -1,0 +1,71 @@
+id: mcafee-web-gateway
+name: Mcafee Web Gateway
+short: Gateway
+vendor: Mcafee
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mcafee_web_gateway
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Mcafee Web Gateway is logged by the Splunk Connect for Syslog package mcafee_web_gateway. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mcafee_web_gateway
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_mcafee_web_gateway.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: mcafee_web_gateway
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, status, srcip, user, dhost, urlp
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mcafee Web Gateway events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, status, srcip, user, dhost, urlp. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads mcafee_web_gateway and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Mcafee Web Gateway
+    sourcetype: mcafee_web_gateway
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: '<30>Jun 15 13:45:07 sc4s-lab-01 mwg: status="403/80" srcip="203.0.113.8" user="-" dhost="s3-eu-west-1.amazonaws.com" urlp="80" proto="HTTP/http" mtd="GET" urlc="Internet Services" rep="-31" mt="application/pdf" mlwr="BehavesLike.PDF.Exploit.vx" app="-" bytes="458/509/2813889/3001" ua="Chrome87-10.0" http_referrer="http://www.cpcheckme.com/" lat="0/0/165/2638" rule="Block If Virus Was Found" url="http://s3-eu-west-1.amazonaws.com/cp-chk-files/win7_64bit_big.pdf?static=CPCheckMe&rand=1608029225651" file_name="win7_64bit_big.pdf" destip="203.0.113.40" rep_level="Minimal Risk"'
+    key:
+      - status
+      - srcip
+      - user
+      - dhost
+cves: []
+detections:
+  - title: Mcafee Web Gateway events arriving
+    severity: low
+    signals:
+      - header
+      - status
+      - srcip
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mcafee_web_gateway"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_mcafee_web_gateway.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_mcafee_web_gateway.py
+  - title: Pack Generator sample mcafee_web_gateway.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mcafee_web_gateway.json

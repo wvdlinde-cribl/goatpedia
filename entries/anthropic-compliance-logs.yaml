@@ -1,0 +1,71 @@
+id: anthropic-compliance-logs
+name: Anthropic Compliance Logs
+short: Logs
+vendor: Anthropic
+category: ai
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - anthropic_compliance_logs
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Anthropic Compliance Logs is logged by the Datadog integrations-core package anthropic_compliance_logs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: anthropic_compliance_logs
+    desc: 'Datadog integrations-core fixture, 20 events. Upstream: anthropic_compliance_logs/assets/logs/anthropic-compliance-logs_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: anthropic_compliance_logs
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: actor.email_address, actor.user_id, actor.ip_address, actor.type, actor.user_agent, claude_artifact_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Anthropic Compliance Logs events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries actor.email_address, actor.user_id, actor.ip_address, actor.type, actor.user_agent, claude_artifact_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads anthropic_compliance_logs and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Anthropic Compliance Logs
+    sourcetype: anthropic_compliance_logs
+    format: json
+    desc: 20 fixture events in the samples pool (logtest).
+    sample: '{"actor":{"email_address":"user@example.com","user_id":"user_01EXAMPLEUSERID0000000000","ip_address":"2001:db8::1","type":"user_actor","user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.15 Safari/537.36"},"claude_artifact_id":"claude_artifact_01EXAMPLEARTIFACT0","organization_id":"org_01EXAMPLEORGID00000000000","organization_uuid":"00000000-0000-0000-0000-000000000000","created_at":"2026-05-22T15:25:13.701734Z","id":"activity_01EXAMPLEACTIVITY0000000","type":"claude_artifact_viewed"}'
+    key:
+      - actor.email_address
+      - actor.user_id
+      - actor.ip_address
+      - actor.type
+cves: []
+detections:
+  - title: Anthropic Compliance Logs events arriving
+    severity: low
+    signals:
+      - actor.email_address
+      - actor.user_id
+      - actor.ip_address
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "anthropic_compliance_logs"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core anthropic_compliance_logs/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/anthropic_compliance_logs/assets/logs/anthropic-compliance-logs_tests.yaml
+  - title: Pack Generator sample anthropic_compliance_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/anthropic_compliance_logs.json

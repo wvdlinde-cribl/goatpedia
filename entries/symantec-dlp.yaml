@@ -1,0 +1,71 @@
+id: symantec-dlp
+name: Symantec Dlp
+short: Symantec Dlp
+vendor: Symantec
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - symantec_dlp
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Symantec Dlp is logged by the Splunk Connect for Syslog package symantec_dlp. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: symantec_dlp
+    desc: 'Splunk Connect for Syslog fixture, 4 events. Upstream: tests/test_symantec_dlp.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: symantec_dlp
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: kv
+  Fields in the first fixture: header, Application_Name, Application_User, Attach_File_Name, Blocked, Data_Owner
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Symantec Dlp events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, Application_Name, Application_User, Attach_File_Name, Blocked, Data_Owner. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads symantec_dlp and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Symantec Dlp
+    sourcetype: symantec_dlp
+    format: kv
+    desc: 4 fixture events in the samples pool (sc4s).
+    sample: '<134> 2026-06-15T13:45:07.123 sc4s-lab-01 Application_Name=”N/A” Application_User=”N/A” Attach_File_Name=”[UNKNOWN VARIABLE: ATTACHMENT_FILE_NAME]” Blocked=”Passed” Data_Owner=”N/A”  DataOwner_Email=”N/A” Destination_IP=”192.0.2.10 ” Device_Instance_ID=”N/A” Endpoint_Location=”Off the Corporate Network” Endpoint_Machine=”N/A” Endpoint_Username=”N/A” File_Path=”N/A” File_Name=”N/A” File_Parent_Directory_Path=”N/A” incident_id=”6937” Machine_IP=”192.0.2.20” Incident_Snapshot=”https://C3068275967/ProtectManager/IncidentDetail.do?value(variable_1)=incident.id&value(operator_1)=incident.id_in&value(operand_1)=6937” Match_Count=”1” Occured_On=”December 2, 2021 1:11:41 AM” Policy_Name=”test 2” Policy_Rules=”rule 1” Protocol=”TCP:SSL” Quarantine_Parent_Directory_Path=”N/A” Recipients=”198.51.100.15” Reported_On=”December 2, 2021 1:11:41 AM” Scan_Date=”N/A” Sender=”198.51.100.25” Server=”Detection Server” Severity=”1:High” Status=”New” Subject=”TCP:SSL” Target=”N/A” URL=”N/A” User_Justification=”N/A”'
+    key:
+      - Application_Name
+      - Application_User
+      - Attach_File_Name
+      - Blocked
+cves: []
+detections:
+  - title: Symantec Dlp events arriving
+    severity: low
+    signals:
+      - header
+      - Application_Name
+      - Application_User
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "symantec_dlp"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_symantec_dlp.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_symantec_dlp.py
+  - title: Pack Generator sample symantec_dlp.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_dlp.json

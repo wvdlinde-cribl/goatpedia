@@ -1,0 +1,71 @@
+id: avast
+name: Avast
+short: Avast
+vendor: Avast
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - avast
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Avast is logged by the Datadog integrations-core package avast. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: avast
+    desc: 'Datadog integrations-core fixture, 8 events. Upstream: avast/assets/logs/avast_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: avast
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: json
+  Fields in the first fixture: traceId, metadata.@type, metadata.user, eventCategory, companyName, origin
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Avast events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries traceId, metadata.@type, metadata.user, eventCategory, companyName, origin. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads avast and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Avast
+    sourcetype: avast
+    format: json
+    desc: 8 fixture events in the samples pool (logtest).
+    sample: '{"traceId":"6705207e9d91c767ec944daa51f11111","metadata":{"@type":"AuditLoggingUserMetadata","user":"user@example.com"},"eventCategory":"USER","companyName":"Site - Test-cmp","origin":"USER","ip":"203.0.113.40","eventType":"USER_LOGIN","userName":"user@example.com","userId":"27897b75-64a5-4d59-1111-db1483842357","result":"OK","companyId":"3abe08bc-b483-1111-a802-4c43120d60b9","id":"4381b07c-6ed1-1111-9bdb-7faedcc7950f","timestamp":"2024-10-08T12:07:26.156Z"}'
+    key:
+      - traceId
+      - metadata.@type
+      - metadata.user
+      - eventCategory
+cves: []
+detections:
+  - title: Avast events arriving
+    severity: low
+    signals:
+      - traceId
+      - metadata.@type
+      - metadata.user
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "avast"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core avast/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/avast/assets/logs/avast_tests.yaml
+  - title: Pack Generator sample avast.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/avast.json

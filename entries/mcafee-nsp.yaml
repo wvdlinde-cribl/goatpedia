@@ -1,0 +1,71 @@
+id: mcafee-nsp
+name: Mcafee Nsp
+short: Mcafee Nsp
+vendor: Mcafee
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - mcafee_nsp
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Mcafee Nsp is logged by the Splunk Connect for Syslog package mcafee_nsp. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: mcafee_nsp
+    desc: 'Splunk Connect for Syslog fixture, 4 events. Upstream: tests/test_mcafee_nsp.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: mcafee_nsp
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: kv
+  Fields in the first fixture: header, audit_action, audit_result, audit_time, user, category
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Mcafee Nsp events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, audit_action, audit_result, audit_time, user, category. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads mcafee_nsp and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Mcafee Nsp
+    sourcetype: mcafee_nsp
+    format: kv
+    desc: 4 fixture events in the samples pool (sc4s).
+    sample: '<36> Jun 15 13:45:07 mcafee-nsp SyslogAuditLogForwarder: audit_action="Audit Syslog Forwarder Message Customization" audit_result="succeeded" audit_time="2020-12-28 18:23:36 UTC" user="Administrator" category="Admin Domain" audit_domain="My Company" detail_comment="N/A" detail_delta="N/A"'
+    key:
+      - audit_action
+      - audit_result
+      - audit_time
+      - user
+cves: []
+detections:
+  - title: Mcafee Nsp events arriving
+    severity: low
+    signals:
+      - header
+      - audit_action
+      - audit_result
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "mcafee_nsp"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_mcafee_nsp.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_mcafee_nsp.py
+  - title: Pack Generator sample mcafee_nsp.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mcafee_nsp.json

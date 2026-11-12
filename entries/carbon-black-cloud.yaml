@@ -1,0 +1,119 @@
+id: carbon-black-cloud
+name: Carbon Black Cloud
+short: Cloud
+vendor: Carbon
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - carbon_black_cloud
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Carbon Black Cloud is logged by the Datadog integrations-core package carbon_black_cloud. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: carbon_black_cloud
+    desc: 'Datadog integrations-core fixture, 6 events. Upstream: carbon_black_cloud/assets/logs/carbon-black-cloud_tests.yaml'
+  - st: carbon_black_cloud_alert_v7
+    desc: 'Elastic integrations fixture, 7 events. Upstream: carbon_black_cloud/data_stream/alert_v7/_dev/test/pipeline/test-alert-watchlist.log'
+  - st: carbon_black_cloud_asset_vulnerability_summary
+    desc: 'Elastic integrations fixture, 8 events. Upstream: carbon_black_cloud/data_stream/asset_vulnerability_summary/_dev/test/pipeline/test-asset-vulnerability-summary.log'
+  - st: carbon_black_cloud_audit
+    desc: 'Elastic integrations fixture, 7 events. Upstream: carbon_black_cloud/data_stream/audit/_dev/test/pipeline/test-audit.log'
+  - st: carbon_black_cloud_watchlist_hit
+    desc: 'Elastic integrations fixture, 6 events. Upstream: carbon_black_cloud/data_stream/watchlist_hit/_dev/test/pipeline/test-watchlist-hit.log'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: carbon_black_cloud
+  Sourcetypes: '5'
+  Fixture events: '34'
+  Log format seen: json
+  Fields in the first fixture: device_target_value, parent_name, reason, mdr_alert_notes_present, parent_guid, parent_md5
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Carbon Black Cloud events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries device_target_value, parent_name, reason, mdr_alert_notes_present, parent_guid, parent_md5. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads carbon_black_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Carbon Black Cloud
+    sourcetype: carbon_black_cloud
+    format: json
+    desc: 6 fixture events in the samples pool (logtest).
+    sample: '{"device_target_value":"MEDIUM","parent_name":"c:\\windows\\system32\\svchost.exe","reason":"Process powershell.exe was detected by the report \"Powershell on 6612402\" in watchlist \"Bruce Test Historical Data (Watchlist)\"","mdr_alert_notes_present":false,"parent_guid":"ABCDEFG-0064e5b2-00000648-00000000-1dbc9c81ac95685","parent_md5":"3d1034d6ed3daed60816a25c561e8c83","threat_id":"688658BE7C4C78D16FF6BBF756F03360","determination":{"change_timestamp":"2025-05-22T05:05:06.513Z","value":"NONE"},"alert_notes_present":false,"type":"WATCHLIST","process_guid":"ABCDEFG-0064e5b2-00001314-00000000-1dbcad65fc9a0a6","parent_effective_reputation":"TRUSTED_WHITE_LIST","process_name":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","device_internal_ip":"198.51.100.25","watchlists":[{"name":"Bruce Test Historical Data (Watchlist)","id":"OtUjDxuzRbSLwqkZG7SRzw"}],"parent_pid":1608,"id":"0638489d-9d37-4f89-8aa4-274fbd78e6c4","sensor_action":"ALLOW","process_username":"NT AUTHORITY\\SYSTEM","mdr_alert":false,"device_policy_id":80947,"workflow":{"changed_by_type":"SYSTEM","changed_by":"ALERT_CREATION","change_timestamp":"2025-05-22T05:05:06.513Z","closure_reason":"NO_REASON","status":"OPEN"},"device_id":6612402,"ioc_hit":"(process_name:powershell.exe AND device_id:6612402)","run_state":"RAN","parent_sha256":"b0b36bff7ae4057f687d839cd4b3d81159ab646f1ee1b22106a927e93decbb61","process_pid":4884,"version":"2.1.0","org_key":"ORGKEY","backend_update_timestamp":"2025-05-22T05:05:06.513Z"}'
+    key:
+      - device_target_value
+      - parent_name
+      - reason
+      - mdr_alert_notes_present
+  - type: Alert V7
+    sourcetype: carbon_black_cloud_alert_v7
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"org_key":"7DESJ9GN","alert_url":"defense.conferdeploy.net/alerts?s[c][query_string]=id:1c6aba68-24cc-41e3-ad8e-4b545a587b55&orgKey=7DESJ9GN","id":"1c6aba68-24cc-41e3-ad8e-4b545a587b55","type":"WATCHLIST","backend_timestamp":"2024-03-13T08:03:29.540Z","user_update_timestamp":null,"backend_update_timestamp":"2024-03-13T08:03:29.540Z","detection_timestamp":"2024-03-13T08:02:36.578Z","first_event_timestamp":"2024-03-13T08:00:09.894Z","last_event_timestamp":"2024-03-13T08:00:09.894Z","severity":5,"reason":"Process powershell.exe was detected by the report \"Execution - AMSI - New Fileless Scheduled Task Behavior Detected\" in watchlist \"AMSI Threat Intelligence\"","reason_code":"c21ca826-573a-3d97-8c1e-93c8471aab7f:8033b29d-81d2-3c47-82d2-f4a7f398b85d","threat_id":"C21CA826573A8D974C1E93C8471AAB7F","primary_event_id":"re9M9hp8TbGLqyk6QXqQqA-0","policy_applied":"NOT_APPLIED","run_state":"RAN","sensor_action":"ALLOW","workflow":{"change_timestamp":"2024-03-13T08:03:29.540Z","changed_by_type":"SYSTEM","changed_by":"ALERT_CREATION","closure_reason":"NO_REASON","status":"OPEN"},"determination":{"change_timestamp":"2024-03-13T08:03:29.540Z","value":"NONE","changed_by_type":"SYSTEM","changed_by":"ALERT_CREATION"},"tags":null,"alert_notes_present":false,"threat_notes_present":false,"is_updated":false,"device_id":6612391,"device_name":"EIP\\WW-20002","device_uem_id":"","device_target_value":"MEDIUM","device_policy":"default","device_policy_id":6525}'
+    key:
+      - org_key
+      - alert_url
+      - id
+      - type
+  - type: Asset Vulnerability Summary
+    sourcetype: carbon_black_cloud_asset_vulnerability_summary
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"cve_ids":null,"device_id":1,"highest_risk_score":5.3,"host_name":"DESKTOP-001","last_sync_ts":"2022-02-14T08:32:37.105065Z","name":"DESKTOP-001KK","os_info":{"os_arch":"64-bit","os_name":"Microsoft Windows Server 2019 Datacenter","os_type":"WINDOWS","os_version":"10.0.17763"},"severity":"MODERATE","sync_status":"COMPLETED","sync_type":"SCHEDULED","type":"ENDPOINT","vm_id":"","vm_name":"","vuln_count":137}'
+    key:
+      - cve_ids
+      - device_id
+      - highest_risk_score
+      - host_name
+  - type: Audit
+    sourcetype: carbon_black_cloud_audit
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"orgName":"cb-xxxx-xxxxx.com","requestUrl":null,"eventTime":1644509052477,"eventId":"16xxxxxxxxxx8ac7bd","loginName":"GXXXXX7ANL","flagged":false,"clientIp":"192.0.2.20","verbose":false,"description":"Downloaded policy configurations for all policies"}'
+    key:
+      - orgName
+      - requestUrl
+      - eventTime
+      - eventId
+  - type: Watchlist Hit
+    sourcetype: carbon_black_cloud_watchlist_hit
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"schema":1,"create_time":"2022-02-04T05:15:56.930Z","device_external_ip":"198.51.100.15","device_id":1,"device_internal_ip":"198.51.100.25","device_name":"yyy\\DESKTOP-001","device_os":"WINDOWS","ioc_hit":"(((process_cmdline:.ps* OR process_cmdline:.bat OR process_cmdline:.py OR process_cmdline:.cpl OR process_cmdline:.cmd OR process_cmdline:.com OR process_cmd...","ioc_id":"565644-0","org_key":"7xxxxxxN","parent_cmdline":"\"C:\\Program Files\\LogRhythm\\Data Indexer\\consul-template\\nssm.exe\"","parent_guid":"7DESJ9GN-003edc7f-00000a78-00000000-1d807b8ae16a639","parent_hash":["2a390bdaad6bb1f2e0e9b84ffaa309ec","15ddf210388994b8dc34d5e941b80da74198684e23c7991c06c3672cb7da9c0d"],"parent_path":"c:\\program files\\logrhythm\\data indexer\\consul-template\\nssm.exe","parent_pid":2680,"parent_publisher":[{"state":"FILE_SIGNATURE_STATE_NOT_SIGNED"}],"parent_reputation":"REP_COMMON","parent_username":"NT AUTHORITY\\SYSTEM","process_cmdline":"C:\\Windows\\system32\\cmd.exe /c \"\"C:\\Program Files\\LogRhythm\\Data Indexer\\consul-template\\consul-template.cmd\" -config=\"C:\\Program Files\\Logrhythm\\Data Indexe...","process_guid":"7DESJ9GN-003edc7f-0001a09c-00000000-1d819854ecb3e67","process_hash":["f4f684066175b77e0c3a000549d2922c","935c1861df1f4018d698e8b65abfa02d7e9037d8f68ca3c2065b6ca165d44ad2"],"process_path":"c:\\windows\\system32\\cmd.exe","process_pid":106652,"process_publisher":[{"name":"Microsoft Windows","state":"FILE_SIGNATURE_STATE_SIGNED | FILE_SIGNATURE_STATE_VERIFIED | FILE_SIGNATURE_STATE_TRUSTED | FILE_SIGNATURE_STATE_OS | FILE_SIGNATURE_STATE_CATALOG_SIGNED"}],"process_reputation":"REP_WHITE","process_username":"NT AUTHORITY\\SYSTEM","report_id":"CFnKBKLTv6hUkBGFobRdg-565644","report_name":"Execution - Command and Scripting Interpreter Execution","report_tags":["attack","attackframework"],"severity":1}'
+    key:
+      - schema
+      - create_time
+      - device_external_ip
+      - device_id
+cves: []
+detections:
+  - title: Carbon Black Cloud events arriving
+    severity: low
+    signals:
+      - device_target_value
+      - parent_name
+      - reason
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "carbon_black_cloud"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core carbon_black_cloud/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/carbon_black_cloud/assets/logs/carbon-black-cloud_tests.yaml
+  - title: Pack Generator sample carbon_black_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/carbon_black_cloud.json

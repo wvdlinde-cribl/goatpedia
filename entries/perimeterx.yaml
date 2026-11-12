@@ -1,0 +1,71 @@
+id: perimeterx
+name: Perimeterx
+short: Perimeterx
+vendor: Perimeterx
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - perimeterx
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Perimeterx is logged by the Datadog integrations-extras package perimeterx. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: perimeterx
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: perimeterx/assets/logs/perimeterx_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: perimeterx
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: country, px_app_id, true_ip, full_url, city, risk_score
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Perimeterx events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries country, px_app_id, true_ip, full_url, city, risk_score. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads perimeterx and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Perimeterx
+    sourcetype: perimeterx
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"country":"US","px_app_id":"PXiCF5izAO","true_ip":"203.0.113.40","full_url":"http://vps272189.better-than.tv/","city":"Dallas","risk_score":20,"true_ip_asn_name":"Linode, LLC","true_ip_classification":[{"name":"Shared IPs","class":"SharedIPs"}],"event_type":"legitimate","client_ip":"192.0.2.10","px_vid":"169fd2d1-cad1-11ea-8241-b3a37884a018","px_client_uuid":"169fd2d0-cad1-11ea-8241-b3a37884a018","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36","timestamp":"2020-07-20T21:36:37Z"}'
+    key:
+      - country
+      - px_app_id
+      - true_ip
+      - full_url
+cves: []
+detections:
+  - title: Perimeterx events arriving
+    severity: low
+    signals:
+      - country
+      - px_app_id
+      - true_ip
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "perimeterx"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras perimeterx/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/perimeterx/assets/logs/perimeterx_tests.yaml
+  - title: Pack Generator sample perimeterx.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/perimeterx.json

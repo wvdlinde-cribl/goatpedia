@@ -1,0 +1,71 @@
+id: prisma-access
+name: Prisma Access
+short: Prisma Access
+vendor: Prisma
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - prisma_access
+  - Elastic integrations
+tags:
+  - elastic
+  - cef
+summary: Prisma Access is logged by the Elastic integrations package prisma_access. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: prisma_access
+    desc: 'Elastic integrations fixture, 11 events. Upstream: prisma_access/data_stream/event/_dev/test/pipeline/test-event.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: prisma_access
+  Sourcetypes: '1'
+  Fixture events: '11'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Prisma Access events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads prisma_access and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Event
+    sourcetype: prisma_access
+    format: cef
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: Mar 1 22:05:25 198.51.100.15 2206 <14>1 2021-03-01T21:05:25.508Z stream-logfwd20-587718190-03011255-ut6o-harness-5vlj logforwarder - panwlogs - CEF:0|Palo Alto Networks|LF|2.0|AUTH|Radius|3|ProfileToken=xxxxx dtz=UTC rt=Feb 28 2021 18:20:54 deviceExternalId=xxxxxxxxxxxxx PanOSConfigVersion=5.0 PanOSAuthenticatedUserDomain=paloaltonetwork PanOSAuthenticatedUserName=pol23-o PanOSAuthenticatedUserUUID=xx-123 PanOSClientTypeName=clien3 PanOSCortexDataLakeTenantID=xxxxxxxxxxxxx PanOSIsDuplicateLog=false PanOSIsPrismaNetworks=false PanOSIsPrismaUsers=false PanOSLogExported=false PanOSLogForwarded=true PanOSLogSource=firewall PanOSLogSourceTimeZoneOffset=-05:00 PanOSRuleMatched=inter-zone start=Feb 28 2021 18:20:40 cs3=vsys1 cs3Label=VirtualLocation c6a2=2001:db8::1 c6a2Label=Source IPv6 Address c6a3=2001:db8::1 c6a3Label=Destination IPv6 Address duser=paloaltonetwork\\xxxxx cs2=paloaltonetwork\\xxxxx cs2Label=NormalizeUser fname=Authentication object1 cs4=AC-1 cs4Label=AuthenticationPolicy cnt=33554432 cn2=-5257671089978343424 cn2Label=MFAAuthenticationID PanOSMFAVendor=Onelogin cs6=rs-logging cs6Label=LogSetting cs1=LDAP cs1Label=AuthServerProfile PanOSAuthenticationDescription=www.something cs5=Unknown cs5Label=ClientType msg=Invalid Certificate cn1=2 cn1Label=AuthFactorNo externalId=xxxxxxxxxxxxx PanOSDGHierarchyLevel1=11 PanOSDGHierarchyLevel2=0 PanOSDGHierarchyLevel3=0 PanOSDGHierarchyLevel4=0 PanOSVirtualSystemName=vsys-1 dvchost=xxxxx PanOSVirtualSystemID=1 PanOSAuthenticationProtocol=SAML PanOSRuleMatchedUUID=xx09 PanOSTimeGeneratedHighResolution=Feb 28 2021 18:20:41 PanOSSourceDeviceCategory=src_category_list-1 PanOSSourceDeviceProfile=src_profile_list-1 PanOSSourceDeviceModel=src_model_list-1 PanOSSourceDeviceVendor=src_vendor_list-1 PanOSSourceDeviceOSFamily=src_osfamily_list-0 PanOSSourceDeviceOSVersion=src_osversion_list-2 PanOSSourceDeviceHost=src1_host_list-0 PanOSSourceDeviceMac=530589561221 PanOSAuthCacheServiceRegion=east-1 PanOSUserAgentString=Mozilla/5.0 PanOSSessionID=a4xxht
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Prisma Access events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "prisma_access"'
+optimizations: []
+references:
+  - title: elastic/integrations prisma_access/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/prisma_access/data_stream/event/_dev/test/pipeline/test-event.json
+  - title: Pack Generator sample prisma_access.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/prisma_access.json

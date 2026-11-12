@@ -48,6 +48,52 @@ sourcetypes:
     desc: Splunk Add-on for Google Workspace name for Alert Center alerts
   - st: WORKSPACE_ACTIVITY
     desc: Google SecOps (Chronicle) log type for Workspace activity reports
+  - st: google_workspace_access_transparency
+    desc: 'Elastic integrations fixture, 1 events. Upstream: google_workspace/data_stream/access_transparency/_dev/test/pipeline/test-access-transparency.log'
+  - st: google_workspace_admin
+    desc: 'Elastic integrations fixture, 20 events. Upstream: google_workspace/data_stream/admin/_dev/test/pipeline/test-admin-domain.log'
+  - st: google_workspace_alert
+    desc: 'Elastic integrations fixture, 14 events. Upstream: google_workspace/data_stream/alert/_dev/test/pipeline/test-alert.log'
+  - st: google_workspace_calendar
+    desc: 'Elastic integrations fixture, 20 events. Upstream: google_workspace/data_stream/calendar/_dev/test/pipeline/test-calendar.log'
+  - st: google_workspace_chat
+    desc: 'Elastic integrations fixture, 20 events. Upstream: google_workspace/data_stream/chat/_dev/test/pipeline/test-chat.log'
+  - st: google_workspace_chrome
+    desc: 'Elastic integrations fixture, 6 events. Upstream: google_workspace/data_stream/chrome/_dev/test/pipeline/test-chrome.log'
+  - st: google_workspace_context_aware_access
+    desc: 'Elastic integrations fixture, 1 events. Upstream: google_workspace/data_stream/context_aware_access/_dev/test/pipeline/test-context-aware-access.log'
+  - st: google_workspace_data_studio
+    desc: 'Elastic integrations fixture, 12 events. Upstream: google_workspace/data_stream/data_studio/_dev/test/pipeline/test-data-studio.log'
+  - st: google_workspace_device
+    desc: 'Elastic integrations fixture, 2 events. Upstream: google_workspace/data_stream/device/_dev/test/pipeline/test-device.log'
+  - st: google_workspace_drive
+    desc: 'Elastic integrations fixture, 20 events. Upstream: google_workspace/data_stream/drive/_dev/test/pipeline/test-drive.log'
+  - st: google_workspace_gcp
+    desc: 'Elastic integrations fixture, 1 events. Upstream: google_workspace/data_stream/gcp/_dev/test/pipeline/test-gcp.log'
+  - st: google_workspace_gemini
+    desc: 'Elastic integrations fixture, 5 events. Upstream: google_workspace/data_stream/gemini/_dev/test/pipeline/test-gemini.log'
+  - st: google_workspace_gmail_reports
+    desc: 'Elastic integrations fixture, 3 events. Upstream: google_workspace/data_stream/gmail_reports/_dev/test/pipeline/test-gmail-reports.log'
+  - st: google_workspace_group_enterprise
+    desc: 'Elastic integrations fixture, 1 events. Upstream: google_workspace/data_stream/group_enterprise/_dev/test/pipeline/test-group-enterprise.log'
+  - st: google_workspace_groups
+    desc: 'Elastic integrations fixture, 20 events. Upstream: google_workspace/data_stream/groups/_dev/test/pipeline/test-groups.log'
+  - st: google_workspace_keep
+    desc: 'Elastic integrations fixture, 5 events. Upstream: google_workspace/data_stream/keep/_dev/test/pipeline/test-keep.log'
+  - st: google_workspace_login
+    desc: 'Elastic integrations fixture, 18 events. Upstream: google_workspace/data_stream/login/_dev/test/pipeline/test-login.log'
+  - st: google_workspace_meet
+    desc: 'Elastic integrations fixture, 14 events. Upstream: google_workspace/data_stream/meet/_dev/test/pipeline/test-meet.log'
+  - st: google_workspace_rules
+    desc: 'Elastic integrations fixture, 2 events. Upstream: google_workspace/data_stream/rules/_dev/test/pipeline/test-rules.log'
+  - st: google_workspace_saml
+    desc: 'Elastic integrations fixture, 2 events. Upstream: google_workspace/data_stream/saml/_dev/test/pipeline/test-saml.log'
+  - st: google_workspace_token
+    desc: 'Elastic integrations fixture, 2 events. Upstream: google_workspace/data_stream/token/_dev/test/pipeline/test-token.log'
+  - st: google_workspace_user_accounts
+    desc: 'Elastic integrations fixture, 9 events. Upstream: google_workspace/data_stream/user_accounts/_dev/test/pipeline/test-user-accounts.log'
+  - st: google_workspace_vault
+    desc: 'Elastic integrations fixture, 11 events. Upstream: google_workspace/data_stream/vault/_dev/test/pipeline/test-vault.log'
 facts:
   First released: 2006 (Google Apps for Your Domain); Reports API since 2013
   Platform: Google Workspace SaaS (Gmail, Drive, Calendar, Meet, Chat, Admin console)
@@ -187,6 +233,236 @@ logs:
       - payload_size
       - source.service
     sample: '{"action_type":10,"rfc2822_message_id":"<CA+abc123def456@mail.example.org>","subject":"Invoice 11111 - payment overdue","payload_size":6733,"source":{"address":"billing@example.org","service":"gmail-for-work","from_header_address":"billing@example.org","from_header_displayname":"Billing"},"destination":[{"address":"jdoe@example.com","service":"gmail-for-work"}],"is_spam":true,"spam_info":{"classification_reason":"phishing","disposition":"quarantine"},"connection_info":{"client_ip":"203.0.113.77","smtp_tls_state":"tls"}}'
+  - type: Access Transparency
+    sourcetype: google_workspace_access_transparency
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"etag":"\"CTyc505ppdmJR2motHVsU17kzItOkPo5vYViqlSF0rU/_JGuGElaExAZGVCsPXBMf-HkFqo\"","events":{"type":"access_transparency","name":"ACCESS","parameters":[{"name":"ACCESS_APPROVAL_ALERT_CENTER_IDS","value":"alert123"},{"name":"ACCESS_APPROVAL_REQUEST_IDS","value":"req12341"}]},"id":{"applicationName":"token","customerId":"C02umwv6u","time":"2023-01-01T06:24:42.442Z","uniqueQualifier":"-6709442587437772138"},"ipAddress":"203.0.113.8","kind":"admin#reports#activity"}'
+    key:
+      - actor.callerType
+      - actor.email
+      - actor.profileId
+      - etag
+  - type: Admin
+    sourcetype: google_workspace_admin
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"admin","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"203.0.113.40","events":{"type":"DOMAIN_SETTINGS","name":"CHANGE_ACCOUNT_AUTO_RENEWAL","parameters":[{"name":"DOMAIN_NAME","value":"example.com"},{"name":"NEW_VALUE","value":"NON_AUTO_RENEWAL"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Alert
+    sourcetype: google_workspace_alert
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"alertId":"91840a82-3af0-46d7-95ec-625c1cf0c3f7","createTime":"2022-07-10T10:49:29.436394Z","customerId":"02umwv6u","data":{"@type":"type.googleapis.com/google.apps.alertcenter.type.MailPhishing","domainId":{"customerPrimaryDomain":"example.com"},"maliciousEntity":{"entity":{"emailAddress":"user@example.com","displayName":"example"},"fromHeader":"user@example.com","displayName":"string"},"messages":[{"attachmentsSha256Hash":["50d858e0985ecc7f60418aaf0cc5ab587f42c2570a884095a9e8ccacd0f6545c","228b48a56dbc2ecf10393227ac9c9dc943881fd7a55452e12a09107476bef2b2"],"date":"2022-07-01T10:38:13.194711Z","md5HashMessageBody":"d29343907090dff4cec4a9a0efb80d20","md5HashSubject":"a3708f8228384d932237f85980ff8283","messageBodySnippet":" hi greetings from sales ","messageId":"user@example.com","recipient":"user@example.com","subjectText":"Sales"},{"attachmentsSha256Hash":["5fb1679e08674059b72e271d8902c11a127bb5301b055dc77fa03932ada56a56"],"md5HashMessageBody":"d29343907090dff4cec4a9a0efb80d20","md5HashSubject":"a3708f8228384d932237f85980ff8283","messageBodySnippet":" hi greetings ","messageId":"user@example.com","recipient":"user@example.com","subjectText":"RE: Example salesorderspca JSON request"}],"isInternal":true,"systemActionType":"NO_OPERATION"},"endTime":"2022-07-01T10:47:04.530834Z","etag":"wF2Ix2DWDv8=","metadata":{"alertId":"91840a82-3af0-46d7-95ec-625c1cf0c3f7","customerId":"02umwv6u","etag":"wF2Ix2DWDv8=","assignee":"user@example.com","severity":"HIGH","status":"NOT_STARTED","updateTime":"2022-07-01T10:49:29.436394Z"},"securityInvestigationToolLink":"string","deleted":false,"source":"Gmail phishing","startTime":"2022-07-01T10:38:13.194711Z","type":"User reported phishing","updateTime":"2022-07-01T10:49:29.436394Z"}'
+    key:
+      - alertId
+      - createTime
+      - customerId
+      - data.@type
+  - type: Calendar
+    sourcetype: google_workspace_calendar
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-04-01T07:13:50.971Z","uniqueQualifier":"1","applicationName":"calendar","customerId":"1"},"etag":"abcdefgh/cBsNSJx2A9Lg8kiQCGLddmq827A","actor":{"email":"user@example.com","profileId":"1"},"ownerDomain":"elastic.com","ipAddress":"192.0.2.10","events":{"type":"event_change","name":"restore_event","parameters":[{"name":"event_id","value":"abc123"},{"name":"organizer_calendar_id","value":"user@example.com"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Chat
+    sourcetype: google_workspace_chat
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-03-28T07:25:22.041Z","uniqueQualifier":"1","applicationName":"chat","customerId":"1"},"etag":"abcdefgh/cBsNSJx2A9Lg8kiQCGLddmq827A/","actor":{"callerType":"USER","email":"user@example.com","profileId":"1"},"events":{"type":"user_action","name":"role_updated","parameters":[{"name":"room_id","value":"1"},{"name":"actor","value":"user@example.com"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Chrome
+    sourcetype: google_workspace_chrome
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"callerType":"USER","email":"user@example.com","profileId":"10111170624712104"},"ipAddress":"192.0.2.20","etag":"abcdefgh/cBsNSJx2A9Lg8kiQCGLddmq827A","events":{"name":"BROWSER_EXTENSION_INSTALL","parameters":[{"intValue":"1733753905405","name":"TIMESTAMP"},{"name":"EVENT_REASON","value":"BROWSER_EXTENSION_INSTALL"}],"type":"BROWSER_EXTENSION_INSTALL_TYPE"},"id":{"applicationName":"chrome","customerId":"C03puekhd","time":"2024-12-09T14:18:25.405Z","uniqueQualifier":"-3640711002716937498"},"kind":"admin#reports#activity"}'
+    key:
+      - actor.callerType
+      - actor.email
+      - actor.profileId
+      - ipAddress
+  - type: Context Aware Access
+    sourcetype: google_workspace_context_aware_access
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"etag":"\"CTyc505ppdmJR2motHVsU17kzItOkPo5vYViqlSF0rU/_JGuGElaExAZGVCsPXBMf-HkFqo\"","events":{"type":"context_aware_access","name":"ACCESS_DENY_EVENT","parameters":[{"name":"CAA_ACCESS_LEVEL_APPLIED","value":"applied"},{"name":"CAA_ACCESS_LEVEL_SATISFIED","value":"satisfied"}]},"id":{"applicationName":"token","customerId":"C02umwv6u","time":"2023-01-01T06:24:42.442Z","uniqueQualifier":"-6709442587437772138"},"ipAddress":"198.51.100.25","kind":"admin#reports#activity"}'
+    key:
+      - actor.callerType
+      - actor.email
+      - actor.profileId
+      - etag
+  - type: Data Studio
+    sourcetype: google_workspace_data_studio
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-03-26T09:47:49.748Z","uniqueQualifier":"1","applicationName":"data_studio","customerId":"1"},"etag":"abcdefgh/cBsNSJx2A9Lg8kiQCGLddmq827A/","actor":{"callerType":"USER","email":"user@example.com","profileId":"1"},"ipAddress":"203.0.113.8","events":{"type":"ACCESS","name":"DELETE_DISTRIBUTION_CONTENT","parameters":[{"name":"ASSET_ID","value":"abc-123"},{"name":"ASSET_NAME","value":"[Sample] Report Name"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Device
+    sourcetype: google_workspace_device
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"login","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"example.com","ipAddress":"203.0.113.40","etag":"string","events":{"type":"device_applications","name":"APPLICATION_EVENT","parameters":[{"name":"ACCOUNT_STATE","value":"REGISTERED"},{"name":"ACTION_EXECUTION_STATUS","value":"ACTION_REJECTED_BY_USER"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Drive
+    sourcetype: google_workspace_drive
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"drive","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"192.0.2.10","events":{"type":"access","name":"add_to_folder","parameters":[{"name":"billable","boolValue":false},{"name":"destination_folder_id","value":"1234"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: GCP
+    sourcetype: google_workspace_gcp
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"etag":"\"CTyc505ppdmJR2motHVsU17kzItOkPo5vYViqlSF0rU/_JGuGElaExAZGVCsPXBMf-HkFqo\"","events":{"type":"CLOUD_OSLOGIN","name":"IMPORT_SSH_PUBLIC_KEY","parameters":[{"name":"USER_EMAIL","value":"user@example.com"}]},"id":{"applicationName":"token","customerId":"C02umwv6u","time":"2023-01-01T06:24:42.442Z","uniqueQualifier":"-6709442587437772138"},"ipAddress":"192.0.2.20","kind":"admin#reports#activity"}'
+    key:
+      - actor.callerType
+      - actor.email
+      - actor.profileId
+      - etag
+  - type: Gemini
+    sourcetype: google_workspace_gemini
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2026-06-01T14:23:11.000Z","uniqueQualifier":"1","applicationName":"gemini_in_workspace_apps","customerId":"1"},"etag":"abcdefgh-SHfJfeOMlTPu983WfVweBonaAPdmU","actor":{"callerType":"USER","email":"user@example.com","profileId":"1"},"ipAddress":"198.51.100.15","events":{"type":"ai_usage_event","name":"feature_utilization","parameters":[{"name":"app_name","value":"docs"},{"name":"action","value":"summarize_file"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Gmail Reports
+    sourcetype: google_workspace_gmail_reports
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2026-08-11T03:04:01.312Z","uniqueQualifier":"1193008247809429026","applicationName":"gmail","customerId":"C00yte8g0"},"etag":"\"D3eVYP-htSyObw0LSef_OWddNBN36m10z6d49o1_SA8/WS-Mf9vICAvzKDNCCz3ms9ShPWg\"","actor":{"callerType":"USER","email":"user@example.com","profileId":"109107487136189420589"},"ipAddress":"198.51.100.25","isAgenticAction":false,"networkInfo":{"ipAsn":[0,15169],"regionCode":"US","subdivisionCode":""},"resourceDetails":[{"id":"<user@example.com>","title":"[ACTION REQUIRED] Cloud Logging sink configuration error in example-project-123456","type":"EMAIL","relation":"GMAIL_PRIMARY","ownerDetails":{"ownerType":"USER","ownerIdentity":[{"userIdentity":{"id":"0z337ya2lr9by9","userEmail":"user@example.com"}}]}}],"events":{"type":"delivery_type","name":"delivery","parameters":[{"name":"event_info","messageValue":{"parameter":[{"name":"timestamp_usec","intValue":"1786417441312628"},{"name":"elapsed_time_usec","intValue":"1645948"}]}},{"name":"message_info","messageValue":{"parameter":[{"name":"action_type","intValue":"3"},{"name":"rfc2822_message_id","value":"<user@example.com>"}]}}],"resourceIds":["<user@example.com>"]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Group Enterprise
+    sourcetype: google_workspace_group_enterprise
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"login","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"203.0.113.8","etag":"string","events":{"type":"moderator_action","name":"add_info_setting","parameters":[{"name":"dynamic_group_query","value":"query"},{"name":"group_id","value":"asd123d"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Groups
+    sourcetype: google_workspace_groups
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"groups","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"203.0.113.40","events":{"type":"acl_change","name":"change_acl_permission","parameters":[{"name":"acl_permission","value":"can_add_members"},{"name":"group_email","value":"user@example.com"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Keep
+    sourcetype: google_workspace_keep
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-03-27T12:46:57.714Z","uniqueQualifier":"0","applicationName":"keep","customerId":"1"},"etag":"abcdefgh-SHfJfeOMlTPu983WfVweBonaAPdmU","actor":{"callerType":"USER","email":"user@example.com","profileId":"1"},"events":{"type":"user_action","name":"modified_acl","parameters":[{"name":"owner_email","value":"user@example.com"},{"name":"note_name","value":"https://keep.googleapis.com/v1/notes/abc-xyz"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Login
+    sourcetype: google_workspace_login
+    format: json
+    desc: 18 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"login","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"192.0.2.10","events":{"type":"account_warning","name":"account_disabled_password_leak","parameters":[{"name":"affected_email_address","value":"user@example.com"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Meet
+    sourcetype: google_workspace_meet
+    format: json
+    desc: 14 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-04-11T09:38:26.272Z","uniqueQualifier":"1","applicationName":"meet","customerId":"1"},"etag":"abcdefgh/cBsNSJx2A9Lg8kiQCGLddmq827A","actor":{"callerType":"KEY","key":"HANGOUTS_EXTERNAL_OR_ANONYMOUS"},"events":{"type":"call","name":"call_ended","parameters":[{"name":"meeting_code","value":"NTBTYDTXBE"},{"name":"conference_id","value":"-PeisjX_5iUtKPuGffkJDaBcdEfgh"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Rules
+    sourcetype: google_workspace_rules
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","etag":"Etag","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"rules","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"example.com","ipAddress":"192.0.2.20","events":{"type":"rule_match_type","name":"rule_match","parameters":[{"name":"has_alert","boolValue":"true"},{"name":"actor_ip_address","value":"198.51.100.15"}]}}'
+    key:
+      - kind
+      - etag
+      - id.time
+      - id.uniqueQualifier
+  - type: Saml
+    sourcetype: google_workspace_saml
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"saml","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"198.51.100.25","events":{"type":"login","name":"login_failure","parameters":[{"name":"application_name","value":"app"},{"name":"failure_type","value":"failure_app_not_configured_for_user"}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Token
+    sourcetype: google_workspace_token
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"etag":"\"CTyc505ppdmJR2motHVsU17kzItOkPo5vYViqlSF0rU/_JGuGElaExAZGVCsPXBMf-HkFqo\"","events":{"name":"authorize","parameters":[{"name":"client_id","value":"923474483785-sqf6uk8vq1rqe853il0g2h4m98ji2fq6.apps.googleusercontent.com"},{"name":"app_name","value":"Gmail Add-on"}]},"id":{"applicationName":"token","customerId":"C02umwv6u","time":"2023-01-01T06:24:42.442Z","uniqueQualifier":"-6709442587437772138"},"ipAddress":"203.0.113.8","kind":"admin#reports#activity"}'
+    key:
+      - actor.callerType
+      - actor.email
+      - actor.profileId
+      - etag
+  - type: User Accounts
+    sourcetype: google_workspace_user_accounts
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2020-10-02T15:00:00Z","uniqueQualifier":1,"applicationName":"user_accounts","customerId":"1"},"actor":{"callerType":"USER","email":"user@example.com","profileId":1},"ownerDomain":"elastic.com","ipAddress":"203.0.113.40","events":{"type":"2sv_change","name":"2sv_disable"}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
+  - type: Vault
+    sourcetype: google_workspace_vault
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2025-04-10T19:06:06.187Z","uniqueQualifier":"1","applicationName":"vault","customerId":"1"},"etag":"XB4Sd9ZEYpFd-msikcPTLY7Ao7PvyP0QeR9k5OdWZ_Y/9-plyixf2zhrQhgHCQ7-_gbusr4","actor":{"callerType":"USER","email":"user@example.com","profileId":"1"},"events":{"type":"user_action","name":"export","parameters":[{"name":"matter_id","value":"123456789-73d5-4b01-ae1a-abcdefgh"},{"name":"additional_details","value":"export_name: \"Export\"\nquery: \"( from:google.com )\"\ntype: \"EMAIL\"\nexport_format: MBOX\ndata_region: \"United States\"\nshow_locker_content: true\nuse_improved_expo..."}]}}'
+    key:
+      - kind
+      - id.time
+      - id.uniqueQualifier
+      - id.applicationName
 cves:
   - id: CVE-2024-45409
     cvss: 9.8

@@ -1,0 +1,71 @@
+id: fireeye
+name: Fireeye
+short: Fireeye
+vendor: Fireeye
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - fireeye
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Fireeye is logged by the Elastic integrations package fireeye. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: fireeye_nx
+    desc: 'Elastic integrations fixture, 8 events. Upstream: fireeye/data_stream/nx/_dev/test/pipeline/test-nx.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: fireeye
+  Sourcetypes: '1'
+  Fixture events: '8'
+  Log format seen: json
+  Fields in the first fixture: rawmsg, meta_sip4, meta_oml, deviceid, meta_cbname
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Fireeye events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries rawmsg, meta_sip4, meta_oml, deviceid, meta_cbname. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads fireeye and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Nx
+    sourcetype: fireeye_nx
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"rawmsg":"{\"timestamp\":\"2020-09-22T08:34:44.991339+0000\",\"flow_id\":721570461162990,\"event_type\":\"flow\",\"src_ip\":\"2001:db8::1\",\"src_port\":45944,\"dest_ip\":\"2001:db8::1\",...","meta_sip4":"192.0.2.20","meta_oml":520,"deviceid":"860665216674","meta_cbname":"fireeye-7e0de1"}'
+    key:
+      - rawmsg
+      - meta_sip4
+      - meta_oml
+      - deviceid
+cves: []
+detections:
+  - title: Fireeye events arriving
+    severity: low
+    signals:
+      - rawmsg
+      - meta_sip4
+      - meta_oml
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "fireeye_nx"'
+optimizations: []
+references:
+  - title: elastic/integrations fireeye/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fireeye/data_stream/nx/_dev/test/pipeline/test-nx.log
+  - title: Pack Generator sample fireeye_nx.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fireeye_nx.json

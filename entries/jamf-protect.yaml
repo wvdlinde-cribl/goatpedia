@@ -1,0 +1,95 @@
+id: jamf-protect
+name: Jamf Protect
+short: Jamf Protect
+vendor: Jamf
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - jamf_protect
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Jamf Protect is logged by the Datadog integrations-extras package jamf_protect. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: jamf_protect
+    desc: 'Datadog integrations-extras fixture, 3 events. Upstream: jamf_protect/assets/logs/jamfprotect_tests.yaml'
+  - st: jamf_protect_telemetry
+    desc: 'Elastic integrations fixture, 8 events. Upstream: jamf_protect/data_stream/telemetry/_dev/test/pipeline/test-jamf-protect-telemetry-sample-logs.log'
+  - st: jamf_protect_telemetry_legacy
+    desc: 'Elastic integrations fixture, 7 events. Upstream: jamf_protect/data_stream/telemetry_legacy/_dev/test/pipeline/test-jamf-protect-telemetry-legacy-sample-logs.log'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: jamf_protect
+  Sourcetypes: '3'
+  Fixture events: '18'
+  Log format seen: json
+  Fields in the first fixture: service, identity.signer_id, identity.cd_hash, identity.signer_id_truncated, identity.signer_type, identity.team_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Jamf Protect events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries service, identity.signer_id, identity.cd_hash, identity.signer_id_truncated, identity.signer_type, identity.team_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads jamf_protect and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Jamf Protect
+    sourcetype: jamf_protect
+    format: json
+    desc: 3 fixture events in the samples pool (logtest_extras).
+    sample: '{"service":"telemetry","identity":{"signer_id":"com.logi.ghub.agent","cd_hash":"13bf8bbe9e56bc3a1c81d6cc715777f7b4719283","signer_id_truncated":0,"signer_type":0,"team_id":"QED4VVPZWA","team_id_truncated":0},"subject":{"process_id":11800,"effective_user_name":"john_appleseed","group_name":"staff","user_name":"john_appleseed","session_id":100007,"audit_id":502,"group_id":20,"process_hash":"","user_id":502,"effective_group_name":"staff","process_name":"","effective_group_id":20,"effective_user_id":502,"audit_user_name":"john_appleseed","terminal_id":{"port":50331650,"ip_address":"198.51.100.25","addr":[0],"type":0}},"header":{"event_modifier":0,"time_milliseconds_offset":174,"time_seconds_epoch":1571164481,"event_id":32,"event_name":"AUE_CONNECT","version":11},"_event_score":0,"arguments":{"fd":43},"source":"jamfprotect","socket_inet":{"port":6468,"id":128,"ip_address":"203.0.113.8","addr":[16777343],"family":2},"return":{"return_value":4294967295,"description":"failure : Operation now in progress","error":150},"host_info":{"serial_number":"Z2C23RW4DY","primary_mac_address":"2001:db8::1","osversion":"Version 10.15 (Build 19A582a)","host_uuid":"3F6E4B3A-9285-4E7E-9A0C-C3B62DC379DF","host_name":"VMAC-2C23RW4DY"}}'
+    key:
+      - service
+      - identity.signer_id
+      - identity.cd_hash
+      - identity.signer_id_truncated
+  - type: Telemetry
+    sourcetype: jamf_protect_telemetry
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"action":{"result":{"result":{"auth":0},"result_type":0}},"action_type":1,"deadline":0,"event":{"lw_session_lock":{"graphical_session_id":257,"username":"jappleseed"}},"event_type":116,"glob_seq_num":16661,"host":{"hostname":"MacBookPro","ips":["203.0.113.40"],"os":"Version 14.4.1 (Build 23E224)","protectVersion":"192.0.2.10","provisioningUDID":"00006000-000C043C22A1801E","serial":"123ABC456DJ"},"mach_time":11045772512581,"metadata":{"product":"Device Telemetry Stream","schemaVersion":"1.0","vendor":"Jamf"},"process":{"audit_token":{"asid":100018,"auid":502,"egid":20,"euid":502,"pid":388,"pidversion":869,"rgid":20,"ruid":0,"uuid":"80301337-AD04-56F0-BCCC-BC88FD235D82"},"cdhash":"5dce46942a1ecfcaed58bdcafe5159393f767f74","codesigning_flags":570522369,"executable":{"path":"/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow","path_truncated":false,"stat":{"st_atimespec":"2024-03-21T06:13:23.000Z","st_birthtimespec":"2024-03-21T06:13:23.000Z","st_blksize":4096,"st_blocks":3240,"st_ctimespec":"2024-03-21T06:13:23.000Z","st_dev":16777229,"st_flags":524320,"st_gen":0,"st_gid":0,"st_ino":1152921500312132500,"st_mode":33261,"st_mtimespec":"2024-03-21T06:13:23.000Z","st_nlink":1,"st_rdev":0,"st_size":2706208,"st_uid":0}},"group_id":388,"is_es_client":false,"is_platform_binary":true,"original_ppid":1,"parent_audit_token":{"asid":100015,"auid":4294967295,"egid":0,"euid":0,"pid":1,"pidversion":542,"rgid":0,"ruid":0,"uuid":"012139F5-CEED-5A0E-9862-451CDA9E492E"},"ppid":1,"responsible_audit_token":{"asid":100018,"auid":502,"egid":20,"euid":502,"pid":388,"pidversion":869,"rgid":20,"ruid":0,"uuid":"80301337-AD04-56F0-BCCC-BC88FD235D82"},"session_id":388,"signing_id":"com.apple.loginwindow","start_time":"2024-04-30T13:17:30.000Z"},"seq_num":2,"thread":{"thread_id":18306755,"uuid":"5AF185F8-1E6E-5E94-A61C-B98942A253C7"},"time":"2024-05-15T00:12:12.555Z","uuid":"7ADBC305-732C-4A9C-B3EF-14435A500AF4","version":7}'
+    key:
+      - action.result.result.auth
+      - action.result.result_type
+      - action_type
+      - deadline
+  - type: Telemetry Legacy
+    sourcetype: jamf_protect_telemetry_legacy
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"arguments":{"child_PID":70851},"attributes":{"device":0,"file_access_mode":33261,"file_system_id":16777229,"node_id":632456,"owner_group_id":0,"owner_group_name":"wheel","owner_user_id":0,"owner_user_name":"root"},"exec_args":{"args":{"1":"/usr/bin/profiles","2":"status","3":"-type","4":"enrollment"},"args_compiled":"/usr/bin/profiles,status,-type,enrollment"},"exec_chain":{"thread_uuid":"EB3B7725-EB0E-4710-BCA6-F390DD9AE309"},"exec_chain_parent":{"uuid":"87F2E500-EDF1-4F12-A489-C5E05B0F523E"},"exec_env":{"env":{"PATH":"/usr/bin:/bin:/usr/sbin:/sbin","PWD":"/"},"env_compiled":"PWD=/,PATH=/usr/bin:/bin:/usr/sbin:/sbin"},"header":{"event_id":43190,"event_modifier":0,"event_name":"AUE_POSIX_SPAWN","time_milliseconds_offset":442,"time_seconds_epoch":1707235294,"version":11},"host_info":{"host_name":"Mac mini","host_uuid":"AE2FA359-6AB0-5F54-9E4A-39EDCF015C91","osversion":"Version 14.2.1 (Build 23C71)","serial_number":"H2WGF2U9Q6NV"},"identity":{"cd_hash":"a2c787fe5e26ead7c68909e45a75edced4147c68","signer_id":"com.microsoft.EdgeUpdater","signer_id_truncated":false,"signer_type":0,"team_id":"UBF8T346G9","team_id_truncated":false},"key":"FF48B7F5-C8CD-42E6-8782-5A92D1BD87CE","path":["/usr/bin/profiles","/usr/bin/profiles"],"return":{"description":"success","error":0,"return_value":0},"subject":{"audit_id":4294967295,"audit_user_name":"","effective_group_id":0,"effective_group_name":"wheel","effective_user_id":0,"effective_user_name":"root","group_id":0,"group_name":"wheel","process_hash":"9cfc802baf45b74693d146686ebe9ec59ac6367f","process_id":70848,"process_name":"/Library/Application Support/Microsoft/EdgeUpdater/118.0.2088.86/EdgeUpdater.app/Contents/MacOS/EdgeUpdater","responsible_process_id":70837,"responsible_process_name":"/Library/Application Support/Microsoft/EdgeUpdater/118.0.2088.86/EdgeUpdater.app/Contents/MacOS/EdgeUpdater","session_id":100016,"terminal_id":{"ip_address":"192.0.2.20","port":0,"type":4},"user_id":0,"user_name":"root"}}'
+    key:
+      - arguments.child_PID
+      - attributes.device
+      - attributes.file_access_mode
+      - attributes.file_system_id
+cves: []
+detections:
+  - title: Jamf Protect events arriving
+    severity: low
+    signals:
+      - service
+      - identity.signer_id
+      - identity.cd_hash
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "jamf_protect"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras jamf_protect/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/jamf_protect/assets/logs/jamfprotect_tests.yaml
+  - title: Pack Generator sample jamf_protect.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jamf_protect.json

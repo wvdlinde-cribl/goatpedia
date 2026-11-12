@@ -1,0 +1,71 @@
+id: oke
+name: Oke
+short: Oke
+vendor: Oke
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - oke
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Oke is logged by the Datadog integrations-core package oke. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: oke
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: oke/assets/logs/oke_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: oke
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: oracle.compartmentid, oracle.ingestedtime, oracle.loggroupid, oracle.tenantid, oracle.logid, data.msg
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Oke events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries oracle.compartmentid, oracle.ingestedtime, oracle.loggroupid, oracle.tenantid, oracle.logid, data.msg. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads oke and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Oke
+    sourcetype: oke
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"oracle":{"compartmentid":"ocid1.tenancy.oc1..aaaaaaaakyknye4jnwyh6rbcugpp4kh6iqzi7ir7pmguufdn5h7n5mnwlcoq","ingestedtime":"2025-01-15T20:15:18.722Z","loggroupid":"ocid1.loggroup.oc1.iad.amaaaaaaehwejaiaht4xndklpulceh344esjzb7mgggagfzxoe3plkn3wl3q","tenantid":"ocid1.tenancy.oc1..aaaaaaaakyknye4jnwyh6rbcugpp4kh6iqzi7ir7pmguufdn5h7n5mnwlcoq","logid":"ocid1.log.oc1.iad.amaaaaaaehwejaiattclycqwek5jxzh7dcrt453nxmu2wunyq6c3xvttszya"},"data":{"msg":"Update 3 nodes status took 1.361817186s.","level":"info","source":"node_controller.go:271"},"service":"oci","source":"cloud-controller-manager","type":"com.oraclecloud.kubernetes.cluster.controlplane","ddsource":"oci.kubernetes","timestamp":"2025-01-15T20:14:15.482Z"}'
+    key:
+      - oracle.compartmentid
+      - oracle.ingestedtime
+      - oracle.loggroupid
+      - oracle.tenantid
+cves: []
+detections:
+  - title: Oke events arriving
+    severity: low
+    signals:
+      - oracle.compartmentid
+      - oracle.ingestedtime
+      - oracle.loggroupid
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "oke"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core oke/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/oke/assets/logs/oke_tests.yaml
+  - title: Pack Generator sample oke.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/oke.json

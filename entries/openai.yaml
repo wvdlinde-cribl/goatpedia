@@ -36,6 +36,8 @@ sourcetypes:
     desc: Project inventory from GET /v1/organization/projects
   - st: openai_users
     desc: Organisation member inventory from GET /v1/organization/users
+  - st: openai_rate_limits
+    desc: 'Elastic integrations fixture, 3 events. Upstream: openai/data_stream/rate_limits/_dev/test/pipeline/test-rate-limits.log'
 facts:
   First released: API 2020; Admin API with audit logs 2024
   Delivery model: SaaS (api.openai.com), with data residency regions; Azure OpenAI is a separate Microsoft service with its own logs
@@ -186,6 +188,16 @@ logs:
     noise:
       - object
     sample: '{"object":"organization.user","id":"user-Ab12Cd34Ef56Gh78","email":"jdoe@example.com","name":"John Doe","role":"owner","added_at":1675873831}'
+  - type: Rate Limits
+    sourcetype: openai_rate_limits
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"rl_gpt4o_mini","object":"project.rate_limit","model":"gpt-4o-mini-2024-07-18","project_id":"proj_test_a","project_name":"Test Project A","project_status":"active","max_requests_per_1_minute":500,"max_tokens_per_1_minute":200000,"max_images_per_1_minute":50000,"max_requests_per_1_day":10000,"max_tokens_per_1_day":9000000,"batch_1_day_max_input_tokens":2000000,"collected_at":"2026-05-26T06:40:21Z"}'
+    key:
+      - id
+      - object
+      - model
+      - project_id
 cves:
   - id: CVE-2026-42208
     cvss: 9.8

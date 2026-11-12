@@ -1,0 +1,95 @@
+id: qualys-vmdr
+name: Qualys Vmdr
+short: Qualys Vmdr
+vendor: Qualys
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - qualys_vmdr
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Qualys Vmdr is logged by the Elastic integrations package qualys_vmdr. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: qualys_vmdr_asset_host_detection
+    desc: 'Elastic integrations fixture, 6 events. Upstream: qualys_vmdr/data_stream/asset_host_detection/_dev/test/pipeline/test-asset-host-detection.log'
+  - st: qualys_vmdr_knowledge_base
+    desc: 'Elastic integrations fixture, 4 events. Upstream: qualys_vmdr/data_stream/knowledge_base/_dev/test/pipeline/test-knowledge-base.log'
+  - st: qualys_vmdr_user_activity
+    desc: 'Elastic integrations fixture, 11 events. Upstream: qualys_vmdr/data_stream/user_activity/_dev/test/pipeline/test-yes-preserve-custom.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: qualys_vmdr
+  Sourcetypes: '3'
+  Fixture events: '21'
+  Log format seen: json
+  Fields in the first fixture: DETECTION_LIST.FIRST_FOUND_DATETIME, DETECTION_LIST.IS_DISABLED, DETECTION_LIST.IS_IGNORED, DETECTION_LIST.LAST_FOUND_DATETIME, DETECTION_LIST.LAST_PROCESSED_DATETIME, DETECTION_LIST.LAST_TEST_DATETIME
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Qualys Vmdr events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries DETECTION_LIST.FIRST_FOUND_DATETIME, DETECTION_LIST.IS_DISABLED, DETECTION_LIST.IS_IGNORED, DETECTION_LIST.LAST_FOUND_DATETIME, DETECTION_LIST.LAST_PROCESSED_DATETIME, DETECTION_LIST.LAST_TEST_DATETIME. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads qualys_vmdr and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Asset Host Detection
+    sourcetype: qualys_vmdr_asset_host_detection
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"DETECTION_LIST":{"FIRST_FOUND_DATETIME":"2019-11-06T09:41:57Z","IS_DISABLED":"0","IS_IGNORED":"0","LAST_FOUND_DATETIME":"2019-11-11T23:29:53Z","LAST_PROCESSED_DATETIME":"2019-11-12T15:00:26Z","LAST_TEST_DATETIME":"2019-11-11T23:29:53Z","LAST_UPDATE_DATETIME":"2019-11-12T15:00:26Z","QID":"256716","RESULTS":"Package\tInstalled Version\tRequired Version\nkernel-devel\t3.10.0-1062.1.1.el7.x86_64\t3.10.0-1062.1.2.el7\nkernel\t3.10.0-1062.1.1.el7.x86_64\t3.10.0-1062.1.2.el7","SEVERITY":"4","SSL":"0","STATUS":"Active","TIMES_FOUND":"10","TYPE":"Confirmed","UNIQUE_VULN_ID":"2029338482"},"DNS":"user-staging.example.net","DNS_DATA":{"DOMAIN":"example.net","FQDN":"user-staging.example.net","HOSTNAME":"user-staging"},"ID":"117163093","IP":"192.0.2.10","KNOWLEDGE_BASE":{"CATEGORY":"CentOS","CODE_MODIFIED_DATETIME":"2019-11-04T10:48:40Z","CONSEQUENCE":"This vulnerability could be exploited to gain complete access to sensitive information. Malicious users could also use this vulnerability to change all the c...","CORRELATION":{"EXPLOITS":{"EXPLT_SRC":[{"EXPLT_LIST":{"EXPLT":[{"DESC":"A buffer overflow flaw was found, in versions from 2.6.34 to 5.2.x, in the way Linux kernel''s vhost functionality that translates virtqueue buffers to IOVs, ...","LINK":"https://www.openwall.com/lists/oss-security/2019/09/17/1","REF":"CVE-2019-14835"}]},"SRC_NAME":"nist-nvd2"},{"EXPLT_LIST":{"EXPLT":[{"DESC":"A buffer overflow flaw was found, in versions from 2.6.34 to 5.2.x, in the way Linux kernel''s vhost functionality that translates virtqueue buffers to IOVs, ...","LINK":"https://www.openwall.com/lists/oss-security/2019/09/17/1","REF":"CVE-2019-14835"}]},"SRC_NAME":"nvd"}]}},"CVE_LIST":["CVE-2019-14835"],"CVSS":{"BASE":"7.2","TEMPORAL":"5.6","VECTOR_STRING":"CVSS:2.0/AV:L/AC:L/Au:N/C:C/I:C/A:C/E:POC/RL:OF/RC:C"},"CVSS_V3":{"BASE":"7.8","CVSS3_VERSION":"3.1","TEMPORAL":"7.0","VECTOR_STRING":"CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H/E:P/RL:O/RC:C"},"DIAGNOSIS":"CentOS has released security update for kernel to fix the vulnerabilities.<P>Affected Products:<BR><BR>centos 7","DISCOVERY":{"ADDITIONAL_INFO":"Patch Available, Exploit Available","AUTH_TYPE_LIST":{"AUTH_TYPE":["Unix"]},"REMOTE":"0"},"LAST_SERVICE_MODIFICATION_DATETIME":"2024-03-01T00:00:02Z","PATCHABLE":"1","PCI_FLAG":"1","PUBLISHED_DATETIME":"2019-11-04T10:48:40Z","QID":"256716","SEVERITY_LEVEL":"4","SOFTWARE_LIST":{"SOFTWARE":[{"PRODUCT":"kernel","VENDOR":"centos"}]},"SOLUTION":"To resolve this issue, upgrade to the latest packages which contain a patch. Refer to CentOS advisory <A HREF=\"https://lists.centos.org/pipermail/centos-anno...","THREAT_INTELLIGENCE":{"THREAT_INTEL":[{"#text":"Exploit_Public","id":"2"},{"#text":"High_Lateral_Movement","id":"4"}]},"TITLE":"CentOS Security Update for kernel (CESA-2019:2829)","VENDOR_REFERENCE_LIST":{"VENDOR_REFERENCE":[{"ID":"CESA-2019:2829 centos 7","URL":"https://lists.centos.org/pipermail/centos-announce/2019-October/023457.html"}]},"VULN_TYPE":"Vulnerability"},"LAST_PC_SCANNED_DATE":"2019-11-11T22:25:02Z","LAST_SCAN_DATETIME":"2019-11-12T15:00:26Z","LAST_VM_AUTH_SCANNED_DATE":"2019-11-11T23:29:53Z","LAST_VM_SCANNED_DATE":"2019-11-11T23:29:53Z","NETWORK_ID":"0","OS":"CentOS Linux 7.4.1708","QG_HOSTID":"19260abb-8547-467e-928d-73c13f13ea3c","TRACKING_METHOD":"AGENT"}'
+    key:
+      - DETECTION_LIST.FIRST_FOUND_DATETIME
+      - DETECTION_LIST.IS_DISABLED
+      - DETECTION_LIST.IS_IGNORED
+      - DETECTION_LIST.LAST_FOUND_DATETIME
+  - type: Knowledge Base
+    sourcetype: qualys_vmdr_knowledge_base
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"VENDOR_REFERENCE_LIST":{"VENDOR_REFERENCE":{"ID":"ABCDEFG-2023-6e5d4757df","URL":"https://bodhi.fedoraproject.org/updates/ABCDEFG-2023-6e5d4757df"}},"THREAT_INTELLIGENCE":{"THREAT_INTEL":[{"#text":"Exploit_Public","id":"2"},{"#text":"High_Lateral_Movement","id":"4"}]},"VULN_TYPE":"Vulnerability","CONSEQUENCE":"Malicious users could use this vulnerability to change partial contents or configuration on the system. Additionally this vulnerability can also be used to c...","CONSEQUENCE_COMMENT":"comment2","CVE_LIST":["CVE-2023-0341"],"DETECTION_INFO":"info1","LAST_CUSTOMIZATION":{"DATETIME":"2023-06-06T06:02:48Z","USER_LOGIN":"user_login"},"BUGTRAQ_LIST":{"BUGTRAQ":{"ID":"123","URL":"https://www.bugtraq.com"}},"LAST_SERVICE_MODIFICATION_DATETIME":"2023-06-06T06:02:45Z","PCI_REASONS":{"PCI_REASON":"The QID adheres to the PCI requirements based on the CVSS basescore."},"DIAGNOSIS":"Fedora has released a security update for editorconfig to fix the vulnerabilities.<P>Affected OS:<BR>Fedora 37<P><BR>","DIAGNOSIS_COMMENT":"comment1","PUBLISHED_DATETIME":"2023-06-05T13:38:36Z","SEVERITY_LEVEL":"4","SUPPORTED_MODULES":"VM,CA-Linux Agent","PCI_FLAG":"0","SOFTWARE_LIST":{"SOFTWARE":{"PRODUCT":"editorconfig","VENDOR":"fedora"}},"CORRELATION":{"EXPLOITS":{"EXPLT_SRC":{"EXPLT_LIST":{"EXPLT":{"LINK":"https://litios.github.io/2023/01/14/CVE-2023-0341.html","REF":"CVE-2023-0341","DESC":"A stack buffer overflow exists in the ec_glob function of editorconfig-core-c before v0.12.6 which allowed an attacker to arbitrarily write to the stack and ..."}},"SRC_NAME":"nvd"}},"MALWARE":{"MW_SRC":{"SRC_NAME":"mw","MW_LIST":{"MW_INFO":{"MW_ID":"123","MW_TYPE":"ec_glob","MW_PLATFORM":"unknown","MW_ALIAS":"unknown","MW_RATING":"2","MW_LINK":"https://litios.github.io/2023/01/14/MW-2023-0341.html"}}}}},"CVSS":{"BASE":"base","TEMPORAL":"temporal","VECTOR_STRING":"vector1","ACCESS":{"VECTOR":"xy_1","COMPLEXITY":"medium"},"IMPACT":{"CONFIDENTIALITY":"high","INTEGRITY":"integrity","AVAILABILITY":"yes"},"AUTHENTICATION":"auth","EXPLOITABILITY":"exploit","REMEDIATION_LEVEL":"remedy","REPORT_CONFIDENCE":"level"},"CVSS_V3":{"BASE":"base","TEMPORAL":"temporal","VECTOR_STRING":"ax_vb","CVSS3_VERSION":"1.0.0","ATTACK":{"VECTOR":"ax_vb","COMPLEXITY":"hard"},"IMPACT":{"CONFIDENTIALITY":"confidential","INTEGRITY":"0","AVAILABILITY":"1"},"PRIVILEGES_REQUIRED":"userlevel","USER_INTERACTION":"interact","SCOPE":"4","EXPLOIT_CODE_MATURITY":"mature","REMEDIATION_LEVEL":"5","REPORT_CONFIDENCE":"confident"},"AUTOMATIC_PCI_FAIL":"fail","TITLE":"Fedora Security Update for editorconfig (ABCDEFG-2023-6e5d4757df)","PATCHABLE":"0","IS_DISABLED":"0","QID":"284008","CHANGE_LOG_LIST":{"CHANGE_LOG_INFO":[{"CHANGE_DATE":"2023-06-05T18:04:20Z","COMMENTS":"Real-time threat indicator \"High_Lateral_Movement\" added."},{"CHANGE_DATE":"2023-06-06T05:00:02Z","COMMENTS":"Exploit added."}]},"CATEGORY":"Fedora","DISCOVERY":{"REMOTE":"0","ADDITIONAL_INFO":"Patch Available, Exploit Available","AUTH_TYPE_LIST":{"AUTH_TYPE":"Unix"}},"COMPLIANCE_LIST":{"COMPLIANCE":{"TYPE":"law","SECTION":"law_section","DESCRIPTION":"Not Provided"}}}'
+    key:
+      - VENDOR_REFERENCE_LIST.VENDOR_REFERENCE.ID
+      - VENDOR_REFERENCE_LIST.VENDOR_REFERENCE.URL
+      - THREAT_INTELLIGENCE.THREAT_INTEL[0].#text
+      - THREAT_INTELLIGENCE.THREAT_INTEL[0].id
+  - type: User Activity
+    sourcetype: qualys_vmdr_user_activity
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"Action":"login","Date":"2024-02-03T04:35:38Z","Details":"user_logged in","Module":"auth","User IP":"192.0.2.20","User Name":"saand_rn","User Role":"Manager"}'
+    key:
+      - Action
+      - Date
+      - Details
+      - Module
+cves: []
+detections:
+  - title: Qualys Vmdr events arriving
+    severity: low
+    signals:
+      - DETECTION_LIST.FIRST_FOUND_DATETIME
+      - DETECTION_LIST.IS_DISABLED
+      - DETECTION_LIST.IS_IGNORED
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "qualys_vmdr_asset_host_detection"'
+optimizations: []
+references:
+  - title: elastic/integrations qualys_vmdr/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/qualys_vmdr/data_stream/asset_host_detection/_dev/test/pipeline/test-asset-host-detection.log
+  - title: Pack Generator sample qualys_vmdr_asset_host_detection.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/qualys_vmdr_asset_host_detection.json

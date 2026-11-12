@@ -1,0 +1,71 @@
+id: cursor
+name: Cursor
+short: Cursor
+vendor: Cursor
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cursor
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cursor is logged by the Elastic integrations package cursor. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cursor_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: cursor/data_stream/audit/_dev/test/pipeline/test-cursor-audit-s3.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cursor
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: add_user.invite_id, add_user.invited_by_email, add_user.invited_by_user_id, add_user.role, add_user.source, add_user.team_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cursor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries add_user.invite_id, add_user.invited_by_email, add_user.invited_by_user_id, add_user.role, add_user.source, add_user.team_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cursor and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: cursor_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"add_user":{"invite_id":"","invited_by_email":"","invited_by_user_id":"0","role":"member","source":"autoEnroll","team_id":"15767141","user_email":"user@example.com"},"ip_address":"unknown","metadata":{"context":{"auth_id":"auth0|anon-6","ghost_mode":true,"privacy_mode":"{\"privacyMode\":\"PRIVACY_MODE_NO_STORAGE\"}","request_id":"serverGenReqId_4c7bb18b-66b4-495a-83a2-6ae55358da22"},"id":"7b28f4de-925f-4ff4-8837-7f0912553879","timestamp":"2026-04-08T16:20:57.867Z"},"team_id":"15767141","user_email":"unknown"}'
+    key:
+      - add_user.invite_id
+      - add_user.invited_by_email
+      - add_user.invited_by_user_id
+      - add_user.role
+cves: []
+detections:
+  - title: Cursor events arriving
+    severity: low
+    signals:
+      - add_user.invite_id
+      - add_user.invited_by_email
+      - add_user.invited_by_user_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cursor_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations cursor/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cursor/data_stream/audit/_dev/test/pipeline/test-cursor-audit-s3.log
+  - title: Pack Generator sample cursor_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cursor_audit.json

@@ -1,0 +1,71 @@
+id: ibm-ace
+name: IBM Ace
+short: IBM Ace
+vendor: IBM
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ibm_ace
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: IBM Ace is logged by the Datadog integrations-core package ibm_ace. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ibm_ace
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: ibm_ace/assets/logs/ibm_ace_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ibm_ace
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: ibm_processId, ibm_processName, module, ibm_recordtype, ibm_sequence, type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: IBM Ace events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries ibm_processId, ibm_processName, module, ibm_recordtype, ibm_sequence, type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ibm_ace and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: IBM Ace
+    sourcetype: ibm_ace
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"ibm_processId":"184","ibm_processName":"","module":"integration_server.ACESERVER","ibm_recordtype":"log","ibm_sequence":"1647035715112_0000000000001","type":"ace_message","message":"1990I: Integration server ''ACESERVER'' starting initialization; version ''203.0.113.8'' (64-bit) ","ibm_product":"IBM App Connect Enterprise","ibm_message_detail":"1990I: Integration server ''ACESERVER'' starting initialization; version ''203.0.113.40'' (64-bit) \nThe integration server is starting. \nNo user action required. ","ibm_serverName":"ACESERVER","loglevel":"INFO","host":"9bbd4e2ff0e3","ibm_threadId":"184","ibm_datetime":"2022-03-11T21:55:15.112922","ibm_messageId":"1990I"}'
+    key:
+      - ibm_processId
+      - ibm_processName
+      - module
+      - ibm_recordtype
+cves: []
+detections:
+  - title: IBM Ace events arriving
+    severity: low
+    signals:
+      - ibm_processId
+      - ibm_processName
+      - module
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ibm_ace"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ibm_ace/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ibm_ace/assets/logs/ibm_ace_tests.yaml
+  - title: Pack Generator sample ibm_ace.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ibm_ace.json

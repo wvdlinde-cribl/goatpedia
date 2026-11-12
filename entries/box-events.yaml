@@ -1,0 +1,66 @@
+id: box-events
+name: Box Events
+short: Box Events
+vendor: Box
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - box_events
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Box Events is logged by the Elastic integrations package box_events. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: box_events
+    desc: 'Elastic integrations fixture, 20 events. Upstream: box_events/data_stream/events/_dev/test/pipeline/test-event-types.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: box_events
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: event_type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Box Events events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads box_events and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Events
+    sourcetype: box_events
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"event_type":"ACCESS_GRANTED"}'
+    key:
+      - event_type
+cves: []
+detections:
+  - title: Box Events events arriving
+    severity: low
+    signals:
+      - event_type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "box_events"'
+optimizations: []
+references:
+  - title: elastic/integrations box_events/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/box_events/data_stream/events/_dev/test/pipeline/test-event-types.log
+  - title: Pack Generator sample box_events.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/box_events.json

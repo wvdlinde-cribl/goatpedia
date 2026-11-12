@@ -1,0 +1,71 @@
+id: have-i-been-pwned
+name: Have I Been Pwned
+short: Pwned
+vendor: Have
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - have_i_been_pwned
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Have I Been Pwned is logged by the Datadog integrations-core package have_i_been_pwned. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: have_i_been_pwned
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: have_i_been_pwned/assets/logs/have-i-been-pwned_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: have_i_been_pwned
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: LogoPath, Description, IsSpamList, user_details.user_name, user_details.email_domain, user_details.hash_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Have I Been Pwned events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries LogoPath, Description, IsSpamList, user_details.user_name, user_details.email_domain, user_details.hash_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads have_i_been_pwned and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Have I Been Pwned
+    sourcetype: have_i_been_pwned
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"LogoPath":"https://logos.haveibeenpwned.com/List.png","Description":"Description here...","IsSpamList":false,"user_details":{"user_name":"john.munro","email_domain":"example.com","hash_id":"10"},"IsSensitive":false,"IsRetired":false,"Title":"Operation Endgame 2.0","IsStealerLog":false,"ModifiedDate":"2025-05-25T21:41:13Z","Name":"OperationEndgame2","IsFabricated":false,"AddedDate":"2025-05-23T20:47:34Z","IsMalware":true,"PwnCount":15436844,"BreachDate":"2025-05-23","IsVerified":true,"IsSubscriptionFree":true,"Domain":"xyz","DataClasses":["Email addresses","Passwords"]}'
+    key:
+      - LogoPath
+      - Description
+      - IsSpamList
+      - user_details.user_name
+cves: []
+detections:
+  - title: Have I Been Pwned events arriving
+    severity: low
+    signals:
+      - LogoPath
+      - Description
+      - IsSpamList
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "have_i_been_pwned"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core have_i_been_pwned/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/have_i_been_pwned/assets/logs/have-i-been-pwned_tests.yaml
+  - title: Pack Generator sample have_i_been_pwned.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/have_i_been_pwned.json

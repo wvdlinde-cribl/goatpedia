@@ -1,0 +1,203 @@
+id: axonius
+name: Axonius
+short: Axonius
+vendor: Axonius
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - axonius
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Axonius is logged by the Elastic integrations package axonius. The Pack Generator samples pool holds fixture events for 12 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: axonius_adapter
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/adapter/_dev/test/pipeline/test-adapter.log'
+  - st: axonius_alert_finding
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/alert_finding/_dev/test/pipeline/test-alert-finding.log'
+  - st: axonius_application
+    desc: 'Elastic integrations fixture, 7 events. Upstream: axonius/data_stream/application/_dev/test/pipeline/test-url.log'
+  - st: axonius_compute
+    desc: 'Elastic integrations fixture, 8 events. Upstream: axonius/data_stream/compute/_dev/test/pipeline/test-device.log'
+  - st: axonius_exposure
+    desc: 'Elastic integrations fixture, 6 events. Upstream: axonius/data_stream/exposure/_dev/test/pipeline/test-exposure.log'
+  - st: axonius_gateway
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/gateway/_dev/test/pipeline/test-gateway.log'
+  - st: axonius_identity
+    desc: 'Elastic integrations fixture, 12 events. Upstream: axonius/data_stream/identity/_dev/test/pipeline/test-user.log'
+  - st: axonius_incident
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/incident/_dev/test/pipeline/test-incident.log'
+  - st: axonius_network
+    desc: 'Elastic integrations fixture, 1 events. Upstream: axonius/data_stream/network/_dev/test/pipeline/test-load-balancer.log'
+  - st: axonius_storage
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/storage/_dev/test/pipeline/test-storage.log'
+  - st: axonius_ticket
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/ticket/_dev/test/pipeline/test-ticket.log'
+  - st: axonius_user
+    desc: 'Elastic integrations fixture, 3 events. Upstream: axonius/data_stream/user/_dev/test/pipeline/test-user.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: axonius
+  Sourcetypes: '12'
+  Fixture events: '55'
+  Log format seen: json
+  Fields in the first fixture: id, adapter_configs, connections_count.error_count, connections_count.inactive_count, connections_count.success_count, connections_count.total_count
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Axonius events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, adapter_configs, connections_count.error_count, connections_count.inactive_count, connections_count.success_count, connections_count.total_count. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads axonius and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Adapter
+    sourcetype: axonius_adapter
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"id":"block64_blockbox_adapter","adapter_configs":{},"connections_count":{"error_count":0,"inactive_count":0,"success_count":1,"total_count":1,"warning_count":0},"is_master":true,"node_id":"c69070d9e5e145e4861f2843d1951ab2","node_name":"Primary","plugin_name":"block64_blockbox_adapter","status":"down","unique_plugin_name":"block64_blockbox_adapter_0","connections":[{"node_id":"c69070d9e5e145e4861f2843d1951ab2","active":true,"connection_id":"conn_12345","error":null,"adapter_name":"block64_blockbox_adapter","connection_config":{},"curl":null,"failed_connections_limit_exceeded":false,"last_fetch_time":"Sat, 08 Mar 2025 18:53:09 GMT","note":"","status":"success","tunnel_id":"khnsjhgvcskdbvnksdjahubnkvdhb","uuid":"c69070fgredffedfgrfedcfd9e5e145e4861f2843d1951ab2","connection_adapter_config":{},"connection_advanced_config":{},"connection_discovery":{},"did_notify_error":false,"id":"conn_12345","last_successful_fetch":"Sat, 08 Mar 2025 18:53:09 GMT"}]}'
+    key:
+      - id
+      - adapter_configs
+      - connections_count.error_count
+      - connections_count.inactive_count
+  - type: Alert Finding
+    sourcetype: axonius_alert_finding
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"internal_axon_id":"f8b16b93ecf0c0c4d7d10b797b9f839a","adapters":["axonius_findings_adapter"],"adapter_list_length":1,"asset_type":"alert_findings","event":{"data":{"alert_config_id":"66447fe5e6c4840f32a5b94f","alert_id":"984","finding_asset_type":"adapters_fetch_history","finding_check_and_notify":"Every global discovery cycle","finding_message":"","finding_name":"Failed Adapters","finding_severity":"high","id":"d919d74b380c16c8ea9d","id_raw":"67fd0fe9c0cc9f012ad936ad","plugin_unique_name":"axonius_findings_adapter","source":"alert_rule","status":"open","trigger_date":"Mon, 14 Apr 2025 13:38:49 GMT"},"plugin_name":"axonius_findings_adapter","plugin_unique_name":"axonius_findings_adapter","quick_id":"axonius_findings_adapter!d919d74b380c16c8ea9d"}}'
+    key:
+      - internal_axon_id
+      - adapters[0]
+      - adapter_list_length
+      - asset_type
+  - type: Application
+    sourcetype: axonius_application
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"asset_type":"urls","event":{"accurate_for_datetime":"Tue, 26 May 2026 00:17:37 GMT","associated_adapters":[],"association_type":"Tag","data":{"internet_exposure":"Inbound Exposed","internet_exposure_context":[]},"name":"static_analysis_0_NetworkRouteCalculatedFieldsSchema","plugin_name":"static_analysis","plugin_unique_name":"static_analysis_0_NetworkRouteCalculatedFieldsSchema","type":"adapterdata"},"internal_axon_id":"c53e1f9592959e0b128afeca68fc82cb","adapters":["cloudflare_adapter"],"adapter_list_length":1}'
+    key:
+      - asset_type
+      - event.accurate_for_datetime
+      - event.associated_adapters
+      - event.association_type
+  - type: Compute
+    sourcetype: axonius_compute
+    format: json
+    desc: 8 fixture events in the samples pool (elastic).
+    sample: '{"internal_axon_id":"044527ddb4bbb1a28e260b9b9743d80b","adapters":["chef_adapter","cisco_adapter"],"asset_type":"devices","adapter_list_length":10,"event":{"accurate_for_datetime":"Sat, 29 Nov 2025 12:08:36 GMT","action_if_exists":"update","associated_adapter_plugin_name":"chef_adapter","association_type":"Tag","data":{"protocols":["ms-sql-server","ssdp"],"risk_level":"1","id":"static_analysis_nvd_0!cve!044527ddb4bbb1a28e260b9b9743d80b","software_cves":[{"msrc":{"creation_date":"Wed, 29 Nov 2023 00:00:00 GMT","cve_id":"CVE-2024-6345","title":"Chromium: CVE-2023-6345 Integer overflow in Skia"},"epss":{"creation_date":"Thu, 27 Nov 2025 00:00:00 GMT","cve_id":"CVE-2023-6346","percentile":0.75294,"score":0.00924},"cve_id":"CVE-2024-27776","cve_list":["CVE-2024-27776"],"cve_severity":"CRITICAL","cvss":9.8,"cvss3_score":9.8,"cvss3_score_num":9.8,"cvss_str":"CVSS 9.8","cvss_version":"v3.0","cwe_id":["CWE-22","CWE-22"],"exploitability_score":3.9,"hash_id":"KPM/l58LaOL/C7CH","impact_score":5.9,"last_modified_date":"Thu, 10 Apr 2025 20:24:31 GMT","nvd_publish_age":544,"publish_date":"Sun, 02 Jun 2024 13:15:08 GMT","software_name":"devicehub","software_vendor":"milesight"},{"cve_id":"CVE-2024-4358","cve_list":["CVE-2024-4358"],"cve_severity":"CRITICAL","cvss":9.8,"cvss3_score":9.8,"cvss3_score_num":9.8,"cvss_str":"CVSS 9.8","cvss_version":"v3.0","cwe_id":["CWE-290","CWE-290"],"exploitability_score":3.9,"hash_id":"ngv0wW4CP2hn70Ik","impact_score":5.9,"last_modified_date":"Fri, 31 Oct 2025 21:57:12 GMT","nvd_publish_age":548,"publish_date":"Wed, 29 May 2024 15:16:06 GMT","software_name":"report_server_2024","software_vendor":"telerik"}]},"enrichment_type":"cve","entity":"devices","hidden_for_gui":true,"name":"static_analysis_nvd_0","plugin_name":"static_analysis_nvd","plugin_unique_name":"static_analysis_nvd_0","type":"adapterdata"}}'
+    key:
+      - internal_axon_id
+      - adapters[0]
+      - adapters[1]
+      - asset_type
+  - type: Exposure
+    sourcetype: axonius_exposure
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"asset_type":"vulnerability_repository","adapter_list_length":1,"adapters":["axonius_findings_adapter"],"internal_axon_id":"386843f6309d91e89a8e50ffc2e003cf","event":{"accurate_for_datetime":"Wed, 12 Nov 2025 00:02:19 GMT","client_used":"67fd09bdfe1c8e812a176bbd","data":{"__fields_to_unset__":["owner","uptime"],"accurate_for_datetime":"Wed, 12 Nov 2025 00:02:19 GMT","action":"Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.","added":"Sat, 08 Mar 2025 18:53:09 GMT","cisa_date_added":"Mon,06 Dec 2018 19:11:27 GMT","creation_date":"Mon,06 Dec 2018 19:11:27 GMT","cve_description":"Use after free in Visuals in Google Chrome prior...","cve_id":"CVE-2024-4671","cve_list":["CVE-2024-5274"],"cve_references":[{"tags":["Release Notes"],"url":"https://docs.microsoft.com/en-us/DeployEdge/microsoft-edge-relnotes-security"}],"cve_severity":"CRITICAL","cve_synopsis":"An attacker may write a malware to disk...","cvss":9.6,"cvss_str":"CVSS 9.6","cvss_vector":"CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H","cvss_version":"v3.0","cvss2_score":9.6,"cvss2_score_num":9.6,"cvss3_score":9.6,"cvss3_score_num":9.6,"cwe_id":["CWE-502","CWE-502"],"desc":"Google Chromium Visuals contains a use-after-free vulnerability...","due_date":"Mon, 03 Jun 2024 00:00:00 GMT","exploitability_score":2.8,"first_seen":"Wed, 12 Nov 2025 00:02:18 GMT","hash_id":"AVAfQpONXf8L0LBh","id":"esx-monitor1871068-stg.healthcare-subsidiary.com","impact_score":6,"is_cve":"TRUE","last_fetch":"Wed, 12 Nov 2025 00:02:18 GMT"},"initial_plugin_unique_name":"chef_adapter_0","plugin_name":"chef_adapter","plugin_type":"Adapter","plugin_unique_name":"chef_adapter_0","quick_id":"chef_adapter_0!esx-monitor1871068-stg.healthcare-subsidiary.com","type":"entitydata"}}'
+    key:
+      - asset_type
+      - adapter_list_length
+      - adapters[0]
+      - internal_axon_id
+  - type: Gateway
+    sourcetype: axonius_gateway
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"name":"Gateway_1","default":false,"dns_server":"203.0.113.8","email_when_connected":false,"email_when_disconnected":false,"email_recipients":["user@example.com"],"backup_ids":["backup1","backup2"],"tunnel_proxy_settings":{"enabled":false,"tunnel_proxy_addr":"addr","tunnel_proxy_port":8080,"tunnel_proxy_user":"tunnel-proxy-01"},"id":"tunnel3","status":"pending"}'
+    key:
+      - name
+      - default
+      - dns_server
+      - email_when_connected
+  - type: Identity
+    sourcetype: axonius_identity
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"asset_type":"users","event":{"associated_adapter_plugin_name":"chef_adapter","data":{"account_disabled":false,"active":["sample-active-value"],"admin_roles":[{"display_name":"_SEED_ADMIN_ROLE","id":"89617862826397410"}],"associated_devices":[{"device_associated_saas_apps_names":["sample-app"],"device_caption":["sample-caption"],"device_id":["device-12345"],"device_labels":["label1"],"device_model":["sample-model"],"device_os_distribution":["Ubuntu"],"device_os_edition":["sample-edition"],"device_os_end_of_life":["2030-01-01"],"device_os_type":["Linux"],"device_os_version":["20.04"],"device_preferred_mac_address":["2001:db8::1"],"device_serial":["SN12345678"],"internal_axon_id":["internal-axon-1"]}],"associated_employees":[{"internal_axon_id":["ax-employee-1"],"username":["user@example.com"]}],"associated_groups":[{"display_name":"Users","remote_id":"aa8ceb7e"}],"associated_licenses":[{"adapter_connection_label":["chef-demo"],"internal_axon_id":["lic-123"],"license_name":["Standard License"],"pricing_unit":["per-user"],"related_vendor_name":["VendorName"],"unit_price":["100"]}],"aws_iam_identity_type":"IAM User","azure_account_id":"c85155ee-451d-4839-ac97-b1ecad769374","breaches_data":[{"added_date":"Thu, 06 Dec 2018 19:11:27 GMT","breach_date":"Fri, 06 Dec 2018 19:11:27 GMT","data_classes":["sample-data-class"],"domain":"adapt.io","is_fabricated":false,"is_retired":false,"is_sensitive":false,"is_spam_list":false,"is_verified":true,"logo_path":"https://haveibeenpwned.com/Content/Images/PwnedLogos/List.png","modified_date":"Thu, 06 Dec 2018 19:11:27 GMT","name":"YouveBeenScraped","pwn_count":66147869,"title":"You''ve Been Scraped"}],"class_name":"cmdb_ci_vm","cloud_provider":"Azure","distinct_associated_devices_count":1,"email_activity":{"is_deleted":false,"product_license":"MICROSOFT FABRIC (FREE)+MICROSOFT TEAMS PHONE STANDARD+MICROSOFT DEFENDER FOR OFFICE365 (PLAN 2)+MICROSOFT 365 AUDIO CONFERENCING+ENTERPRISE MOBILITY + SECUR...","read_count":740,"receive_count":5181,"report_date":"Mon, 03 Jun 2024 00:00:00 GMT","report_period":90,"send_count":4677},"email_notification":{"alternative_host_reminder":false,"cancel_meeting_reminder":false,"jbh_reminder":true},"employee_id":"880290","employee_number":"880290","employee_type":"local","feature":{"cn_meeting":false,"in_meeting":false,"large_meeting":false,"meeting_capacity":70,"webinar":true,"zoom_phone":false},"first_name":"William","hire_date":"Wed, 12 Nov 2025 00:02:18 GMT","hr_employment_status":"Employed","in_meeting":{"allow_live_streaming":false,"annotation":false,"attendee_on_hold":true,"auto_saving_chat":false,"breakout_room":false,"chat":true,"closed_caption":true,"co_host":true,"data_center_regions":["AU","CA"],"e2e_encryption":true,"entry_exit_chime":true,"far_end_camera_control":true,"feedback":true,"group_hd":true,"non_verbal_feedback":false,"polling":true,"private_chat":false,"record_play_voice":false,"remote_control":false,"remote_support":false,"share_dual_camera":true,"show_meeting_control_toolbar":false,"virtual_background":true,"waiting_room":false,"workplace_by_facebook":true},"internal_is_admin":false,"is_active":true,"is_delegated_admin":false,"is_from_sso_provider":true,"is_latest_last_seen":true,"is_managed_by_application":true,"is_mfa_enforced":false}}}'
+    key:
+      - asset_type
+      - event.associated_adapter_plugin_name
+      - event.data.account_disabled
+      - event.data.active[0]
+  - type: Incident
+    sourcetype: axonius_incident
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"internal_axon_id":"e266f3d3306d3e6bb0694a1e1bc2678f","adapters":["orca_adapter"],"asset_type":"incidents","adapter_list_length":1,"event":{"accurate_for_datetime":"Sun, 07 Dec 2025 12:02:42 GMT","adapter_categories":["Cloud Security","VA Tool"],"client_used":"67fd09bc731ccb5730923102","data":{"accurate_for_datetime":"Sun, 07 Dec 2025 12:02:42 GMT","alert_labels":["easy_exploitation","fix_available"],"alert_source":"kernel (Internet facing)","alert_state":{"alert_created_at":"Thu, 20 Feb 2025 06:33:40 GMT","alert_high_since":"Sat, 22 Feb 2025 14:23:44 GMT","alert_last_seen":"Thu, 10 Apr 2025 05:54:41 GMT","alert_orca_score_number":5.9,"alert_risk_level":"medium","alert_score":"2","alert_severity":"imminent compromise","alert_status":"open","alert_status_time":"Sat, 22 Feb 2025 14:23:44 GMT"},"alert_type":"Service Vulnerability","application_and_account_name":"orca/orca-demo","asset_distribution_major_version":20,"asset_distribution_name":"Ubuntu","asset_distribution_version":"20.04","description":"The following vulnerabilities were found on Internet facing service: kernel 5.15.0","details":"We have found vulnerabilities on Internet facing service: kernel 5.15.0","fetch_time":"Sun, 07 Dec 2025 12:02:41 GMT","first_fetch_time":"Mon, 14 Apr 2025 13:27:14 GMT","from_last_fetch":true,"id":"96200dbb35a881128388","id_raw":"e77b5f63-37b8-4524-8b9a-2b9b3272065c","is_fetched_from_adapter":true,"last_fetch_connection_id":"67fd09bc731ccb5730923102","last_fetch_connection_label":"orca-demo","not_fetched_count":0,"pretty_id":"AX-3798397907","recommendation":"Patch the listed packages","source_application":"Orca","tenant_number":["3"],"type":"Incidents"},"initial_plugin_unique_name":"orca_adapter_0","plugin_name":"orca_adapter","plugin_type":"Adapter","plugin_unique_name":"orca_adapter_0","quick_id":"orca_adapter_0!96200dbb35a881128388","type":"entitydata"}}'
+    key:
+      - internal_axon_id
+      - adapters[0]
+      - asset_type
+      - adapter_list_length
+  - type: Network
+    sourcetype: axonius_network
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"asset_type":"load_balancers","internal_axon_id":"e0801bc31dca58e8ac9e1a7c8918522f","adapters":["aws_adapter"],"adapter_list_length":1,"event":{"accurate_for_datetime":"Thu, 13 Nov 2025 00:02:30 GMT","adapter_categories":["Cloud Infra"],"client_used":"67fd09ab731ccb57309230fc","data":{"source_addresses":["203.0.113.40"],"accurate_for_datetime":"Thu, 13 Nov 2025 00:02:30 GMT","application_and_account_name":"aws/aws-demo","connected_assets":["account_id2001:db8::14f62e52c-ecdb-4763-ab79-6f9680a53781","vpc_id2001:db8::1e1dd172a-abd8-493c-b92a-b12c3c48f506"],"fetch_time":"Thu, 13 Nov 2025 00:02:25 GMT","first_fetch_time":"Mon, 14 Apr 2025 13:26:49 GMT","from_last_fetch":true,"id":"77ad18efd98987e624bd","id_raw":"7af84e70-9fca-4507-a4ae-318129ab23f8","is_fetched_from_adapter":true,"last_fetch_connection_id":"67fd09ab731ccb57309230fc","last_fetch_connection_label":"aws-demo","name":"unified-dev8-3A8bfe710","not_fetched_count":0,"relatable_ids":["elb_dns2001:db8::17af84e70-9fca-4507-a4ae-318129ab23f8"],"software_cves":[],"source_application":"AWS","tenant_number":["3"],"type":"LoadBalancers"},"initial_plugin_unique_name":"aws_adapter_0","plugin_name":"aws_adapter","plugin_type":"Adapter","plugin_unique_name":"aws_adapter_0","quick_id":"aws_adapter_0!77ad18efd98987e624bd","type":"entitydata"}}'
+    key:
+      - asset_type
+      - internal_axon_id
+      - adapters[0]
+      - adapter_list_length
+  - type: Storage
+    sourcetype: axonius_storage
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"internal_axon_id":"056df4f2bde18a1547d5fae22098d64d","adapters":["aws_adapter"],"asset_type":"object_storages","adapter_list_length":1,"event":{"accurate_for_datetime":"Thu, 04 Dec 2025 12:02:21 GMT","adapter_categories":["Cloud Infra"],"client_used":"67fd09ab731ccb57309230fc","data":{"accurate_for_datetime":"Thu, 04 Dec 2025 12:02:21 GMT","application_and_account_name":"aws/aws-demo","asset_type":"AWS S3","creation_date":"Wed, 25 Dec 2024 22:16:51 GMT","fetch_time":"Thu, 04 Dec 2025 12:02:20 GMT","first_fetch_time":"Mon, 14 Apr 2025 13:27:03 GMT","from_last_fetch":true,"id":"cda46c83bf39105ee904","id_raw":"20d8a9b6-7ca0-4545-b6bd-7158eb8c4a42","is_fetched_from_adapter":true,"last_fetch_connection_id":"67fd09ab731ccb57309230fc","last_fetch_connection_label":"aws-demo","name":"dacFdDeed650092F-core-dev","not_fetched_count":0,"software_cves":[],"source_application":"AWS","tenant_number":["3"],"type":"ObjectStorage","urls":["https://dacFdDeed650092F-core-dev.s3.amazonaws.com"]},"initial_plugin_unique_name":"aws_adapter_0","plugin_name":"aws_adapter","plugin_type":"Adapter","plugin_unique_name":"aws_adapter_0","quick_id":"aws_adapter_0!cda46c83bf39105ee904","type":"entitydata"}}'
+    key:
+      - internal_axon_id
+      - adapters[0]
+      - asset_type
+      - adapter_list_length
+  - type: Ticket
+    sourcetype: axonius_ticket
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"adapter_list_length":1,"adapters":["axonius_findings_adapter"],"internal_axon_id":"386843f6309d91e89a8e50ffc2e003cf","event":{"accurate_for_datetime":"Wed, 12 Nov 2025 00:02:19 GMT","adapter_categories":["Cloud Infra","Containers"],"client_used":"67fd09bdfe1c8e812a176bbd","data":{"accurate_for_datetime":"Wed, 12 Nov 2025 00:02:19 GMT","application_and_account_name":"chef/chef-demo","category":"Hardware","closed":"Mon,06 Dec 2018 19:11:27 GMT","created":"Mon,06 Dec 2018 19:11:27 GMT","description":"Zoom is a software company that offers a communications platform that connects people through video, voice, chat, and content sharing.)","display_id":"INC5904384","fetch_time":"Wed, 12 Nov 2025 00:02:18 GMT","first_fetch_time":"Wed, 12 Nov 2025 00:02:18 GMT","from_last_fetch":true,"id":"esx-monitor1871068-stg.healthcare-subsidiary.com","is_fetched_from_adapter":true,"last_fetch_connection_id":"67fd09bdfe1c8e812a176bbd","last_fetch_connection_label":"chef-demo","not_fetched_count":0,"priority":"4 - Low","reporter":"Glenda Wilgus","source_application":"Chef","status":"closed","summary":"Access Reviewer","sys_class_name":"incident","tenant_number":["3"],"ticket_id":"ca9371ef-9218-4a93-9355-5e70f15495a6","type":"SaasApplications","updated":"Tue, 11 Mar 2025 00:51:41 GMT"},"initial_plugin_unique_name":"chef_adapter_0","plugin_name":"chef_adapter","plugin_type":"Adapter","plugin_unique_name":"chef_adapter_0","quick_id":"chef_adapter_0!esx-monitor1871068-stg.healthcare-subsidiary.com","type":"entitydata"}}'
+    key:
+      - adapter_list_length
+      - adapters[0]
+      - internal_axon_id
+      - event.accurate_for_datetime
+  - type: User
+    sourcetype: axonius_user
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"role_id":"63622d93d274d9489dbbgresdcv6a1cf","data_scope_id":"fgreg63622d93d274d9489db6a1cf","allowed_scopes_impersonation":["63622d93d274d9489db6a1cf","63622d93d274d9489db6a1cc"],"first_name":"john","last_name":"doe","email":"user@example.com","title":"Software Engineer","department":"example","user_name":"john.doe","last_updated":"Sat, 10 Mar 2025 18:53:09 GMT","source":"example source","uuid":"63622d93d274d9489db6a1cf","role_name":"example role","data_scope_name":"example data scope","last_login":"Sat, 08 Mar 2025 18:53:09 GMT"}'
+    key:
+      - role_id
+      - data_scope_id
+      - allowed_scopes_impersonation[0]
+      - allowed_scopes_impersonation[1]
+cves: []
+detections:
+  - title: Axonius events arriving
+    severity: low
+    signals:
+      - id
+      - adapter_configs
+      - connections_count.error_count
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "axonius_adapter"'
+optimizations: []
+references:
+  - title: elastic/integrations axonius/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/axonius/data_stream/adapter/_dev/test/pipeline/test-adapter.log
+  - title: Pack Generator sample axonius_adapter.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/axonius_adapter.json

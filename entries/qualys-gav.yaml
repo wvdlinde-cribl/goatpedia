@@ -1,0 +1,71 @@
+id: qualys-gav
+name: Qualys Gav
+short: Qualys Gav
+vendor: Qualys
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - qualys_gav
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Qualys Gav is logged by the Elastic integrations package qualys_gav. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: qualys_gav_asset
+    desc: 'Elastic integrations fixture, 4 events. Upstream: qualys_gav/data_stream/asset/_dev/test/pipeline/test-asset-events.json'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: qualys_gav
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: assetId, assetUUID, hostId, lastModifiedDate, agentId, createdDate
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Qualys Gav events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries assetId, assetUUID, hostId, lastModifiedDate, agentId, createdDate. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads qualys_gav and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Asset
+    sourcetype: qualys_gav_asset
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"assetId":688003347,"assetUUID":"20247932-9ca8-4351-80ee-3a3769b85db7","hostId":547254569,"lastModifiedDate":"2025-09-17T08:40:35.000Z","agentId":"20247932-9ca8-4351-80ee-3a3769b85db7","createdDate":"2023-02-15T20:32:36.000Z","sensorLastUpdatedDate":"2025-09-17T08:40:35.000Z","assetType":null,"address":"203.0.113.8","dnsName":"dnsName_value","assetName":"assetName_value","netbiosName":"netbiosName_value","timeZone":"UTC","biosDescription":"Google Google 09/13/2024","lastBoot":"2025-05-24T04:01:12.000Z","totalMemory":16008,"cpuCount":4,"lastLoggedOnUser":"lastLoggedOnUser_value","domainRole":null,"hwUUID":"e40e2013-8702-b520-50cc-ebc21e34488a","biosSerialNumber":"GoogleCloud-E40E20138702B52050CCEBC21E34488A","biosAssetTag":"Not Specified","isContainerHost":true,"operatingSystem":{"osName":"Debian Linux 11.11","fullName":"Debian Project Debian Bullseye (11.11)","category":"Linux / Server","category1":"Linux","category2":"Server","productName":"Debian","publisher":"Debian Project","edition":null,"marketVersion":"Bullseye","version":"11.11","update":"11.11","architecture":"x86_64","lifecycle":null,"taxonomy":{"id":null,"name":"Linux / Server","category1":"Linux","category2":"Server"},"productUrl":null,"productFamily":null,"installDate":null,"release":"11.11","cpeId":null,"cpe":null,"cpeType":null},"hardware":{"fullName":"Google Compute Engine","category":"Virtualized / Cloud Instance","category1":"Virtualized","category2":"Cloud Instance","manufacturer":"Google","productName":"Compute Engine","model":null,"lifecycle":null,"taxonomy":{"id":null,"name":"Virtualized / Cloud Instance","category1":"Virtualized","category2":"Cloud Instance"},"productUrl":null,"productFamily":null},"userAccountListData":{"userAccount":[{"name":"root"}]},"openPortListData":{"openPort":[{"port":22,"description":"","protocol":"TCP","detectedService":"sshd","firstFound":"2023-04-07T04:07:38.000Z","lastUpdated":"2025-09-09T15:52:49.000Z","authorization":null,"detectionScore":null,"discoverySources":"Cloud Agent"},{"port":68,"description":"","protocol":"UDP","detectedService":"dhclient","firstFound":"2025-02-27T14:58:06.000Z","lastUpdated":"2025-09-09T15:52:49.000Z","authorization":null,"detectionScore":null,"discoverySources":"Cloud Agent"}]},"volumeListData":{"volume":[{"name":"/dev","free":8381861888,"size":8381861888},{"name":"/boot/efi","free":118566912,"size":129751040}]},"networkInterfaceListData":{"networkInterface":[{"hostname":"hostname_value","addressIpV4":"203.0.113.40","addressIpV6":null,"macAddress":"","interfaceName":"","dnsAddress":null,"gatewayAddress":"","manufacturer":null,"macVendorIntroDate":null,"netmask":null,"addresses":null},{"hostname":"hostname_value","addressIpV4":null,"addressIpV6":"2001:db8::1","macAddress":"00:00:5e:00:53:01","interfaceName":"interfaceName_value","dnsAddress":"192.0.2.10","gatewayAddress":"192.0.2.20","manufacturer":null,"macVendorIntroDate":null,"netmask":null,"addresses":null}]},"softwareListData":{"software":[{"id":3472954331957710000,"discoverySources":"Cloud Agent, Cloud Agent","fullName":"libtasn1-6:amd64 4.16.0-2+deb11u2","softwareType":"Others","isIgnored":true,"ignoredReason":"Library Packages","category":"Unknown / Unknown","category1":"Unknown","category2":"Unknown","productName":"Unknown","component":null,"publisher":"Unknown","edition":null,"marketVersion":null,"version":"4.16.0-2+deb11u2","update":"4.16.0-2+deb11u2","architecture":null,"installDate":null,"installPath":null,"lastUpdated":"2025-09-17T07:48:42.000Z","lastUseDate":null,"language":null,"formerlyKnownAs":null,"isPackage":null,"isPackageComponent":null,"packageName":null,"productUrl":null,"lifecycle":null,"supportStageDesc":null,"license":null},{"id":-7272038036848305000,"discoverySources":"Cloud Agent, Cloud Agent","fullName":"git-man 1:2.30.2-1+deb11u4","softwareType":"Others","isIgnored":true,"ignoredReason":"Helper Packages","category":"Unknown / Unknown","category1":"Unknown","category2":"Unknown","productName":"Unknown","component":null,"publisher":"Unknown","edition":null,"marketVersion":null,"version":"1:2.30.2-1+deb11u4","update":"1:2.30.2-1+deb11u4","architecture":null,"installDate":null,"installPath":null,"lastUpdated":"2025-09-17T07:48:42.000Z","lastUseDate":null,"language":null,"formerlyKnownAs":null,"isPackage":null,"isPackageComponent":null,"packageName":null,"productUrl":null,"lifecycle":null,"supportStageDesc":null,"license":null}]}}'
+    key:
+      - assetId
+      - assetUUID
+      - hostId
+      - lastModifiedDate
+cves: []
+detections:
+  - title: Qualys Gav events arriving
+    severity: low
+    signals:
+      - assetId
+      - assetUUID
+      - hostId
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "qualys_gav_asset"'
+optimizations: []
+references:
+  - title: elastic/integrations qualys_gav/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/qualys_gav/data_stream/asset/_dev/test/pipeline/test-asset-events.json
+  - title: Pack Generator sample qualys_gav_asset.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/qualys_gav_asset.json

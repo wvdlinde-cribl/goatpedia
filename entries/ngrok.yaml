@@ -1,0 +1,71 @@
+id: ngrok
+name: Ngrok
+short: Ngrok
+vendor: Ngrok
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ngrok
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Ngrok is logged by the Datadog integrations-extras package ngrok. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ngrok
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: ngrok/assets/logs/ngrok_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: ngrok
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: account_id, event_id, event_type, event_timestamp, object.conn.server_name, object.conn.client_ip
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ngrok events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries account_id, event_id, event_type, event_timestamp, object.conn.server_name, object.conn.client_ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads ngrok and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Ngrok
+    sourcetype: ngrok
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"account_id":"ac_2OtNvAlhso10Gx6s7eupzX3F98q","event_id":"ev_25X3yFS6TDkig1KDJWIc4nnJO0c","event_type":"http_request_complete.v0","event_timestamp":"2022-02-23T23:44:16Z","object":{"conn":{"server_name":"ngrok-docs-example.ngrok.io","client_ip":"2001:db8::1","server_port":"443"},"http":{"request":{"method":"GET","version":"HTTP/2.0","url":{"path":"/docs/events"}},"response":{"first_byte_ts":"2022-02-23T23:44:16.732791273Z","status_code":200,"last_byte_ts":"2022-02-23T23:44:16.737257209Z","body_length":13079}}}}'
+    key:
+      - account_id
+      - event_id
+      - event_type
+      - event_timestamp
+cves: []
+detections:
+  - title: Ngrok events arriving
+    severity: low
+    signals:
+      - account_id
+      - event_id
+      - event_type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ngrok"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras ngrok/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/ngrok/assets/logs/ngrok_tests.yaml
+  - title: Pack Generator sample ngrok.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ngrok.json

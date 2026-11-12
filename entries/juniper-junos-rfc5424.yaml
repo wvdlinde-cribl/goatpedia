@@ -1,0 +1,83 @@
+id: juniper-junos-rfc5424
+name: Juniper Junos Rfc5424
+short: Rfc5424
+vendor: Juniper
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - juniper_junos_rfc5424
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Juniper Junos Rfc5424 is logged by the Splunk Connect for Syslog package juniper_junos_rfc5424. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: juniper_junos_aamw_structured
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_juniper_junos_rfc5424.py'
+  - st: juniper_junos_secintel_structured
+    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_juniper_junos_rfc5424.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: juniper_junos_rfc5424
+  Sourcetypes: '2'
+  Fixture events: '4'
+  Log format seen: kv
+  Fields in the first fixture: header, hostname, file-category, verdict-number, malware-info, action
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Juniper Junos Rfc5424 events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, hostname, file-category, verdict-number, malware-info, action. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads juniper_junos_rfc5424 and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Juniper Junos Aamw Structured
+    sourcetype: juniper_junos_aamw_structured
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <165>1 2026-06-15T13:45:07.123Z sc4s-lab-01 RT_AAMW - AAMW_ACTION_LOG [junos@2636.203.0.113.8.129 hostname="dummy_host" file-category="executable" verdict-number="10" malware-info="Testfile" action="PERMIT" list-hit="N/A" file-hash-lookup="FALSE" source-address="203.0.113.40" source-port="60148" destination-address="192.0.2.10" destination-port="80" protocol-id="6" application="HTTP" nested-application="N/A" policy-name="test-policy" username="N/A" roles="N/A" session-id-32="502156" source-zone-name="Inside" destination-zone-name="Outside" sample-sha256="e038b5168d9209267058112d845341cae83d92b1d1af0a10b66830acb7529494" file-name="dummy_file" url="dummy_url"]
+    key:
+      - hostname
+      - file-category
+      - verdict-number
+      - malware-info
+  - type: Juniper Junos Secintel Structured
+    sourcetype: juniper_junos_secintel_structured
+    format: kv
+    desc: 2 fixture events in the samples pool (sc4s).
+    sample: <23>1 2026-06-15T13:45:07.123Z sc4s-lab-01 RT_SECINTEL - SECINTEL_ACTION_LOG [junos@2636.192.0.2.20.129 category="secintel" sub-category="CC" action="BLOCK" action-detail="CLOSE REDIRECT MSG" http-host="dummy_host" threat-severity="10" source-address="198.51.100.15" source-port="36612" destination-address="198.51.100.25" destination-port="80" protocol-id="6" application="HTTP" nested-application="N/A" feed-name="cc_url_data" policy-name="test" profile-name="test-profile" username="N/A" roles="N/A" session-id-32="502362" source-zone-name="Inside" destination-zone-name="Outside" occur-count="0"]
+    key:
+      - category
+      - sub-category
+      - action
+      - action-detail
+cves: []
+detections:
+  - title: Juniper Junos Rfc5424 events arriving
+    severity: low
+    signals:
+      - header
+      - hostname
+      - file-category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "juniper_junos_aamw_structured"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_juniper_junos_rfc5424.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_juniper_junos_rfc5424.py
+  - title: Pack Generator sample juniper_junos_aamw_structured.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_junos_aamw_structured.json

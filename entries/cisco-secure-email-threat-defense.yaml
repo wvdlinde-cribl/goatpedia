@@ -1,0 +1,71 @@
+id: cisco-secure-email-threat-defense
+name: Cisco Secure Email Threat Defense
+short: Defense
+vendor: Cisco
+category: email
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisco_secure_email_threat_defense
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Cisco Secure Email Threat Defense is logged by the Datadog integrations-core package cisco_secure_email_threat_defense. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisco_secure_email_threat_defense
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: cisco_secure_email_threat_defense/assets/logs/cisco-secure-email-threat-defense_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: cisco_secure_email_threat_defense
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: returnPath, subject, deliveredTo[0], mailboxes[0], mailboxes[1], toAddresses[0]
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisco Secure Email Threat Defense events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries returnPath, subject, deliveredTo[0], mailboxes[0], mailboxes[1], toAddresses[0]. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads cisco_secure_email_threat_defense and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Cisco Secure Email Threat Defense
+    sourcetype: cisco_secure_email_threat_defense
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"returnPath":"user@example.com","subject":"verdict override","deliveredTo":["user@example.com"],"mailboxes":["user@example.com","user@example.com"],"toAddresses":["user@example.com"],"internetMessageId":"<user@example.com>","urls":["http://ihaveabad.dffd/","https://sdfsd.cdf/"],"senderName":"abc","envelopeTo":["user@example.com"],"clientIP":"192.0.2.10","domain":"abc.com","verdict":{"originalVerdict":"malicious","techniques":[{"severity":"high","description":"http://ihaveabad.dffd/","type":"Malicious URL"},{"severity":"medium","description":"Sender domain crestdata.ai rarely communicates with recipient domain onmicrosoft.com","type":"Rare sender domain for recipient domain"}],"publicApiClientId":"","isRetroVerdict":false,"businessRisk":"","isManualVerdict":true,"latestVerdict":"neutral","category":"","userId":"11fa1d11-4f4d-4596-ab02-8dec27d4808e","timestamp":"2024-07-17T10:48:19Z"},"action":{"folder":"trash","publicApiClientId":"","type":"move","isAutoRemediated":false,"timestamp":"2024-07-17T10:49:26Z"},"serverIP":"192.0.2.20","fromAddress":"user@example.com","id":"0cdac345-c111-111c-a978-11162c0da557","direction":"internal","timestamp":"2024-07-17T05:57:23Z"}'
+    key:
+      - returnPath
+      - subject
+      - deliveredTo[0]
+      - mailboxes[0]
+cves: []
+detections:
+  - title: Cisco Secure Email Threat Defense events arriving
+    severity: low
+    signals:
+      - returnPath
+      - subject
+      - deliveredTo[0]
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisco_secure_email_threat_defense"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core cisco_secure_email_threat_defense/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/cisco_secure_email_threat_defense/assets/logs/cisco-secure-email-threat-defense_tests.yaml
+  - title: Pack Generator sample cisco_secure_email_threat_defense.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_secure_email_threat_defense.json

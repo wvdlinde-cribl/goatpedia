@@ -31,6 +31,8 @@ sourcetypes:
     desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
   - st: AWS_WAF
     desc: Google SecOps (Chronicle) log type
+  - st: aws_waf
+    desc: 'Elastic integrations fixture, 5 events. Upstream: aws/data_stream/waf/_dev/test/pipeline/test-waf.log'
 facts:
   First released: October 2015 (WAF Classic); WAFv2 November 2019
   Delivery model: Managed service; web ACLs (protection packs) are regional or global (CloudFront)
@@ -154,6 +156,16 @@ logs:
       - httpRequest.requestId
       - rateBasedRuleList[0].rateBasedRuleId
     sample: '{"timestamp":1794475322904,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"login-rate-limit","terminatingRuleType":"RATE_BASED","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[{"rateBasedRuleId":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","rateBasedRuleName":"login-rate-limit","limitKey":"IP","maxRateAllowed":100,"evaluationWindowSec":"300","customValues":[]}],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"192.0.2.150","country":"DE","headers":[{"name":"Host","value":"shop.example.com"},{"name":"Content-Type","value":"application/x-www-form-urlencoded"}],"uri":"/api/login","args":"","httpVersion":"HTTP/1.1","httpMethod":"POST","requestId":"1-6733a7ba-0123456789abcdef01234567"},"labels":[]}'
+  - type: WAF
+    sourcetype: aws_waf
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":1576280412771,"formatVersion":1,"webaclId":"arn:aws:wafv2:ap-southeast-2:EXAMPLE12345:regional/webacl/STMTest/1EXAMPLE-2ARN-3ARN-4ARN-123456EXAMPLE","terminatingRuleId":"STMTest_SQLi_XSS","terminatingRuleType":"REGULAR","action":"BLOCK","terminatingRuleMatchDetails":[{"conditionType":"SQL_INJECTION","location":"HEADER","matchedData":["10","AND"]}],"httpSourceName":"-","httpSourceId":"-","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"httpRequest":{"clientIp":"203.0.113.40","country":"AU","headers":[{"name":"Host","value":"localhost:1989"},{"name":"User-Agent","value":"curl/7.61.1"}],"uri":"/foo","args":"","httpVersion":"HTTP/1.1","httpMethod":"GET","requestId":"rid"},"labels":[{"name":"value"}]}'
+    key:
+      - timestamp
+      - formatVersion
+      - webaclId
+      - terminatingRuleId
 cves:
   - id: CVE-2025-55182
     cvss: 10

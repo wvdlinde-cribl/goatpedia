@@ -1,0 +1,71 @@
+id: crowdsec
+name: Crowdsec
+short: Crowdsec
+vendor: Crowdsec
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - crowdsec
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Crowdsec is logged by the Elastic integrations package crowdsec. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: crowdsec_alert
+    desc: 'Elastic integrations fixture, 9 events. Upstream: crowdsec/data_stream/alert/_dev/test/pipeline/test-crowdsec-alert-http-probing-sample.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: crowdsec
+  Sourcetypes: '1'
+  Fixture events: '9'
+  Log format seen: json
+  Fields in the first fixture: capacity, decisions[0].duration, decisions[0].origin, decisions[0].scenario, decisions[0].scope, decisions[0].type
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Crowdsec events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries capacity, decisions[0].duration, decisions[0].origin, decisions[0].scenario, decisions[0].scope, decisions[0].type. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads crowdsec and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Alert
+    sourcetype: crowdsec_alert
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"capacity":10,"decisions":[{"duration":"4h","origin":"crowdsec","scenario":"crowdsecurity/http-probing","scope":"Ip","type":"ban","uuid":"6d99a8fe-d4b4-4500-8267-343315f3489b","value":"198.51.100.15"}],"events":[{"meta":[{"key":"ASNNumber","value":"0"},{"key":"IsInEU","value":"false"}],"timestamp":"2026-09-06T07:03:17Z"},{"meta":[{"key":"ASNNumber","value":"0"},{"key":"IsInEU","value":"false"}],"timestamp":"2026-09-06T07:03:17Z"}],"events_count":2,"kind":"crowdsec","labels":null,"leakspeed":"10s","machine_id":"localhost","message":"Ip 203.0.113.40 performed ''crowdsecurity/http-probing'' (11 events over 66.141098ms) at 2026-09-06 07:03:17.341951435 +0000 UTC","meta":[{"key":"target_uri","value":"[\"/products?id=1''%20OR%20''1''=''1--%201\", \"/products?id=1''%20OR%20''1''=''1--%202\"]"},{"key":"user_agent","value":"[\"sqlmap/1.7\"]"}],"remediation":true,"scenario":"crowdsecurity/http-probing","scenario_hash":"4b16f896af400e006c28b1476bf5989c748186f2b3756ed9ad7d1559480d278c","scenario_version":"0.4","simulated":false,"source":{"as_number":"0","ip":"192.0.2.10","scope":"Ip","value":"192.0.2.20"},"start_at":"2026-09-06T07:03:17.275811377Z","stop_at":"2026-09-06T07:03:17.341952475Z","uuid":"4bf17244-f3c0-4581-9559-03e2d135c71e"}'
+    key:
+      - capacity
+      - decisions[0].duration
+      - decisions[0].origin
+      - decisions[0].scenario
+cves: []
+detections:
+  - title: Crowdsec events arriving
+    severity: low
+    signals:
+      - capacity
+      - decisions[0].duration
+      - decisions[0].origin
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "crowdsec_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations crowdsec/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/crowdsec/data_stream/alert/_dev/test/pipeline/test-crowdsec-alert-http-probing-sample.log
+  - title: Pack Generator sample crowdsec_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/crowdsec_alert.json

@@ -1,0 +1,83 @@
+id: kaspersky
+name: Kaspersky
+short: Kaspersky
+vendor: Kaspersky
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - kaspersky
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Kaspersky is logged by the Splunk Connect for Syslog package kaspersky. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: kaspersky_es
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_kaspersky.py'
+  - st: kaspersky_klprci
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_kaspersky.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: kaspersky
+  Sourcetypes: '2'
+  Fixture events: '2'
+  Log format seen: kv, cef
+  Fields in the first fixture: header, p1, p2, p3, p4, p5
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Kaspersky events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, p1, p2, p3, p4, p5. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads kaspersky and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv / cef.
+logs:
+  - type: Kaspersky Es
+    sourcetype: kaspersky_es
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<29>1 2026-06-15T13:45:07.123Z sc4s-lab-01 KES|198.51.100.15 - GNRL_EV_APPLICATION_LAUNCH_DENIE [event@23668 p1="829fdcfa98cbcc63" p2="NT AUTHORITY\\SYSTEM" p3="00000000000000000000000000000000" p4="EAC00100000000000000000000000000" p5="{\"CertSerial\":\"\" ,\"CertThumbprint\":\"\" ,\"CertIssuer\":\"\" ,\"CertSubject\":\"\" ,\"ParentProcess\":\"\"}" p6="rm.bat" p7="C:\\Windows\\SysWOW64\\config\\systemprofile\\Citrix\\UpdaterBinaries\\rm.bat" p8=";DF4C7A695766C5592C6AAB9BD2D2EB87E0C73EAE9218955F61E507E564F26CFC" et="GNRL_EV_APPLICATION_LAUNCH_DENIED" tdn="Application Control" etdn="Application startup prohibited" hdn="WS11128" hip="198.51.100.25" gn="Bourbonnais Medical Plaza"] Event type: Application startup prohibited\r\nComment: At the next operating system restart, the prohibited process will be automatically blocked until Kaspersky Endpoint Security for Windows starts\r\nObject name: rm.bat\r\nPath to object: C:\Windows\SysWOW64\config\systemprofile\Citrix\UpdaterBinaries\rm.bat\r\nSHA256: df4c7a695766c5592c6aab9bd2d2eb87e0c73eae9218955f61e507e564f26cfc\r\nKL category: Uncategorized\r\nKL category source: Local databases\r\nUser: NT AUTHORITY\SYSTEM (Initiator)\r\nResult: Blocked\r\nRule category: Default Deny\r\nRule type: Not test'
+    key:
+      - p1
+      - p2
+      - p3
+      - p4
+  - type: Kaspersky Klprci
+    sourcetype: kaspersky_klprci
+    format: cef
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: <29>1 2026-06-15T13:45:07.123Z sc4s-lab-01 CEF:0|KasperskyLab|SecurityCenter|13.2.0.1511|KLPRCI_TaskState|Completed successfully|1|rt=1647626887000 cs9=site location Bldg cs9Label=GroupName dhost=WS6465 dst=203.0.113.8 cs2=KES cs2Label=ProductName cs3=203.0.113.40 cs3Label=ProductVersion cs10=Uninstall EDR cs10Label=TaskName cs4=885 cs4Label=TaskId cn2=4 cn2Label=TaskNewState cn1=0 cn1Label=TaskOldState
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Kaspersky events arriving
+    severity: low
+    signals:
+      - header
+      - p1
+      - p2
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "kaspersky_es"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_kaspersky.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_kaspersky.py
+  - title: Pack Generator sample kaspersky_es.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kaspersky_es.json

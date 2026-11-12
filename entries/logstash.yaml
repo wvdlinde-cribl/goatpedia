@@ -1,0 +1,83 @@
+id: logstash
+name: Logstash
+short: Logstash
+vendor: Logstash
+category: pipeline
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - logstash
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Logstash is logged by the Elastic integrations package logstash. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: logstash
+    desc: 'Elastic integrations fixture, 9 events. Upstream: logstash/data_stream/log/_dev/test/pipeline/test-log-json.log'
+  - st: logstash_slowlog
+    desc: 'Elastic integrations fixture, 1 events. Upstream: logstash/data_stream/slowlog/_dev/test/pipeline/test-slowlog-json.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: logstash
+  Sourcetypes: '2'
+  Fixture events: '10'
+  Log format seen: json
+  Fields in the first fixture: level, loggerName, timeMillis, thread, logEvent.message, logEvent.url
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Logstash events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries level, loggerName, timeMillis, thread, logEvent.message, logEvent.url. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads logstash and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Log
+    sourcetype: logstash
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"level":"WARN","loggerName":"logstash.outputs.elasticsearch","timeMillis":1663084834955,"thread":"[pipeline-with-memory-queue]-pipeline-manager","logEvent":{"message":"Restored connection to ES instance","url":"https://elastic:xxxxxx@elasticsearch:9200/"}}'
+    key:
+      - level
+      - loggerName
+      - timeMillis
+      - thread
+  - type: Slowlog
+    sourcetype: logstash_slowlog
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"level":"WARN","loggerName":"slowlog.logstash.filters.sleep","timeMillis":1663093597055,"thread":"[pipeline-with-persisted-queue]>worker5","logEvent":{"message":"event processing time","plugin_params":{"every":10,"time":1,"id":"e24d45cc4f3bb9981356480856120ed5f68127abbc3af7f47e7bca32460e5019"},"took_in_nanos":15000,"took_in_millis":0,"event":"{\"hostname\":\"66b70fb1a96b\",\"sequence\":430370,\"message\":\"Hello world!\",\"@version\":\"1\",\"@timestamp\":\"2022-09-13T18:26:26.574073600Z\",\"thread_number\":0}"}}'
+    key:
+      - level
+      - loggerName
+      - timeMillis
+      - thread
+cves: []
+detections:
+  - title: Logstash events arriving
+    severity: low
+    signals:
+      - level
+      - loggerName
+      - timeMillis
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "logstash"'
+optimizations: []
+references:
+  - title: elastic/integrations logstash/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/logstash/data_stream/log/_dev/test/pipeline/test-log-json.log
+  - title: Pack Generator sample logstash.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/logstash.json

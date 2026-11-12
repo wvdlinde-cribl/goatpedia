@@ -1,0 +1,71 @@
+id: trellix-edr-cloud
+name: Trellix EDR Cloud
+short: Cloud
+vendor: Trellix
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - trellix_edr_cloud
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Trellix EDR Cloud is logged by the Elastic integrations package trellix_edr_cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: trellix_edr_cloud
+    desc: 'Elastic integrations fixture, 1 events. Upstream: trellix_edr_cloud/data_stream/event/_dev/test/pipeline/test-event.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: trellix_edr_cloud
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: _ver, _serverId, _eventType, accessType, _deviceId, _parentEventId
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Trellix EDR Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _ver, _serverId, _eventType, accessType, _deviceId, _parentEventId. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads trellix_edr_cloud and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: trellix_edr_cloud
+    format: json
+    desc: 1 fixture events in the samples pool (elastic).
+    sample: '{"_ver":2107,"_serverId":"5B0539BF-0932-4BEA-BD12-EA52687E58BD","_eventType":"File Deleted","accessType":"connection_opened","_deviceId":"D435435b0-BB33-4625-891E-XXXXXXX","_parentEventId":"1XXXXX-8566-404c-87a3-a4c46017b87d","_eventId":"675XXXX-054c-48e8-9549-468dbb5ae5bc","_time":"2023-04-05T07:05:21.186Z","name":"Write Process Memory","authorName":"Example","data":"AAA9UFgBAAA=","arguments":["0x220a50d0000","0x1000"],"cmdLine":"\"C:\\Users\\XXXX\\AppData\\Local\\Microsoft\\OneDrive\\Update\\setup.exe\"/update","result":"2085503003216","fileModificationDate":"2023-04-04T12:38:42.821Z","fileType":"PE","fileCreationDate":"2023-04-04T12:38:40.984Z","fileMd5":"A7F7A4EEC248E6C1841EC6D5B735357B","fileSha1":"B8F93C2963CF1415A3D1C49668BF56665E3DC334","fileSha256":"F36CD7BAD72D6B6144234DBA8A101A529DABEDC07D48056126A1356A4EECA418","filePath":"C:\\ProgramFiles\\WindowsApps\\Deleted\\XXX.PowerAutomateDesktop_1.0.414.0_x64__8wekyb3d8e7483ce5b-4hhh-4a05-a9d8-a3e99e12498d\\kk-KZ\\PPP.Console.XX.YY.dll","fileSize":5632,"fileAttributes":32,"subsystem":3,"fileMagicBytes":"d0cf11e0a1b11ae1","direction":"outbound","dnsName":"content-autofill.example.com","pipeName":"\\\\.\\pipe\\Sessions\\3\\AppContainerNamedObjects\\S-1-15-2-3573721485-3817616455-324955835-1810672402-3651098853-3568380600-1295794929","destAddress":"198.51.100.15","destPort":443}'
+    key:
+      - _ver
+      - _serverId
+      - _eventType
+      - accessType
+cves: []
+detections:
+  - title: Trellix EDR Cloud events arriving
+    severity: low
+    signals:
+      - _ver
+      - _serverId
+      - _eventType
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "trellix_edr_cloud"'
+optimizations: []
+references:
+  - title: elastic/integrations trellix_edr_cloud/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trellix_edr_cloud/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample trellix_edr_cloud.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trellix_edr_cloud.json

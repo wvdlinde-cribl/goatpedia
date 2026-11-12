@@ -1,0 +1,67 @@
+id: harbor
+name: Harbor
+short: Harbor
+vendor: Harbor
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - harbor
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Harbor is logged by the Datadog integrations-core package harbor. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: harbor
+    desc: 'Datadog integrations-core fixture, 16 events. Upstream: harbor/assets/logs/harbor_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: harbor
+  Sourcetypes: '1'
+  Fixture events: '16'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Harbor events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads harbor and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Harbor
+    sourcetype: harbor
+    format: text
+    desc: 16 fixture events in the samples pool (logtest).
+    sample: 'Jun  3 19:49:04 198.51.100.15 proxy[1297]: 198.51.100.25 - "GET /harbor/sign-in?redirect_url=%2Fharbor%2Fprojects HTTP/1.1" 200 693 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36" 0.001 0.000 .'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Harbor events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "harbor"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core harbor/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/harbor/assets/logs/harbor_tests.yaml
+  - title: Pack Generator sample harbor.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/harbor.json

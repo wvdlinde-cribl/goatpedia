@@ -1,0 +1,71 @@
+id: azure-app-service
+name: Azure App Service
+short: Service
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_app_service
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure App Service is logged by the Elastic integrations package azure_app_service. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_app_service_app_service_logs
+    desc: 'Elastic integrations fixture, 11 events. Upstream: azure_app_service/data_stream/app_service_logs/_dev/test/pipeline/test-appservicehttplogs-raw.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure_app_service
+  Sourcetypes: '1'
+  Fixture events: '11'
+  Log format seen: json
+  Fields in the first fixture: time, resourceId, category, properties.CsMethod, properties.CsUriStem, properties.SPort
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure App Service events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, resourceId, category, properties.CsMethod, properties.CsUriStem, properties.SPort. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure_app_service and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: App Service Logs
+    sourcetype: azure_app_service_app_service_logs
+    format: json
+    desc: 11 fixture events in the samples pool (elastic).
+    sample: '{"time":"2022-12-14T12:18:26.4843064Z","resourceId":"/SUBSCRIPTIONS/12CA3CB4-86E8-404F-A352-1DC1000F45CA/RESOURCEGROUPS/USER-TEST/PROVIDERS/MICROSOFT.WEB/SITES/APP-TEST","category":"AppServiceHTTPLogs","properties":{"CsMethod":"POST","CsUriStem":"/api/command","SPort":"443","CIp":"198.51.100.15","UserAgent":"Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/198.51.100.25+Safari/537.36","CsHost":"user-test.scm.azurewebsites.net","ScStatus":200,"ScSubStatus":"0","ScWin32Status":"0","ScBytes":778,"CsBytes":1523,"TimeTaken":1793,"Result":"Success","Cookie":"-","CsUriQuery":"X-ARR-LOG-ID=820d6db3-32ed-4b18-b1d2-2ce575080071","CsUsername":"-","Referer":"-","ComputerName":"WEBWK00000A"}}'
+    key:
+      - time
+      - resourceId
+      - category
+      - properties.CsMethod
+cves: []
+detections:
+  - title: Azure App Service events arriving
+    severity: low
+    signals:
+      - time
+      - resourceId
+      - category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_app_service_app_service_logs"'
+optimizations: []
+references:
+  - title: elastic/integrations azure_app_service/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_app_service/data_stream/app_service_logs/_dev/test/pipeline/test-appservicehttplogs-raw.log
+  - title: Pack Generator sample azure_app_service_app_service_logs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_app_service_app_service_logs.json

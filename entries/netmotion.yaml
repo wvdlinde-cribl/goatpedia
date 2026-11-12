@@ -1,0 +1,83 @@
+id: netmotion
+name: Netmotion
+short: Netmotion
+vendor: Netmotion
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - netmotion
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Netmotion is logged by the Splunk Connect for Syslog package netmotion. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: netmotion_mobility
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_netmotion.py'
+  - st: netmotion_reporting
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_netmotion.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: netmotion
+  Sourcetypes: '2'
+  Fixture events: '2'
+  Log format seen: kv
+  Fields in the first fixture: header, MobilityPID, DeviceName, UserName, PhoneNumber, CurrentCarrier
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Netmotion events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, MobilityPID, DeviceName, UserName, PhoneNumber, CurrentCarrier. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads netmotion and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Netmotion Mobility
+    sourcetype: netmotion_mobility
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: <29>1 2026-06-15T13:45:07.123Z sc4s-lab-01 LocalityServer - - [nm_MobilityAnalyticsAppData@11912 MobilityPID="01BF47AA41BDE17800505995159C002" DeviceName="Wemmet-5547" UserName="tim.smith" PhoneNumber="2065551234" CurrentCarrier="AT&T" AppName="CustomApp1" AppType="User" Bytes="1116842" DateHour="2017-02-26T19:00:00.000Z"]
+    key:
+      - MobilityPID
+      - DeviceName
+      - UserName
+      - PhoneNumber
+  - type: Netmotion Reporting
+    sourcetype: netmotion_reporting
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: <29>1 2026-06-15T13:45:07.123Z sc4s-lab-01 nmreporting.exe 7596 PoolStatus [nm_pool_status@11912 d_count="25" d_count_android="8" d_count_ios="17" d_count_mac="0" d_count_win="0" d_license_avail="175" d_license_tot="200" pool_name="mobility" rep_disabled="1"]
+    key:
+      - d_count
+      - d_count_android
+      - d_count_ios
+      - d_count_mac
+cves: []
+detections:
+  - title: Netmotion events arriving
+    severity: low
+    signals:
+      - header
+      - MobilityPID
+      - DeviceName
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "netmotion_mobility"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_netmotion.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_netmotion.py
+  - title: Pack Generator sample netmotion_mobility.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/netmotion_mobility.json

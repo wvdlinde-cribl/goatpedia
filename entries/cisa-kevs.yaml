@@ -1,0 +1,71 @@
+id: cisa-kevs
+name: Cisa Kevs
+short: Cisa Kevs
+vendor: Cisa
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - cisa_kevs
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Cisa Kevs is logged by the Elastic integrations package cisa_kevs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: cisa_kevs_vulnerability
+    desc: 'Elastic integrations fixture, 3 events. Upstream: cisa_kevs/data_stream/vulnerability/_dev/test/pipeline/test-cisakev-ndjson.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: cisa_kevs
+  Sourcetypes: '1'
+  Fixture events: '3'
+  Log format seen: json
+  Fields in the first fixture: cveID, vendorProject, product, vulnerabilityName, dateAdded, shortDescription
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Cisa Kevs events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries cveID, vendorProject, product, vulnerabilityName, dateAdded, shortDescription. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads cisa_kevs and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Vulnerability
+    sourcetype: cisa_kevs_vulnerability
+    format: json
+    desc: 3 fixture events in the samples pool (elastic).
+    sample: '{"cveID":"CVE-2020-3259","vendorProject":"Cisco","product":"Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD)","vulnerabilityName":"Cisco ASA and FTD Information Disclosure Vulnerability","dateAdded":"2024-02-15","shortDescription":"Cisco Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD) contain an information disclosure vulnerability. An attacker could retrieve memory...","requiredAction":"Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.","dueDate":"2024-03-07","knownRansomwareCampaignUse":"Known","notes":"https://tools.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-info-disclose-9eJtycMB"}'
+    key:
+      - cveID
+      - vendorProject
+      - product
+      - vulnerabilityName
+cves: []
+detections:
+  - title: Cisa Kevs events arriving
+    severity: low
+    signals:
+      - cveID
+      - vendorProject
+      - product
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "cisa_kevs_vulnerability"'
+optimizations: []
+references:
+  - title: elastic/integrations cisa_kevs/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisa_kevs/data_stream/vulnerability/_dev/test/pipeline/test-cisakev-ndjson.log
+  - title: Pack Generator sample cisa_kevs_vulnerability.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisa_kevs_vulnerability.json

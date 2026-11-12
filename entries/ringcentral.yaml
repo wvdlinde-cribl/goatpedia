@@ -1,0 +1,71 @@
+id: ringcentral
+name: Ringcentral
+short: Ringcentral
+vendor: Ringcentral
+category: idp
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ringcentral
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Ringcentral is logged by the Datadog integrations-core package ringcentral. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ringcentral
+    desc: 'Datadog integrations-core fixture, 2 events. Upstream: ringcentral/assets/logs/ringcentral_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: ringcentral
+  Sourcetypes: '1'
+  Fixture events: '2'
+  Log format seen: json
+  Fields in the first fixture: enrichment_details.accountId, log.reason, log.extension.uri, log.extension.id, log.reasonDescription, log.lastModifiedTime
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ringcentral events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries enrichment_details.accountId, log.reason, log.extension.uri, log.extension.id, log.reasonDescription, log.lastModifiedTime. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads ringcentral and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Ringcentral
+    sourcetype: ringcentral
+    format: json
+    desc: 2 fixture events in the samples pool (logtest).
+    sample: '{"enrichment_details":{"accountId":"000000000"},"log":{"reason":"Hang Up","extension":{"uri":"https://platform.ringcentral.com/restapi/v1.0/account/000000000/extension/12345678","id":12345678},"reasonDescription":"The caller hung up before the call was answered.","lastModifiedTime":"2024-07-23T11:48:10.032Z","sessionId":"1234567890","internalType":"International","transport":"VoIP","type":"Voice","uri":"https://platform.ringcentral.com/restapi/v1.0/account/000000000/call-log/aKH2vDGxBbeYjUA?view=Detailed","billing":{"costIncluded":0,"costPurchased":0},"duration":16,"result":"Hang Up","telephonySessionId":"s-a7280be05beffz190df6b11d4z296c790000","legs":[{"reason":"Hang Up","extension":{"id":12345678,"uri":"https://platform.ringcentral.com/restapi/v1.0/account/000000000/extension/12345678"},"reasonDescription":"The caller hung up before the call was answered.","legType":"SipToPstnUnmetered","internalType":"International","transport":"VoIP","type":"Voice","master":true,"duration":16,"result":"Hang Up","telephonySessionId":"s-a7280be05beffz190df6b11d4z296c790000","action":"VoIP Call","startTime":"2024-07-23T12:19:34.664Z","from":{"phoneNumber":"+00000000000","name":"xxxxxxxxxxx","extensionId":"12345678","device":{"id":"1234567890","uri":"https://platform.ringcentral.com/restapi/v1.0/account/000000000/device/000000000"}},"to":{"phoneNumber":"+0000000000"},"partyId":"p-a7280be05beffz190df6b11d4z296c790000-2","durationMs":1687,"direction":"Outbound"}],"action":"VoIP Call","startTime":"2024-08-22T17:21:34.668Z","from":{"phoneNumber":"+000000000","name":"xxxxxxx","extensionId":"12345678","device":{"id":"0000000000","uri":"https://platform.ringcentral.com/restapi/v1.0/account/000000000/device/00000000"}},"id":"000000000","to":{"phoneNumber":"+0000000000"},"partyId":"p-a7280be05beffz190df6b11d4z296c790000-2","durationMs":1607,"direction":"Outbound"}}'
+    key:
+      - enrichment_details.accountId
+      - log.reason
+      - log.extension.uri
+      - log.extension.id
+cves: []
+detections:
+  - title: Ringcentral events arriving
+    severity: low
+    signals:
+      - enrichment_details.accountId
+      - log.reason
+      - log.extension.uri
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ringcentral"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core ringcentral/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/ringcentral/assets/logs/ringcentral_tests.yaml
+  - title: Pack Generator sample ringcentral.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ringcentral.json

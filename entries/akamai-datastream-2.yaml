@@ -1,0 +1,71 @@
+id: akamai-datastream-2
+name: Akamai Datastream 2
+short: '2'
+vendor: Akamai
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - akamai_datastream_2
+  - Datadog integrations-extras
+tags:
+  - logtest_extras
+  - json
+summary: Akamai Datastream 2 is logged by the Datadog integrations-extras package akamai_datastream_2. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: akamai_datastream_2
+    desc: 'Datadog integrations-extras fixture, 1 events. Upstream: akamai_datastream_2/assets/logs/akamai.datastream_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-extras
+  Integration package: akamai_datastream_2
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: json
+  Fields in the first fixture: rspContentLen, referer, reqPort, country, reqMethod, city
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-extras
+      desc: Fixtures were harvested from DataDog/integrations-extras. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Akamai Datastream 2 events in this library are the test fixtures shipped with DataDog/integrations-extras (68a7a16c1a). The first event carries rspContentLen, referer, reqPort, country, reqMethod, city. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-extras package reads akamai_datastream_2 and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Akamai Datastream 2
+    sourcetype: akamai_datastream_2
+    format: json
+    desc: 1 fixture events in the samples pool (logtest_extras).
+    sample: '{"rspContentLen":"375847","referer":"-","reqPort":"80","country":"FR","reqMethod":"GET","city":"PARIS","reqTimeSec":"1645568187.280","tlsOverheadTimeMSec":"-","errorCode":"-","range":"-","accLang":"-","UA":"Datadog/Synthetics","hostname":"","objSize":"375847","transferTimeMSec":"8","rspContentType":"application/pdf","dnsLookupTimeMSec":"-","overheadBytes":"^","totalBytes":"405330","state":"Ile-de-France","reqEndTimeMSec":"2","reqHost":"ds2-sqa-sanity-venkat-1.akamaized.net","reqPath":"Tiger.pdf","cliIP":"198.51.100.25","cookie":"-","turnAroundTimeMSec":"1","tlsVersion":"-","cacheStatus":"1","cp":"1059344","ewExecutionInfo":"-"}'
+    key:
+      - rspContentLen
+      - referer
+      - reqPort
+      - country
+cves: []
+detections:
+  - title: Akamai Datastream 2 events arriving
+    severity: low
+    signals:
+      - rspContentLen
+      - referer
+      - reqPort
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "akamai_datastream_2"'
+optimizations: []
+references:
+  - title: DataDog/integrations-extras akamai_datastream_2/assets
+    url: https://github.com/DataDog/integrations-extras/blob/68a7a16c1a154f6d256558717c167be332eb222d/akamai_datastream_2/assets/logs/akamai.datastream_tests.yaml
+  - title: Pack Generator sample akamai_datastream_2.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/akamai_datastream_2.json

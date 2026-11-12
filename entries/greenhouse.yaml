@@ -1,0 +1,83 @@
+id: greenhouse
+name: Greenhouse
+short: Greenhouse
+vendor: Greenhouse
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - greenhouse
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Greenhouse is logged by the Datadog integrations-core package greenhouse. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: greenhouse
+    desc: 'Datadog integrations-core fixture, 1 events. Upstream: greenhouse/assets/logs/greenhouse_tests.yaml'
+  - st: greenhouse_audit
+    desc: 'Elastic integrations fixture, 6 events. Upstream: greenhouse/data_stream/audit/_dev/test/pipeline/test-audit-events.json'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: greenhouse
+  Sourcetypes: '2'
+  Fixture events: '7'
+  Log format seen: json
+  Fields in the first fixture: request.id, request.type, performer.meta.name, performer.meta.username, performer.id, performer.ip_address
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Greenhouse events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries request.id, request.type, performer.meta.name, performer.meta.username, performer.id, performer.ip_address. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads greenhouse and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Greenhouse
+    sourcetype: greenhouse
+    format: json
+    desc: 1 fixture events in the samples pool (logtest).
+    sample: '{"request":{"id":"7061a2ccacae8d2b49e17a46a1328fd6","type":"my_dashboard/controllers/my_dashboard#index"},"performer":{"meta":{"name":"TestUser1","username":"user@example.com"},"id":11111111,"ip_address":"198.51.100.15","type":"user"},"organization_id":1111111111,"event":{"meta":{"path":"/dashboard"},"target_type":"PII Page Accessed","type":"action"},"event_time":"2024-09-23T00:10:45.277Z"}'
+    key:
+      - request.id
+      - request.type
+      - performer.meta.name
+      - performer.meta.username
+  - type: Audit
+    sourcetype: greenhouse_audit
+    format: json
+    desc: 6 fixture events in the samples pool (elastic).
+    sample: '{"request":{"id":"1234zID","type":"email_settings#create_organization_email"},"performer":{"meta":{"name":"Allison Jamie","username":"user@example.com"},"id":12345,"ip_address":"198.51.100.25","type":"user"},"organization_id":123,"event":{"meta":null,"target_type":"Global Email Added","type":"action"},"event_time":"2023-06-02T16:06:19.217Z"}'
+    key:
+      - request.id
+      - request.type
+      - performer.meta.name
+      - performer.meta.username
+cves: []
+detections:
+  - title: Greenhouse events arriving
+    severity: low
+    signals:
+      - request.id
+      - request.type
+      - performer.meta.name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "greenhouse"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core greenhouse/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/greenhouse/assets/logs/greenhouse_tests.yaml
+  - title: Pack Generator sample greenhouse.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/greenhouse.json

@@ -1,0 +1,71 @@
+id: atlassian-bitbucket
+name: Atlassian Bitbucket
+short: Bitbucket
+vendor: Atlassian
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - atlassian_bitbucket
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Atlassian Bitbucket is logged by the Elastic integrations package atlassian_bitbucket. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: atlassian_bitbucket_audit
+    desc: 'Elastic integrations fixture, 20 events. Upstream: atlassian_bitbucket/data_stream/audit/_dev/test/pipeline/test-audit-api.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: atlassian_bitbucket
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: json
+  Fields in the first fixture: timestamp, author.name, author.type, author.id, author.uri, author.avatarUri
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Atlassian Bitbucket events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, author.name, author.type, author.id, author.uri, author.avatarUri. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads atlassian_bitbucket and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Audit
+    sourcetype: atlassian_bitbucket_audit
+    format: json
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: '{"timestamp":"2021-11-27T17:38:58.087Z","author":{"name":"admin","type":"NORMAL","id":"2","uri":"http://bitbucket.internal:7990/users/admin","avatarUri":""},"type":{"categoryI18nKey":"bitbucket.service.audit.category.usersandgroups","category":"Users and groups","actionI18nKey":"bitbucket.service.user.audit.action.userdeleted","action":"User deleted"},"affectedObjects":[{"name":"test.user","type":"USER"}],"changedValues":[],"source":"203.0.113.40","system":"http://bitbucket.internal:7990","node":"8767044c-1b98-4d64-82db-ef29af8c3792","method":"Browser","extraAttributes":[{"nameI18nKey":"bitbucket.audit.attribute.legacy.target","name":"target","value":"test.user"}]}'
+    key:
+      - timestamp
+      - author.name
+      - author.type
+      - author.id
+cves: []
+detections:
+  - title: Atlassian Bitbucket events arriving
+    severity: low
+    signals:
+      - timestamp
+      - author.name
+      - author.type
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "atlassian_bitbucket_audit"'
+optimizations: []
+references:
+  - title: elastic/integrations atlassian_bitbucket/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/atlassian_bitbucket/data_stream/audit/_dev/test/pipeline/test-audit-api.log
+  - title: Pack Generator sample atlassian_bitbucket_audit.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/atlassian_bitbucket_audit.json

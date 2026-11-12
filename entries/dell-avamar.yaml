@@ -1,0 +1,71 @@
+id: dell-avamar
+name: Dell Avamar
+short: Dell Avamar
+vendor: Dell
+category: netinfra
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - dell_avamar
+  - Splunk Connect for Syslog
+tags:
+  - sc4s
+  - kv
+summary: Dell Avamar is logged by the Splunk Connect for Syslog package dell_avamar. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: dell_avamar_msc
+    desc: 'Splunk Connect for Syslog fixture, 1 events. Upstream: tests/test_dell_avamar.py'
+facts:
+  Where the sample comes from: Splunk Connect for Syslog
+  Integration package: dell_avamar
+  Sourcetypes: '1'
+  Fixture events: '1'
+  Log format seen: kv
+  Fields in the first fixture: header, domain, host, product, role, user
+placement:
+  slots:
+    - edge
+  items:
+    - slot: edge
+      title: Splunk Connect for Syslog
+      desc: Fixtures were harvested from splunk/splunk-connect-for-syslog. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Dell Avamar events in this library are the test fixtures shipped with splunk/splunk-connect-for-syslog (d861082778). The first event carries header, domain, host, product, role, user. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - kv
+  flow:
+    - step: Collect
+      desc: The Splunk Connect for Syslog package reads dell_avamar and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as kv.
+logs:
+  - type: Dell Avamar Msc
+    sourcetype: dell_avamar_msc
+    format: kv
+    desc: 1 fixture events in the samples pool (sc4s).
+    sample: '<141> Jun 15 13:45:07 amavar: <Code> 22555 <Type> AUDIT <Severity> PROCESS <Category> SECURITY <User> user@example.com <HwSource> amavar <Summary> Changed backup expiration. <path> /clients/Dev-Cert/Windows/test.com <createtime> 2024-02-03 02:32:09 CST <plugin> 3001 <labelnum> 388 <expiration> 2024-02-16 <requestor> <requestor domain="/" host="192.0.2.10" product="MCGUI" role="Administrator" user="user@example.com"/>'
+    key:
+      - domain
+      - host
+      - product
+      - role
+cves: []
+detections:
+  - title: Dell Avamar events arriving
+    severity: low
+    signals:
+      - header
+      - domain
+      - host
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "dell_avamar_msc"'
+optimizations: []
+references:
+  - title: splunk/splunk-connect-for-syslog tests/test_dell_avamar.py
+    url: https://github.com/splunk/splunk-connect-for-syslog/blob/d861082778c4ce35a1636dc83e19763338bf662e/tests/test_dell_avamar.py
+  - title: Pack Generator sample dell_avamar_msc.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dell_avamar_msc.json

@@ -1,0 +1,71 @@
+id: trend-micro-vision-one-endpoint-security
+name: Trend Micro Vision One Endpoint Security
+short: Security
+vendor: Trend
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - trend_micro_vision_one_endpoint_security
+  - Datadog integrations-core
+tags:
+  - logtest
+  - cef
+summary: Trend Micro Vision One Endpoint Security is logged by the Datadog integrations-core package trend_micro_vision_one_endpoint_security. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: trend_micro_vision_one_endpoint_security
+    desc: 'Datadog integrations-core fixture, 15 events. Upstream: trend_micro_vision_one_endpoint_security/assets/logs/trend-micro-vision-one-endpoint-security_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: trend_micro_vision_one_endpoint_security
+  Sourcetypes: '1'
+  Fixture events: '15'
+  Log format seen: cef
+  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Trend Micro Vision One Endpoint Security events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - cef
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads trend_micro_vision_one_endpoint_security and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as cef.
+logs:
+  - type: Trend Micro Vision One Endpoint Security
+    sourcetype: trend_micro_vision_one_endpoint_security
+    format: cef
+    desc: 15 fixture events in the samples pool (logtest).
+    sample: '"Jul 01 2024 20:20:20 aaaaaa.manage.trendmicro.com CEF:0|Trend Micro|Apex Central|2019|700211|Attack Discovery Detections|3|deviceExternalId=1 rt=Jul 01 2024 10:10:10 GMT+00:00 dhost=VCAC-Window-331 dst=198.51.100.25 customerExternalID=8c1e2d8f-a03b-47ea-aef8-5aeab99ea697 cn1Label=SLF_RiskLevel cn1=0 cn2Label=SLF_PatternNumber cn2=30.1012.00 cs1Label=SLF_RuleID cs1=powershell invoke expression cat=point of entry cs2Label=SLF_ADEObjectGroup_Info_1 cs2=process - code9.exe - {USER: administrator09} deviceNtDomain=APEXTMCM dntdom=OSCEDomain1 TMCMLogDetectedHost=VCAC-Window-331 TMCMLogDetectedIP=203.0.113.8 ApexCentralHost=TW-CHRIS-W2019 devicePayloadId=1C00290C0360-9CDE11EB-D4B8-F51F-C697 TMCMdevicePlatform=Windows 7 6.1 (Build 7601) Service Pack 1"'
+    key:
+      - cef_version
+      - device_vendor
+      - device_product
+      - device_version
+cves: []
+detections:
+  - title: Trend Micro Vision One Endpoint Security events arriving
+    severity: low
+    signals:
+      - syslog_header
+      - cef_version
+      - device_vendor
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "trend_micro_vision_one_endpoint_security"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core trend_micro_vision_one_endpoint_security/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/trend_micro_vision_one_endpoint_security/assets/logs/trend-micro-vision-one-endpoint-security_tests.yaml
+  - title: Pack Generator sample trend_micro_vision_one_endpoint_security.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trend_micro_vision_one_endpoint_security.json

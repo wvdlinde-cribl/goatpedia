@@ -1,0 +1,67 @@
+id: symantec-endpoint
+name: Symantec Endpoint
+short: Endpoint
+vendor: Symantec
+category: edr
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - symantec_endpoint
+  - Elastic integrations
+tags:
+  - elastic
+  - text
+summary: Symantec Endpoint is logged by the Elastic integrations package symantec_endpoint. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: symantec_endpoint
+    desc: 'Elastic integrations fixture, 20 events. Upstream: symantec_endpoint/data_stream/log/_dev/test/pipeline/test-agent-security.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: symantec_endpoint
+  Sourcetypes: '1'
+  Fixture events: '20'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Symantec Endpoint events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads symantec_endpoint and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Log
+    sourcetype: symantec_endpoint
+    format: text
+    desc: 20 fixture events in the samples pool (elastic).
+    sample: 'server01,Event Description: [SID: 29464] Audit: Nessus Vulnerability Scanner Activity attack detected but not blocked. Application path: C:\PROGRAM FILES (X86)\VMWARE\VMWARE WORKSTATION\VMWARE-HOSTD.EXE,Local Host IP: 203.0.113.8,Local Host MAC: 000000000000,Remote Host Name: ,Remote Host IP: 203.0.113.40,Remote Host MAC: 000000000000,Inbound,TCP,Intrusion ID: 0,Begin: 2020-07-12 08:05:50,End Time: 2020-07-12 08:05:50,Occurrences: 2,Application: C:/PROGRAM FILES (X86)/VMWARE/VMWARE WORKSTATION/VMWARE-HOSTD.EXE,Location: Office,User Name: axelrod,Domain Name: CC,Local Port: 8080,Remote Port: 63462,CIDS Signature ID: 29464,CIDS Signature string: Audit: Nessus Vulnerability Scanner Activity,CIDS Signature SubID: 75167,Intrusion URL: server01.example.com/sdk,Intrusion Payload URL: ,SHA-256: 9CD356A59A42BF8BDB7F5C93D5677A1AF079C7AE77361105A3AB2A0BA88CE2F8,MD-5:'
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Symantec Endpoint events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "symantec_endpoint"'
+optimizations: []
+references:
+  - title: elastic/integrations symantec_endpoint/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/symantec_endpoint/data_stream/log/_dev/test/pipeline/test-agent-security.log
+  - title: Pack Generator sample symantec_endpoint.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_endpoint.json

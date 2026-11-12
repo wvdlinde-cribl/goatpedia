@@ -1,0 +1,71 @@
+id: goflow2
+name: Goflow2
+short: Goflow2
+vendor: Goflow2
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - goflow2
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Goflow2 is logged by the Elastic integrations package goflow2. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: goflow2_sflow
+    desc: 'Elastic integrations fixture, 12 events. Upstream: goflow2/data_stream/sflow/_dev/test/pipeline/test-goflow2-sflow-sample.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: goflow2
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: json
+  Fields in the first fixture: type, time_flow_start_ns, sampler_address, sequence_num, in_if, out_if
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Goflow2 events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries type, time_flow_start_ns, sampler_address, sequence_num, in_if, out_if. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads goflow2 and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Sflow
+    sourcetype: goflow2_sflow
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"type":"SFLOW_5","time_flow_start_ns":1722384059314899700,"sampler_address":"198.51.100.15","sequence_num":44555,"in_if":563,"out_if":573,"src_addr":"198.51.100.25","dst_addr":"203.0.113.8","etype":"IPv4","proto":"TCP","src_port":10876,"dst_port":443,"src_vlan":1500,"dst_vlan":1500,"sampling_rate":1000,"bytes":70}'
+    key:
+      - type
+      - time_flow_start_ns
+      - sampler_address
+      - sequence_num
+cves: []
+detections:
+  - title: Goflow2 events arriving
+    severity: low
+    signals:
+      - type
+      - time_flow_start_ns
+      - sampler_address
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "goflow2_sflow"'
+optimizations: []
+references:
+  - title: elastic/integrations goflow2/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/goflow2/data_stream/sflow/_dev/test/pipeline/test-goflow2-sflow-sample.log
+  - title: Pack Generator sample goflow2_sflow.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/goflow2_sflow.json

@@ -1,0 +1,95 @@
+id: darktrace
+name: Darktrace
+short: Darktrace
+vendor: Darktrace
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - darktrace
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Darktrace is logged by the Elastic integrations package darktrace. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: darktrace_ai_analyst_alert
+    desc: 'Elastic integrations fixture, 2 events. Upstream: darktrace/data_stream/ai_analyst_alert/_dev/test/pipeline/test-ai-analyst-alert.log'
+  - st: darktrace_model_breach_alert
+    desc: 'Elastic integrations fixture, 9 events. Upstream: darktrace/data_stream/model_breach_alert/_dev/test/pipeline/test-model-breach-alert.log'
+  - st: darktrace_system_status_alert
+    desc: 'Elastic integrations fixture, 2 events. Upstream: darktrace/data_stream/system_status_alert/_dev/test/pipeline/test-system-status-alert.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: darktrace
+  Sourcetypes: '3'
+  Fixture events: '13'
+  Log format seen: json
+  Fields in the first fixture: summariser, acknowledged, pinned, createdAt, attackPhases[0], title
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Darktrace events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries summariser, acknowledged, pinned, createdAt, attackPhases[0], title. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads darktrace and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: AI Analyst Alert
+    sourcetype: darktrace_ai_analyst_alert
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"summariser":"AdminConnSummary","acknowledged":false,"pinned":true,"createdAt":1628002089240,"attackPhases":[5],"title":"Extensive Unusual SSH Connections","id":"eabc0011-1234-1234-1234-cabcdefg0011","children":["eabcdef0-1234-1234-1234-cabcdefghij9"],"category":"critical","currentGroup":"eabc1234-1234-1234-1234-cabcdefg0011","groupCategory":"critical","groupScore":"72.9174234","groupPreviousGroups":null,"activityId":"abcd1234","groupingIds":["abcdef12"],"groupByActivity":false,"userTriggered":false,"externalTriggered":false,"aiaScore":98,"summary":"The device 192.0.2.20 was observed making unusual internal SSH connections to a wide range of devices.\n\nThough this behaviour could be the result of legitima...","periods":[{"start":1627985298683,"end":1628000141220}],"breachDevices":[{"identifier":null,"hostname":"linux.local","ip":"198.51.100.15","mac":null,"subnet":"VPN","did":10,"sid":12}],"relatedBreaches":[{"modelName":"Unusual Activity / Unusual Activity from Re-Activated Device","pbid":1234,"threatScore":37,"timestamp":1627997157000}],"details":[[{"header":"Breaching Device","contents":[{"key":null,"type":"device","values":[{"identifier":null,"hostname":null,"ip":"198.51.100.25","mac":null,"subnet":"VPN","did":10,"sid":12}]}]}],[{"header":"SSH Activity","contents":[{"key":"Time","type":"timestampRange","values":[{"start":1627985298683,"end":1628000141220}]},{"key":"Number of unique IPs","type":"integer","values":[16]}]}]]}'
+    key:
+      - summariser
+      - acknowledged
+      - pinned
+      - createdAt
+  - type: Model Breach Alert
+    sourcetype: darktrace_model_breach_alert
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"model":{"name":"System2001:db8::1System","pid":802,"phid":802,"uuid":"8abcdefh-1234-1234-1234-5abababab","logic":{"data":[1594],"type":"componentList","version":1},"throttle":10,"sharedEndpoints":false,"actions":{"alert":true,"antigena":{},"breach":true,"model":true,"setPriority":false,"setTag":false,"setType":false},"tags":[],"interval":0,"delay":0,"sequenced":true,"active":true,"modified":"2022-07-11 11:41:08","activeTimes":{"devices":{},"tags":{},"type":"exclusions","version":2},"autoUpdatable":true,"autoUpdate":true,"autoSuppress":true,"description":"An issue with the system has been detected. This system alert is generated for system information that may merit further investigation. This may be due to th...","behaviour":"decreasing","defeats":[],"created":{"by":"System"},"edited":{"by":"Nobody"},"version":16,"priority":3,"category":"Informational","compliance":false},"device":{"did":-1},"triggeredComponents":[{"time":1657678365000,"cbid":5,"cid":1594,"chid":1594,"size":1,"threshold":0,"interval":3600,"logic":{"data":{"left":{"left":"A","operator":"AND","right":"B"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"C"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"D"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"E"},"operator":"OR","right":{"left":"A","operator":"AND","right":"F"}}}}},"version":"v0.1"},"metric":{"mlid":207,"name":"dtsystem","label":"System"},"triggeredFilters":[{"cfid":18136,"id":"A","filterType":"Event details","arguments":{"value":"analyze credential ignore list"},"comparatorType":"does not contain","trigger":{"value":"Probe 192.0.2.20 last contact was 18 minutes ago"}},{"cfid":18137,"id":"B","filterType":"System message","arguments":{"value":"Probe error"},"comparatorType":"is","trigger":{"value":"Probe error"}}]}],"breachUrl":"https://example.com/#modelbreach/5","pbid":5,"score":0.674,"commentCount":0,"creationTime":1657678365000,"time":1657678366000,"mitreTechniques":[]}'
+    key:
+      - model.name
+      - model.pid
+      - model.phid
+      - model.uuid
+  - type: System Status Alert
+    sourcetype: darktrace_system_status_alert
+    format: json
+    desc: 2 fixture events in the samples pool (elastic).
+    sample: '{"last_updated":1618760651,"uuid":"abcdabcd-1234-1234-1234-3abababcdcd3","priority":43,"priority_level":"medium","hostname":"example-vsensor","ip_address":"198.51.100.25","message":"There have been no Advanced Search hits for this instance seen since Sun 18 April 2021 13:20:23 (UTC). If this is not expected behaviour, please open a ticke...","name":"advanced_search","acknowledge_timeout":null,"alert_name":"Advanced Search","child_id":1,"last_updated_status":1618760651,"status":"active"}'
+    key:
+      - last_updated
+      - uuid
+      - priority
+      - priority_level
+cves: []
+detections:
+  - title: Darktrace events arriving
+    severity: low
+    signals:
+      - summariser
+      - acknowledged
+      - pinned
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "darktrace_ai_analyst_alert"'
+optimizations: []
+references:
+  - title: elastic/integrations darktrace/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/darktrace/data_stream/ai_analyst_alert/_dev/test/pipeline/test-ai-analyst-alert.log
+  - title: Pack Generator sample darktrace_ai_analyst_alert.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/darktrace_ai_analyst_alert.json

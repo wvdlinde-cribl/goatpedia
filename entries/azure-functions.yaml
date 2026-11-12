@@ -1,0 +1,71 @@
+id: azure-functions
+name: Azure Functions
+short: Functions
+vendor: Azure
+category: cloud
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - azure_functions
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Azure Functions is logged by the Elastic integrations package azure_functions. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: azure_functions_functionapplogs
+    desc: 'Elastic integrations fixture, 4 events. Upstream: azure_functions/data_stream/functionapplogs/_dev/test/pipeline/test-azure-functions-error-raw.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: azure_functions
+  Sourcetypes: '1'
+  Fixture events: '4'
+  Log format seen: json
+  Fields in the first fixture: time, resourceId, category, operationName, level, location
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Azure Functions events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, resourceId, category, operationName, level, location. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads azure_functions and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Functionapplogs
+    sourcetype: azure_functions_functionapplogs
+    format: json
+    desc: 4 fixture events in the samples pool (elastic).
+    sample: '{"time":"2023-06-07T11:33:11Z","resourceId":"/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/TEST-RG/PROVIDERS/MICROSOFT.WEB/SITES/TEST-FUNCTION","category":"FunctionAppLogs","operationName":"Microsoft.Web/sites/functions/log","level":"Error","location":"East US","properties":{"appName":"mbranca-test-function","roleInstance":"54108609-638217294083255145","message":"Executed Functions.hello (Failed, Id=3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e, Duration=16ms)","category":"Function.hello","hostVersion":"203.0.113.8","functionInvocationId":"3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e","functionName":"Functions.hello","hostInstanceId":"8699ec76-436a-43e2-a811-371c8e1472d7","level":"Error","levelId":4,"processId":64,"exceptionDetails":"Microsoft.Azure.WebJobs.Host.FunctionInvocationException : Exception while executing function: Functions.hello ---> Microsoft.Azure.WebJobs.Script.Workers.Rp...","exceptionMessage":"Result: Failure\nException: Exception: Ka-booom!\nStack:   File \"/azure-functions-host/workers/python/3.9/LINUX/X64/azure_functions_worker/dispatcher.py\", line...","exceptionType":"Microsoft.Azure.WebJobs.Script.Workers.Rpc.RpcException","eventId":3,"eventName":"FunctionCompleted"}}'
+    key:
+      - time
+      - resourceId
+      - category
+      - operationName
+cves: []
+detections:
+  - title: Azure Functions events arriving
+    severity: low
+    signals:
+      - time
+      - resourceId
+      - category
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "azure_functions_functionapplogs"'
+optimizations: []
+references:
+  - title: elastic/integrations azure_functions/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_functions/data_stream/functionapplogs/_dev/test/pipeline/test-azure-functions-error-raw.log
+  - title: Pack Generator sample azure_functions_functionapplogs.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_functions_functionapplogs.json

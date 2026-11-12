@@ -1,0 +1,67 @@
+id: datadog-cluster-agent
+name: Datadog Cluster Agent
+short: Agent
+vendor: Datadog
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - datadog_cluster_agent
+  - Datadog integrations-core
+tags:
+  - logtest
+  - text
+summary: Datadog Cluster Agent is logged by the Datadog integrations-core package datadog_cluster_agent. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: datadog_cluster_agent
+    desc: 'Datadog integrations-core fixture, 10 events. Upstream: datadog_cluster_agent/assets/logs/agent_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: datadog_cluster_agent
+  Sourcetypes: '1'
+  Fixture events: '10'
+  Log format seen: text
+  Fields in the first fixture: message
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Datadog Cluster Agent events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries message. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - text
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads datadog_cluster_agent and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as text.
+logs:
+  - type: Datadog Cluster Agent
+    sourcetype: datadog_cluster_agent
+    format: text
+    desc: 10 fixture events in the samples pool (logtest).
+    sample: 2019-04-08 13:53:48 UTC | CORE | INFO | (pkg/collector/python/datadog_agent.go:120 in LogMessage) | kafka_cluster_status:8ca7b736f0aa43e5 | (kafka_cluster_status.py:213) | Checking for out of sync partition replicas
+    pattern: (?<message>[\s\S]+)
+    key:
+      - message
+cves: []
+detections:
+  - title: Datadog Cluster Agent events arriving
+    severity: low
+    signals:
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "datadog_cluster_agent"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core datadog_cluster_agent/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/datadog_cluster_agent/assets/logs/agent_tests.yaml
+  - title: Pack Generator sample datadog_cluster_agent.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/datadog_cluster_agent.json

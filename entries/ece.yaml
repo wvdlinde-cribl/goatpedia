@@ -1,0 +1,71 @@
+id: ece
+name: Ece
+short: Ece
+vendor: Ece
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - ece
+  - Elastic integrations
+tags:
+  - elastic
+  - json
+summary: Ece is logged by the Elastic integrations package ece. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: ece_adminconsole
+    desc: 'Elastic integrations fixture, 12 events. Upstream: ece/data_stream/adminconsole/_dev/test/pipeline/test-adminconsole-log.log'
+facts:
+  Where the sample comes from: Elastic integrations
+  Integration package: ece
+  Sourcetypes: '1'
+  Fixture events: '12'
+  Log format seen: json
+  Fields in the first fixture: '@timestamp, process.thread.name, message, log.logger, log.level, proxy_ip'
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Elastic integrations
+      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Ece events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @timestamp, process.thread.name, message, log.logger, log.level, proxy_ip. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Elastic integrations package reads ece and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Adminconsole
+    sourcetype: ece_adminconsole
+    format: json
+    desc: 12 fixture events in the samples pool (elastic).
+    sample: '{"@timestamp":"2025-05-09T07:43:09.031238Z","process":{"thread":{"name":"adminconsole-requests-pekko.actor.default-dispatcher-28"}},"message":"201 Created - philipp - 6d8ed3ff3ddb495496e1c6752f9feb07 - 203.0.113.40 - 192.0.2.10 - POST 192.0.2.20:12443/api/v1/deployments HTTP/1.1 in:2361 out:unknown ...","log":{"logger":"no.found.adminconsole.http.requests","level":"INFO"},"proxy_ip":"198.51.100.15","query_parameters":"validate_only=false","request_url":"198.51.100.25:12443/api/v1/deployments","trace.id":"","api_key_id":"unknown","request_method":"POST","commit_hash":"8ba74f3d10ab89948c8241c842a8e31d3fc70070","request_host":"203.0.113.8","request_length":"2361","request_payload":"{\"name\":\"francis\",\"resources\":{\"elasticsearch\":[{\"ref_id\":\"main-elasticsearch\",\"region\":\"ece-region\",\"plan\":{\"cluster_topology\":[{\"id\":\"hot_content\",\"node_ro...","auth_type":"cookie","status_code":"201","auth_user":"philipp","response_time":"1711","user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36","request_id":"2271905ee3f6e6cc9c76a0c7cccfd1cc","organization_id":"6d8ed3ff3ddb495496e1c6752f9feb07","transaction.id":"","client_ip":"192.0.2.10"}'
+    key:
+      - '@timestamp'
+      - process.thread.name
+      - message
+      - log.logger
+cves: []
+detections:
+  - title: Ece events arriving
+    severity: low
+    signals:
+      - '@timestamp'
+      - process.thread.name
+      - message
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "ece_adminconsole"'
+optimizations: []
+references:
+  - title: elastic/integrations ece/data_stream
+    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ece/data_stream/adminconsole/_dev/test/pipeline/test-adminconsole-log.log
+  - title: Pack Generator sample ece_adminconsole.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ece_adminconsole.json

@@ -1,0 +1,71 @@
+id: incident-io
+name: Incident Io
+short: Incident Io
+vendor: Incident
+category: saas
+status: full
+updated: '2026-11-12'
+contributors:
+  - wlinde
+aka:
+  - incident_io
+  - Datadog integrations-core
+tags:
+  - logtest
+  - json
+summary: Incident Io is logged by the Datadog integrations-core package incident_io. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+sourcetypes:
+  - st: incident_io
+    desc: 'Datadog integrations-core fixture, 15 events. Upstream: incident_io/assets/logs/incident-io_tests.yaml'
+facts:
+  Where the sample comes from: Datadog integrations-core
+  Integration package: incident_io
+  Sourcetypes: '1'
+  Fixture events: '15'
+  Log format seen: json
+  Fields in the first fixture: event_type, private_incident.membership_granted_v1.actor_user_id, private_incident.membership_granted_v1.incident_id, private_incident.membership_granted_v1.user_id
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Datadog integrations-core
+      desc: Fixtures were harvested from DataDog/integrations-core. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+howItWorks:
+  - title: What the fixture shows
+    body: Incident Io events in this library are the test fixtures shipped with DataDog/integrations-core (faa3db574b). The first event carries event_type, private_incident.membership_granted_v1.actor_user_id, private_incident.membership_granted_v1.incident_id, private_incident.membership_granted_v1.user_id. Values in the sample were rewritten to documentation addresses.
+traffic:
+  handles:
+    - json
+  flow:
+    - step: Collect
+      desc: The Datadog integrations-core package reads incident_io and the samples pool stores the fixture used here.
+    - step: Parse
+      desc: Secpedia reads the fixture as json.
+logs:
+  - type: Incident Io
+    sourcetype: incident_io
+    format: json
+    desc: 15 fixture events in the samples pool (logtest).
+    sample: '{"event_type":"private_incident.membership_granted_v1","private_incident.membership_granted_v1":{"actor_user_id":"01J3YKXNGGK7WRP6GC8HCS7HDE","incident_id":"01J6HHRHHAM2Q0FZV2WSGXTRXD","user_id":"01J3YKTARC4X290M9C6DMH5SXQ"}}'
+    key:
+      - event_type
+      - private_incident.membership_granted_v1.actor_user_id
+      - private_incident.membership_granted_v1.incident_id
+      - private_incident.membership_granted_v1.user_id
+cves: []
+detections:
+  - title: Incident Io events arriving
+    severity: low
+    signals:
+      - event_type
+      - private_incident.membership_granted_v1.actor_user_id
+      - private_incident.membership_granted_v1.incident_id
+    why: Confirms this source is present. It is not a vulnerability claim.
+    kql: '| where sourcetype == "incident_io"'
+optimizations: []
+references:
+  - title: DataDog/integrations-core incident_io/assets
+    url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/incident_io/assets/logs/incident-io_tests.yaml
+  - title: Pack Generator sample incident_io.json
+    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/incident_io.json
