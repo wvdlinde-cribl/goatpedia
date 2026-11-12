@@ -2,35 +2,388 @@
 id: crowdstrike
 name: CrowdStrike Falcon
 short: Falcon
+aka:
+  - Falcon Insight XDR
+  - Falcon Prevent
+  - Falcon Data Replicator (FDR)
+  - Falcon Event Streams
+  - Falcon sensor
 vendor: CrowdStrike
 category: edr
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - edr
+  - xdr
   - fdr
   - endpoint
   - json
   - s3
+  - sqs
+  - event-streams
+summary: Cloud-native EDR/XDR. A lightweight kernel sensor streams process, network, DNS, file and registry telemetry to the CrowdStrike Threat Graph, where detections are made. Customers get the raw telemetry through Falcon Data Replicator (gzip JSON in S3, announced via SQS) and the verdicts through the Event Streams and Alerts APIs — FDR is one of the largest single log sources a SOC can turn on.
 sourcetypes:
   - st: crowdstrike:events:sensor
+    desc: Splunk TA name for FDR sensor telemetry (ProcessRollup2, DnsRequest, NetworkConnectIP4 …)
   - st: crowdstrike_event_streams_json
-    desc: Pack Generator sourcetype
+    desc: Event Streams API (DetectionSummaryEvent, AuthActivityAuditEvent, UserActivityAuditEvent …)
   - st: crowdstrike_events_sensor
-    desc: Pack Generator sourcetype
+    desc: FDR sensor events, underscore variant of crowdstrike:events:sensor
   - st: crowdstrike_falcon
-    desc: Pack Generator sourcetype
+    desc: Generic Falcon JSON (detections and sensor events mixed)
   - st: falcon_events
-    desc: Pack Generator sourcetype
+    desc: Falcon sensor events collected without the FDR envelope
   - st: falcon_fdr
-    desc: Pack Generator sourcetype
+    desc: Falcon Data Replicator data/ prefix — all endpoint telemetry keyed by event_simpleName
   - st: falcon_fdr_aidmaster
-    desc: Pack Generator sourcetype
+    desc: FDR aidmaster/ prefix — host inventory (aid → ComputerName, OS, agent version)
   - st: falcon_fdr_external_api
-    desc: Pack Generator sourcetype
+    desc: FDR ExternalApiEvent records (cloud-side API activity, usually sampled)
   - st: falcon_rest_alerts
-    desc: Pack Generator sourcetype
+    desc: Alerts API (/alerts/entities/alerts/v2) detection and incident records
   - st: falcon_rest_devices
-    desc: Pack Generator sourcetype
+    desc: Hosts API (/devices/entities/devices/v2) device inventory
   - st: falcon_rest_vulnerabilities
-    desc: Pack Generator sourcetype
-summary: Cloud-managed EDR; raw telemetry via Falcon Data Replicator (S3/SQS), detections via Event Streams.
+    desc: Spotlight vulnerabilities API — CVE findings per host
+  - st: CrowdStrike:Event:Streams:JSON
+    desc: Splunk "CrowdStrike Falcon Event Streams" TA sourcetype
+facts:
+  First released: 2013 (Falcon Host); FDR GA 2017
+  Platform: Windows, macOS, Linux, ChromeOS, iOS/Android, containers / Kubernetes
+  Delivery model: SaaS console (US-1, US-2, EU-1, US-GOV clouds) + kernel/user-mode sensor
+  Telemetry export: Falcon Data Replicator — gzip NDJSON in a CrowdStrike-owned S3 bucket, SQS notifications
+  Detection export: Event Streams (long-lived HTTPS stream), Alerts / Hosts / Spotlight REST APIs (OAuth2)
+  Log format: JSON, one event per line, discriminated by event_simpleName
+  Typical volume: 50–300 MB per endpoint per day FDR (≈ 1–10 GB per 1,000 hosts per hour at peak)
+  Event types: 300+ event_simpleName values (ProcessRollup2, DnsRequest, NetworkConnectIP4, …)
+  Cribl Pack: CrowdStrike FDR (cribl_crowdstrike, Packs Dispensary); Cribl Stream has a native CrowdStrike FDR Source
+placement:
+  slots:
+    - endpoint
+    - cloud
+    - internal
+  items:
+    - slot: endpoint
+      title: Sensor on every host
+      desc: The Falcon sensor runs on workstations, servers and VDI. It records process, network, DNS, file, registry and module activity and enforces prevention policies locally, even offline.
+    - slot: cloud
+      title: Threat Graph (SaaS)
+      desc: Telemetry is streamed over TLS to the CrowdStrike cloud, where cloud-side ML and IOA correlation generate detections. FDR and the APIs are read from here, never from the endpoint.
+    - slot: cloud
+      title: FDR bucket in AWS
+      desc: CrowdStrike writes data/ and aidmaster/ batches to an S3 bucket it owns and announces each batch on SQS. A collector (Cribl Stream CrowdStrike Source, Splunk TA, SIEM connector) pulls them.
+    - slot: internal
+      title: Servers and domain controllers
+      desc: Falcon Identity Protection adds AD/Kerberos/NTLM telemetry from sensors on domain controllers. DC sensors are often the noisiest FDR producers.
+howItWorks:
+  - title: Sensor and event model
+    body: The kernel-mode sensor (user-mode eBPF on modern Linux) emits small typed events identified by event_simpleName. Every event carries aid (agent id), cid (customer id), aip (public IP seen by the cloud), event_platform and timestamp (ms, cloud receipt). Process events are linked by TargetProcessId / ParentProcessId — Falcon-unique ids, not OS PIDs (RawProcessId).
+  - title: ProcessRollup2 and the process tree
+    body: "ProcessRollup2 (PR2) is the anchor event: image path, command line, hashes, user SID, integrity level and parent. Child events (DnsRequest, NetworkConnectIP4, file writes, registry sets) reference the process through ContextProcessId = the PR2's TargetProcessId — that join is how you rebuild a process tree in a SIEM."
+  - title: Indicators of Attack (IOA) and detections
+    body: Behavioural IOAs and ML models run on the sensor and in the cloud. A match produces a detection (DetectionSummaryEvent in Event Streams, an alert in the Alerts API) with tactic/technique, severity and the PatternDisposition flags that say whether Falcon killed, blocked or only detected.
+  - title: Falcon Data Replicator (FDR)
+    body: "FDR is a firehose copy of all customer telemetry. CrowdStrike writes gzip NDJSON batches to data/ (events) and fdrv2/aidmaster, fdrv2/managedassets, fdrv2/notmanagedassets (inventory) in an S3 bucket, then posts an SQS message with the object keys. Consumers poll SQS, download, decompress and delete the message. Batches can be several GB, so the SQS visibility timeout must be long (Cribl recommends 6 h)."
+  - title: Event Streams and REST APIs
+    body: Event Streams is a long-lived HTTPS stream (OAuth2 client credentials) of detections, audit events (logins, policy changes, RTR sessions) and incident updates with a resumable offset. The REST APIs return alerts, hosts and Spotlight vulnerabilities on demand and are polled by SIEM connectors.
+  - title: Enrichment gap
+    body: FDR data/ events carry only aid, not the host name. ComputerName, OS, OU and agent version come from aidmaster/ and must be joined in the pipeline (Cribl Pack uses Redis or a lookup) — otherwise analysts see only hex ids.
+traffic:
+  handles:
+    - Process creation / termination with full command line
+    - DNS requests per process
+    - TCP/UDP connect, accept and listen per process
+    - File writes, executable drops, script content (AMSI)
+    - Registry and service changes, scheduled tasks
+    - Logons, user and token information
+    - Detections, prevention actions and RTR sessions
+  flow:
+    - step: Kernel hook
+      desc: The sensor observes a syscall/ETW/eBPF event (process start, socket connect, DNS query).
+    - step: Local IOA / ML
+      desc: On-sensor models decide prevent (kill/block/quarantine) or allow, independently of connectivity.
+    - step: Stream to cloud
+      desc: Typed events are sent over TLS to the Threat Graph; the cloud stamps timestamp and aip.
+    - step: Cloud correlation
+      desc: Cloud IOAs and threat intel correlate across hosts; a match creates a detection / alert.
+    - step: Export
+      desc: Telemetry is batched to FDR S3 + SQS; detections and audit events go to Event Streams / Alerts API.
+    - step: Collect and enrich
+      desc: Collector pulls from SQS/S3 or the API, joins aidmaster for host names, then routes to SIEM and lake.
+logs:
+  - type: ProcessRollup2 (FDR)
+    sourcetype: falcon_fdr
+    format: json
+    share: 20–35 %
+    avg: ~2 KB
+    desc: One record per process start. Highest-value FDR event — command line, image, hashes, parent and user. Other events join to it on TargetProcessId.
+    key:
+      - event_simpleName
+      - aid
+      - CommandLine
+      - ImageFileName
+      - ParentBaseFileName
+      - SHA256HashData
+      - UserSid
+      - TargetProcessId
+    noise:
+      - ConfigStateHash
+      - ConfigBuild
+      - Entitlements
+      - EffectiveTransmissionClass
+      - ProcessSxsFlags
+      - WindowFlags
+      - ShowWindowFlags
+      - Tags
+    sample: '{"event_simpleName":"ProcessRollup2","name":"ProcessRollup2V19","aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","event_platform":"Win","timestamp":"1762938862418","ProcessStartTime":"1762938862.321","ProcessEndTime":"","RawProcessId":"7412","TargetProcessId":"5642133882","ParentProcessId":"5459598860","SourceProcessId":"5459598860","ParentBaseFileName":"WINWORD.EXE","ImageFileName":"\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","CommandLine":"powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA","UserSid":"S-1-5-21-1004336348-1177238915-682003330-1104","IntegrityLevel":"8192","TokenType":"1","AuthenticationId":"2669499","SessionId":"2","SHA256HashData":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","MD5HashData":"7353f60b1739074eb17c5f4dddefe239","SHA1HashData":"0000000000000000000000000000000000000000","ConfigBuild":"1007.3.0018207.1","ConfigStateHash":"840884426","Entitlements":"15","EffectiveTransmissionClass":"3","ProcessSxsFlags":"64","WindowFlags":"3073","ShowWindowFlags":"1","Tags":"27, 40, 151, 874"}'
+  - type: DnsRequest (FDR)
+    sourcetype: crowdstrike:events:sensor
+    format: json
+    share: 15–30 %
+    avg: ~800 B
+    desc: One record per DNS lookup made by a process. Joins to the requesting process via ContextProcessId. Very repetitive — prime target for dropping popular domains.
+    key:
+      - event_simpleName
+      - aid
+      - DomainName
+      - RequestType
+      - FirstIP4Record
+      - ContextProcessId
+    noise:
+      - ConfigStateHash
+      - ConfigBuild
+      - Entitlements
+      - EffectiveTransmissionClass
+      - InterfaceIndex
+      - DualRequest
+    sample: '{"event_simpleName":"DnsRequest","name":"DnsRequestV4","aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","event_platform":"Win","timestamp":"1762938863102","ContextTimeStamp":"1762938862.977","ContextProcessId":"5642133882","ContextThreadId":"788961645231","DomainName":"cdn.update-check.example.org","RequestType":"1","QueryStatus":"0","DnsResponseType":"2","IP4Records":"198.51.100.77;","FirstIP4Record":"198.51.100.77","CNAMERecords":"","RespondingDnsServer":"10.10.0.10","DnsRequestCount":"1","InterfaceIndex":"0","DualRequest":"0","EventOrigin":"1","ConfigBuild":"1007.3.0018207.1","ConfigStateHash":"840884426","Entitlements":"15","EffectiveTransmissionClass":"3"}'
+  - type: DetectionSummaryEvent (Event Streams)
+    sourcetype: crowdstrike_event_streams_json
+    format: json
+    share: < 1 %
+    avg: ~3 KB
+    desc: A detection raised by Falcon with tactic, technique, severity, the process chain and what prevention action was taken. Low volume, highest value — never drop or sample.
+    key:
+      - metadata.eventType
+      - event.DetectName
+      - event.SeverityName
+      - event.ComputerName
+      - event.UserName
+      - event.CommandLine
+      - event.Tactic
+      - event.Technique
+    noise:
+      - metadata.offset
+      - metadata.version
+      - event.FalconHostLink
+      - event.HostGroups
+    sample: '{"metadata":{"customerIDString":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","offset":12570031,"eventType":"DetectionSummaryEvent","eventCreationTime":1762938870001,"version":"1.0"},"event":{"ProcessStartTime":1762938862,"ProcessEndTime":1762938864,"ProcessId":5642133882,"ParentProcessId":5459598860,"ComputerName":"WS-FIN-042","UserName":"jdoe","DetectName":"Suspicious PowerShell","DetectDescription":"An Office application launched an encoded PowerShell command.","Severity":4,"SeverityName":"High","FileName":"powershell.exe","FilePath":"\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0","CommandLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","SHA256String":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","MachineDomain":"CORP","SensorId":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","DetectId":"ldt:3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b:10907785292170","LocalIP":"10.20.30.44","Tactic":"Execution","Technique":"PowerShell","Objective":"Follow Through","PatternDispositionValue":2048,"PatternDispositionDescription":"Prevention, process killed.","ParentImageFileName":"\\Device\\HarddiskVolume3\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE","ParentCommandLine":"WINWORD.EXE /n invoice.docm","FalconHostLink":"https://falcon.crowdstrike.com/activity/detections/detail/example","HostGroups":"0ebde3fe33d547fc9bbe24f50be44da8","PatternId":10197}}'
+  - type: aidmaster inventory (FDR)
+    sourcetype: falcon_fdr_aidmaster
+    format: json
+    share: < 1 %
+    avg: ~1 KB
+    desc: Periodic host inventory snapshot from the aidmaster/ prefix. Not a security event — used as a lookup to turn aid into ComputerName, OS and agent version.
+    key:
+      - aid
+      - ComputerName
+      - AgentVersion
+      - Version
+      - MachineDomain
+      - aip
+    noise:
+      - BiosManufacturer
+      - BiosVersion
+      - ChassisType
+      - PointerSize
+      - ServicePackMajor
+    sample: '{"aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","ComputerName":"WS-FIN-042","MachineDomain":"corp.example.com","OU":"Workstations/Finance","SiteName":"AMS","AgentVersion":"7.38.21007.0","ConfigIDBuild":"21007","Version":"Windows 11","ProductType":"1","event_platform":"Win","FirstSeen":"1731480000","Time":"1762938000.524","Timezone":"Europe/Amsterdam","SystemManufacturer":"Dell Inc.","SystemProductName":"Latitude 7440","BiosManufacturer":"Dell Inc.","BiosVersion":"1.14.1","ChassisType":"Laptop","PointerSize":"8","ServicePackMajor":"0","HostHiddenStatus":"Visible"}'
+cves:
+  - id: CVE-2026-40058
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Falcon sensor for Windows TOCTOU in Office macro removal → arbitrary file write / SYSTEM (CNA score)
+    affected: Falcon sensor for Windows 7.34–8.10, 7.32 LTS, 7.16 (Win7/2008 R2), 7.33 and ≤7.31 (unsupported), when "Microsoft Office File Malicious Macro Removal" is enabled; Laroux Cleanup Tool ≤1.3.65.0
+    fixed: 8.10.21408, 7.40.21309, 7.39.21113, 7.38.21007 LTS, 7.37.20912, 7.36.20807, 7.35.20712, 7.34.20613, 7.32.20410 LTS, 7.16.18644 (Win7/2008 R2); Laroux 1.4.70.0
+    detect: "aidmaster AgentVersion below the fixed build on hosts with the macro-removal policy. In FDR: a non-admin process creating an NTFS mount point / reparse point under %TEMP%, followed by a write to System32\\WindowsPowerShell\\v1.0\\bcrypt.dll and a SYSTEM scheduled task (MareBackup) loading it."
+    avoid: Upgrade the sensor via Sensor Update Policies; until then disable the macro-removal setting (Cloud Anti-malware for Office files still protects). Alert on unexpected DLL writes into System32.
+  - id: CVE-2025-1146
+    cvss: 8.1
+    year: 2025
+    kev: false
+    scope: device
+    title: Falcon sensor for Linux / Container / K8s Admission Controller TLS certificate validation flaw → MitM of sensor-to-cloud channel (CNA score)
+    affected: Falcon sensor for Linux, Falcon Container Sensor and Falcon Kubernetes Admission Controller before 7.06
+    fixed: 7.06 and later (all three components)
+    detect: aidmaster AgentVersion < 7.06 on Linux; sensors reporting from an unexpected aip; gaps in sensor heartbeat events while the host is up.
+    avoid: Upgrade to 7.06+; force sensor egress through a controlled proxy; alert on sensor version drift.
+  - id: CVE-2025-42706
+    cvss: 6.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Falcon sensor for Windows logic error (origin validation) lets local code delete arbitrary files (paired with race condition CVE-2025-42701, 5.6)
+    affected: Falcon sensor for Windows 7.24.19607 and earlier, 7.25.19706, 7.26.19809/19811, 7.27.19907, 7.28.20006; 7.16.18635 and earlier (Win7/2008 R2)
+    fixed: 7.24.19608, 7.25.19707, 7.26.19813, 7.27.19909, 7.28.20008 and later; 7.16.18637 (Win7/2008 R2)
+    detect: Sensor health events going silent or reduced-functionality mode after a low-privilege process ran; file-delete activity against sensor or OS files; aidmaster versions below the fixed builds.
+    avoid: Upgrade the sensor; keep uninstall/maintenance tokens enabled; monitor for sensors that stop reporting.
+  - id: CVE-2021-34527
+    cvss: 8.8
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Windows Print Spooler "PrintNightmare" RCE / LPE — a classic endpoint exploit Falcon is expected to catch
+    affected: Windows client and server with the Print Spooler service running
+    fixed: Microsoft July 2021 security updates (plus Point and Print registry hardening)
+    detect: "PR2 child of spoolsv.exe (cmd.exe, rundll32.exe, powershell.exe); new DLL written under C:\\Windows\\System32\\spool\\drivers\\ followed by a module load in spoolsv.exe; Falcon detection with Technique \"Exploitation for Privilege Escalation\"."
+    avoid: Patch; disable Print Spooler on domain controllers and servers that do not print; restrict Point and Print.
+  - id: CVE-2023-23397
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Microsoft Outlook NTLM credential leak via reminder sound path (zero-click)
+    affected: Microsoft Outlook for Windows (all supported versions before the March 2023 update)
+    fixed: Microsoft March 2023 security updates
+    detect: NetworkConnectIP4 from OUTLOOK.EXE to an external IP on TCP 445 (SMB) or WebDAV; NTLM authentication to an internet host right after calendar processing.
+    avoid: Patch Outlook; block outbound TCP 445 at the perimeter; add users to the Protected Users group.
+detections:
+  - title: Office application spawning a script interpreter
+    severity: high
+    signals:
+      - event_simpleName=ProcessRollup2
+      - ParentBaseFileName in WINWORD/EXCEL/OUTLOOK
+      - ImageFileName ends powershell.exe / cmd.exe / wscript.exe / mshta.exe
+    why: Macro or exploit-driven initial access almost always shows up as an Office parent launching an interpreter. Rare in legitimate use.
+    kql: |-
+      dataset="crowdstrike_fdr" event_simpleName="ProcessRollup2"
+      | where ParentBaseFileName in~ ("WINWORD.EXE","EXCEL.EXE","POWERPNT.EXE","OUTLOOK.EXE")
+      | where ImageFileName matches regex @"(?i)\\(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32)\.exe$"
+      | summarize count(), cmds=make_set(CommandLine, 5) by aid, ParentBaseFileName, ImageFileName
+    mitre:
+      - T1566.001
+      - T1204.002
+      - T1059.001
+  - title: Encoded or hidden PowerShell
+    severity: high
+    signals:
+      - event_simpleName=ProcessRollup2
+      - CommandLine contains -enc / -EncodedCommand / -w hidden
+    why: Base64-encoded PowerShell is the default for most loaders and post-exploitation frameworks; it hides the real command from simple string matching.
+    kql: |-
+      dataset="crowdstrike_fdr" event_simpleName="ProcessRollup2"
+      | where ImageFileName endswith "powershell.exe" or ImageFileName endswith "pwsh.exe"
+      | where CommandLine matches regex @"(?i)\s-(e|en|enc|encodedcommand)\s" or CommandLine has "-w hidden"
+      | summarize count() by aid, UserSid, CommandLine
+    mitre:
+      - T1059.001
+      - T1027.010
+  - title: High / critical Falcon detection not blocked
+    severity: critical
+    signals:
+      - metadata.eventType=DetectionSummaryEvent
+      - event.SeverityName in High/Critical
+      - PatternDisposition = detection only
+    why: Falcon saw it but policy only detected. These are the detections that need a human fast, and they also expose prevention-policy gaps.
+    kql: |-
+      dataset="crowdstrike_events" metadata.eventType="DetectionSummaryEvent"
+      | where event.SeverityName in ("High","Critical")
+      | where event.PatternDispositionDescription !contains "Prevention"
+      | summarize count(), first=min(_time) by event.ComputerName, event.UserName, event.DetectName, event.Tactic, event.Technique
+    mitre:
+      - T1059
+      - T1204
+  - title: DNS to newly seen or algorithmically generated domains
+    severity: medium
+    signals:
+      - event_simpleName=DnsRequest
+      - DomainName not seen in 30 days
+      - high-entropy / long labels
+    why: Process-attributed DNS lets you see which binary beacons. Rare domains contacted by a single process on few hosts are typical of C2.
+    kql: |-
+      dataset="crowdstrike_fdr" event_simpleName="DnsRequest"
+      | where strlen(DomainName) > 40 or DomainName matches regex @"[a-z0-9]{20,}\."
+      | summarize hosts=dcount(aid), lookups=count() by DomainName
+      | where hosts < 3
+    mitre:
+      - T1071.004
+      - T1568.002
+  - title: Credential dumping tooling on host
+    severity: critical
+    signals:
+      - event_simpleName=ProcessRollup2
+      - CommandLine has sekurlsa / comsvcs.dll MiniDump / procdump lsass
+    why: LSASS dumping precedes lateral movement with harvested credentials. Falcon usually blocks it; the attempt alone is worth an incident.
+    kql: |-
+      dataset="crowdstrike_fdr" event_simpleName="ProcessRollup2"
+      | where CommandLine has_any ("sekurlsa","comsvcs.dll, MiniDump","comsvcs.dll MiniDump","procdump") and CommandLine has "lsass"
+      | summarize count() by aid, UserSid, ImageFileName, CommandLine
+    mitre:
+      - T1003.001
+  - title: Sensor gone quiet / downgraded
+    severity: medium
+    signals:
+      - aidmaster AgentVersion below policy
+      - no FDR events for an aid for > 24 h while aidmaster still lists it
+    why: Tampering (or the 2025/2026 sensor CVEs) often shows up as a sensor that stops sending or runs an old build.
+    kql: |-
+      dataset="crowdstrike_fdr" event_simpleName="ProcessRollup2"
+      | summarize last_seen=max(_time) by aid
+      | join kind=rightouter (dataset="crowdstrike_aidmaster" | summarize arg_max(_time, ComputerName, AgentVersion) by aid) on aid
+      | where isnull(last_seen) or last_seen < ago(24h)
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Drop low-value event_simpleNames
+    saving: 30–60 %
+    fn: Drop + Lookup
+    how: FDR ships hundreds of event types; most SOCs use a few dozen. Keep a lookup of allowed event_simpleName values (PR2, DnsRequest, NetworkConnectIP4, file-written, registry, user logon, detections) and drop the rest to Lake only.
+    expr: "!C.Lookup('event_simpleName_keep.csv','event_simpleName').match(event_simpleName)"
+  - title: Remove config and flag fields
+    saving: 15–25 %
+    fn: Eval (remove fields)
+    how: ConfigBuild, ConfigStateHash, Entitlements, EffectiveTransmissionClass, *Flags, Tags and empty strings are present on almost every event and never searched.
+    expr: "remove: ConfigBuild, ConfigStateHash, Entitlements, EffectiveTransmissionClass, *Flags, Tags; drop empty"
+  - title: Drop DNS to top domains
+    saving: 10–20 %
+    fn: Lookup + Drop
+    how: Most DnsRequest events resolve Microsoft, Google and CDN names. Drop DomainName values in a top-5k list (Majestic/Tranco) before the SIEM; keep everything in the lake.
+    expr: event_simpleName=='DnsRequest' && C.Lookup('top_domains.csv','domain').match(DomainName)
+  - title: Aggregate network connections
+    saving: 10–25 %
+    fn: Aggregations
+    how: Repeated NetworkConnectIP4 / NetworkReceiveAcceptIP4 from the same process to the same destination roll up to one record with a count per minute.
+    expr: "event_simpleName.startsWith('Network')  group by aid, ContextProcessId, RemoteAddressIP4, RemotePort  window 60s"
+  - title: Enrich with aidmaster, route by value
+    saving: Analyst time + SIEM licence
+    fn: Lookup + Routes
+    how: Join aid → ComputerName/OS/OU from aidmaster so detections are readable; send Event Streams detections and audit at full fidelity to the SIEM, all FDR raw to Cribl Lake for replay.
+    expr: "metadata.eventType → SIEM  |  event_simpleName → Lake + SIEM(optimised)"
+references:
+  - title: Cribl Stream — CrowdStrike FDR Source
+    url: https://docs.cribl.io/stream/sources-crowdstrike/
+  - title: Cribl Packs Dispensary — CrowdStrike FDR Pack
+    url: https://packs.cribl.io/packs/cribl_crowdstrike
+  - title: CrowdStrike Developer Center — FDR event and field schema API
+    url: https://developer.crowdstrike.com/api-reference/collections/fdr/
+  - title: CrowdStrike advisory — CVE-2026-40058 (Office macro removal)
+    url: https://www.crowdstrike.com/en-us/security-advisories/cve-2026-40058/
+  - title: CrowdStrike advisory — Issues affecting Falcon sensor for Windows (CVE-2025-42701 / CVE-2025-42706)
+    url: https://www.crowdstrike.com/en-us/security-advisories/issues-affecting-crowdstrike-falcon-sensor-for-windows/
+  - title: NVD — CVE-2025-1146
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-1146
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK — T1059.001 PowerShell
+    url: https://attack.mitre.org/techniques/T1059/001/
+related:
+  - sentinelone
+  - mde
+  - carbonblack-edr
+  - sysmon
+  - win-security
+  - windows-powershell

@@ -2,12 +2,358 @@
 id: trellix
 name: Trellix ePO & Endpoint Security (EDR)
 short: Trellix
+aka:
+  - McAfee ePolicy Orchestrator (ePO)
+  - Trellix ePO - On-prem / ePO - SaaS
+  - Trellix Endpoint Security (ENS)
+  - McAfee Endpoint Security
+  - Trellix EDR (MVISION EDR)
+  - Trellix Agent (McAfee Agent)
 vendor: Trellix
 category: edr
-status: stub
-summary: Formerly McAfee ePolicy Orchestrator and Trellix EDR; ePO threat events, device inventory and EDR detections.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - edr
+  - epp
+  - antivirus
+  - epo
+  - endpoint
+  - json
+  - xml
+  - syslog
+summary: Trellix (the merger of McAfee Enterprise and FireEye) manages endpoint protection through ePolicy Orchestrator. The Trellix Agent on each host reports threat events from Endpoint Security (ENS threat prevention, firewall, web control, exploit prevention) and DLP to ePO, which stores them and forwards them over TLS syslog as XML (on-prem) or exposes them through the Events and Devices REST APIs (ePO - SaaS). Trellix EDR adds continuous activity telemetry, threats and alerts through its own API.
 sourcetypes:
   - st: trellix_edr_event
+    desc: Trellix EDR activity feed / threats and alerts API events (process, file, network, DNS, registry, named pipe, scheduled task)
   - st: trellix_epo_device
+    desc: ePO - SaaS Devices API (/epo/v2/devices) — inventory with agent version, OS, tags, IP
   - st: trellix_epo_event
+    desc: ePO threat events — Events API (/epo/v2/events, MVEvents) or on-prem syslog XML (EPOEvent)
   - st: trellix_epo_group
+    desc: ePO - SaaS Groups API (/epo/v2/groups) — System Tree groups for enrichment
+  - st: mcafee:epo:syslog
+    desc: Splunk Add-on for McAfee/Trellix ePO — threat events received via ePO syslog forwarding
+  - st: mcafee:epo
+    desc: Splunk Add-on for McAfee/Trellix ePO — events pulled from the ePO SQL database (DB Connect)
+facts:
+  First released: ePO 2000 (McAfee); ENS 10 2015; Trellix brand 2022 (McAfee Enterprise + FireEye)
+  Platform: Agents for Windows, macOS, Linux; ePO - On-prem on Windows Server + SQL Server; ePO - SaaS
+  Delivery model: Self-hosted ePO server with Agent Handlers, or ePO - SaaS (multi-tenant)
+  Log transport: On-prem — syslog over TCP+TLS only (default 6514), or SQL queries; SaaS — Events / Devices / Groups REST APIs (OAuth2 + x-api-key)
+  Log format: On-prem syslog — RFC 5424 with an XML EPOEvent payload; SaaS — JSON:API documents
+  EDR data: Trellix EDR activity feed and Threats/Alerts API (JSON)
+  Typical volume: Threat events are low (tens to thousands per day per 10k hosts); EDR activity is high
+  Current versions: ePO - On-prem 5.10 SP1, ENS 10.7.x, Trellix Agent 5.8.x
+  Cribl Pack: none found in the Packs Dispensary (use the generic JSON / syslog packs)
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+  items:
+    - slot: endpoint
+      title: Trellix Agent + ENS on every host
+      desc: The Agent enforces ePO policy and uploads events; ENS modules (Threat Prevention, Firewall, Web Control, Adaptive Threat Protection) and DLP generate the threat events. Trellix EDR adds an activity sensor.
+    - slot: internal
+      title: ePO - On-prem server and Agent Handlers
+      desc: Windows server with a SQL Server database. Agent Handlers in DMZs or remote sites relay agent traffic. ePO forwards selected events to a registered syslog server (TLS only).
+    - slot: cloud
+      title: ePO - SaaS and Trellix EDR
+      desc: The SaaS console and EDR backend in Trellix's cloud; data leaves only via the REST APIs (regional gateways such as api.manage.trellix.com).
+    - slot: internal
+      title: SIEM collector
+      desc: Cribl Stream listens on TLS syslog for ePO - On-prem, or polls the SaaS Events/Devices APIs with a REST collector.
+howItWorks:
+  - title: Policy and the System Tree
+    body: ePO organises machines in a System Tree of groups and tags. Policies and client tasks (scans, DAT updates, product deployment) are assigned per group; the Agent checks in on an interval (ASCI) and pulls them. Every event carries the node path / group so it can be routed per business unit.
+  - title: Threat events
+    body: "ENS and other point products emit events with a numeric threat event ID, analyzer (product), detection method, threat name/type/category/severity, action taken and the source/target host, user, process and file. On-prem they land in the ePO SQL EPOEvents table; SaaS exposes them as MVEvents through /epo/v2/events."
+  - title: Syslog forwarding (on-prem)
+    body: A registered Syslog Server with "Enable event forwarding" makes the Agent Handler push each selected event as an RFC 5424 message with an XML <EPOEvent> body (MachineInfo + SoftwareInfo/Event/CommonFields). Event Filtering decides which event IDs are stored, forwarded or both. Only TCP + TLS is supported.
+  - title: ePO - SaaS APIs
+    body: Collectors get an IAM token (client credentials, scopes epo.evt.r / epo.admin), then page /epo/v2/events with since/until and the after cursor, and read /epo/v2/devices and /epo/v2/groups for inventory. Responses follow JSON:API (id, type, attributes, links).
+  - title: Trellix EDR
+    body: The EDR sensor records process, file, network, DNS, registry, named-pipe and scheduled-task activity; cloud analytics raise threats and alerts with MITRE mapping. Real-time and historical search, investigations, remediation and the activity feed are exposed through the EDR APIs.
+traffic:
+  handles:
+    - On-access and on-demand malware detections
+    - Exploit prevention and access-protection rule hits
+    - Host firewall and web control (URL reputation) events
+    - Adaptive Threat Protection (reputation, containment)
+    - DLP endpoint incidents
+    - EDR activity — process, file, network, DNS, registry, named pipe, scheduled task
+    - Agent / product update and compliance status
+  flow:
+    - step: Detection on endpoint
+      desc: ENS module (or DLP / EDR sensor) detects a threat or policy violation and acts (clean, delete, block, deny).
+    - step: Agent upload
+      desc: The Trellix Agent queues the event and sends it to an Agent Handler at the next communication.
+    - step: ePO store
+      desc: ePO writes the event to its database (on-prem) or tenant store (SaaS), subject to Event Filtering.
+    - step: Forward
+      desc: On-prem pushes XML over TLS syslog; SaaS events wait for an API poll.
+    - step: EDR analytics
+      desc: EDR activity is analysed in the cloud; threats and alerts become available via the EDR API.
+    - step: Collect and route
+      desc: Cribl Stream parses XML/JSON, enriches with device and group data, routes to SIEM and lake.
+logs:
+  - type: Threat event (ePO - SaaS Events API)
+    sourcetype: trellix_epo_event
+    format: json
+    share: 60–80 % of ePO events
+    avg: ~1.8 KB
+    desc: One JSON:API document per threat event with analyzer, detection method, threat name/category/severity, action taken and source/target details.
+    key:
+      - attributes.threateventid
+      - attributes.analyzername
+      - attributes.threatname
+      - attributes.threatseverity
+      - attributes.threatactiontaken
+      - attributes.targethostname
+      - attributes.targetfilename
+      - attributes.targetusername
+    noise:
+      - links.self
+      - attributes.autoguid
+      - attributes.analyzeripv6
+      - attributes.sourceipv6
+      - attributes.targetipv6
+      - attributes.sourcemac
+      - attributes.targetmac
+    sample: '{"id":"0102be3a-41db-448c-9a68-bce7c480d443","type":"MVEvents","links":{"self":"/epo/v2/events/0102be3a-41db-448c-9a68-bce7c480d443"},"attributes":{"timestamp":"2026-11-12T09:14:24.041Z","autoguid":"9fcf439b-82d7-425c-9a11-0c2d3e4f5a6b","detectedutc":"1762938860000","receivedutc":"1762938864041","agentguid":"8630b925-cbd2-ed11-8a7b-0c2d3e4f5a6b","analyzer":"ENDP_AM_1070","analyzername":"Trellix Endpoint Security","analyzerversion":"10.7.0.6842","analyzerhostname":"WS-FIN-042","analyzeripv4":"10.20.30.44","analyzeripv6":"/::ffff:10.20.30.44","analyzermac":"00005E005301","analyzerdatversion":"5912.0","analyzerengineversion":"6700.10107","analyzerdetectionmethod":"On-Access Scan","sourcehostname":null,"sourceipv4":"198.51.100.77","sourceipv6":"/::ffff:198.51.100.77","sourcemac":null,"sourceusername":"CORP\\jdoe","sourceprocessname":"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE","sourceurl":"https://cdn.update-check.example.org/invoice.docm","targethostname":"WS-FIN-042","targetipv4":"10.20.30.44","targetipv6":"/::ffff:10.20.30.44","targetmac":"00005E005301","targetusername":"CORP\\jdoe","targetport":null,"targetprotocol":null,"targetprocessname":null,"targetfilename":"C:\\Users\\jdoe\\Downloads\\invoice.docm","threatcategory":"av.detect","threateventid":1027,"threatseverity":"2","threatname":"W97M/Downloader.ab","threattype":"trojan","threatactiontaken":"deleted","threathandled":true,"nodepath":"1\\854691\\901751","targethash":"a7f7a4eec248e6c1841ec6d5b735357b","sourceprocesshash":null,"sourceprocesssigned":"true","sourceprocesssigner":"MICROSOFT CORPORATION","sourcefilepath":null}}'
+  - type: Threat event (ePO - On-prem syslog XML)
+    sourcetype: trellix_epo_event
+    format: xml
+    share: on-prem deployments
+    avg: ~2 KB
+    desc: The same threat event forwarded by ePO - On-prem over TLS syslog as an <EPOEvent> XML document (shown without the RFC 5424 header). Field names are CamelCase and grouped under MachineInfo and SoftwareInfo/Event/CommonFields.
+    key:
+      - MachineName
+      - EventID
+      - AnalyzerName
+      - ThreatName
+      - ThreatActionTaken
+      - ThreatSeverity
+      - TargetFileName
+      - SourceUserName
+    noise:
+      - TimeZoneBias
+      - RawMACAddress
+      - AnalyzerDATVersion
+      - AnalyzerEngineVersion
+      - SoftwareInfo.ProductFamily
+    sample: <EPOEvent><MachineInfo><MachineName>WS-FIN-042</MachineName><AgentGUID>{8630b925-cbd2-ed11-8a7b-0c2d3e4f5a6b}</AgentGUID><IPAddress>10.20.30.44</IPAddress><OSName>Windows 11</OSName><UserName>jdoe</UserName><TimeZoneBias>-60</TimeZoneBias><RawMACAddress>00005E005301</RawMACAddress></MachineInfo><SoftwareInfo ProductName="Trellix Endpoint Security" ProductVersion="10.7" ProductFamily="TVD"><CommonFields><Analyzer>ENDP_AM_1070</Analyzer><AnalyzerName>Trellix Endpoint Security</AnalyzerName><AnalyzerVersion>10.7.0.6842</AnalyzerVersion><AnalyzerHostName>WS-FIN-042</AnalyzerHostName><AnalyzerDATVersion>5912.0</AnalyzerDATVersion><AnalyzerEngineVersion>6700.10107</AnalyzerEngineVersion></CommonFields><Event><EventID>1027</EventID><Severity>2</Severity><GMTTime>2026-11-12T09:14:20</GMTTime><CommonFields><AnalyzerDetectionMethod>On-Access Scan</AnalyzerDetectionMethod><ThreatName>W97M/Downloader.ab</ThreatName><ThreatType>trojan</ThreatType><ThreatCategory>av.detect</ThreatCategory><ThreatHandled>1</ThreatHandled><ThreatActionTaken>deleted</ThreatActionTaken><ThreatSeverity>2</ThreatSeverity><SourceUserName>CORP\jdoe</SourceUserName><SourceProcessName>WINWORD.EXE</SourceProcessName><TargetFileName>C:\Users\jdoe\Downloads\invoice.docm</TargetFileName></CommonFields></Event></SoftwareInfo></EPOEvent>
+  - type: EDR activity event
+    sourcetype: trellix_edr_event
+    format: json
+    share: 80–95 % of EDR volume
+    avg: ~1 KB
+    desc: Trellix EDR activity record (process, file, network, DNS, registry, named pipe, scheduled task) keyed by _eventType, with the acting process command line, hashes and network tuple.
+    key:
+      - _eventType
+      - _deviceId
+      - name
+      - cmdLine
+      - fileSha256
+      - destAddress
+      - destPort
+      - dnsName
+    noise:
+      - _ver
+      - _serverId
+      - data
+      - fileMagicBytes
+      - fileAttributes
+      - subsystem
+    sample: '{"_ver":2107,"_serverId":"5B0539BF-0932-4BEA-BD12-EA52687E58BD","_eventType":"Network Connection","_deviceId":"D435435B-BB33-4625-891E-0C2D3E4F5A6B","_parentEventId":"1a2b3c4d-8566-404c-87a3-a4c46017b87d","_eventId":"675e9f10-054c-48e8-9549-468dbb5ae5bc","_time":"2026-11-12T09:14:24.186Z","name":"powershell.exe","authorName":"Microsoft Windows","cmdLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","pid":"7412","fileSha256":"9F914D42706FE215501044ACD85A32D58AAEF1419D404FDDFA5D3B48F66CCD9F","fileMd5":"7353F60B1739074EB17C5F4DDDEFE239","filePath":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","fileType":"PE","fileAttributes":32,"fileMagicBytes":"4d5a90","subsystem":3,"direction":"outbound","protocol":"tcp","sourceAddress":"10.20.30.44","sourcePort":51544,"destAddress":"198.51.100.77","destPort":443,"dnsName":"cdn.update-check.example.org","data":"AAA9UFgBAAA="}'
+  - type: Device inventory (ePO - SaaS Devices API)
+    sourcetype: trellix_epo_device
+    format: json
+    share: inventory
+    avg: ~1.5 KB
+    desc: Not a security event — one document per managed system with agent version, OS, tags and last check-in. Use as a lookup to enrich events and to find unmanaged or stale agents.
+    key:
+      - attributes.computerName
+      - attributes.agentVersion
+      - attributes.lastUpdate
+      - attributes.osType
+      - attributes.ipAddress
+      - attributes.tags
+    noise:
+      - links.self
+      - relationships.installedProducts.links.self
+      - relationships.installedProducts.links.related
+      - attributes.cpuType
+      - attributes.cpuSpeed
+      - attributes.systemSerialNumber
+    sample: '{"id":"314623","type":"devices","links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623"},"attributes":{"name":"WS-FIN-042","parentId":854691,"agentGuid":"8630B925-CBD2-ED11-8A7B-0C2D3E4F5A6B","lastUpdate":"2026-11-12T08:58:35.517+00:00","agentState":0,"agentPlatform":"WINDOWS","agentVersion":"5.8.3.622","nodeCreatedDate":"2025-03-29T12:06:05.877+00:00","managed":"1","tenantId":61399,"tags":"Workstation, Finance","excludedTags":"","computerName":"WS-FIN-042","domainName":"CORP","ipAddress":"10.20.30.44","osType":"Windows 11","osVersion":"10.0","osBuildNumber":22631,"cpuType":"Intel(R) Core(TM) i7-1365U","cpuSpeed":1800,"numOfCpu":10,"macAddress":"00005E005301","userName":"jdoe","osPlatform":"Workstation","isPortable":"portable","systemSerialNumber":"EXAMPLE123","systemModel":"Latitude 7440","systemManufacturer":"Dell Inc.","systemRebootPending":0},"relationships":{"installedProducts":{"links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623/relationships/installedProducts","related":"https://api.manage.trellix.com/epo/v2/devices/314623/installedProducts"}}}}'
+cves:
+  - id: CVE-2023-5444
+    cvss: 8.0
+    year: 2023
+    kev: false
+    scope: device
+    title: ePO CSRF in the dashboard lets a low-privilege user add a new administrator
+    affected: Trellix ePolicy Orchestrator before 5.10.0 CP1 Update 2
+    fixed: 5.10.0 CP1 Update 2
+    detect: ePO audit log entries for user creation / role change that no administrator performed; new admin accounts appearing in ePO; follow-on policy changes (exclusions, disabled modules) followed by a drop in threat events.
+    avoid: Patch ePO; restrict console access to admin jump hosts; review the ePO audit log daily.
+  - id: CVE-2024-4844
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: ePO hardcoded credentials let an ePO-server admin read orion.keystore and access ePO secrets (CNA score)
+    affected: Trellix ePolicy Orchestrator - On-prem before 5.10 Service Pack 1 Update 2
+    fixed: 5.10 Service Pack 1 Update 2
+    detect: Access to orion.keystore on the ePO server outside service accounts (Windows Security 4663 / Sysmon file events); ePO database connections from unexpected hosts.
+    avoid: Patch; treat the ePO server as tier-0 (it can push code to every endpoint); limit local admin on it.
+  - id: CVE-2023-0975
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Trellix Agent for Windows install/upgrade lets a local user replace an Agent executable → SYSTEM
+    affected: Trellix Agent for Windows 5.7.8 and earlier
+    detect: Device inventory attributes.agentVersion at or below 5.7.8; EDR file events writing into the Agent install directory by a non-SYSTEM process during an upgrade window.
+    avoid: Upgrade the Agent; deploy upgrades through ePO only; restrict write access to installer staging folders.
+  - id: CVE-2023-3665
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: ENS AMSI component can be disabled by a local user via environment variables (NVD 7.8; Trellix scores 5.5)
+    affected: Trellix Endpoint Security (ENS) 10.7.0 April 2023 release and earlier
+    detect: Drop in AMSI-sourced detections from a host; EDR process events with unusual environment-variable setting before PowerShell / script execution; script-based malware succeeding where ENS normally blocks.
+    avoid: Update ENS to a later monthly release; keep Exploit Prevention and Adaptive Threat Protection on.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: Windows SMBv1 "EternalBlue" RCE (WannaCry, NotPetya) — the threat ENS firewall / exploit prevention and network IPS events are expected to flag
+    affected: Windows Vista – 10 and Server 2008 – 2016 with SMBv1 before MS17-010
+    fixed: MS17-010 (March 2017)
+    detect: ENS / Host IPS threat events for SMB exploit signatures; EDR network events with many inbound TCP 445 connections from one internal host; lsass.exe or spoolsv.exe spawning unexpected children.
+    avoid: Apply MS17-010; disable SMBv1; block TCP 445 between workstations.
+detections:
+  - title: Malware detected but not removed
+    severity: high
+    signals:
+      - threat event with threathandled=false
+      - or threatactiontaken in none / would block / denied
+    why: A detection that was only reported (exclusion, observe mode, failed clean) leaves the payload active.
+    kql: |-
+      dataset="trellix_epo" type="MVEvents"
+      | where attributes.threathandled == false or attributes.threatactiontaken in~ ("none","would block","IDS_ALERT_ACT_TAK_NONE")
+      | summarize count(), threats=make_set(attributes.threatname, 10) by attributes.targethostname, attributes.analyzername
+    mitre:
+      - T1204.002
+  - title: Same threat on many hosts (outbreak)
+    severity: critical
+    signals:
+      - one threatname on > 10 distinct targethostname in 1 h
+    why: Worm-like spread (EternalBlue-style) or a mass phishing campaign; trigger containment and block indicators centrally.
+    kql: |-
+      dataset="trellix_epo" type="MVEvents"
+      | summarize hosts=dcount(attributes.targethostname), events=count() by attributes.threatname, bin(_time, 1h)
+      | where hosts > 10
+    mitre:
+      - T1210
+      - T1566.001
+  - title: Encoded PowerShell with outbound connection (EDR)
+    severity: high
+    signals:
+      - trellix_edr_event _eventType=Network Connection
+      - name=powershell.exe
+      - cmdLine has -enc
+    why: Download cradles decode and immediately connect out; the pairing is specific.
+    kql: |-
+      dataset="trellix_edr" _eventType="Network Connection" direction="outbound"
+      | where name in~ ("powershell.exe","pwsh.exe")
+      | where cmdLine matches regex @"(?i)\s-(e|en|enc|encodedcommand)\s"
+      | summarize conns=count(), dests=make_set(dnsName, 10) by _deviceId, destAddress, destPort
+    mitre:
+      - T1059.001
+      - T1027.010
+      - T1105
+  - title: Endpoint protection silenced — stale agents or DAT
+    severity: medium
+    signals:
+      - device attributes.lastUpdate older than 7 days
+      - analyzerdatversion far behind the fleet
+    why: Agents that stop checking in, or hosts with old DATs, are where attackers live; also the symptom of tampering.
+    kql: |-
+      dataset="trellix_epo_devices" type="devices"
+      | extend last_checkin=todatetime(attributes.lastUpdate)
+      | summarize last_checkin=max(last_checkin), agent=any(attributes.agentVersion) by attributes.computerName
+      | where last_checkin < ago(7d)
+    mitre:
+      - T1562.001
+  - title: Same download URL delivering malware to several users
+    severity: high
+    signals:
+      - threat events with a sourceurl
+      - one sourceurl on > 2 target hosts
+    why: A shared URL behind detections on several hosts is an active delivery site (phishing link, compromised site); block it at the proxy and hunt for hosts that fetched it without a detection.
+    kql: |-
+      dataset="trellix_epo" type="MVEvents"
+      | where isnotempty(attributes.sourceurl)
+      | summarize hosts=dcount(attributes.targethostname), users=make_set(attributes.targetusername, 10), threats=make_set(attributes.threatname, 5) by attributes.sourceurl
+      | where hosts > 2
+    mitre:
+      - T1566.002
+      - T1189
+optimizations:
+  - title: Filter event IDs at the source
+    saving: 20–50 %
+    fn: ePO Event Filtering + Drop
+    how: ePO Event Filtering decides which event IDs are forwarded. Forward threat, exploit-prevention, access-protection and firewall-block events; keep update / scan-completed / informational events in ePO only, or drop them in Stream.
+    expr: attributes.threatcategory.startsWith('ops.') || attributes.threatname=='None'
+  - title: Remove null and duplicate columns
+    saving: 25–40 %
+    fn: Eval (remove fields)
+    how: Threat events carry many nulls (source*/target* not applicable), IPv6-mapped duplicates of IPv4 and self links. Remove them and flatten attributes.* to top level.
+    expr: "remove: links.*, attributes.*ipv6, attributes.*mac, attributes.autoguid; drop null"
+  - title: Parse syslog XML to JSON once
+    saving: 30–50 % (XML tag overhead)
+    fn: Parser (XML) → Serialize
+    how: On-prem events arrive as verbose XML. Parse with the XML parser, keep CommonFields + MachineInfo, and serialise as JSON so on-prem and SaaS share one schema.
+    expr: "C.Text.parseXml(_raw) → EPOEvent.SoftwareInfo.Event.CommonFields.*, EPOEvent.MachineInfo.*"
+  - title: Enrich with devices and groups
+    saving: Analyst time
+    fn: Lookup
+    how: Join events on agentguid / computerName to the Devices API (tags, OS, agent version) and nodepath to the Groups API (nodeTextPath) so alerts show business unit and owner.
+    expr: "lookup trellix_devices.csv on agentguid → tags, osType, agentVersion; lookup trellix_groups.csv on nodepath → nodeTextPath"
+  - title: Aggregate EDR network and DNS activity
+    saving: 20–40 %
+    fn: Aggregations
+    how: EDR network and DNS events repeat heavily. Aggregate per device / process / destination per minute for the SIEM; keep raw in Cribl Lake.
+    expr: "_eventType in ('Network Connection','DNS Query')  group by _deviceId, name, destAddress, destPort  window 60s"
+references:
+  - title: Trellix docs — Register syslog servers (ePO - On-prem, TLS only)
+    url: https://docs.trellix.com/docs/register-syslog-servers
+  - title: Trellix docs — Determine which events are forwarded to the server
+    url: https://docs.trellix.com/docs/determine-which-events-are-forwarded-to-the-server-2
+  - title: Trellix docs — Steps for gaining access to consume threat events (Events API)
+    url: https://docs.trellix.com/docs/steps-for-gaining-access-to-consume-threat-events
+  - title: Trellix docs — Trellix EDR APIs
+    url: https://docs.trellix.com/docs/trellix-edr-apis
+  - title: Trellix Developer Portal
+    url: https://developer.manage.trellix.com/
+  - title: NVD — CVE-2023-5444
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-5444
+  - title: NVD — CVE-2024-4844
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-4844
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - crowdstrike
+  - mde
+  - sentinelone
+  - carbonblack-edr
+  - sysmon
+  - win-security
