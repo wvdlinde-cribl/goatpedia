@@ -2,11 +2,323 @@
 id: nginx
 name: NGINX / NGINX Plus
 short: NGINX
+aka:
+  - nginx
+  - NGINX Plus
+  - NGINX Open Source
+  - ingress-nginx
+  - OpenResty
 vendor: F5
 category: web
-status: stub
-summary: Web server, reverse proxy and load balancer; access log in combined or key=value format.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - web-server
+  - reverse-proxy
+  - load-balancer
+  - kubernetes-ingress
+  - access-log
+summary: Event-driven web server, reverse proxy and load balancer — the most deployed web front end on the internet and the base of most Kubernetes ingress controllers. Access logs use the combined format by default (or key=value / JSON with a custom log_format); the error log shows denials, upstream failures and probes for missing files. NGINX Plus adds an API, active health checks and richer logs.
 sourcetypes:
   - st: nginx_access
+    desc: NGINX access log in the default combined format
   - st: nginx_accesslog
+    desc: NGINX access log, log_format combined ($remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent")
   - st: nginx_plus_kv
+    desc: NGINX Plus access log in the key=value log_format used by the Splunk Add-on for NGINX
+  - st: nginx:plus:access
+    desc: Splunk Add-on for NGINX access log sourcetype (combined)
+  - st: nginx:plus:error
+    desc: Splunk Add-on for NGINX error log sourcetype
+facts:
+  First released: 2004 (Igor Sysoev); NGINX Plus 2013; acquired by F5 in 2019
+  Current version: Open Source 1.31.7 mainline / 1.30.6 stable (November 2026)
+  Platforms: Linux, BSD, Windows (limited), containers; NGINX Plus as packages and AMIs
+  Roles: Web server, reverse proxy, L4/L7 load balancer, API gateway, Kubernetes ingress (ingress-nginx, F5 NGINX Ingress Controller)
+  Log types: Access log (log_format), error log (debug … emerg), NGINX Plus API / status metrics, App Protect WAF security log
+  Log transport: Files, syslog (access_log syslog:server=…), stdout/stderr in containers
+  Log format: Text (combined) by default; key=value or JSON (escape=json) with a custom log_format
+  Typical volume: 1 line per request, 200–400 B; error log usually under 5 % of access volume
+placement:
+  slots:
+    - dmz
+    - cloud
+    - internal
+  items:
+    - slot: dmz
+      title: Internet-facing reverse proxy / load balancer
+      desc: Terminates TLS and spreads requests over application servers. Sees every exploit attempt against the apps behind it — log $request_time and $upstream_addr to tie requests to backends.
+    - slot: cloud
+      title: Kubernetes ingress controller
+      desc: ingress-nginx or the F5 NGINX Ingress Controller route cluster traffic. Logs go to stdout and are collected per pod; the controller's admission webhook is itself an attack surface (CVE-2025-1974).
+    - slot: internal
+      title: Internal API gateway and service mesh edge
+      desc: Fronts internal APIs with auth_request, rate limiting and mTLS. Useful for east-west visibility where no firewall sits between services.
+howItWorks:
+  - title: Event-driven workers
+    body: A master process reads the config; worker processes handle thousands of connections each with an event loop. Config is a tree of http / server / location blocks; the most specific location wins.
+  - title: Reverse proxy and load balancing
+    body: proxy_pass, fastcgi_pass, grpc_pass and uwsgi_pass forward requests to upstream groups (round-robin, least_conn, hash). NGINX Plus adds active health checks, session persistence and a REST API to change upstreams live.
+  - title: Rewrite, map and variables
+    body: rewrite, if, set and map build URIs and headers from regex captures. Several 2026 memory-safety bugs (CVE-2026-42945, CVE-2026-42533) sit exactly here, so configs with regex captures need the latest release.
+  - title: Access log
+    body: Written when the request ends, using a log_format. Combined is the default; key=value and JSON formats add upstream address, request time, TLS protocol and X-Forwarded-For. Logging can be buffered, conditional (if=) or sent to syslog.
+  - title: Error log
+    body: One line per event with level, pid#tid, connection id and context (client, server, request, upstream, host). Missing files, access forbidden by rule, upstream timeouts and limit_req rejections show up here.
+traffic:
+  handles:
+    - HTTP / HTTPS (80, 443), HTTP/2 and HTTP/3 (QUIC)
+    - Reverse proxy to HTTP, FastCGI, uWSGI, SCGI and gRPC backends
+    - TCP / UDP load balancing (stream module)
+    - TLS termination and mTLS
+    - Mail proxy (SMTP, IMAP, POP3)
+    - Rate limiting and connection limiting
+    - Kubernetes ingress
+  flow:
+    - step: Accept
+      desc: A worker accepts the connection; TLS is terminated.
+    - step: Select server
+      desc: The server block is chosen by listen address and Host / SNI.
+    - step: Match location
+      desc: Prefix and regex locations are evaluated; rewrite / return may change the URI.
+    - step: Access phase
+      desc: allow/deny, auth_basic, auth_request, limit_req and limit_conn decide.
+    - step: Content / proxy
+      desc: Static file, or proxy_pass to an upstream chosen by the balancer.
+    - step: Log
+      desc: The access log line is written with status, bytes and timings.
+logs:
+  - type: Access log (combined)
+    sourcetype: nginx_accesslog
+    format: text
+    share: 90–97 %
+    avg: ~250 B
+    desc: Default combined format — one line per request. Basis for scanning, traversal, injection and brute-force detections.
+    pattern: '^(?<remote_addr>\S+) - (?<remote_user>\S+) \[(?<time_local>[^\]]+)\] "(?:(?<request_method>[A-Z]+) (?<request_uri>\S+)(?: (?<http_version>HTTP/[\d.]+))?|(?<request>[^"]*))" (?<status>\d{3}) (?<body_bytes_sent>\d+) "(?<http_referer>[^"]*)" "(?<http_user_agent>[^"]*)"'
+    key:
+      - remote_addr
+      - remote_user
+      - request_method
+      - request_uri
+      - status
+      - body_bytes_sent
+      - http_user_agent
+    noise:
+      - http_version
+      - http_referer
+    sample: '203.0.113.45 - - [12/Nov/2026:02:14:22 +0000] "GET /.env HTTP/1.1" 404 153 "-" "Mozilla/5.0 (compatible; Nuclei - Open-source project (github.com/projectdiscovery/nuclei))"'
+  - type: Access log (NGINX Plus key=value)
+    sourcetype: nginx_plus_kv
+    format: kv
+    share: varies
+    avg: ~550 B
+    desc: The key=value log_format recommended for the Splunk Add-on for NGINX — adds upstream timing, TLS, X-Forwarded-For and split URI path / query.
+    key:
+      - src_ip
+      - site
+      - http_method
+      - uri_path
+      - status
+      - bytes_out
+      - request_time
+      - http_user_agent
+    noise:
+      - http_x_header
+      - cookie
+      - category
+      - nginx_version
+    sample: 'site="www.example.com" server="www.example.com" dest_port="443" dest_ip="10.0.5.20" src_ip="198.51.100.17" src_user="-" time_local="12/Nov/2026:02:15:03 +0000" protocol="HTTP/1.1" status="401" bytes_out="188" bytes_in="642" http_referer="-" http_user_agent="python-requests/2.32.3" nginx_version="1.30.6" http_x_forwarded_for="-" http_x_header="-" uri_query="-" uri_path="/api/v1/login" http_method="POST" response_time="0.041" cookie="-" request_time="0.042" category="-" https="on"'
+  - type: Error log
+    sourcetype: nginx:plus:error
+    format: text
+    share: 1–5 %
+    avg: ~250 B
+    desc: Errors and denials with level, worker and request context — missing files probed by scanners, "access forbidden by rule", upstream timeouts, limit_req rejections, worker crashes (signal 11).
+    pattern: '^(?<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?<level>\w+)\] (?<pid>\d+)#(?<tid>\d+): (?:\*(?<connection_id>\d+) )?(?<message>.+?)(?:, client: (?<client>[^,]+), server: (?<server>[^,]*)(?:, request: "(?<request>[^"]*)")?(?:, upstream: "(?<upstream>[^"]*)")?(?:, host: "(?<host>[^"]*)")?.*)?$'
+    key:
+      - level
+      - message
+      - client
+      - request
+      - upstream
+      - host
+    noise:
+      - pid
+      - tid
+      - connection_id
+    sample: '2026/11/12 02:14:22 [error] 2104#2104: *1834 open() "/usr/share/nginx/html/.env" failed (2: No such file or directory), client: 203.0.113.45, server: www.example.com, request: "GET /.env HTTP/1.1", host: "www.example.com"'
+cves:
+  - id: CVE-2026-42945
+    cvss: 8.1
+    year: 2026
+    kev: false
+    scope: device
+    title: ngx_http_rewrite_module buffer overflow — rewrite followed by rewrite/if/set with unnamed PCRE captures
+    affected: NGINX Open Source 0.6.27–1.30.0; NGINX Plus (see F5 advisory)
+    fixed: NGINX Open Source 1.31.0, 1.30.1
+    detect: Worker crashes ("worker process … exited on signal 11") in the error log following unusual long URIs on locations with rewrite rules.
+    avoid: Upgrade; prefer named captures; review rewrite chains that reuse $1/$2.
+  - id: CVE-2026-42533
+    cvss: 8.1
+    year: 2026
+    kev: false
+    scope: device
+    title: Buffer overflow when a map with regex matching is referenced via its capture variables
+    affected: NGINX Open Source 0.9.6–1.31.2; NGINX Plus (see F5 advisory)
+    fixed: NGINX Open Source 1.31.3, 1.30.4
+    detect: Worker segfaults in the error log; crafted Host or header values hitting map blocks.
+    avoid: Upgrade; avoid using map regex captures before the map output variable.
+  - id: CVE-2025-1974
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: device
+    title: IngressNightmare — ingress-nginx admission controller config injection, unauthenticated RCE and cluster secrets
+    affected: Kubernetes ingress-nginx controller before v1.11.5 and v1.12.0 (Kubernetes project, not F5 NGINX Ingress Controller)
+    fixed: ingress-nginx v1.11.5, v1.12.1
+    detect: Requests to the admission webhook (port 8443) from pods or networks other than the API server; AdmissionReview objects with ssl_engine or odd annotations; new shared objects in /proc/*/fd of the controller.
+    avoid: Upgrade; restrict network access to the admission webhook to the API server, or disable the webhook until patched.
+  - id: CVE-2022-41741
+    cvss: 7.8
+    year: 2022
+    kev: false
+    scope: device
+    title: ngx_http_mp4_module memory corruption via a crafted MP4 file
+    affected: NGINX Open Source 1.1.3–1.23.1 and 1.0.7–1.0.15 with the mp4 directive enabled
+    fixed: NGINX Open Source 1.23.2, 1.22.1
+    detect: Worker crashes while serving .mp4 locations; uploads of MP4 files to directories served with the mp4 directive.
+    avoid: Upgrade; disable the mp4 directive where pseudo-streaming is not needed.
+  - id: CVE-2021-23017
+    cvss: 7.7
+    year: 2021
+    kev: false
+    scope: device
+    title: 1-byte memory overwrite in the resolver — crash or RCE via forged DNS responses
+    affected: NGINX Open Source 0.6.18–1.20.0 with the resolver directive
+    fixed: NGINX Open Source 1.21.0, 1.20.1
+    detect: Worker crashes after DNS resolution of upstreams; unexpected DNS responses to the resolver from off-path sources.
+    avoid: Upgrade; point the resolver at a trusted local DNS server over a protected path.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 Rapid Reset — stream create/cancel floods exhaust servers and backends
+    affected: HTTP/2 implementations including NGINX with http2 enabled (impact depends on keepalive_requests and limits)
+    detect: Huge request counts per connection with status 499 (client closed) in the access log; spikes of RST_STREAM in metrics; CPU saturation without matching completed requests.
+    avoid: Keep keepalive_requests at the default 1000, apply limit_conn / limit_req, upgrade to a release with the rapid-reset mitigation.
+detections:
+  - title: Sensitive file and path probing
+    severity: medium
+    signals:
+      - requests for /.env, /.git/config, /wp-config.php, /actuator/env
+      - 404 or 403 bursts from one client
+      - scanner user agents
+    why: Credential and config leaks via exposed dotfiles are a top initial-access route; any 200 on such a path is an incident.
+    kql: |-
+      dataset="nginx_logs"
+      | where request_uri has_any ("/.env", "/.git/", "wp-config", "/actuator/", "/.aws/", "/server-status")
+      | summarize hits=count(), ok=countif(status == "200"), uris=make_set(request_uri, 10) by remote_addr
+      | sort by ok desc
+    mitre:
+      - T1595.003
+      - T1552.001
+  - title: Injection and traversal payloads
+    severity: high
+    signals:
+      - ../ or %2e%2e in the URI
+      - UNION SELECT, ' OR 1=1, <script> in the query
+      - ${jndi in the URI or user agent
+    why: Exploit attempts against the applications behind NGINX arrive verbatim in the request line and headers.
+    kql: |-
+      dataset="nginx_logs"
+      | where request_uri has_any ("../", "%2e%2e", "union%20select", "%27%20or%201", "<script", "${jndi") or http_user_agent has "${jndi"
+      | summarize count() by remote_addr, request_uri, status
+    mitre:
+      - T1190
+  - title: Login brute force against an API
+    severity: medium
+    signals:
+      - many POSTs to login / token endpoints
+      - mostly 401 / 403 responses
+      - one source, many attempts per minute
+    why: Credential stuffing goes straight at /login and /oauth/token; the proxy is the one place that sees all of it.
+    kql: |-
+      dataset="nginx_logs" http_method="POST"
+      | where uri_path has_any ("login", "signin", "token", "auth") and status in ("401", "403")
+      | summarize fails=count() by src_ip, site, bin(_time, 5m)
+      | where fails > 50
+    mitre:
+      - T1110.004
+  - title: Worker crashes (possible memory-corruption exploit)
+    severity: high
+    signals:
+      - worker process exited on signal 11
+      - alert / crit level in the error log
+      - repeated right after unusual requests
+    why: The 2026 rewrite/map overflows and HTTP/3 bugs crash workers when probed; repeated segfaults on a patched-late server are a strong exploit signal.
+    kql: |-
+      dataset="nginx_logs" sourcetype="nginx:plus:error"
+      | where level in ("alert", "crit", "emerg") or message has "exited on signal"
+      | summarize crashes=count(), msgs=make_set(message, 5) by host, bin(_time, 15m)
+    mitre:
+      - T1190
+      - T1499.004
+  - title: HTTP flood / Rapid Reset signs
+    severity: medium
+    signals:
+      - surge of 499 or 503 responses
+      - limit_req rejections in the error log
+      - request rate far above baseline per client
+    why: Layer-7 floods and HTTP/2 rapid reset show as many short or cancelled requests per client.
+    kql: |-
+      dataset="nginx_logs"
+      | where status in ("499", "503", "429")
+      | summarize reqs=count() by remote_addr, bin(_time, 1m)
+      | where reqs > 1000
+    mitre:
+      - T1498
+      - T1499.002
+optimizations:
+  - title: Drop static assets and health checks
+    saving: 30–60 %
+    fn: Drop
+    how: 2xx/304 requests for images, CSS, JS and load-balancer health URLs dominate volume and are rarely needed for security.
+    expr: "/^(2\\d\\d|304)$/.test(status) && (/\\.(png|jpe?g|gif|css|js|woff2?|ico|svg)$/i.test(request_uri || '') || ['/health','/healthz','/nginx_status'].includes(request_uri))"
+  - title: Drop placeholder and constant kv fields
+    saving: 10–20 %
+    fn: Eval
+    how: The kv format logs many fields as "-" (cookie, category, http_x_header). Remove dash-only values and the constant nginx_version.
+    expr: "remove: nginx_version, http_x_header, category, cookie  and any field == '-'"
+  - title: Suppress repeated error-log lines
+    saving: 5–15 %
+    fn: Suppress
+    how: Missing-file and upstream-timeout errors repeat for every scanner request; keep one per client and message per minute.
+    expr: "key: `${client}:${message}`  allow 1 / 60s"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: 4xx/5xx, POSTs, auth endpoints and error-log lines → SIEM; successful GETs → Cribl Lake for investigations and metrics.
+    expr: "!/^[23]/.test(status) || request_method == 'POST' || sourcetype == 'nginx:plus:error' → SIEM  |  else → Lake"
+references:
+  - title: nginx security advisories
+    url: https://nginx.org/en/security_advisories.html
+  - title: Module ngx_http_log_module (log_format, access_log)
+    url: https://nginx.org/en/docs/http/ngx_http_log_module.html
+  - title: Configuring logging (NGINX documentation)
+    url: https://docs.nginx.com/nginx/admin-guide/monitoring/logging/
+  - title: Ingress-nginx CVE-2025-1974 — What you need to know (Kubernetes blog)
+    url: https://kubernetes.io/blog/2025/03/24/ingress-nginx-cve-2025-1974/
+  - title: NVD — CVE-2026-42945
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-42945
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - apache-httpd
+  - iis
+  - f5-awaf
+  - aws-elb
+  - cloudflare-waf
+  - linux-syslog

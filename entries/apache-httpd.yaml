@@ -2,11 +2,316 @@
 id: apache-httpd
 name: Apache HTTP Server
 short: Apache
+aka:
+  - httpd
+  - Apache2
+  - IBM HTTP Server
+  - Oracle HTTP Server
 vendor: Apache Software Foundation
 category: web
-status: stub
-summary: The most common open-source web server; access log in common/combined format and error log.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - web-server
+  - reverse-proxy
+  - access-log
+  - open-source
+  - path-traversal
+summary: The open-source web server and reverse proxy behind a large share of websites, appliances and vendor products (IBM HTTP Server, Oracle HTTP Server, many admin consoles). The access log (common/combined) shows every request and status; the error log shows denials, module errors and crashes. Path-traversal and mod_rewrite/mod_proxy bugs make it a regular entry in the CISA KEV catalog.
 sourcetypes:
   - st: apache_access
+    desc: Access log in combined format (client, user, request, status, bytes, referer, user agent)
   - st: apache_httpd_accesslog_combined
+    desc: Access log, LogFormat "combined" (%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i")
   - st: apache_httpd_accesslog_common
+    desc: Access log, LogFormat "common" (CLF) — no referer or user agent
+  - st: apache:access
+    desc: Splunk Add-on for Apache Web Server access log sourcetype
+  - st: apache:error
+    desc: Splunk Add-on for Apache Web Server error log sourcetype
+facts:
+  First released: 1995 (2.4 branch since 2012)
+  Current version: 2.4.71 (released 2026-11-11); 2.2 end of life since 2018
+  Platforms: Linux / Unix (most common), Windows, embedded in vendor appliances
+  Architecture: Core + loadable modules (mod_ssl, mod_proxy, mod_rewrite, mod_http2, mod_security); MPMs prefork, worker, event
+  Log types: Access log (mod_log_config), error log (ErrorLog / LogLevel per module), optional forensic and mod_security audit logs
+  Log transport: Files rotated by logrotate or rotatelogs; piped logging to logger/syslog; forwarded by Cribl Edge or a file agent
+  Log format: Text — LogFormat strings; JSON possible with a custom LogFormat
+  Typical volume: 1 line per request; 200–300 B per access line; error log 1–5 % of access volume
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Internet-facing web server / reverse proxy
+      desc: Serves public sites or fronts application servers (Tomcat via mod_proxy_ajp/http). The first place exploit attempts appear — as 400/403/404 lines or odd URIs.
+    - slot: internal
+      title: Embedded in products and admin consoles
+      desc: Many appliances, ERP and middleware stacks ship httpd (IBM HTTP Server, Oracle HTTP Server). These are often unpatched and rarely logged centrally.
+    - slot: cloud
+      title: Containers and VMs behind a cloud load balancer
+      desc: The httpd Docker image or a VM behind an ELB / Front Door. The client IP is then in X-Forwarded-For, not %h — log %{X-Forwarded-For}i.
+howItWorks:
+  - title: Request handling
+    body: The MPM (event in most 2.4 installs) accepts connections; each request passes through mapping (Alias, mod_rewrite), access control (Require), the handler (static file, CGI, PHP, proxy) and output filters.
+  - title: mod_rewrite and mod_proxy
+    body: Rewrite rules and proxy mappings turn the URL into a file path or a backend URL. Many critical bugs (CVE-2024-38475, CVE-2023-25690) live in this translation — a crafted URL reaches files or backends the rules never meant to expose.
+  - title: Access log
+    body: mod_log_config writes one line per request after the response. %>s is the final status, %b the body bytes ("-" when 0), %D/%T the duration. Combined adds the Referer and User-Agent headers, where scanners and exploit payloads (${jndi…}) show up.
+  - title: Error log
+    body: Per-module messages with level, pid/tid, client address and an AH error code (AH01630 client denied, AH00126 invalid URI, AH01071 PHP-FPM errors). Exploit attempts that are blocked often leave a line here, not only in the access log.
+  - title: TLS and HTTP/2
+    body: mod_ssl terminates TLS (SSLProtocol, SSLCipherSuite) and mod_http2 adds HTTP/2. HTTP/2 brings its own denial-of-service and memory bugs (CVE-2026-119618 in mod_http2, fixed in 2.4.71).
+traffic:
+  handles:
+    - HTTP / HTTPS (80, 443) static content
+    - Reverse proxy to application servers (HTTP, AJP, FastCGI)
+    - CGI and server-side scripting (PHP via mod_php or PHP-FPM)
+    - TLS termination (mod_ssl)
+    - HTTP/2 (mod_http2)
+    - WebDAV (mod_dav)
+    - Authentication (Basic, LDAP, OIDC via modules)
+  flow:
+    - step: Accept
+      desc: The MPM accepts the TCP connection; mod_ssl completes the TLS handshake.
+    - step: Parse
+      desc: Request line and headers are parsed and normalised; malformed requests get 400.
+    - step: Map
+      desc: Alias, mod_rewrite and mod_proxy map the URL to a file, script or backend.
+    - step: Authorize
+      desc: Require directives / auth modules allow or deny (403, 401).
+    - step: Handle
+      desc: Static file, CGI/PHP or proxy to the backend generates the response.
+    - step: Log
+      desc: The access log line is written; errors go to the error log.
+logs:
+  - type: Access log (combined)
+    sourcetype: apache_httpd_accesslog_combined
+    format: text
+    share: 90–98 %
+    avg: ~250 B
+    desc: One line per request in the combined format. The basis for every web detection — traversal, scanning, webshells, brute force.
+    pattern: '^(?<clientip>\S+) (?<ident>\S+) (?<user>\S+) \[(?<timestamp>[^\]]+)\] "(?:(?<method>[A-Z]+) (?<uri>\S+)(?: (?<protocol>HTTP/[\d.]+))?|(?<request>[^"]*))" (?<status>\d{3}) (?<bytes>\d+|-) "(?<referer>[^"]*)" "(?<useragent>[^"]*)"'
+    key:
+      - clientip
+      - user
+      - method
+      - uri
+      - status
+      - bytes
+      - useragent
+    noise:
+      - ident
+      - protocol
+    sample: '203.0.113.45 - - [12/Nov/2026:02:14:22 +0000] "GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd HTTP/1.1" 400 226 "-" "Mozilla/5.0 (X11; Linux x86_64) zgrab/0.x"'
+  - type: Access log (common)
+    sourcetype: apache_httpd_accesslog_common
+    format: text
+    share: varies
+    avg: ~150 B
+    desc: The Common Log Format — same as combined without referer and user agent. Default on some distributions and vendor appliances.
+    pattern: '^(?<clientip>\S+) (?<ident>\S+) (?<user>\S+) \[(?<timestamp>[^\]]+)\] "(?:(?<method>[A-Z]+) (?<uri>\S+)(?: (?<protocol>HTTP/[\d.]+))?|(?<request>[^"]*))" (?<status>\d{3}) (?<bytes>\d+|-)$'
+    key:
+      - clientip
+      - user
+      - method
+      - uri
+      - status
+      - bytes
+    noise:
+      - ident
+      - protocol
+    sample: '10.20.4.17 - jdoe [12/Nov/2026:09:01:07 +0000] "POST /app/login HTTP/1.1" 302 0'
+  - type: Error log
+    sourcetype: apache:error
+    format: text
+    share: 2–10 %
+    avg: ~200 B
+    desc: Module errors and access denials with level, process and client. Shows blocked traversal (AH00126), denied paths (AH01630/AH01797), backend failures (AH01102) and child crashes (AH00052).
+    pattern: '^\[(?<timestamp>[^\]]+)\] \[(?<module>[\w-]+):(?<level>\w+)\] \[pid (?<pid>\d+)(?::tid (?<tid>\d+))?\](?: \[client (?<client>[^\]]+)\])? (?:(?<error_code>AH\d+): )?(?<message>.*)$'
+    key:
+      - level
+      - module
+      - client
+      - error_code
+      - message
+    noise:
+      - pid
+      - tid
+    sample: '[Thu Nov 12 02:14:22.508123 2026] [core:error] [pid 2104:tid 140231887] [client 203.0.113.45:51522] AH00126: Invalid URI in request GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd HTTP/1.1'
+cves:
+  - id: CVE-2021-41773
+    cvss: 9.8
+    year: 2021
+    kev: true
+    scope: device
+    title: Path traversal and file disclosure (RCE with mod_cgi) in 2.4.49
+    affected: Apache HTTP Server 2.4.49
+    fixed: 2.4.51 (the 2.4.50 fix was incomplete — see CVE-2021-42013)
+    detect: Access log URIs with .%2e/ or %2e%2e/ under /cgi-bin/ or /icons/; POST to /cgi-bin/.%2e/…/bin/sh; status 200 on such paths means success.
+    avoid: Upgrade; keep "Require all denied" on the filesystem root; disable mod_cgi where not used.
+  - id: CVE-2021-42013
+    cvss: 9.8
+    year: 2021
+    kev: true
+    scope: device
+    title: Path traversal and RCE — incomplete fix of CVE-2021-41773 (double URL encoding)
+    affected: Apache HTTP Server 2.4.49 and 2.4.50
+    fixed: 2.4.51
+    detect: URIs with %%32%65 or %252e double encoding under aliased paths; follow-on requests to /bin/sh or curl/wget in the POST body.
+    avoid: Upgrade to 2.4.51 or later; same hardening as CVE-2021-41773.
+  - id: CVE-2024-38475
+    cvss: 9.1
+    year: 2024
+    kev: true
+    scope: device
+    title: mod_rewrite improper output escaping — substitution maps URLs to filesystem paths (source disclosure, code execution)
+    affected: Apache HTTP Server 2.4.0 through 2.4.59
+    fixed: 2.4.60
+    detect: Requests containing %3F (encoded ?) followed by path fragments that hit rewrite rules; 200 responses for .php source, .htaccess or config files; exploited against SonicWall SMA 100 in 2025.
+    avoid: Upgrade; review RewriteRule substitutions that start with a variable; use the UnsafePrefixStat flag only where intended.
+  - id: CVE-2024-38476
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Malicious backend response headers can trigger local handlers via internal redirect (info disclosure, SSRF, RCE)
+    affected: Apache HTTP Server 2.4.0 through 2.4.59
+    fixed: 2.4.60
+    detect: Unexpected internal redirects or local handler execution behind mod_proxy; error-log entries for handlers on proxied URLs; backend apps returning Location / Content-Type pointing at local paths.
+    avoid: Upgrade; treat backend applications as untrusted; limit which handlers are enabled.
+  - id: CVE-2023-25690
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: HTTP request smuggling with mod_rewrite / ProxyPassMatch and RewriteRule [P]
+    affected: Apache HTTP Server 2.4.0 through 2.4.55
+    fixed: 2.4.56
+    detect: Requests with %0d%0a or encoded CR/LF in the path reaching proxy rules; backends logging requests that never appear in the httpd access log.
+    avoid: Upgrade; avoid re-inserting user-supplied URL data into proxied requests in rewrite rules.
+  - id: CVE-2021-44228
+    cvss: 10.0
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookups in Java backends behind httpd (payloads visible in httpd access logs)
+    affected: Java applications using Apache Log4j 2.0-beta9 through 2.14.1, reached through httpd as a reverse proxy
+    fixed: Log4j 2.15.0 (2.17.1 for all follow-up CVEs)
+    detect: "Strings such as ${jndi, ${${lower or %24%7Bjndi in the URI, user agent or referer of the combined log."
+    avoid: Patch Log4j on the backends; block ${jndi patterns at the proxy or WAF (mod_security CRS) while patching.
+detections:
+  - title: Path traversal / CGI exploitation attempts
+    severity: high
+    signals:
+      - .%2e/, %%32%65 or ../ in the URI
+      - /cgi-bin/ with /bin/sh or /etc/passwd
+      - status 200 on such a request
+    why: CVE-2021-41773/42013-style probes are constant on internet-facing servers; a 200 means the server is vulnerable and files or commands were reached.
+    kql: |-
+      dataset="apache_logs"
+      | where uri has_any (".%2e/", "%2e%2e", "%%32%65", "../", "/etc/passwd", "/bin/sh")
+      | summarize hits=count(), ok=countif(status == "200"), uris=make_set(uri, 10) by clientip
+      | sort by ok desc
+    mitre:
+      - T1190
+      - T1083
+  - title: Log4Shell / injection strings in headers
+    severity: high
+    signals:
+      - "${jndi in the user agent, referer or URI"
+      - "obfuscated ${${lower:j}ndi"
+    why: Exploit payloads for Java backends travel through httpd and are logged verbatim in the combined format.
+    kql: |-
+      dataset="apache_logs"
+      | where useragent has "${" or uri has "%24%7B" or uri has "${" or referer has "${"
+      | summarize count() by clientip, useragent, status
+    mitre:
+      - T1190
+  - title: Webshell access
+    severity: critical
+    signals:
+      - POST to a new .php / .jsp / .aspx under an upload or static directory
+      - same file requested repeatedly by one client
+      - small responses with status 200
+    why: After initial access attackers drop a webshell and drive it with POSTs; legitimate static paths rarely receive POSTs.
+    kql: |-
+      dataset="apache_logs" method="POST" status="200"
+      | where uri matches regex "(?i)/(uploads?|images|static|files|tmp)/[^?]+\\.(php|jsp|aspx?|cgi)"
+      | summarize posts=count(), clients=dcount(clientip) by uri
+      | where clients <= 2
+    mitre:
+      - T1505.003
+  - title: Scanning and 404 bursts
+    severity: medium
+    signals:
+      - one client with many 404/400 responses
+      - many distinct URIs in minutes
+      - scanner user agents (zgrab, Nuclei, sqlmap, Nikto)
+    why: Vulnerability scanners and exploit kits enumerate paths before attacking; useful for blocking and for prioritising patching.
+    kql: |-
+      dataset="apache_logs"
+      | where status in ("400", "403", "404")
+      | summarize errors=count(), uris=dcount(uri) by clientip, bin(_time, 5m)
+      | where errors > 100 and uris > 50
+    mitre:
+      - T1595.002
+  - title: Basic-auth / login brute force
+    severity: medium
+    signals:
+      - many 401 responses per client
+      - POST to login URIs with 200/302 alternating
+      - auth failures in the error log (AH01617)
+    why: Password guessing against protected areas or application logins shows as bursts of 401 or repeated login POSTs from one address.
+    kql: |-
+      dataset="apache_logs"
+      | where status == "401" or (method == "POST" and uri has "login")
+      | summarize attempts=count(), users=dcount(user) by clientip, bin(_time, 10m)
+      | where attempts > 30
+    mitre:
+      - T1110.001
+optimizations:
+  - title: Drop static asset requests
+    saving: 30–60 %
+    fn: Drop
+    how: Successful requests for images, CSS, JS and fonts are most of the volume and rarely matter for security. Keep errors and anything with a query string.
+    expr: "/^(2\\d\\d|304)$/.test(status) && /\\.(png|jpe?g|gif|css|js|woff2?|ico|svg)$/i.test(uri || '')"
+  - title: Drop health checks and monitoring probes
+    saving: 5–20 %
+    fn: Drop
+    how: Load-balancer and monitoring probes hit the same URL every few seconds from known addresses.
+    expr: "['/health','/healthz','/server-status','/ping'].includes(uri) && status == '200'"
+  - title: Trim fields and parse the request
+    saving: 15–25 %
+    fn: Eval
+    how: After parsing, drop _raw and the always-empty ident field; keep method, uri, status, bytes, useragent as fields.
+    expr: "remove: _raw, ident  (keep clientip, user, method, uri, status, bytes, referer, useragent)"
+  - title: Aggregate successful traffic to metrics
+    saving: 50–80 % for the Lake copy
+    fn: Aggregations
+    how: For capacity dashboards, roll 2xx/3xx requests up per minute by status and URI prefix; send full lines only for 4xx/5xx and suspicious URIs.
+    expr: "count(), sum(bytes) by status, uri_prefix, 1m  where /^[23]/.test(status)"
+references:
+  - title: Apache HTTP Server 2.4 vulnerabilities
+    url: https://httpd.apache.org/security/vulnerabilities_24.html
+  - title: Log Files (Apache HTTP Server 2.4 documentation)
+    url: https://httpd.apache.org/docs/2.4/logs.html
+  - title: mod_log_config — LogFormat directives
+    url: https://httpd.apache.org/docs/2.4/mod/mod_log_config.html
+  - title: Error message codes (AH numbers) — LogLevel and ErrorLogFormat
+    url: https://httpd.apache.org/docs/2.4/mod/core.html#errorlogformat
+  - title: NVD — CVE-2024-38475
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-38475
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - nginx
+  - iis
+  - log4j
+  - f5-awaf
+  - imperva-waf
+  - linux-syslog
