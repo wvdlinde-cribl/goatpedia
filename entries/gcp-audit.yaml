@@ -2,10 +2,349 @@
 id: gcp-audit
 name: Google Cloud Audit Logs
 short: GCP Audit
+aka:
+  - Cloud Audit Logs
+  - cloudaudit.googleapis.com
+  - Admin Activity logs
+  - Data Access logs
+  - GKE audit logs
 vendor: Google Cloud
 category: cloud
-status: stub
-summary: Admin Activity, Data Access, System Event and Policy Denied audit logs for Google Cloud resources.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - gcp
+  - audit
+  - control-plane
+  - iam
+  - gke
+  - pubsub
+  - json
+  - vpc-sc
+summary: The audit trail of Google Cloud — every administrative API call (Admin Activity), optional data reads and writes (Data Access), Google-initiated system actions (System Event) and requests blocked by VPC Service Controls (Policy Denied), recorded as Cloud Logging LogEntry records with an AuditLog protoPayload. It covers IAM, Compute, Storage, GKE (Kubernetes API audit via k8s.io), BigQuery and 100+ other services, and is usually exported through an organisation-level log sink to Pub/Sub for the SIEM.
 sourcetypes:
   - st: gcp_audit
+    desc: Pack Generator sourcetype for Cloud Audit Log entries (LogEntry JSON with AuditLog protoPayload)
   - st: gcp_audit_logs
+    desc: Pack Generator sourcetype for Cloud Audit Log entries exported via Pub/Sub or Cloud Storage
+  - st: google:gcp:pubsub:audit:admin_activity
+    desc: Splunk Add-on for Google Cloud Platform sourcetype for Admin Activity audit logs (Pub/Sub input)
+  - st: google:gcp:pubsub:audit:data_access
+    desc: Splunk Add-on for Google Cloud Platform sourcetype for Data Access audit logs
+  - st: GCPAuditLogs
+    desc: Microsoft Sentinel table populated by the GCP Pub/Sub audit logs connector
+  - st: GCP_CLOUDAUDIT
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: 2016 (Cloud Audit Logging)
+  Delivery model: Built into Google Cloud — per project, folder, organisation and billing account
+  Log types: Admin Activity (always on, free), Data Access (off by default except BigQuery), System Event (always on), Policy Denied (VPC-SC and org policy denials)
+  Log names: "logName = …/logs/cloudaudit.googleapis.com%2F{activity|data_access|system_event|policy}"
+  Retention: _Required bucket 400 days (Admin Activity, System Event); _Default bucket 30 days unless changed
+  Log transport: Log sinks (org or folder level with include-children) to Pub/Sub, Cloud Storage, BigQuery or another log bucket
+  Log format: JSON LogEntry with protoPayload of type google.cloud.audit.AuditLog
+  Typical volume: Admin Activity 1k–100k/day per org; Data Access can be 100–1000× that when enabled
+  Cribl Pack: Google Cloud Audit Logs to OCSF (Packs Dispensary); collect with the Cribl Google Cloud Pub/Sub source
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: Organisation log sink to Pub/Sub
+      desc: An aggregated sink at the organisation (include children) filters logName:"cloudaudit.googleapis.com" into a Pub/Sub topic in a logging project; Cribl's Pub/Sub source subscribes to it.
+    - slot: cloud
+      title: GKE clusters
+      desc: The Kubernetes API server audit of GKE clusters arrives as Cloud Audit Logs with serviceName k8s.io — pod exec, secrets access, RBAC changes.
+    - slot: remote
+      title: Console, gcloud and CI/CD
+      desc: Users and service accounts calling Google APIs from browsers, gcloud, Terraform and pipelines; callerIp and callerSuppliedUserAgent identify them.
+howItWorks:
+  - title: LogEntry and AuditLog
+    body: Each record is a Cloud Logging LogEntry (logName, resource.type and labels, timestamp, severity, insertId) whose protoPayload is an AuditLog with serviceName, methodName, resourceName, authenticationInfo, authorizationInfo, requestMetadata, status, request/response and service-specific metadata.
+  - title: Four audit log types
+    body: Admin Activity records configuration and metadata writes and cannot be disabled. Data Access records reads of configuration and user data (ADMIN_READ, DATA_READ, DATA_WRITE) and must be enabled per service in the IAM audit config. System Event records Google actions (live migration, autoscaling). Policy Denied records VPC Service Controls and organisation policy denials.
+  - title: Identity
+    body: authenticationInfo.principalEmail is the user or service account; serviceAccountDelegationInfo shows the impersonation chain when a service account acts for another; requestMetadata.callerIp and callerSuppliedUserAgent show the client. Some reads by external identities are redacted.
+  - title: IAM policy deltas
+    body: "SetIamPolicy events include serviceData.policyDelta.bindingDeltas (or metadata.datasetChange for BigQuery): each ADD/REMOVE of a member to a role. This is how you see who granted roles/owner or allUsers without diffing whole policies."
+  - title: Routing and exclusion
+    body: The Log Router evaluates sinks and exclusion filters on every entry. _Required cannot be excluded; Data Access volume is usually controlled with exclusions or by enabling it only for sensitive services (Cloud Storage, Secret Manager, BigQuery).
+traffic:
+  handles:
+    - Google Cloud API calls (IAM, Compute, Storage, BigQuery, Secret Manager …)
+    - Kubernetes API calls on GKE (k8s.io)
+    - Service account key and token operations
+    - IAM and organisation policy changes
+    - VPC Service Controls denials
+    - Google-initiated system events
+  flow:
+    - step: API request
+      desc: A user or service account calls a Google API with an OAuth access token.
+    - step: Authenticate
+      desc: Google identifies the principal (and any impersonation chain) from the token.
+    - step: Authorise
+      desc: IAM, deny policies, VPC Service Controls and org policies are checked; each permission result is recorded.
+    - step: Execute
+      desc: The service performs the operation and returns status.
+    - step: Audit entry
+      desc: An AuditLog LogEntry is written to the project's _Required or _Default log bucket.
+    - step: Log Router
+      desc: Sinks copy matching entries to Pub/Sub, Cloud Storage or BigQuery.
+    - step: Collect
+      desc: Cribl reads the Pub/Sub subscription and routes the entries to the SIEM or Lake.
+logs:
+  - type: Admin Activity — IAM policy change
+    sourcetype: gcp_audit
+    format: json
+    share: 5–30 %
+    avg: ~2 KB
+    desc: Configuration change recorded in cloudaudit.googleapis.com%2Factivity. SetIamPolicy carries the binding deltas; other common methods are compute.instances.insert, storage.setIamPermissions and google.iam.admin.v1.CreateServiceAccountKey.
+    key:
+      - protoPayload.methodName
+      - protoPayload.serviceName
+      - protoPayload.authenticationInfo.principalEmail
+      - protoPayload.requestMetadata.callerIp
+      - protoPayload.resourceName
+      - protoPayload.serviceData.policyDelta.bindingDeltas[0].role
+      - protoPayload.serviceData.policyDelta.bindingDeltas[0].member
+      - resource.labels.project_id
+    noise:
+      - insertId
+      - receiveTimestamp
+      - protoPayload.@type
+      - protoPayload.serviceData.@type
+      - protoPayload.request.@type
+      - protoPayload.response.@type
+      - protoPayload.response.etag
+      - protoPayload.requestMetadata.requestAttributes.time
+    sample: '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","status":{},"authenticationInfo":{"principalEmail":"jdoe@example.com","principalSubject":"user:jdoe@example.com"},"requestMetadata":{"callerIp":"203.0.113.45","callerSuppliedUserAgent":"google-cloud-sdk gcloud/498.0.0 command/gcloud.projects.add-iam-policy-binding","requestAttributes":{"time":"2026-11-12T09:14:22.418Z","auth":{}},"destinationAttributes":{}},"serviceName":"cloudresourcemanager.googleapis.com","methodName":"SetIamPolicy","authorizationInfo":[{"resource":"projects/example-prod","permission":"resourcemanager.projects.setIamPolicy","granted":true,"resourceAttributes":{}}],"resourceName":"projects/example-prod","serviceData":{"@type":"type.googleapis.com/google.iam.v1.logging.AuditData","policyDelta":{"bindingDeltas":[{"action":"ADD","role":"roles/owner","member":"serviceAccount:svc-temp@example-dev.iam.gserviceaccount.com"}]}},"request":{"@type":"type.googleapis.com/google.iam.v1.SetIamPolicyRequest","resource":"example-prod"},"response":{"@type":"type.googleapis.com/google.iam.v1.Policy","etag":"BwYexample="}},"insertId":"1a2b3c4d5e6f","resource":{"type":"project","labels":{"project_id":"example-prod"}},"timestamp":"2026-11-12T09:14:22.391Z","severity":"NOTICE","logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Factivity","receiveTimestamp":"2026-11-12T09:14:23.112Z"}'
+  - type: Data Access — Cloud Storage read
+    sourcetype: gcp_audit_logs
+    format: json
+    share: 50–95 % (when enabled)
+    avg: ~1.5 KB
+    desc: DATA_READ / DATA_WRITE entries in cloudaudit.googleapis.com%2Fdata_access — object reads, BigQuery queries, Secret Manager accesses. The source for data exfiltration detection, and the biggest volume driver.
+    key:
+      - protoPayload.methodName
+      - protoPayload.authenticationInfo.principalEmail
+      - protoPayload.requestMetadata.callerIp
+      - protoPayload.resourceName
+      - resource.labels.bucket_name
+      - protoPayload.authorizationInfo[0].granted
+    noise:
+      - insertId
+      - receiveTimestamp
+      - protoPayload.@type
+      - protoPayload.requestMetadata.requestAttributes.time
+      - protoPayload.requestMetadata.requestAttributes.auth
+      - protoPayload.requestMetadata.destinationAttributes
+      - protoPayload.authorizationInfo[0].resourceAttributes
+    sample: '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","status":{},"authenticationInfo":{"principalEmail":"svc-backup@example-prod.iam.gserviceaccount.com"},"requestMetadata":{"callerIp":"198.51.100.23","callerSuppliedUserAgent":"gcloud-golang-storage/20241001,gzip(gfe)","requestAttributes":{"time":"2026-11-12T09:31:57.004Z","auth":{}},"destinationAttributes":{}},"serviceName":"storage.googleapis.com","methodName":"storage.objects.get","authorizationInfo":[{"resource":"projects/_/buckets/example-finance-reports/objects/2026/q3/payroll.csv","permission":"storage.objects.get","granted":true,"resourceAttributes":{}}],"resourceName":"projects/_/buckets/example-finance-reports/objects/2026/q3/payroll.csv","resourceLocation":{"currentLocations":["europe-west4"]}},"insertId":"7f8e9d0c1b2a","resource":{"type":"gcs_bucket","labels":{"bucket_name":"example-finance-reports","project_id":"example-prod","location":"europe-west4"}},"timestamp":"2026-11-12T09:31:57.001Z","severity":"INFO","logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Fdata_access","receiveTimestamp":"2026-11-12T09:31:58.320Z"}'
+  - type: Policy Denied — VPC Service Controls
+    sourcetype: gcp_audit
+    format: json
+    share: < 1 %
+    avg: ~2 KB
+    desc: A request blocked by a VPC Service Controls perimeter (or organisation policy), in cloudaudit.googleapis.com%2Fpolicy. violationReason and the perimeter name tell you which boundary the caller tried to cross.
+    key:
+      - protoPayload.methodName
+      - protoPayload.authenticationInfo.principalEmail
+      - protoPayload.requestMetadata.callerIp
+      - protoPayload.metadata.violationReason
+      - protoPayload.metadata.securityPolicyInfo.servicePerimeterName
+      - protoPayload.status.message
+    noise:
+      - insertId
+      - receiveTimestamp
+      - protoPayload.@type
+      - protoPayload.metadata.@type
+      - protoPayload.metadata.vpcServiceControlsUniqueId
+      - protoPayload.status.details[0].@type
+    sample: '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","status":{"code":7,"message":"Request is prohibited by organization''s policy. vpcServiceControlsUniqueIdentifier: EXAMPLEuniqueid0123","details":[{"@type":"type.googleapis.com/google.rpc.PreconditionFailure","violations":[{"type":"VPC_SERVICE_CONTROLS","description":"EXAMPLEuniqueid0123"}]}]},"authenticationInfo":{"principalEmail":"svc-backup@example-prod.iam.gserviceaccount.com"},"requestMetadata":{"callerIp":"198.51.100.23","callerSuppliedUserAgent":"gsutil/5.30 (linux)","requestAttributes":{},"destinationAttributes":{}},"serviceName":"storage.googleapis.com","methodName":"google.storage.objects.copy","resourceName":"projects/123456789012","metadata":{"@type":"type.googleapis.com/google.cloud.audit.VpcServiceControlAuditMetadata","violationReason":"RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER","securityPolicyInfo":{"servicePerimeterName":"accessPolicies/987654321/servicePerimeters/prod_data","organizationId":"111122223333"},"resourceNames":["projects/_/buckets/example-finance-reports","projects/_/buckets/external-drop-bucket"],"vpcServiceControlsUniqueId":"EXAMPLEuniqueid0123","ingressViolations":[]}},"insertId":"9c8b7a6f5e4d","resource":{"type":"audited_resource","labels":{"service":"storage.googleapis.com","method":"google.storage.objects.copy","project_id":"example-prod"}},"timestamp":"2026-11-12T09:33:10.512Z","severity":"ERROR","logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Fpolicy","receiveTimestamp":"2026-11-12T09:33:11.007Z"}'
+  - type: GKE Kubernetes API audit
+    sourcetype: gcp_audit
+    format: json
+    share: 10–50 % (GKE estates)
+    avg: ~1.8 KB
+    desc: Kubernetes API server audit for GKE (serviceName k8s.io, resource.type k8s_cluster). Writes are Admin Activity; reads of resources (get/list secrets) are Data Access. pods/exec, secrets and RBAC bindings are the security-relevant methods.
+    key:
+      - protoPayload.methodName
+      - protoPayload.authenticationInfo.principalEmail
+      - protoPayload.resourceName
+      - protoPayload.requestMetadata.callerIp
+      - resource.labels.cluster_name
+      - protoPayload.authorizationInfo[0].granted
+    noise:
+      - insertId
+      - receiveTimestamp
+      - protoPayload.@type
+      - labels.authorization.k8s.io/reason
+      - protoPayload.requestMetadata.callerSuppliedUserAgent
+    sample: '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","authenticationInfo":{"principalEmail":"system:serviceaccount:ingress:ingress-nginx"},"authorizationInfo":[{"granted":true,"permission":"io.k8s.core.v1.pods.exec.create","resource":"core/v1/namespaces/payments/pods/api-7d9f8c6b5-x2k4p/exec"}],"methodName":"io.k8s.core.v1.pods.exec.create","requestMetadata":{"callerIp":"10.12.0.17","callerSuppliedUserAgent":"kubectl/v1.31.2 (linux/amd64) kubernetes/5864a46"},"resourceName":"core/v1/namespaces/payments/pods/api-7d9f8c6b5-x2k4p/exec","serviceName":"k8s.io","status":{"code":0}},"insertId":"3e4d5c6b-7a89-4b0c-9d1e-2f3a4b5c6d7e","resource":{"type":"k8s_cluster","labels":{"cluster_name":"prod-gke-01","location":"europe-west4","project_id":"example-prod"}},"timestamp":"2026-11-12T09:45:02.774Z","severity":"NOTICE","labels":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by ClusterRoleBinding ingress-nginx"},"logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Factivity","receiveTimestamp":"2026-11-12T09:45:04.101Z"}'
+cves:
+  - id: CVE-2025-1974
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: IngressNightmare — unauthenticated RCE in the ingress-nginx admission controller, leading to cluster-wide secret theft; the aftermath is visible in GKE audit logs
+    affected: ingress-nginx controller before 1.11.5 and 1.12.0 (self-installed on GKE — GKE does not use ingress-nginx by default)
+    fixed: ingress-nginx 1.11.5, 1.12.1
+    detect: k8s.io entries where system:serviceaccount:<ns>:ingress-nginx lists or gets secrets outside its namespace, execs into pods or creates RBAC bindings; admission-webhook calls from unexpected pod IPs.
+    avoid: Upgrade ingress-nginx; restrict the admission webhook to the API server; limit the controller's Secret access.
+  - id: CVE-2024-10220
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Kubernetes kubelet arbitrary command execution via gitRepo volumes — the malicious pod spec is recorded in GKE audit logs
+    affected: kubelet through 1.28.11, 1.29.0 – 1.29.6, 1.30.0 – 1.30.2
+    fixed: kubelet 1.28.12, 1.29.7, 1.30.3, 1.31.0
+    detect: io.k8s.core.v1.pods.create entries whose request spec contains a gitRepo volume (deprecated; rare in modern clusters), especially from non-CI principals.
+    avoid: Upgrade GKE node pools; block gitRepo volumes with Policy Controller / ValidatingAdmissionPolicy.
+  - id: CVE-2018-1002105
+    cvss: 9.8
+    year: 2018
+    kev: false
+    scope: traffic
+    title: Kubernetes API server proxied-upgrade privilege escalation — affected GKE masters; requests through the aggregated API / pod exec appear in k8s.io audit
+    affected: Kubernetes before 1.10.11, 1.11.x before 1.11.5, 1.12.x before 1.12.3
+    fixed: 1.10.11, 1.11.5, 1.12.3 (GKE masters were upgraded by Google)
+    detect: "Upgrade requests (pods/exec, pods/attach, pods/portforward) from low-privilege principals, and API calls to aggregated APIs that are followed by actions the principal is not authorised for."
+    avoid: Keep GKE control plane on supported versions (auto-upgrade); remove anonymous and broad exec/attach/portforward permissions.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — compromised Java workloads on GCE/GKE use their attached service account, which Cloud Audit Logs record
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: The workload's service account calling unusual methods (storage.buckets.list, iam.serviceAccountKeys.create, compute.instances.insert) or from a callerIp outside Google Cloud — the metadata-server token was stolen.
+    avoid: Patch; least-privilege service accounts per workload; Workload Identity; VPC Service Controls around data projects.
+detections:
+  - title: Owner, editor or public binding granted
+    severity: high
+    signals:
+      - methodName=SetIamPolicy
+      - bindingDeltas action=ADD
+      - role roles/owner / roles/editor / roles/iam.securityAdmin, or member allUsers / allAuthenticatedUsers
+    why: Basic roles and public bindings are the fastest privilege-escalation and data-exposure paths; external or temporary principals getting them is a top persistence technique in GCP.
+    kql: |-
+      dataset="gcp_audit" protoPayload.methodName="SetIamPolicy"
+      | mv-expand d=protoPayload.serviceData.policyDelta.bindingDeltas
+      | where d.action=="ADD" and (d.role in ("roles/owner","roles/editor","roles/iam.securityAdmin","roles/resourcemanager.organizationAdmin") or d.member in ("allUsers","allAuthenticatedUsers"))
+      | project _time, protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, protoPayload.resourceName, d.role, d.member
+    mitre:
+      - T1098.003
+  - title: Service account key created
+    severity: high
+    signals:
+      - methodName=google.iam.admin.v1.CreateServiceAccountKey
+      - caller is a user, or a different service account
+    why: User-managed keys are long-lived credentials that work from anywhere; creating one is classic persistence after a compromise and is usually blocked by org policy.
+    kql: |-
+      dataset="gcp_audit" protoPayload.methodName="google.iam.admin.v1.CreateServiceAccountKey"
+      | project _time, protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, protoPayload.resourceName, protoPayload.requestMetadata.callerSuppliedUserAgent
+    mitre:
+      - T1098.001
+  - title: Audit logging or log sinks tampered with
+    severity: critical
+    signals:
+      - methodName in google.logging.v2.ConfigServiceV2.DeleteSink / UpdateSink / CreateExclusion
+      - SetIamPolicy with auditConfigDeltas REMOVE
+    why: Deleting the export sink, adding an exclusion or disabling Data Access logging blinds the SIEM before an attacker acts.
+    kql: |-
+      dataset="gcp_audit"
+      | where protoPayload.methodName has_any ("ConfigServiceV2.DeleteSink","ConfigServiceV2.UpdateSink","ConfigServiceV2.CreateExclusion","ConfigServiceV2.UpdateExclusion","ConfigServiceV2.DeleteBucket") or tostring(protoPayload.serviceData.policyDelta.auditConfigDeltas) has "REMOVE"
+      | project _time, protoPayload.methodName, protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, protoPayload.resourceName
+    mitre:
+      - T1562.008
+  - title: VPC Service Controls exfiltration attempts
+    severity: high
+    signals:
+      - logName ends with %2Fpolicy
+      - violationReason RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER / NETWORK_NOT_IN_SAME_SERVICE_PERIMETER
+    why: Copying data from a protected project to an outside bucket or from an untrusted network is exactly what the perimeter blocks; repeated denials from one identity mean someone is trying.
+    kql: |-
+      dataset="gcp_audit" logName endswith "cloudaudit.googleapis.com%2Fpolicy"
+      | summarize denials=count(), methods=make_set(protoPayload.methodName) by protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, protoPayload.metadata.violationReason, bin(_time, 1h)
+      | where denials > 5
+    mitre:
+      - T1537
+      - T1530
+  - title: Exec into pods or secret reads by unexpected identities (GKE)
+    severity: high
+    signals:
+      - serviceName=k8s.io
+      - methodName io.k8s.core.v1.pods.exec.create / io.k8s.core.v1.secrets.get|list
+      - principal is a workload service account
+    why: Workload identities (ingress controllers, app pods) should not exec into other pods or read secrets cluster-wide; it is the signature of container escape or controller compromise such as IngressNightmare.
+    kql: |-
+      dataset="gcp_audit" protoPayload.serviceName="k8s.io"
+      | where protoPayload.methodName in ("io.k8s.core.v1.pods.exec.create","io.k8s.core.v1.pods.attach.create","io.k8s.core.v1.secrets.list","io.k8s.core.v1.secrets.get")
+      | where protoPayload.authenticationInfo.principalEmail startswith "system:serviceaccount:"
+      | summarize count() by protoPayload.authenticationInfo.principalEmail, protoPayload.methodName, resource.labels.cluster_name
+    mitre:
+      - T1609
+      - T1552.007
+  - title: Bulk object reads by one principal
+    severity: medium
+    signals:
+      - methodName=storage.objects.get (Data Access)
+      - high count per principal / callerIp
+    why: Data theft from Cloud Storage appears only in Data Access logs; a spike against the principal's baseline, or from a non-Google callerIp, is the signal.
+    kql: |-
+      dataset="gcp_audit" protoPayload.methodName="storage.objects.get"
+      | summarize objects=count() by protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, resource.labels.bucket_name, bin(_time, 1h)
+      | where objects > 5000
+    mitre:
+      - T1530
+optimizations:
+  - title: Exclude low-value Data Access reads at the sink
+    saving: 40–90 % of Data Access
+    fn: Drop
+    how: Health checks, monitoring agents and CI service accounts generate millions of ADMIN_READ/DATA_READ entries. Prefer a Log Router exclusion; otherwise drop in Stream by principal and method, keeping Secret Manager, IAM and sensitive buckets.
+    expr: /data_access$/.test(logName) && /^(storage\.objects\.(get|list)|google\.monitoring)/.test(protoPayload.methodName) && /monitoring|ci-runner/.test(protoPayload.authenticationInfo.principalEmail) && !/finance|secret/.test(protoPayload.resourceName)
+  - title: Drop GKE read-only noise
+    saving: 20–50 % of k8s.io
+    fn: Drop
+    how: Controllers watch and list resources constantly (io.k8s.*.get/list/watch by system:* principals). Keep all writes, exec/attach/portforward and any secrets access.
+    expr: protoPayload.serviceName=='k8s.io' && /\.(get|list|watch)$/.test(protoPayload.methodName) && /^system:(kube-|node|serviceaccount:kube-system)/.test(protoPayload.authenticationInfo.principalEmail) && !/secrets/.test(protoPayload.methodName)
+  - title: Strip type URLs and request echoes
+    saving: 15–30 %
+    fn: Parser → Serialize
+    how: "@type fields, empty requestAttributes/destinationAttributes, receiveTimestamp and large response bodies repeat on every entry. Remove them; keep request (the evidence) and serviceData.policyDelta."
+    expr: "remove: protoPayload.@type, *.@type, protoPayload.requestMetadata.requestAttributes, protoPayload.requestMetadata.destinationAttributes, receiveTimestamp, protoPayload.response"
+  - title: Route by log type
+    saving: SIEM licence
+    fn: Routes
+    how: Admin Activity and Policy Denied to the SIEM in full; Data Access to Lake with only sensitive services forwarded; System Event to an ops destination.
+    expr: /%2F(activity|policy)$/.test(logName) → SIEM | /data_access$/ → Lake (+ sensitive to SIEM) | system_event → ops
+references:
+  - title: Cloud Audit Logs overview
+    url: https://cloud.google.com/logging/docs/audit
+  - title: Understanding audit logs
+    url: https://cloud.google.com/logging/docs/audit/understanding-audit-logs
+  - title: AuditLog type reference
+    url: https://cloud.google.com/logging/docs/reference/audit/auditlog/rest/Shared.Types/AuditLog
+  - title: GKE audit logging
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/audit-logging
+  - title: GKE security bulletins (incl. CVE-2025-1974)
+    url: https://cloud.google.com/kubernetes-engine/security-bulletins
+  - title: Kubernetes blog — Ingress-nginx CVE-2025-1974
+    url: https://kubernetes.io/blog/2025/03/24/ingress-nginx-cve-2025-1974/
+  - title: Kubernetes issue — CVE-2024-10220 gitRepo volume
+    url: https://github.com/kubernetes/kubernetes/issues/128885
+  - title: Kubernetes issue — CVE-2018-1002105
+    url: https://github.com/kubernetes/kubernetes/issues/71411
+related:
+  - gcp-vpc
+  - google-workspace
+  - cloudtrail
+  - azure-activity
+  - aws-eks-audit
+  - falco

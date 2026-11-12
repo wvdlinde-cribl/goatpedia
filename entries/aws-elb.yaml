@@ -33,6 +33,8 @@ sourcetypes:
     desc: Pack Generator sourcetype for Network Load Balancer TLS listener access logs
   - st: aws:elb:accesslogs
     desc: Splunk Add-on for AWS sourcetype for ELB (ALB / CLB / NLB) access logs from S3
+  - st: AWS_ELB
+    desc: Google SecOps (Chronicle) log type
 facts:
   First released: Classic ELB 2009; ALB August 2016; NLB September 2017
   Delivery model: Managed AWS service per VPC and Region (internet-facing or internal)
