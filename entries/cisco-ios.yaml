@@ -2,9 +2,329 @@
 id: cisco-ios
 name: Cisco IOS / IOS XE
 short: Cisco IOS
+aka:
+  - Cisco IOS
+  - Cisco IOS XE
+  - Catalyst switches
+  - ISR / ASR routers
+  - Catalyst 8000 / 9000
 vendor: Cisco
 category: netinfra
-status: stub
-summary: Router and switch operating system; syslog for interfaces, ACLs, AAA and configuration changes.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - router
+  - switch
+  - network
+  - syslog
+  - acl
+  - aaa
+  - configuration
+  - cisco
+summary: The operating system on most Cisco routers and switches — classic IOS on older ISR and Catalyst, IOS XE (a Linux-based IOS) on Catalyst 9000, ISR 4000, Catalyst 8000 and ASR 1000. Syslog messages follow one pattern, %FACILITY-SEVERITY-MNEMONIC, and cover ACL hits, logins, AAA, configuration changes (archive logging), interface and routing-protocol state. Edge routers are a favourite target of state actors, so config-change and login messages matter as much as ACL logs.
 sourcetypes:
   - st: cisco_ios
+    desc: Cisco IOS / IOS XE syslog (%FACILITY-SEVERITY-MNEMONIC messages — ACL, login, AAA, config, interface, routing)
+  - st: cisco:ios
+    desc: Cisco Networks Add-on for Splunk (TA-cisco_ios) sourcetype for IOS, IOS XE, IOS XR and NX-OS syslog
+facts:
+  First released: IOS 1980s; IOS XE 2008 (ASR 1000), now standard on enterprise platforms
+  Current trains: IOS XE 17.x (e.g. 17.9, 17.12, 17.15 extended-maintenance); classic IOS 15.x on legacy platforms
+  Platforms: Catalyst 9000/3850/3650 switches, ISR 1000/4000, Catalyst 8000 edge, ASR 1000, CSR1000v/Catalyst 8000V in cloud
+  Log transport: Syslog UDP 514 (TCP/TLS optional), logging buffer, SNMP traps, NETCONF/telemetry on IOS XE
+  Log format: '<PRI>seq host *timestamp %FACILITY-SEVERITY-MNEMONIC text, fields inside the text vary per mnemonic'
+  Severity levels: 0 emergencies … 7 debugging; logging trap informational (6) is the common setting
+  Typical volume: 1–20 EPS per device without ACL logging; ACL "log" entries can reach 1k+ EPS on an edge router
+  Management planes: SSH/Telnet VTY, console, HTTP/HTTPS web UI (IOS XE), NETCONF/RESTCONF, SNMP
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet and WAN edge routers
+      desc: ISR/ASR/Catalyst 8000 terminating ISP links, NAT and ACLs. Their management plane is the part attackers scan for (web UI, SNMP, Smart Install).
+    - slot: internal
+      title: Campus and data-center switching
+      desc: Catalyst access, distribution and core switches. Logs show port security, DHCP snooping, 802.1X and spanning-tree events.
+    - slot: remote
+      title: Branch routers
+      desc: Small ISRs at branches with local internet breakout, often managed less carefully than the core.
+    - slot: cloud
+      title: Virtual routers
+      desc: Catalyst 8000V / CSR1000v in AWS, Azure and GCP for transit and SD-WAN.
+howItWorks:
+  - title: Message format
+    body: Every message is %FACILITY-SEVERITY-MNEMONIC followed by free text, e.g. %SEC_LOGIN-4-LOGIN_FAILED. The device prefixes a sequence number (service sequence-numbers) and a timestamp (service timestamps log datetime msec); an asterisk before the time means the clock is not NTP-synchronised.
+  - title: ACL logging
+    body: ACL entries with the log keyword produce %SEC-6-IPACCESSLOGP (TCP/UDP with ports), IPACCESSLOGDP (ICMP) or IPACCESSLOGNP. The router rate-limits and aggregates them — the first packet logs at once, later ones are summarised every 5 minutes with a packet count.
+  - title: Login and AAA
+    body: login on-failure / on-success log VTY logins as %SEC_LOGIN-4-LOGIN_FAILED and -5-LOGIN_SUCCESS with user, source and port. AAA (TACACS+/RADIUS) handles authentication, authorization and command accounting; accounting records go to the AAA server, not syslog.
+  - title: Configuration change logging
+    body: "%SYS-5-CONFIG_I records that someone left config mode. With archive / log config / logging enable / notify syslog, every command typed is logged as %PARSER-5-CFGLOG_LOGGEDCMD with the user — passwords are masked."
+  - title: IOS XE specifics
+    body: IOS XE runs IOSd on Linux. The web UI and programmatic interfaces (NETCONF, RESTCONF, WSMA) can change config; those changes appear as %SYS-5-CONFIG_P (configured programmatically) and %WEBUI / %DMI messages.
+traffic:
+  handles:
+    - IPv4/IPv6 routing (OSPF, EIGRP, BGP, static)
+    - Layer-2 switching, VLANs, 802.1X, port security
+    - ACL filtering and NAT
+    - IPsec / GRE / DMVPN / GET VPN tunnels
+    - Management traffic (SSH, HTTP/S web UI, SNMP, NETCONF)
+    - QoS and NetFlow export
+  flow:
+    - step: Ingress
+      desc: Packet arrives on an interface; port security, 802.1X and DHCP snooping apply on access ports.
+    - step: Ingress ACL
+      desc: Inbound ACL evaluated; log entries produce IPACCESSLOGP messages.
+    - step: Route / switch
+      desc: Forwarding decision from the routing or MAC table (CEF); NAT translation applied.
+    - step: Egress
+      desc: Outbound ACL, QoS and encryption (IPsec) applied before transmit.
+    - step: Control plane
+      desc: Traffic to the router itself (SSH, SNMP, web UI, routing protocols) is handled by IOS/IOSd — login, AAA and config messages come from here.
+logs:
+  - type: ACL hit (SEC-6-IPACCESSLOGP)
+    sourcetype: cisco_ios
+    format: text
+    share: 40–80 % (when ACL logging is on)
+    avg: ~150 B
+    desc: ACL entry with the log keyword matched. The count is packets since the last report for this flow; later reports for the same flow arrive every 5 minutes.
+    pattern: '^<(?<pri>\d+)>(?<seq>\d+): (?<host>\S+): \*?(?<device_time>\w{3} +\d+ [\d:.]+(?: \w+)?): %(?<facility>[A-Z0-9_]+)-(?<severity>\d)-(?<mnemonic>[A-Z0-9_]+): list (?<acl>\S+) (?<action>permitted|denied) (?<protocol>\w+) (?<src_ip>[\d.]+)\((?<src_port>\d+)\)(?: \((?<src_interface>[^)]*)\))? -> (?<dest_ip>[\d.]+)\((?<dest_port>\d+)\), (?<packets>\d+) packets?$'
+    key:
+      - acl
+      - action
+      - protocol
+      - src_ip
+      - dest_ip
+      - dest_port
+      - packets
+    noise:
+      - pri
+      - seq
+      - src_interface
+    sample: "<190>48213: edge-rtr01: Nov 12 09:14:22.186 UTC: %SEC-6-IPACCESSLOGP: list OUTSIDE-IN denied tcp 203.0.113.45(51544) (GigabitEthernet0/0/0 ) -> 198.51.100.10(4786), 1 packet"
+  - type: Login failure (SEC_LOGIN-4-LOGIN_FAILED)
+    sourcetype: cisco_ios
+    format: text
+    share: 1–10 %
+    avg: ~220 B
+    desc: Failed VTY login (SSH/Telnet), logged when login on-failure log is configured. LOGIN_SUCCESS (-5-) has the same fields without the reason.
+    pattern: '^<(?<pri>\d+)>(?<seq>\d+): (?<host>\S+): \*?(?<device_time>\w{3} +\d+ [\d:.]+(?: \w+)?): %(?<facility>[A-Z0-9_]+)-(?<severity>\d)-(?<mnemonic>[A-Z0-9_]+): Login failed \[user: (?<user>[^\]]*)\] \[Source: (?<src_ip>[^\]]*)\] \[localport: (?<dest_port>\d+)\] \[Reason: (?<reason>[^\]]*)\] at (?<event_time>.+)$'
+    key:
+      - mnemonic
+      - user
+      - src_ip
+      - dest_port
+      - reason
+    noise:
+      - event_time
+      - seq
+    sample: "<188>48230: edge-rtr01: Nov 12 09:15:03.402 UTC: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 09:15:03 UTC Thu Nov 12 2026"
+  - type: Command logged (PARSER-5-CFGLOG_LOGGEDCMD)
+    sourcetype: cisco_ios
+    format: text
+    share: < 5 %
+    avg: ~140 B
+    desc: Every configuration command, with the user, when archive log config is enabled with notify syslog. Secrets are masked with *.
+    pattern: '^<(?<pri>\d+)>(?<seq>\d+): (?<host>\S+): \*?(?<device_time>\w{3} +\d+ [\d:.]+(?: \w+)?): %(?<facility>[A-Z0-9_]+)-(?<severity>\d)-(?<mnemonic>[A-Z0-9_]+): User:(?<user>\S+) +logged command:(?<command>.*)$'
+    key:
+      - mnemonic
+      - user
+      - command
+      - host
+    noise:
+      - pri
+      - seq
+    sample: "<189>48244: edge-rtr01: Nov 12 09:21:47.915 UTC: %PARSER-5-CFGLOG_LOGGEDCMD: User:jdoe  logged command:username backup privilege 15 secret *"
+  - type: Configured from (SYS-5-CONFIG_I)
+    sourcetype: cisco_ios
+    format: text
+    share: < 1 %
+    avg: ~130 B
+    desc: Someone left configuration mode — who, on which line and from which address. CONFIG_P is the same for programmatic changes (web UI, NETCONF, WSMA).
+    pattern: '^<(?<pri>\d+)>(?<seq>\d+): (?<host>\S+): \*?(?<device_time>\w{3} +\d+ [\d:.]+(?: \w+)?): %(?<facility>[A-Z0-9_]+)-(?<severity>\d)-(?<mnemonic>[A-Z0-9_]+): Configured from (?<config_source>\S+) by (?<user>\S+) on (?<line>\S+) \((?<src_ip>[^)]*)\)$'
+    key:
+      - mnemonic
+      - user
+      - config_source
+      - line
+      - src_ip
+    noise:
+      - pri
+      - seq
+    sample: "<189>48245: edge-rtr01: Nov 12 09:22:10.004 UTC: %SYS-5-CONFIG_I: Configured from console by jdoe on vty0 (10.20.4.17)"
+cves:
+  - id: CVE-2023-20198
+    cvss: 10.0
+    year: 2023
+    kev: true
+    scope: device
+    title: IOS XE web UI privilege escalation — unauthenticated creation of a privilege-15 account (mass implant campaign)
+    affected: Cisco IOS XE with the HTTP or HTTPS server (web UI) enabled
+    fixed: IOS XE 17.9.4a, 17.6.6a, 17.3.8a, 16.12.10a
+    detect: "%WEBUI-6-INSTALL_OPERATION_INFO and %SYS-5-CONFIG_P (configured programmatically by process SEP_webui_wsma_http) messages; unknown local users such as cisco_tac_admin or cisco_support; the published implant check (POST /webui/logoutconfirm.html?logon_hash=1 answering with a hex string)."
+    avoid: Upgrade; no ip http server / no ip http secure-server on internet-facing devices; restrict the web UI to a management ACL.
+  - id: CVE-2023-20273
+    cvss: 7.2
+    year: 2023
+    kev: true
+    scope: device
+    title: IOS XE web UI command injection — root-level implant after CVE-2023-20198
+    affected: Cisco IOS XE with the web UI enabled
+    fixed: IOS XE 17.9.4a, 17.6.6a, 17.3.8a, 16.12.10a
+    detect: "%WEBUI-6-INSTALL_OPERATION_INFO with Install Operation: ADD from an unknown user; unexpected reloads; implant check via HTTP to the device (Cisco/Talos curl check)."
+    avoid: Same as CVE-2023-20198 — upgrade and disable the HTTP server where not needed.
+  - id: CVE-2018-0171
+    cvss: 9.8
+    year: 2018
+    kev: true
+    scope: device
+    title: Smart Install client buffer overflow — unauthenticated RCE or reload via TCP 4786
+    affected: Cisco IOS and IOS XE switches with the Smart Install client enabled (default on many Catalyst models)
+    detect: ACL hits or NetFlow to TCP 4786 from outside the network; unexpected config copies (tftp/ftp) and reloads; CISA ties ongoing exploitation to state actors.
+    avoid: no vstack on every switch; block TCP 4786 at the edge; upgrade per cisco-sa-20180328-smi2.
+  - id: CVE-2025-20352
+    cvss: 7.7
+    year: 2025
+    kev: true
+    scope: device
+    title: SNMP subsystem stack overflow — DoS for low-privileged SNMP users, root code execution on IOS XE with admin credentials
+    affected: Cisco IOS and IOS XE with SNMP v1/v2c/v3 enabled
+    detect: SNMP requests from non-NMS sources; %SNMP-3-AUTHFAIL bursts; unexpected reloads with crashinfo; new accounts or config changes after SNMP activity.
+    avoid: Upgrade per cisco-sa-snmp-x4LPhte; restrict SNMP with an ACL to NMS hosts; remove default/weak community strings; exclude the affected OIDs with an SNMP view until patched.
+  - id: CVE-2017-6742
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: device
+    title: SNMP remote code execution (buffer overflow in MIB handling) — used by APT28 "Jaguar Tooth" malware
+    affected: Cisco IOS and IOS XE releases from 2017 and earlier with SNMP enabled
+    detect: SNMP traffic from the internet; unknown TFTP transfers of images or configs; modified IOS images on flash.
+    avoid: Upgrade; SNMPv3 only with ACLs; no SNMP from untrusted networks.
+detections:
+  - title: Brute force against device management (SSH/Telnet)
+    severity: high
+    signals:
+      - mnemonic LOGIN_FAILED
+      - many attempts from one src_ip
+      - common usernames (admin, cisco, root)
+    why: Exposed VTY lines are brute-forced constantly; success gives full control of routing and traffic.
+    kql: |-
+      dataset="cisco_ios" mnemonic="LOGIN_FAILED"
+      | summarize fails=count(), users=dcount(user) by src_ip, host, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110.001
+  - title: New privileged local account or AAA bypass
+    severity: critical
+    signals:
+      - CFGLOG_LOGGEDCMD with "username … privilege 15"
+      - no aaa / aaa authentication … local
+      - unknown user names
+    why: Backdoor local accounts are how attackers keep access to routers after a credential theft or web UI exploit (CVE-2023-20198 created exactly these).
+    kql: |-
+      dataset="cisco_ios" mnemonic="CFGLOG_LOGGEDCMD"
+      | where command matches regex @"(?i)^(username \S+ privilege 15|no aaa |aaa authentication login default local|enable secret)"
+      | project _time, host, user, command
+    mitre:
+      - T1136.001
+      - T1098
+  - title: Logging or ACL protection removed
+    severity: high
+    signals:
+      - no logging host / no logging
+      - no access-class / no ip access-group
+      - ip http server enabled
+    why: Disabling logging, removing management ACLs or turning on the web UI are the first changes an intruder makes to hide and keep access.
+    kql: |-
+      dataset="cisco_ios" mnemonic="CFGLOG_LOGGEDCMD"
+      | where command matches regex @"(?i)^(no logging|no access-class|no ip access-group|ip http (secure-)?server|no archive|no service password-encryption)"
+      | project _time, host, user, command
+    mitre:
+      - T1562.001
+      - T1556
+  - title: IOS XE web UI implant indicators
+    severity: critical
+    signals:
+      - mnemonic CONFIG_P from SEP_webui_wsma_http
+      - mnemonic INSTALL_OPERATION_INFO
+      - users cisco_tac_admin, cisco_support, cisco_sys_manager
+    why: These are the messages Cisco published for the 2023 IOS XE mass exploitation; any of them on a device without planned web UI work means compromise.
+    kql: |-
+      dataset="cisco_ios" mnemonic in ("CONFIG_P","INSTALL_OPERATION_INFO")
+      | union (dataset="cisco_ios" user in ("cisco_tac_admin","cisco_support","cisco_sys_manager"))
+      | project _time, host, mnemonic, user, src_ip
+    mitre:
+      - T1190
+      - T1505.003
+  - title: Scan for Smart Install, SNMP and management ports
+    severity: medium
+    signals:
+      - IPACCESSLOGP denied to 4786, 161, 23, 22, 443
+      - one src_ip, many dest_ip
+    why: Mass scanning for Smart Install and SNMP precedes the router exploitation campaigns CISA has warned about since 2018.
+    kql: |-
+      dataset="cisco_ios" mnemonic="IPACCESSLOGP" action="denied"
+      | where dest_port in ("4786","161","23","22","443","830")
+      | summarize targets=dcount(dest_ip), packets=sum(toint(packets)) by src_ip, dest_port, bin(_time, 1h)
+      | where targets > 10
+    mitre:
+      - T1046
+      - T1595.001
+  - title: Configuration change from an unexpected source
+    severity: medium
+    signals:
+      - mnemonic CONFIG_I
+      - src_ip outside the management subnet
+      - outside change windows
+    why: Legitimate changes come from jump hosts and automation; anything else is either an intruder or someone bypassing change control.
+    kql: |-
+      dataset="cisco_ios" mnemonic="CONFIG_I"
+      | where not(ipv4_is_in_range(src_ip, "10.20.0.0/16"))
+      | project _time, host, user, line, src_ip
+    mitre:
+      - T1078
+optimizations:
+  - title: Aggregate ACL permit logs
+    saving: 40–80 %
+    fn: Aggregations
+    how: Permitted-flow ACL logs repeat per flow every 5 minutes. Aggregate permits by acl, src_ip, dest_ip, dest_port with sum(packets) per 5 minutes; keep denies as individual events.
+    expr: "sum(packets) by acl, src_ip, dest_ip, dest_port every 300s  when action=='permitted'"
+  - title: Drop interface flap and debug noise
+    saving: 10–30 %
+    fn: Drop
+    how: Access-port LINK/LINEPROTO up-down on user ports and severity-7 debug lines add volume with little security value. Keep them for uplinks.
+    expr: "(facility in ('LINK','LINEPROTO') && /Gi\\d+\\/0\\/\\d+/.test(_raw)) || severity=='7'"
+  - title: Suppress repeated login failures
+    saving: 5–20 %
+    fn: Suppress
+    how: A brute-force run can emit thousands of identical LOGIN_FAILED lines. Keep one per src_ip/user per minute with a count.
+    expr: "key: `${src_ip}:${user}`  allow 1 / 60s  when mnemonic=='LOGIN_FAILED'"
+  - title: Route security mnemonics to the SIEM, the rest to Lake
+    saving: SIEM licence
+    fn: Routes
+    how: SEC_LOGIN, PARSER CFGLOG, SYS CONFIG, AAA, WEBUI, SNMP auth failures and ACL denies → SIEM. Interface, routing-protocol and environmental messages → Cribl Lake for operations and investigations.
+    expr: "/^(SEC_LOGIN|PARSER|SYS|AAA|WEBUI|DMI|SNMP)$/.test(facility) || action=='denied' → SIEM | else → Lake"
+references:
+  - title: Cisco advisory — IOS XE web UI privilege escalation (CVE-2023-20198, CVE-2023-20273)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-iosxe-webui-privesc-j22SaA4z
+  - title: Cisco Talos — Active exploitation of Cisco IOS XE software
+    url: https://blog.talosintelligence.com/active-exploitation-of-cisco-ios-xe-software/
+  - title: Cisco advisory — Smart Install remote code execution (CVE-2018-0171)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-20180328-smi2
+  - title: Cisco advisory — SNMP stack overflow (CVE-2025-20352)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-snmp-x4LPhte
+  - title: CISA AA25-239A — Chinese state-sponsored actors compromising network devices
+    url: https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-239a
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-asa
+  - cisco-ftd
+  - cisco-sdwan
+  - cisco-meraki

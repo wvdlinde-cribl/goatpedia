@@ -2,11 +2,325 @@
 id: sap
 name: SAP NetWeaver & HANA Audit
 short: SAP
+aka:
+  - SAP Security Audit Log (SAL)
+  - SM19 / SM20
+  - RSAU_CONFIG / RSAU_READ_LOG
+  - SAP HANA audit trail
+  - SAP S/4HANA
+  - SAP ECC
 vendor: SAP
 category: db
-status: stub
-summary: SAP Security Audit Log (SM19/SM20) and SAP HANA audit trail.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - erp
+  - database
+  - audit
+  - sap
+  - hana
+  - abap
+  - fixed-width
+  - syslog
+summary: SAP's two core security trails. The ABAP Security Audit Log (configured in SM19/RSAU_CONFIG, read in SM20/RSAU_READ_LOG) records dialog and RFC logons, transaction and report starts, RFC function calls, user-master changes and audit-configuration changes as fixed-width UTF-16 records in DIR_AUDIT. The SAP HANA audit trail records connects, user, role, privilege and audit-policy changes as semicolon-delimited lines, written to syslog or an internal table. Together they show who logged on to the ERP, from which terminal, and what they changed.
 sourcetypes:
   - st: sap_audit
+    desc: ABAP Security Audit Log (SM20 / .aud file records — message ID, timestamp, user, terminal, transaction, program, client, variable message data)
   - st: sap_audit_tlv
+    desc: Security Audit Log files written in the integrity-protection format (length-prefixed records with a per-record hash, kernel parameter "Integrity protection format active")
   - st: sap_hana
+    desc: SAP HANA audit trail via syslog (HDB process, semicolon-delimited columns — timestamp, service, host, SID, client IP, policy, level, action, user, status, statement)
+  - st: sap:auditlog
+    desc: Common Splunk community sourcetype for the raw UTF-16LE Security Audit Log files (also seen as sap:sal)
+facts:
+  Products: SAP NetWeaver AS ABAP / AS Java, S/4HANA, ECC, BW, Solution Manager; SAP HANA database 2.0
+  ABAP audit config: SM19 (classic) or RSAU_CONFIG (SAP_BASIS 7.50+); kernel parameters override rsau/* profile parameters from 7.40
+  ABAP audit storage: Files in DIR_AUDIT named by FN_AUDIT (UTF-16, ~200-character records, no line ends) and/or table RSAU_BUF_DATA (7.50+)
+  Event catalogue: ~100 message IDs in table TSL1D (AU1 logon OK, AU2 logon failed, AU3 transaction start, AU5/AU6 RFC logon, AUK/AUL RFC call, AUE audit config changed, AUM user locked)
+  HANA audit targets: Internal table (AUDIT_LOG view), Linux syslog, CSV text file (test only)
+  HANA audit format: One line per event, 50+ semicolon-separated columns, same layout for syslog and CSV text file
+  Typical volume: SAL with RFC calls on ≈ 50–500 EPS per production ABAP system (AUK alone is often >70 % of entries); HANA trail ≈ 1–50 EPS with default policies
+  Collection: File monitor on DIR_AUDIT (UTF-16LE), RFC/ABAP extractors and SIEM connectors, syslog for HANA
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: ERP core in the data center
+      desc: ABAP/Java application servers and the HANA database sit in a protected SAP zone. Users reach them through SAP GUI (TCP 32NN), Fiori/HTTP through the SAP Web Dispatcher, and partner systems through RFC (TCP 33NN) and gateways.
+    - slot: cloud
+      title: RISE with SAP and hyperscaler hosting
+      desc: S/4HANA on AWS, Azure or GCP, or SAP-managed private cloud. Logs reach the customer through SAP LogServ or an agent on the application server; the formats stay the same.
+howItWorks:
+  - title: Security Audit Log filters
+    body: Filters (slots) select events by client, user or user group, audit class (dialog logon, RFC logon, transaction start, report start, RFC call, user master change, system, other) and severity. Each slot can be static (profile) or dynamic. AUE/AUF/AUI events record that the filters themselves were changed.
+  - title: Record layout
+    body: Each record holds the message ID (area + sub-ID, e.g. AU2), date and time, work-process ID and type, terminal (8 chars, continued in a 20-char field), user, transaction, program, client, mode and a 64-character data field. Message parameters in the data field are separated by '&'; the text of the message (e.g. "Logon failed (reason=&B, type=&A, method=&C)") comes from TSL1D, not from the file.
+  - title: Logon and RFC
+    body: Dialog logons (SAP GUI, HTTP) produce AU1/AU2; logon type A = dialog, B = background, R = RFC. RFC and CPIC logons produce AU5/AU6, and each function module call AUK (success) or AUL (failure). Generic table reads through RFC_READ_TABLE produce CUZ.
+  - title: Terminal and IP
+    body: The terminal field holds the client host name, or the IP address when rsau/ip_only (or the kernel parameter "Log Peer Address instead of Terminal") is set. Set it, or the SIEM has host names only.
+  - title: HANA audit policies
+    body: HANA audits only what an audit policy (CREATE AUDIT POLICY) selects — actions such as CONNECT, CREATE USER, GRANT PRIVILEGE, ALTER SYSTEM CONFIGURATION — filtered by status (SUCCESSFUL/UNSUCCESSFUL) and level (INFO … CRITICAL). The trail target is set per level or globally.
+  - title: Integrity and forwarding
+    body: With integrity protection on, SAL files carry a hash per record so tampering is detectable. Forwarders must read UTF-16LE and break on the record start, not on newlines.
+traffic:
+  handles:
+    - SAP GUI DIAG protocol (TCP 32NN)
+    - RFC and CPIC through the SAP Gateway (TCP 33NN / 48NN)
+    - HTTP/HTTPS through ICM and the SAP Web Dispatcher (Fiori, OData, SOAP)
+    - HANA SQL client connections (TCP 3NN13 / 3NN15)
+    - Background (batch) jobs and system users
+    - Transport (TMS) imports
+  flow:
+    - step: Connect
+      desc: SAP GUI, browser or RFC client reaches the dispatcher, ICM or gateway.
+    - step: Logon
+      desc: User, client and password/SSO/certificate checked — AU1/AU2 (dialog) or AU5/AU6 (RFC); AUM if the user is locked.
+    - step: Authorize
+      desc: Authorization objects checked per transaction or function (S_TCODE, S_RFC, S_TABU_*).
+    - step: Execute
+      desc: Transaction start AU3, report start AUW, RFC call AUK/AUL, generic table access CUZ.
+    - step: Database
+      desc: ABAP work process runs SQL on HANA as the technical schema user (SAPHANADB); direct DB logons appear in the HANA trail.
+    - step: Record
+      desc: SAL record written to DIR_AUDIT / RSAU_BUF_DATA; HANA trail line written to syslog.
+logs:
+  - type: Security Audit Log record (.aud file)
+    sourcetype: sap_audit
+    format: text
+    share: 70–90 %
+    avg: ~200 B (400 B on disk, UTF-16)
+    desc: One fixed-width record per event, decoded from UTF-16LE. Record type 2 carries the long terminal field (20 chars) at the end; values are space-padded. The data field holds the message parameters separated by '&' — for AU2 that is logon type, reason code and logon method.
+    pattern: '^(?<rec_type>[q2])(?<msg_id>[A-Z]{2}[A-Z0-9])(?<date>\d{8})(?<time>\d{6})\d{2}(?<os_pid>.{5})(?<task>.{5})(?<proc_type>.{2})(?<terminal>.{8})(?<user>.{12})(?<tcode>.{20})(?<program>.{40})(?<client>.{3})(?<mode>.)(?<msg_data>.{64})(?<terminal_long>.*)$'
+    key:
+      - msg_id
+      - date
+      - time
+      - user
+      - client
+      - tcode
+      - msg_data
+      - terminal_long
+    noise:
+      - os_pid
+      - task
+      - mode
+    sample: "2AU220261112091422000505200009D910.20.4.JDOE                            SAPMSYST                                1000A&1&A                                                           10.20.4.17"
+  - type: HANA audit trail (syslog)
+    sourcetype: sap_hana
+    format: text
+    share: 10–30 %
+    avg: ~350 B
+    desc: HANA audit trail written to Linux syslog by the HDB process. The columns after the syslog header are semicolon-separated in a fixed order; the pattern names the first 30 and keeps the rest (XS/XSA columns, mostly empty) as one field.
+    pattern: '^(?<syslog_header>\w{3} +\d+ [\d:]+ \S+ \S+\[\d+\]): (?<event_timestamp>[^;]*);(?<service_name>[^;]*);(?<hostname>[^;]*);(?<sid>[^;]*);(?<instance_number>[^;]*);(?<port_number>[^;]*);(?<database_name>[^;]*);(?<client_ip>[^;]*);(?<client_name>[^;]*);(?<client_pid>[^;]*);(?<client_port>[^;]*);(?<policy_name>[^;]*);(?<audit_level>[^;]*);(?<audit_action>[^;]*);(?<session_user>[^;]*);(?<target_schema>[^;]*);(?<target_object>[^;]*);(?<privilege_name>[^;]*);(?<grantable>[^;]*);(?<role_name>[^;]*);(?<target_principal>[^;]*);(?<action_status>[^;]*);(?<component>[^;]*);(?<section>[^;]*);(?<parameter>[^;]*);(?<old_value>[^;]*);(?<new_value>[^;]*);(?<comment>[^;]*);(?<executed_statement>[^;]*);(?<session_id>[^;]*);(?<extra_columns>.*)$'
+    key:
+      - event_timestamp
+      - database_name
+      - client_ip
+      - audit_action
+      - session_user
+      - target_principal
+      - action_status
+      - executed_statement
+    noise:
+      - instance_number
+      - client_pid
+      - component
+      - extra_columns
+    sample: "Nov 12 09:20:41 hanaprd01 HDB_PRD[25913]: 2026-11-12 09:20:41;indexserver;hanaprd01;PRD;00;30003;PRD;203.0.113.45;jumphost01;4120;51822;policy_UserRoleManagement;CRITICAL;GRANT ROLE;SYSTEM;;;;;CONTENT_ADMIN;JDOE;SUCCESSFUL;;;;;;;GRANT CONTENT_ADMIN TO JDOE;400215;;;;;;;;;"
+  - type: Security Audit Log (key=value export)
+    sourcetype: sap_audit
+    format: kv
+    share: alternative to the file record
+    avg: ~250 B
+    desc: The same SAL events as written by ABAP extractors and SIEM connectors that read RSAU_BUF_DATA or call RSAU_READ_LOG — the message text is already resolved from TSL1D and the class/severity added.
+    key:
+      - DATE
+      - TIME
+      - USER
+      - CLIENT
+      - TCODE
+      - MSGID
+      - TEXT
+      - TERMINAL
+    noise:
+      - REPORT
+      - MSGNO
+      - SUNAME
+    sample: DATE=2026-11-12 TIME=09:31:05 MANDT=100 USER=RFC_SVC TCODE= REPORT=SAPLSDTX MSGID=CUZ MSGNO=1 CLASS=R TEXT="Generic table access by RFC to USR02 with activity 03" HOST=sapprd01 TERMINAL=198.51.100.23 SUNAME=RFC_SVC CLIENT=100
+cves:
+  - id: CVE-2025-31324
+    cvss: 10.0
+    year: 2025
+    kev: true
+    scope: device
+    title: NetWeaver Visual Composer Metadata Uploader — unauthenticated file upload (web shells, RCE)
+    affected: SAP NetWeaver AS Java, Visual Composer development server VCFRAMEWORK 7.50
+    fixed: SAP Security Note 3594142 (April 2025)
+    detect: "HTTP POST to /developmentserver/metadatauploader in Web Dispatcher/ICM logs; new .jsp files under servlet_jsp/irj/root; child processes of the Java server (cmd, sh, curl) on the host."
+    avoid: Apply notes 3594142 and 3604119; undeploy Visual Composer if unused; block /developmentserver/ at the Web Dispatcher.
+  - id: CVE-2025-42999
+    cvss: 9.1
+    year: 2025
+    kev: true
+    scope: device
+    title: NetWeaver Visual Composer Metadata Uploader — Java deserialization by a privileged user (root cause behind CVE-2025-31324)
+    affected: SAP NetWeaver AS Java, Visual Composer VCFRAMEWORK 7.50
+    fixed: SAP Security Note 3604119 (May 2025)
+    detect: Same endpoint as CVE-2025-31324 with serialized Java payloads; post-patch web-shell creation by the Java server process.
+    avoid: Apply note 3604119 even where 3594142 is installed; remove Visual Composer.
+  - id: CVE-2020-6287
+    cvss: 10.0
+    year: 2020
+    kev: true
+    scope: device
+    title: RECON — missing authentication in the AS Java LM Configuration Wizard, creates admin users remotely
+    affected: SAP NetWeaver AS Java 7.30, 7.31, 7.40, 7.50
+    fixed: SAP Security Note 2934135 (July 2020)
+    detect: Requests to /CTCWebService/CTCWebServiceBean from untrusted sources; new Java administrator users created outside change control.
+    avoid: Apply note 2934135 or disable the LM Configuration Wizard (tc~lm~ctc~cul~startup_app); never expose AS Java admin paths to the internet.
+  - id: CVE-2022-22536
+    cvss: 10.0
+    year: 2022
+    kev: true
+    scope: traffic
+    title: ICMAD — HTTP request smuggling and concatenation in SAP ICM and Web Dispatcher
+    affected: SAP NetWeaver AS ABAP and Java, ABAP Platform, Content Server 7.53 and SAP Web Dispatcher (kernel versions listed in the SAP note)
+    fixed: SAP Security Note 3123396 (February 2022)
+    detect: Malformed or very long requests with conflicting Content-Length / chunked framing at the Web Dispatcher; unexpected session hijack symptoms (users seeing other users' responses).
+    avoid: Apply note 3123396 to every kernel and Web Dispatcher; front internet-facing SAP HTTP with a WAF that normalises framing.
+  - id: CVE-2025-42957
+    cvss: 9.9
+    year: 2025
+    kev: false
+    scope: device
+    title: S/4HANA code injection through an RFC-exposed function module (analytics transformation layer, CA-DT-ANA)
+    affected: SAP S/4HANA private cloud and on-premise, S4CORE 102–108
+    fixed: SAP Security Note 3627998 (August 2025)
+    detect: "SAL: AUK RFC calls from user accounts that normally use SAP GUI only, followed by AU7/AUD user changes or AUW report starts by the same user; new SAP_ALL assignments."
+    avoid: Apply note 3627998; restrict S_DMIS / S_RFC for dialog users; enable SAL RFC call events for non-technical users.
+detections:
+  - title: SAP logon brute force or password spraying
+    severity: high
+    signals:
+      - msg_id AU2 (dialog) or AU6 (RFC) failed logon
+      - many users from one terminal
+      - AUM user locked after failed attempts
+    why: Spraying default and service accounts against SAP GUI or RFC is the cheapest path in; AUM locks are the strongest signal that someone is guessing.
+    kql: |-
+      dataset="sap_audit" msg_id in ("AU2","AU6","AUM")
+      | summarize fails=count(), users=dcount(user) by terminal_long, client, bin(_time, 15m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: Logon with a default or emergency account
+    severity: high
+    signals:
+      - AU1 / AU5 for SAP*, DDIC, EARLYWATCH, TMSADM
+      - firefighter users outside a ticket
+    why: Default accounts have well-known passwords and SAP_ALL-level rights; DDIC should never log on in dialog in production.
+    kql: |-
+      dataset="sap_audit" msg_id in ("AU1","AU5")
+      | where trim(@"\s+", user) in ("SAP*","DDIC","EARLYWATCH","TMSADM") or user startswith "FF"
+      | project _time, msg_id, user, client, terminal_long, msg_data
+    mitre:
+      - T1078.001
+  - title: Sensitive transaction started
+    severity: medium
+    signals:
+      - AU3 with SE38, SA38, SE16N, SM59, SU01, PFCG, SM49, SM69, RZ10
+      - by a non-basis user or in production
+    why: These transactions run arbitrary reports, edit tables, change RFC destinations, create users or run OS commands — the hands-on-keyboard phase of an SAP intrusion.
+    kql: |-
+      dataset="sap_audit" msg_id="AU3"
+      | where msg_data matches regex @"^(SE38|SA38|SE16N|SM59|SU01|PFCG|SM49|SM69|RZ10|SE37)\b"
+      | summarize starts=count() by user, client, msg_data, terminal_long
+    mitre:
+      - T1059
+      - T1098
+  - title: Bulk table read through RFC
+    severity: high
+    signals:
+      - CUZ generic table access by RFC
+      - AUK calls to RFC_READ_TABLE / BBP_RFC_READ_TABLE
+      - tables USR02, PA0008, KNA1, BSEG
+    why: RFC_READ_TABLE is the standard way to pull password hashes (USR02) or HR/finance data out of SAP without a GUI.
+    kql: |-
+      dataset="sap_audit" msg_id in ("CUZ","AUK")
+      | where msg_data has "RFC_READ_TABLE" or msg_data has "USR02" or msg_data has "PA0008"
+      | summarize calls=count() by user, terminal_long, client, bin(_time, 1h)
+      | where calls > 50
+    mitre:
+      - T1213
+      - T1003
+  - title: Audit configuration changed
+    severity: critical
+    signals:
+      - AUE audit configuration changed
+      - HANA ALTER / DISABLE / DROP AUDIT POLICY
+    why: Turning off SAL slots or HANA audit policies is defence evasion; legitimate changes are rare and ticketed.
+    kql: |-
+      dataset="sap_audit" (msg_id="AUE" or audit_action has "AUDIT POLICY")
+      | project _time, msg_id, user, terminal_long, audit_action, session_user, client_ip, executed_statement
+    mitre:
+      - T1562.001
+      - T1562.002
+  - title: HANA user, role or privilege change
+    severity: medium
+    signals:
+      - CREATE USER / ALTER USER
+      - GRANT ROLE / GRANT PRIVILEGE
+      - from a client IP outside the DBA jump hosts
+    why: Direct database logons that create users or grant roles bypass ABAP user management and its change documents entirely.
+    kql: |-
+      dataset="sap_audit" action_status="SUCCESSFUL"
+      | where audit_action in ("CREATE USER","ALTER USER","GRANT ROLE","GRANT PRIVILEGE","GRANT ANY")
+      | project _time, database_name, session_user, client_ip, audit_action, target_principal, role_name, executed_statement
+    mitre:
+      - T1098
+      - T1136
+optimizations:
+  - title: Drop successful RFC calls from technical users
+    saving: 50–75 %
+    fn: Drop
+    how: AUK (successful RFC call) and AU5 (successful RFC logon) from known interface users are most of the SAL volume. Keep failures (AUL, AU6) and every call by dialog users.
+    expr: msg_id in ('AUK','AU5') && /^(RFC_|WF-BATCH|SAPSYS)/.test(user.trim())
+  - title: Trim fixed-width padding
+    saving: 30–45 %
+    fn: Eval
+    how: Every SAL field is space-padded to its width. Trim each extracted field and drop empty ones so a 200-character record shrinks to its real content.
+    expr: "user = user.trim(), tcode = tcode.trim(), program = program.trim(), msg_data = msg_data.trim()"
+  - title: Drop empty HANA XS/XSA columns
+    saving: 20–40 %
+    fn: Eval
+    how: The HANA trail carries 20+ XS/XSA columns that are empty on most systems. Keep the first 30 named columns and remove extra_columns when it contains only separators.
+    expr: "extra_columns = /^;*$/.test(extra_columns) ? undefined : extra_columns"
+  - title: Route security classes to the SIEM, the rest to Lake
+    saving: SIEM licence
+    fn: Routes
+    how: Logons, failures, user/audit changes and sensitive transactions → SIEM. Transaction and report starts by ordinary users and HANA INFO-level events → Cribl Lake for investigations and audits.
+    expr: "/^(AU[1-2]|AU[6-9]|AU[A-E]|AUM|AUL|CUZ|BU4)$/.test(msg_id) || action_status=='UNSUCCESSFUL' → SIEM | else → Lake"
+references:
+  - title: SAP Community — Analysis and recommended settings of the Security Audit Log (SM19/RSAU)
+    url: https://community.sap.com/t5/application-development-and-automation-blog-posts/analysis-and-recommended-settings-of-the-security-audit-log-sm19-rsau/ba-p/13297094
+  - title: SAP Learning — Setting up auditing in SAP HANA
+    url: https://learning.sap.com/courses/sap-hana-installation-and-administration/setting-up-auditing_d4e68edb-9a55-45ad-ac80-a0bc9c0ecd74
+  - title: Google Cloud — SAP HANA audit log column mapping
+    url: https://docs.cloud.google.cn/sap/docs/secops/sap-hana-audit-udm-mapping
+  - title: Onapsis — Active exploitation of SAP vulnerability CVE-2025-31324
+    url: https://onapsis.com/blog/active-exploitation-of-sap-vulnerability-cve-2025-31324/
+  - title: Canadian Centre for Cyber Security — SAP NetWeaver CVE-2025-31324 and CVE-2025-42999
+    url: https://www.cyber.gc.ca/en/alerts-advisories/vulnerabilities-impacting-sap-netweaver-cve-2025-31324-cve-2025-42999
+  - title: NVD — CVE-2022-22536 (ICMAD)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2022-22536
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - ibm-db2
+  - mysql
+  - imperva-dam
