@@ -2,12 +2,340 @@
 id: vmware-nsx
 name: VMware NSX
 short: NSX
+aka:
+  - NSX-T Data Center
+  - NSX Data Center for vSphere (NSX-V)
+  - vDefend Distributed Firewall
+  - vDefend Gateway Firewall
+  - Nicira NVP
 vendor: Broadcom (VMware)
 category: ngfw
-status: stub
-summary: Network virtualisation and distributed firewall for vSphere workloads; distributed firewall and system events over RFC 5424 syslog.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - microsegmentation
+  - distributed-firewall
+  - network-virtualisation
+  - vsphere
+  - syslog
+  - rfc5424
+  - east-west
+summary: Network virtualisation and security platform for vSphere (and formerly KVM) workloads. The Distributed Firewall (DFW) enforces stateful rules in the hypervisor at every VM vNIC, the Gateway Firewall runs on NSX Edge nodes for north-south traffic, and NSX Managers hold policy. Managers and Edges log RFC 5424 syslog with an nsx@6876 structured-data block (comp, subcomp, level, audit); ESXi hosts write DFW packet logs to dfwpktlogs.log in RFC 3164 form.
 sourcetypes:
   - st: vmware_nsx_fabric_rfc
+    desc: Cribl Search datatype — NSX RFC 5424 syslog, MSGID FABRIC (host / transport-node fabric events)
   - st: vmware_nsx_firewall_syslog
+    desc: Cribl Search datatype — NSX RFC 5424 firewall packet log (MSGID FIREWALL)
   - st: vmware_nsx_routing_rfc
+    desc: Cribl Search datatype — NSX RFC 5424 syslog, MSGID ROUTING (Tier-0/Tier-1, BGP / BFD)
   - st: vmware_nsx_system_rfc
+    desc: Cribl Search datatype — NSX RFC 5424 syslog, MSGID SYSTEM (manager, audit, appliance health)
+  - st: vmware:nsxlog:dfwpktlogs
+    desc: Splunk Connect for Syslog — ESXi DFW packet logs
+facts:
+  First released: Nicira NVP (acquired by VMware 2012); NSX-V 2013, NSX-T 2016, renamed NSX at 4.0 (2022); VMware acquired by Broadcom 2023
+  OS: NSX 4.2.x / 9.x (with VMware Cloud Foundation 9); NSX-V reached End of General Support 2022-01-16
+  Form factors: NSX Manager cluster (3 VMs), NSX Edge VM or bare metal, kernel modules on ESXi transport nodes
+  Deployment modes: Distributed Firewall (east-west, per vNIC), Gateway Firewall on Tier-0 / Tier-1 Edges (north-south), IDS/IPS, NSX Federation across sites
+  Central mgmt: NSX Manager (UI + Policy API), VMware Cloud Foundation, Aria Operations for Logs / Networks
+  Log transport: Syslog UDP / TCP / TLS per appliance via set logging-server; facility local6; audit log also via /api/v1/administration/audit-logs
+  Log format: RFC 5424 with [nsx@6876 comp=… subcomp=… level=… audit=…] on Managers and Edges; RFC 3164 on ESXi hosts
+  Typical EPS: DFW packet logs scale with logged rules × VMs — tens of thousands per second across a cluster when the default rule is logged
+  Cribl Pack: Community "VMware NSX Syslog" parsing pack in the Packs Dispensary; Cribl Search ships vmware_nsx_* datatypes
+placement:
+  slots:
+    - internal
+    - edge
+    - cloud
+  items:
+    - slot: internal
+      title: Microsegmentation (DFW)
+      desc: Stateful rules enforced in the ESXi kernel at every VM vNIC — zero-trust east-west control without hairpinning traffic to a physical firewall.
+    - slot: internal
+      title: Tier-0 / Tier-1 gateways
+      desc: NSX Edges route between overlay segments and the physical fabric, running Gateway Firewall, NAT, VPN and load balancing.
+    - slot: edge
+      title: North-south perimeter of the private cloud
+      desc: The Tier-0 Gateway Firewall filters traffic entering and leaving the software-defined data centre, often behind a physical NGFW.
+    - slot: cloud
+      title: VMware Cloud on AWS / Azure VMware Solution
+      desc: The same NSX policy model secures VMware workloads hosted on hyperscaler bare metal.
+howItWorks:
+  - title: Management and control plane
+    body: A three-node NSX Manager cluster holds desired state (Policy API / UI) and pushes realised rules to transport nodes; the Central Control Plane distributes topology and firewall state to hosts and Edges.
+  - title: Distributed Firewall
+    body: The vsip kernel module on each ESXi host filters every packet at the vNIC (IN = towards the VM, OUT = from the VM) against Ethernet, Emergency, Infrastructure, Environment and Application categories. Rules with logging enabled write to /var/log/dfwpktlogs.log and the host's syslog.
+  - title: Gateway Firewall and Edges
+    body: Tier-0 and Tier-1 gateways on Edge nodes run a stateful firewall, NAT, IPsec / L2 VPN and URL filtering for north-south traffic; their packet logs arrive as RFC 5424 syslog with comp="nsx-edge".
+  - title: Groups and context
+    body: Rules reference dynamic groups (VM tags, names, OS, AD user identity via Identity Firewall), so a log line carries only the numeric rule ID — resolve it against the Manager to know which policy matched.
+  - title: Audit
+    body: Every API call and UI action produces an audit="true" syslog line with UserName, ModuleName, Operation and Operation status; nsx-audit.log and nsx-audit-write.log keep local copies.
+traffic:
+  handles:
+    - East-west VM-to-VM traffic at the vNIC (DFW)
+    - North-south routing on Tier-0 / Tier-1 gateways
+    - NAT, IPsec and L2 VPN on Edges
+    - Distributed IDS/IPS and malware prevention (vDefend)
+    - Overlay encapsulation (Geneve) between transport nodes
+    - L7 application ID and FQDN / URL filtering
+  flow:
+    - step: vNIC
+      desc: Packet leaves a VM and hits the DFW filter on its vNIC (direction OUT).
+    - step: DFW rules
+      desc: Categories evaluated top-down, first match wins; PASS / DROP / REJECT logged if the rule has logging on.
+    - step: Overlay
+      desc: Encapsulated in Geneve to the destination host or Edge.
+    - step: Gateway Firewall
+      desc: North-south traffic is filtered on the Tier-1 then Tier-0 gateway.
+    - step: Destination vNIC
+      desc: DFW evaluates again at the receiving VM (direction IN).
+    - step: Log
+      desc: ESXi writes the DFW packet log, Edges send RFC 5424 FIREWALL syslog.
+logs:
+  - type: Gateway / Edge firewall packet log
+    sourcetype: vmware_nsx_firewall_syslog
+    format: text
+    share: 40–70 %
+    avg: ~300 B
+    desc: RFC 5424 line from an NSX Edge (or host) for a logged rule hit — address family, reason, action, rule ID, direction, length, protocol, 5-tuple and TCP flags.
+    pattern: '^<(?<pri>\d+)>1 (?<ts>\S+) (?<host>\S+) NSX (?<procid>\S+) (?<msgid>FIREWALL) \[nsx@6876 comp="(?<comp>[^"]*)" subcomp="(?<subcomp>[^"]*)"(?: s2comp="(?<s2comp>[^"]*)")? level="(?<level>[^"]*)"\] (?:<\d+ (?<flow_id>\S+)> )?(?:(?<filter_hash>[0-9a-f]+) )?(?<af>INET6?) (?<reason>\S+) (?<action>[A-Z_]+) (?<rule_id>\d+) (?<direction>IN|OUT) (?<pkt_len>\d+) (?<protocol>\S+) (?<src_ip>[^/\s]+)/(?<src_port>\d+)->(?<dst_ip>[^/\s]+)/(?<dst_port>\d+)(?: (?<tcp_flags>[A-Z]+))?$'
+    key:
+      - host
+      - action
+      - rule_id
+      - direction
+      - src_ip
+      - dst_ip
+      - dst_port
+      - protocol
+    noise:
+      - pri
+      - procid
+      - flow_id
+      - s2comp
+      - pkt_len
+    sample: '<182>1 2026-11-12T09:14:22.183Z edge-01.example.com NSX 5436 FIREWALL [nsx@6876 comp="nsx-edge" subcomp="datapathd" s2comp="firewallpkt" level="INFO"] <1 4f2a9c1e7b3d6a08:91c0e5b27d4f3a6c> INET reason-match DROP 3012 IN 60 TCP 198.51.100.40/51533->10.30.2.15/3389 S'
+  - type: Distributed Firewall packet log (ESXi)
+    sourcetype: vmware:nsxlog:dfwpktlogs
+    format: text
+    share: 20–50 %
+    avg: ~170 B
+    desc: Written by every ESXi transport node to dfwpktlogs.log and forwarded with the host's RFC 3164 syslog; the leading hex value is the vNIC filter hash, TERM lines add packet / byte counters.
+    pattern: '^(?<ts>\S+) (?<host>\S+) FIREWALL-PKTLOG\[(?<pid>\d+)\]: (?<filter_hash>[0-9a-f]+) (?<af>INET6?) (?<reason>\S+) (?<action>[A-Z_]+) (?<rule_id>\d+) (?<direction>IN|OUT) (?<pkt_len>\d+) (?<protocol>\S+) (?<src_ip>[^/\s]+)/(?<src_port>\d+)->(?<dst_ip>[^/\s]+)/(?<dst_port>\d+)(?: (?<tcp_flags>[A-Z]+))?$'
+    key:
+      - host
+      - filter_hash
+      - action
+      - rule_id
+      - src_ip
+      - dst_ip
+      - dst_port
+    noise:
+      - pid
+      - pkt_len
+      - af
+    sample: '2026-11-12T09:15:03.519Z esx-node-03.example.com FIREWALL-PKTLOG[1057591]: b569cb6a INET match DROP 2047 OUT 52 TCP 10.20.4.15/49822->10.20.8.31/445 S'
+  - type: NSX Manager audit
+    sourcetype: vmware_nsx_system_rfc
+    format: text
+    share: < 5 %
+    avg: ~320 B
+    desc: Every login, API call and configuration change on the Manager — audit="true" in the structured data, user, source, module, operation and status in the message.
+    pattern: '^<(?<pri>\d+)>1 (?<ts>\S+) (?<host>\S+) NSX (?<procid>\S+) (?<msgid>\S+) \[nsx@6876 audit="(?<audit>true)" comp="(?<comp>[^"]*)" level="(?<level>[^"]*)"(?: reqId="(?<req_id>[^"]*)")? subcomp="(?<subcomp>[^"]*)"(?: username="(?<sd_username>[^"]*)")?\] UserName="(?<user>[^"]*)",(?: Src="(?<src_ip>[^"]*)",)? ModuleName="(?<module>[^"]*)", Operation="(?<operation>[^"]*)", Operation status="(?<op_status>[^"]*)"(?:, (?<details>.*))?$'
+    key:
+      - user
+      - src_ip
+      - module
+      - operation
+      - op_status
+      - host
+    noise:
+      - pri
+      - procid
+      - req_id
+      - level
+    sample: '<182>1 2026-11-12T08:02:11.418Z nsx-mgr-01.example.com NSX 5070 SYSTEM [nsx@6876 audit="true" comp="nsx-manager" level="INFO" subcomp="http"] UserName="jdoe@example.com", Src="10.20.1.45", ModuleName="ACCESS_CONTROL", Operation="LOGIN", Operation status="failure"'
+  - type: Routing / fabric / system events
+    sourcetype: vmware_nsx_routing_rfc
+    format: text
+    share: < 5 %
+    avg: ~220 B
+    desc: Operational RFC 5424 events by MSGID — ROUTING (BGP / BFD on Tier-0), FABRIC (transport-node and tunnel state), SYSTEM (cluster and appliance health). Error-level lines carry an errorCode in the structured data.
+    pattern: '^<(?<pri>\d+)>1 (?<ts>\S+) (?<host>\S+) NSX (?<procid>\S+) (?<msgid>ROUTING|FABRIC|SYSTEM|SWITCHING|-) \[nsx@6876 (?<sd>[^\]]*)\] (?<message>.+)$'
+    key:
+      - host
+      - msgid
+      - sd
+      - message
+    noise:
+      - pri
+      - procid
+    sample: '<179>1 2026-11-12T07:55:03.902Z edge-02.example.com NSX 3412 ROUTING [nsx@6876 comp="nsx-edge" subcomp="routing" level="ERROR"] BGP neighbor 192.0.2.1 of Tier-0 gateway t0-prod changed state from Established to Idle'
+cves:
+  - id: CVE-2021-39144
+    cvss: 8.5
+    year: 2021
+    kev: true
+    scope: device
+    title: Unauthenticated RCE as root via XStream deserialisation in NSX-V Manager (VMware Cloud Foundation)
+    affected: All NSX-V (NSX Data Center for vSphere) Manager versions before 6.4.14, including VMware Cloud Foundation 3.11
+    fixed: NSX-V 6.4.14 (patch released although NSX-V was past End of General Support; NSX-T not affected)
+    detect: Unexpected outbound connections or shells from the NSX-V Manager appliance; crafted XML POSTs to unauthenticated Manager endpoints in proxy / web logs.
+    avoid: Upgrade to 6.4.14 or migrate to NSX (NSX-T); restrict Manager reachability to an admin network.
+  - id: CVE-2025-22243
+    cvss: 7.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Stored XSS in the NSX Manager UI via network settings (fixed together with CVE-2025-22244 / CVE-2025-22245)
+    affected: NSX 4.0.x, 4.1.x, 4.2.x and VMware Cloud Foundation 5.x before the fixed builds
+    fixed: NSX 4.2.2.1, 4.2.1.4, 4.1.2.6
+    detect: audit="true" updates to network or URL-filtering response-page objects containing script tags, from accounts that do not normally edit them.
+    avoid: Patch; limit which roles can create or modify network settings and gateway firewall response pages.
+  - id: CVE-2024-38817
+    cvss: 6.7
+    year: 2024
+    kev: false
+    scope: device
+    title: Command injection from the NSX Edge CLI to root (fixed together with CVE-2024-38818 privilege escalation)
+    affected: NSX 4.x before 4.2.1, NSX-T 3.x before 3.2.4.1
+    fixed: NSX 4.2.1, NSX-T 3.2.4.1
+    detect: Audit and Edge syslog showing CLI sessions on Edges outside change windows, followed by unexpected processes or config changes.
+    avoid: Upgrade; restrict Edge admin / CLI access and SSH; MFA on the jump hosts that reach it.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: EternalBlue — SMBv1 RCE used by WannaCry / NotPetya for east-west worm spread
+    affected: Windows SMBv1 servers (Vista SP2 through Server 2016 before MS17-010)
+    fixed: MS17-010
+    detect: DFW packet logs with one VM fanning out to many peers on 445 within minutes; spikes of DROP on 445 from the same source across hosts.
+    avoid: DFW rules allowing 445 only to file servers; disable SMBv1; patch MS17-010.
+  - id: CVE-2023-34048
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: vCenter Server DCERPC out-of-bounds write — unauthenticated RCE over the management network NSX segments
+    affected: VMware vCenter Server (see VMSA-2023-0023)
+    detect: DFW / gateway packet logs showing non-admin segments reaching vCenter management ports; vCenter crash / restart events.
+    avoid: Patch vCenter; DFW or gateway rules so only admin jump hosts reach vCenter.
+detections:
+  - title: SMB fan-out across workloads
+    severity: high
+    signals:
+      - dst_port=445
+      - one src_ip to many dst_ip
+    why: Worms and ransomware operators move laterally over SMB; microsegmented networks make the fan-out visible as allowed or dropped DFW hits.
+    kql: |-
+      dataset="nsx_logs" dst_port="445"
+      | summarize peers=dcount(dst_ip), drops=countif(action=="DROP") by src_ip, bin(_time, 5m)
+      | where peers > 20
+    mitre:
+      - T1021.002
+      - T1210
+  - title: Repeated DFW drops from one VM
+    severity: medium
+    signals:
+      - action=DROP or REJECT
+      - many rule hits from one src_ip
+    why: A VM repeatedly hitting deny rules is either misconfigured or scanning / probing segments it should not reach.
+    kql: |-
+      dataset="nsx_logs" action in ("DROP","REJECT")
+      | summarize hits=count(), ports=dcount(dst_port), dsts=dcount(dst_ip) by src_ip, host, bin(_time, 10m)
+      | where ports > 25 or dsts > 50
+    mitre:
+      - T1046
+  - title: NSX Manager login failures
+    severity: high
+    signals:
+      - audit=true
+      - Operation=LOGIN
+      - Operation status=failure
+    why: The Manager controls every firewall rule in the data centre — brute force against it is a direct path to disabling segmentation.
+    kql: |-
+      dataset="nsx_logs" audit="true" operation="LOGIN" op_status="failure"
+      | summarize fails=count(), users=dcount(user) by src_ip, bin(_time, 15m)
+      | where fails > 10
+    mitre:
+      - T1110
+      - T1078
+  - title: Firewall policy changes outside change window
+    severity: medium
+    signals:
+      - audit=true
+      - firewall / policy module
+      - write operation
+    why: Deleting or disabling DFW rules or sections is how an intruder with Manager access opens east-west paths.
+    kql: |-
+      dataset="nsx_logs" audit="true" op_status="success"
+      | where module has "FIREWALL" or module has "POLICY" or operation has "DELETE"
+      | where hourofday(_time) < 7 or hourofday(_time) > 19
+      | project _time, user, src_ip, module, operation
+    mitre:
+      - T1562.004
+  - title: Tier-0 BGP neighbor down
+    severity: low
+    signals:
+      - msgid=ROUTING
+      - changed state from Established
+    why: Unexpected BGP session loss on a Tier-0 cuts north-south connectivity and can indicate upstream tampering or Edge failure.
+    kql: |-
+      dataset="nsx_logs" msgid="ROUTING"
+      | where message has "BGP" and message has "from Established"
+      | summarize count() by host, bin(_time, 5m)
+    mitre:
+      - T1498
+optimizations:
+  - title: Stop logging the default allow rule
+    saving: 40–70 %
+    fn: Drop
+    how: Logging on the default rule floods dfwpktlogs.log from every host. Turn it off in policy, or drop PASS hits on the default rule ID in Stream and keep denies plus explicitly logged rules.
+    expr: action=='PASS' && rule_id==C.vars.nsxDefaultRuleId
+  - title: Aggregate DFW hits to flows
+    saving: 30–60 %
+    fn: Aggregations
+    how: Summarise per src_ip, dst_ip, dst_port, rule_id and action per minute for segmentation dashboards; ship raw to Cribl Lake.
+    expr: count by src_ip, dst_ip, dst_port, rule_id, action per 60s
+  - title: Flatten the nsx@6876 structured data
+    saving: 10–15 %
+    fn: Parser → Serialize
+    how: Extract comp / subcomp / level / audit from the structured data once, drop pri, procid, s2comp and reqId, and serialise as JSON instead of repeating the RFC 5424 header.
+    expr: "parse nsx@6876 kv → remove: pri, procid, s2comp, req_id → JSON"
+  - title: Enrich rule IDs with policy names
+    saving: triage time
+    fn: Lookup
+    how: Export rule ID → section / rule name / groups from the NSX Policy API into a lookup so analysts see the policy, not a number.
+    expr: "lookup nsx_rules.csv on rule_id → rule_name, section, group"
+  - title: Route audit and errors at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: audit="true" and error-level system / routing events → SIEM; packet logs → Lake plus aggregated SIEM copy.
+    expr: /audit="true"|level="(ERROR|CRIT|ALERT|EMERG)"/.test(_raw) → SIEM  |  else → Lake
+references:
+  - title: NSX 4.2 — Log Messages and Error Codes
+    url: https://techdocs.broadcom.com/us/en/vmware-cis/nsx/vmware-nsx/4-2/administration-guide/operations-and-management/log-messages-and-error-codes.html
+  - title: vDefend — Distributed Firewall Packet Logs
+    url: https://techdocs.broadcom.com/us/en/vmware-security-load-balancing/vdefend/vdefend-firewall/4-2/vdefend-distributed-firewall/monitoring-and-troubleshooting-dfw/firewall-packet-logs.html
+  - title: Splunk Connect for Syslog — VMware vSphere / NSX
+    url: https://splunk.github.io/splunk-connect-for-syslog/latest/sources/vendor/VMWare/vsphere/
+  - title: VMSA-2022-0027 (CVE-2021-39144)
+    url: https://support.broadcom.com/web/ecx/support-content-notification/-/external/content/SecurityAdvisories/0/23646
+  - title: NSX for vSphere 6.4.14 addresses VMSA-2022-0027
+    url: https://knowledge.broadcom.com/external/article/318550/nsx-for-vsphere-6414-addresses-vmsa20220.html
+  - title: VMSA-2024-0020 (CVE-2024-38817 / 38818 / 38815)
+    url: https://support.broadcom.com/web/ecx/support-content-notification/-/external/content/SecurityAdvisories/0/25047
+  - title: VMware NSX 4.1.2.6 release notes (VMSA-2025-0012)
+    url: https://techdocs.broadcom.com/us/en/vmware-cis/nsx/vmware-nsx/4-1/release-notes/vmware-nsx-4126-release-notes.html
+related:
+  - vmware-esxi
+  - pan-ngfw
+  - checkpoint
+  - fortigate
+  - aws-vpc-flow
+  - azure-nsg-flow
