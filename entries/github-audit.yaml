@@ -1,0 +1,347 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: github-audit
+name: GitHub Audit Log
+short: GitHub
+aka:
+  - GitHub Enterprise Cloud audit log
+  - GitHub audit log streaming
+  - GitHub Enterprise Server audit log
+  - github:cloud:audit
+vendor: GitHub (Microsoft)
+category: devops
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - devops
+  - saas
+  - source-code
+  - ci-cd
+  - github-actions
+  - supply-chain
+  - json
+summary: Enterprise and organisation audit log of GitHub Enterprise Cloud (and Server) — membership and role changes, repository create/delete/visibility, branch protection, tokens and apps, Actions workflow jobs (with the names of secrets passed), secret-scanning push-protection bypasses and, via streaming only, every Git clone/fetch/push. Streamed as gzipped JSON to S3, Azure Blob, Event Hubs, GCS, Splunk or Datadog. It is the primary record for source-code theft, CI/CD supply-chain compromise and insider exfiltration.
+sourcetypes:
+  - st: github_cloud_audit
+    desc: GitHub Enterprise Cloud audit and Git events (one JSON object per event) from audit log streaming or the REST audit-log API
+  - st: github:cloud:audit
+    desc: Same events as named by the Splunk Add-on for GitHub (Splunk HEC streaming or API input)
+facts:
+  First released: Organisation audit log 2014; enterprise audit log streaming GA 2022
+  Delivery model: SaaS (GitHub Enterprise Cloud, incl. EMU and data residency); self-hosted GitHub Enterprise Server has its own audit log
+  Log transport: Audit log streaming (S3 with keys or OIDC, Azure Blob, Azure Event Hubs, GCS, Splunk HEC, Datadog) or REST GET /enterprises/{enterprise}/audit-log
+  Log format: JSON, one event per line; streamed files are YYYY/MM/DD/HH/MM/<uuid>.json.log.gz
+  Retention: 180 days in GitHub (Git events 7 days); stream buffers 7 days when paused
+  Delivery semantics: At-least-once — deduplicate on _document_id
+  IP addresses: actor_ip only when IP disclosure is enabled for the enterprise or organisation
+  Typical volume: 100k – 50M events/day; git.fetch/git.clone, workflow and api.request events dominate
+  Cribl integration: Cribl Stream S3 / Azure Blob / Event Hubs / GCS source or Splunk HEC source, or a REST collector against the audit-log API (no dedicated Dispensary pack found)
+placement:
+  slots:
+    - cloud
+    - remote
+    - internal
+  items:
+    - slot: cloud
+      title: GitHub Enterprise Cloud
+      desc: Enterprise account with organisations, repositories, Actions, Packages, Codespaces and Copilot. GitHub writes every audit and Git event and streams them to your storage.
+    - slot: remote
+      title: Developers, bots and apps
+      desc: Users (via SSO / EMU), personal access tokens, GitHub Apps, OAuth apps and Actions runners act on repositories; each event names the actor, token and programmatic access type.
+    - slot: cloud
+      title: Stream destination
+      desc: S3 bucket, Azure Blob / Event Hub or GCS container (or Splunk HEC / Datadog) receiving gzipped JSON batches; Cribl reads from there.
+    - slot: internal
+      title: Self-hosted runners and GHES
+      desc: Self-hosted Actions runners and GitHub Enterprise Server appliances in your network; GHES keeps its own audit log and can stream too.
+howItWorks:
+  - title: Common fields
+    body: Most events carry @timestamp, _document_id, action, actor, actor_id, actor_is_bot, business, business_id, created_at (epoch ms), hashed_token, operation_type (create, modify, remove, access, transfer), org, org_id, programmatic_access_type, repo, repo_id, request_id, token_id, token_scopes, user, user_id and user_agent. Each action adds its own fields.
+  - title: Action naming
+    body: Actions are category.verb — org.add_member, org.update_member (old_permission → permission), business.add_admin, repo.create / repo.destroy / repo.access (visibility change), protected_branch.destroy, hook.create, integration_installation.create, personal_access_token.request_created, ip_allow_list.disable, org.disable_two_factor_requirement, audit_log_streaming.destroy.
+  - title: Git and API events
+    body: git.clone, git.fetch and git.push (with repository_public, transport_protocol_name) and opt-in api.request events are not shown in the web UI — only via streaming, REST or exports — and Git events are kept just 7 days in GitHub.
+  - title: Actions and secrets
+    body: workflows.prepared_workflow_job records each job start with job_workflow_ref, runner name/labels, is_hosted_runner and secrets_passed (names, not values) — the evidence trail for compromised third-party actions. secret_scanning_push_protection.bypass records who pushed a detected secret and why.
+  - title: Identity and IP
+    body: actor_location.country_code is always present; actor_ip only after an owner enables IP disclosure. With EMU or SAML SSO, external_identity_* fields tie the actor to the IdP identity; token_id / hashed_token identify which PAT or app token was used.
+traffic:
+  handles:
+    - Web UI and REST / GraphQL API actions
+    - Git clone, fetch and push (HTTPS / SSH)
+    - Organisation and enterprise membership and roles
+    - Repository settings, visibility, branch protection, webhooks
+    - Personal access tokens, GitHub Apps and OAuth apps
+    - Actions workflow jobs, runners and secrets
+    - Secret scanning, Dependabot and code scanning alerts
+  flow:
+    - step: Request
+      desc: User, token or app calls the web UI, REST/GraphQL API or Git over HTTPS/SSH.
+    - step: Authenticate
+      desc: SSO / EMU session, PAT, GitHub App installation token or Actions GITHUB_TOKEN is validated (IP allow list applied).
+    - step: Action
+      desc: The change or read happens; GitHub emits an audit event (category.verb) with actor, token and target.
+    - step: Audit log
+      desc: Event stored in the enterprise / organisation audit log (180 days; Git events 7 days).
+    - step: Stream
+      desc: Events batched to gzipped JSON files in S3 / Blob / GCS, or posted to Event Hubs, Splunk HEC or Datadog.
+    - step: Collect
+      desc: Cribl reads the destination, deduplicates on _document_id and forwards to SIEM / lake.
+logs:
+  - type: Web / API audit event
+    sourcetype: github_cloud_audit
+    format: json
+    share: 30–60 %
+    avg: ~0.9 KB
+    desc: Configuration, membership and repository events. This example is a member promoted to organisation owner (org.update_member).
+    key:
+      - action
+      - actor
+      - actor_ip
+      - org
+      - user
+      - old_permission
+      - permission
+      - operation_type
+    noise:
+      - "@timestamp"
+      - business_id
+      - org_id
+      - request_access_security_header
+      - _document_id
+    sample: '{"@timestamp":1762935262517,"_document_id":"Xk3fP0aBcDeFgHiJkLmNoQ","action":"org.update_member","actor":"jdoe","actor_id":1012345,"actor_ip":"203.0.113.45","actor_is_bot":false,"actor_location":{"country_code":"NL"},"business":"example-corp","business_id":4567,"created_at":1762935262517,"old_permission":"read","operation_type":"modify","org":"example-org","org_id":89012345,"permission":"admin","request_access_security_header":null,"user":"asmith","user_id":1023456,"user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6)"}'
+  - type: Git event (clone / fetch / push)
+    sourcetype: github_cloud_audit
+    format: json
+    share: 30–70 %
+    avg: ~0.7 KB
+    desc: Streamed and REST/export only, kept 7 days in GitHub. High volume from CI; the key source for mass-clone exfiltration.
+    key:
+      - action
+      - actor
+      - actor_ip
+      - repo
+      - repository_public
+      - transport_protocol_name
+      - programmatic_access_type
+      - hashed_token
+    noise:
+      - "@timestamp"
+      - business_id
+      - org_id
+      - repo_id
+      - external_id
+    sample: '{"@timestamp":1762937011204,"_document_id":"Qa9sT2uVwXyZ0123456789","action":"git.clone","actor":"svc-build","actor_id":1034567,"actor_ip":"198.51.100.23","actor_is_bot":false,"actor_location":{"country_code":"US"},"business":"example-corp","business_id":4567,"created_at":1762937011204,"external_id":"","hashed_token":"EXAMPLEHASHEDTOKEN0000000000000000000000000=","operation_type":"access","org":"example-org","org_id":89012345,"programmatic_access_type":"Personal access token (classic)","repo":"example-org/payments-api","repo_id":512345678,"repository_public":false,"transport_protocol":1,"transport_protocol_name":"http","user_agent":"git/2.47.1"}'
+  - type: Actions workflow job (secrets passed)
+    sourcetype: github_cloud_audit
+    format: json
+    share: 5–20 %
+    avg: ~1.4 KB
+    desc: workflows.prepared_workflow_job — one per job start, naming the workflow, runner and the secrets handed to the job. Use it to scope which secrets a compromised action could have read.
+    key:
+      - action
+      - repo
+      - job_workflow_ref
+      - job_name
+      - runner_name
+      - is_hosted_runner
+      - secrets_passed[0]
+      - workflow_run_id
+    noise:
+      - "@timestamp"
+      - runner_group_id
+      - runner_labels[0]
+      - calling_workflow_shas[0]
+    sample: '{"@timestamp":1762938600120,"_document_id":"Lm4nO5pQ6rS7tU8vW9xY0z","action":"workflows.prepared_workflow_job","actor":"github-actions[bot]","actor_id":41898282,"actor_is_bot":true,"actor_location":{"country_code":""},"business":"example-corp","created_at":1762938600120,"is_hosted_runner":false,"job_name":"build","job_workflow_ref":"example-org/payments-api/.github/workflows/ci.yml@refs/heads/main","calling_workflow_shas":["0123456789abcdef0123456789abcdef01234567"],"operation_type":"create","org":"example-org","repo":"example-org/payments-api","runner_group_id":3,"runner_group_name":"linux-prod","runner_id":1201,"runner_labels":["self-hosted","linux","x64"],"runner_name":"runner-10-20-30-41","secrets_passed":["AWS_DEPLOY_KEY","NPM_TOKEN"],"workflow_run_id":13579246801}'
+  - type: Secret scanning push-protection bypass
+    sourcetype: github_cloud_audit
+    format: json
+    share: < 0.1 %
+    avg: ~0.8 KB
+    desc: A user pushed a commit containing a detected secret and chose a bypass reason. Rare and always worth a look.
+    key:
+      - action
+      - actor
+      - repo
+      - secret_type
+      - push_protection_bypass_reason
+      - publicly_leaked
+    noise:
+      - "@timestamp"
+      - business_id
+      - org_id
+    sample: '{"@timestamp":1762940012345,"_document_id":"Bp2cQ3dR4eS5fT6gU7hV8w","action":"secret_scanning_push_protection.bypass","actor":"jdoe","actor_id":1012345,"actor_location":{"country_code":"NL"},"business":"example-corp","business_id":4567,"created_at":1762940012345,"operation_type":"create","org":"example-org","org_id":89012345,"repo":"example-org/payments-api","multi_repo":false,"publicly_leaked":false,"push_protection_bypass_reason":"false_positive","secret_type":"aws_access_key_id","secret_type_display_name":"Amazon AWS Access Key ID"}'
+cves:
+  - id: CVE-2024-4985
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: GitHub Enterprise Server SAML SSO authentication bypass with encrypted assertions — forged SAML response yields site admin (self-hosted GHES, not GitHub.com)
+    affected: GitHub Enterprise Server before 3.13.0 using SAML SSO with the optional encrypted assertions feature
+    fixed: 3.9.15, 3.10.12, 3.11.10, 3.12.4
+    detect: GHES audit log — user provisioning (user.create) or site-admin promotion right after a SAML sign-in with no matching IdP sign-in event; new admin from an unfamiliar IP.
+    avoid: Upgrade GHES; disable encrypted assertions until patched; restrict appliance access to the corporate network.
+  - id: CVE-2024-6800
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: GitHub Enterprise Server SAML XML signature wrapping with publicly exposed signed federation metadata — forged SAML response to site admin (self-hosted GHES)
+    affected: GitHub Enterprise Server before 3.14 with SAML and IdPs that publish signed federation metadata
+    fixed: 3.10.16, 3.11.14, 3.12.8, 3.13.3
+    detect: Same as CVE-2024-4985 — SAML logins and provisioning of admin users that the IdP never authenticated; compare GHES audit with IdP logs.
+    avoid: Upgrade GHES; keep the appliance off the internet.
+  - id: CVE-2024-9487
+    cvss: 9.1
+    year: 2024
+    kev: false
+    scope: device
+    title: GitHub Enterprise Server SAML signature verification bypass (encrypted assertions) — unauthorised user provisioning (self-hosted GHES)
+    affected: GitHub Enterprise Server before 3.15 with encrypted assertions enabled
+    fixed: 3.11.16, 3.12.10, 3.13.5, 3.14.2
+    detect: Unexpected user.create / org.add_member events following SAML sign-ins; accounts with no IdP counterpart.
+    avoid: Upgrade GHES; disable encrypted assertions if unused.
+  - id: CVE-2025-30066
+    cvss: 8.6
+    year: 2025
+    kev: true
+    scope: traffic
+    title: tj-actions/changed-files supply-chain compromise — malicious tags dump CI secrets into workflow logs (third-party GitHub Action, not GitHub itself)
+    affected: tj-actions/changed-files tags v1 – v45.0.7 on 14–15 March 2025 (repointed to malicious commit 0e58ed8)
+    fixed: "46"
+    detect: workflows.prepared_workflow_job events in the window whose workflow used the action — secrets_passed lists the secrets to rotate; public-repo workflow logs exposed them.
+    avoid: Pin third-party actions to full commit SHAs; restrict allowed actions at org/enterprise level; minimise secrets per job; rotate any exposed secret.
+  - id: CVE-2025-30154
+    cvss: 8.6
+    year: 2025
+    kev: true
+    scope: traffic
+    title: reviewdog/action-setup@v1 compromise — secrets dumped to Actions workflow logs (third-party GitHub Action, linked to the tj-actions attack)
+    affected: reviewdog/action-setup@v1 and actions that use it (action-shellcheck, action-composite-template, action-staticcheck, action-ast-grep, action-typos) on 11 March 2025, 18:42 – 20:31 UTC
+    detect: workflows.prepared_workflow_job in that window for workflows using reviewdog actions; secrets_passed gives the rotation list.
+    avoid: Pin actions by SHA; use an allow list of actions; rotate secrets passed to affected jobs.
+detections:
+  - title: New organisation owner or enterprise admin
+    severity: high
+    signals:
+      - action=org.update_member and permission=admin
+      - action=business.add_admin
+    why: Owner / enterprise-admin rights give full control over repos, secrets, apps and the audit stream itself; outside onboarding they should be rare.
+    kql: |-
+      dataset="github_audit"
+      | where (action == "org.update_member" and permission == "admin") or action == "business.add_admin"
+      | project _time, action, actor, actor_ip, org, user, old_permission, permission
+    mitre:
+      - T1098
+      - T1078.004
+  - title: Security controls disabled
+    severity: high
+    signals:
+      - action in org.disable_two_factor_requirement / business.disable_two_factor_requirement / ip_allow_list.disable
+      - action in protected_branch.destroy / repository_secret_scanning_push_protection.disable / audit_log_streaming.destroy
+    why: Attackers and impatient admins remove 2FA, IP allow lists, branch protection or push protection — and an attacker may delete the stream to go dark.
+    kql: |-
+      dataset="github_audit"
+      | where action in ("org.disable_two_factor_requirement","business.disable_two_factor_requirement","ip_allow_list.disable","protected_branch.destroy","repository_secret_scanning_push_protection.disable","audit_log_streaming.destroy")
+      | summarize count() by action, actor, actor_ip, org, repo
+    mitre:
+      - T1562.001
+      - T1556
+  - title: Mass clone or archive download (source-code exfiltration)
+    severity: high
+    signals:
+      - action in git.clone / repo.download_zip
+      - dcount(repo) per actor high in 1h
+    why: An insider or a stolen PAT pulling dozens of private repos in an hour is the classic code-theft pattern; CI accounts are the baseline exception.
+    kql: |-
+      dataset="github_audit"
+      | where action in ("git.clone","repo.download_zip") and repository_public == false
+      | summarize repos=dcount(repo) by actor, actor_ip, programmatic_access_type, bin(_time, 1h)
+      | where repos > 25
+    mitre:
+      - T1213.003
+      - T1567
+  - title: Private repository made public
+    severity: high
+    signals:
+      - action=repo.access
+      - visibility=public and previous_visibility!=public
+    why: Turning a private repo public leaks code and any secrets in history in one click.
+    kql: |-
+      dataset="github_audit"
+      | where action == "repo.access" and visibility == "public"
+      | project _time, actor, actor_ip, repo, previous_visibility, visibility
+    mitre:
+      - T1567
+      - T1213.003
+  - title: Push-protection bypass for a live secret
+    severity: medium
+    signals:
+      - action=secret_scanning_push_protection.bypass
+      - push_protection_bypass_reason in used_in_tests / will_fix_later / false_positive
+    why: Every bypass puts a credential into history; "false_positive" on a cloud key type deserves verification.
+    kql: |-
+      dataset="github_audit"
+      | where action == "secret_scanning_push_protection.bypass"
+      | summarize count() by actor, repo, secret_type, push_protection_bypass_reason
+    mitre:
+      - T1552.001
+  - title: New GitHub App, OAuth app or webhook
+    severity: medium
+    signals:
+      - action in integration_installation.create / hook.create / personal_access_token.request_created
+    why: Apps and webhooks are persistence and exfiltration channels — a webhook to an unknown host receives every push.
+    kql: |-
+      dataset="github_audit"
+      | where action in ("integration_installation.create","hook.create","personal_access_token.request_created")
+      | project _time, action, actor, actor_ip, org, repo, name, integration
+    mitre:
+      - T1098.001
+      - T1567
+optimizations:
+  - title: Deduplicate at-least-once delivery
+    saving: 1–5 %
+    fn: Suppress
+    how: GitHub streaming is at-least-once; drop repeats of the same _document_id within a window.
+    expr: "key: _document_id  allow 1 / 3600s"
+  - title: Aggregate CI git.fetch / git.clone
+    saving: 30–60 %
+    fn: Aggregations
+    how: Build bots fetch the same repos hundreds of times a day. Roll up git.fetch/git.clone per actor + repo + IP per 15 minutes; keep raw events for humans and new IPs.
+    expr: "['git.fetch','git.clone'].includes(action) && actor_is_bot  → count by actor, repo, actor_ip per 15m"
+  - title: Drop constant and duplicate fields
+    saving: 10–15 %
+    fn: Eval
+    how: "@timestamp duplicates created_at; business, business_id and org_id are constant per tenant; request_access_security_header is usually null."
+    expr: "remove: @timestamp, business_id, org_id, request_access_security_header"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Configuration, membership, security-setting and bypass events → SIEM; bulk git.* and workflow job events → lake (but keep workflows.prepared_workflow_job searchable for supply-chain incident scoping).
+    expr: "!action.startsWith('git.') && action!='api.request' → SIEM"
+references:
+  - title: Audit log events for your enterprise (GitHub Docs)
+    url: https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/audit-log-events-for-your-enterprise
+  - title: Streaming the audit log for your enterprise (GitHub Docs)
+    url: https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/streaming-the-audit-log-for-your-enterprise
+  - title: REST API endpoints for enterprise audit logs
+    url: https://docs.github.com/en/enterprise-cloud@latest/rest/enterprise-admin/audit-log
+  - title: Displaying IP addresses in the audit log for your enterprise
+    url: https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/displaying-ip-addresses-in-the-audit-log-for-your-enterprise
+  - title: GitHub Enterprise Server 3.12 release notes (CVE-2024-4985, CVE-2024-6800, CVE-2024-9487)
+    url: https://docs.github.com/en/enterprise-server@3.12/admin/release-notes
+  - title: GitGuardian — compromised tj-actions/changed-files (CVE-2025-30066)
+    url: https://blog.gitguardian.com/compromised-tj-actions/
+  - title: GHSA-qmg3-hpqr-gqvc — reviewdog/action-setup compromise (CVE-2025-30154)
+    url: https://github.com/reviewdog/reviewdog/security/advisories/GHSA-qmg3-hpqr-gqvc
+  - title: Splunk Add-on for GitHub — Source types
+    url: https://splunk.github.io/splunk-add-on-for-github-audit-log-monitoring/Sourcetypes/
+related:
+  - gitlab-audit
+  - circleci
+  - terraform-enterprise
+  - entra-id
+  - okta
+  - aws-security-lake

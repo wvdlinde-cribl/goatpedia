@@ -1,0 +1,264 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gong
+name: Gong
+short: Gong
+aka:
+  - Gong.io
+  - Gong Revenue Intelligence
+  - Gong Auditing API
+vendor: Gong
+category: saas
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - revenue-intelligence
+  - call-recording
+  - audit
+  - impersonation
+  - json
+  - rest-api
+summary: Revenue-intelligence SaaS that records and transcribes sales calls, meetings and emails and syncs them with the CRM. Its Auditing API (GET /v2/logs) exposes five log types — AccessLog, UserActivityLog, UserCallPlay, ExternallySharedCallAccess and ExternallySharedCallPlay — showing who signed in, who changed settings or impersonated whom, and who listened to or opened (internally or externally shared) customer conversations.
+sourcetypes:
+  - st: gong_audit
+    desc: Gong Auditing API log entries (one JSON object per logEntries[] item; logType added by the collector)
+facts:
+  First released: 2016 (Gong.io); Auditing API /v2/logs
+  Delivery model: Multi-tenant SaaS (US / EU data regions)
+  Log transport: REST API pull — GET https://api.gong.io/v2/logs?logType=…&fromDateTime=…, cursor pagination
+  Authentication: API access key + secret (Basic) or OAuth bearer token with scope api:logs:read
+  Log format: JSON — userId, userEmailAddress, userFullName, impersonator*, eventTime, logRecord (type-specific)
+  Retention: AccessLog 14 days; UserActivityLog from March 2021; call-play and external-share logs from inception
+  Typical volume: 1k – 200k entries/day; AccessLog dominates
+  Cribl Pack: None found in the Packs Dispensary — use a REST Collector per logType
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Gong tenant
+      desc: Stores call recordings, transcripts, emails and deal data for the whole revenue team. Logs are pulled per logType; one collector job per type keeps cursors independent.
+    - slot: cloud
+      title: Connected systems
+      desc: Gong holds OAuth grants to the CRM (Salesforce, HubSpot), calendars and mail (Google, Microsoft 365) and conferencing (Zoom, Teams). A compromised Gong admin or API key reaches all of that data.
+    - slot: remote
+      title: Sellers and external viewers
+      desc: Reps and managers listen from anywhere; calls can be shared with customers or partners by link — those views land in ExternallySharedCallAccess / Play.
+    - slot: endpoint
+      title: Browser extension and desktop
+      desc: Gong for Chrome / Gmail and the desktop recorder run on sellers' laptops with their session.
+howItWorks:
+  - title: Five log types
+    body: AccessLog = every endpoint/URL the browser calls with user and IP (sign-ins and navigation). UserActivityLog = sensitive operations — sharing a call, editing user settings, impersonating a user, deleting a call, requesting an API key, changing permissions. UserCallPlay = internal plays of a call. ExternallySharedCallAccess / ExternallySharedCallPlay = an externally shared call was opened / played.
+  - title: Common envelope
+    body: Each logEntries[] item carries userId, userEmailAddress, userFullName, eventTime and — when an admin acted as someone else — impersonatorUserId, impersonatorEmailAddress, impersonatorFullName, impersonatorCompanyId (Gong support staff appear with Gong's company id). logRecord holds the type-specific fields and differs per log type.
+  - title: Impersonation
+    body: Gong admins (and Gong support, when granted) can impersonate users to see what they see. Every action taken while impersonating is attributed to the target user but carries the impersonator fields — the key to separating "jdoe did it" from "an admin did it as jdoe".
+  - title: Collection model
+    body: Request one logType per call with fromDateTime (and optional toDateTime); page with records.cursor. The type is a request parameter, not a field in the entry — the collector must stamp logType onto each event. AccessLog only keeps 14 days, so poll at least daily.
+  - title: Why it matters
+    body: Recorded calls contain pricing, roadmaps, customer PII and sometimes credentials spoken aloud. External sharing and bulk listening are the data-loss paths; API keys and CRM OAuth grants are the persistence paths.
+traffic:
+  handles:
+    - SSO (SAML / OIDC) and Google / Microsoft sign-in
+    - Call recording, transcript and email capture
+    - Internal and external call sharing
+    - CRM and calendar sync (OAuth)
+    - Public API (access keys / OAuth apps)
+    - Admin settings and permission profiles
+  flow:
+    - step: Sign in
+      desc: User authenticates via the IdP or Google/Microsoft; AccessLog records the request and IP.
+    - step: Authorise
+      desc: Permission profile decides call, deal, coaching and export access.
+    - step: Action
+      desc: Listen to a call, share it, change a setting, impersonate, request an API key.
+    - step: Audit entry
+      desc: Written to the matching log type with user (and impersonator) fields and a logRecord.
+    - step: Collect
+      desc: Collector calls /v2/logs per logType with a moving fromDateTime and cursor; adds logType.
+logs:
+  - type: User activity (sensitive operations)
+    sourcetype: gong_audit
+    format: json
+    share: 5–15 %
+    avg: ~700 B
+    desc: Sharing, deleting, impersonating, settings and permission changes, API key requests. The logRecord fields vary by activity; names below are representative of what a collector receives after flattening.
+    key:
+      - logType
+      - userEmailAddress
+      - impersonatorEmailAddress
+      - logRecord.activity
+      - logRecord.ipAddress
+      - logRecord.callId
+    noise:
+      - userId
+      - impersonatorUserId
+      - impersonatorCompanyId
+    sample: '{"logType":"UserActivityLog","userId":"234599484848423","userEmailAddress":"jdoe@example.com","userFullName":"John Doe","impersonatorUserId":"770011223344556","impersonatorEmailAddress":"admin@example.com","impersonatorFullName":"Alice Admin","impersonatorCompanyId":"112233445566778","eventTime":"2026-11-12T08:14:22.517Z","logRecord":{"activity":"ShareCallExternally","callId":"6512398845120039","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","sharedWith":"buyer@example.org"}}'
+  - type: Access log
+    sourcetype: gong_audit
+    format: json
+    share: 60–80 %
+    avg: ~500 B
+    desc: Every endpoint/URL the browser calls, with user and IP. Gives sign-in context and a session trail; only retained 14 days in Gong.
+    key:
+      - logType
+      - userEmailAddress
+      - logRecord.ipAddress
+      - logRecord.url
+      - logRecord.userAgent
+    noise:
+      - userId
+      - userFullName
+    sample: '{"logType":"AccessLog","userId":"234599484848423","userEmailAddress":"jdoe@example.com","userFullName":"John Doe","eventTime":"2026-11-12T08:13:58.004Z","logRecord":{"url":"https://app.gong.io/call?id=6512398845120039","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"}}'
+  - type: External shared call access
+    sourcetype: gong_audit
+    format: json
+    share: < 2 %
+    avg: ~450 B
+    desc: A call shared outside the company was opened (ExternallySharedCallAccess) or played (ExternallySharedCallPlay). The viewer is external — the user fields may be empty; logRecord identifies the call and the viewer.
+    key:
+      - logType
+      - logRecord.callId
+      - logRecord.viewerEmailAddress
+      - logRecord.ipAddress
+    noise:
+      - userId
+    sample: '{"logType":"ExternallySharedCallAccess","userId":"","userEmailAddress":"","eventTime":"2026-11-12T09:02:41.088Z","logRecord":{"callId":"6512398845120039","viewerEmailAddress":"unknown@example.net","ipAddress":"198.51.100.23","sharedByEmailAddress":"jdoe@example.com"}}'
+cves:
+  - id: CVE-2025-55241
+    cvss: 10
+    year: 2025
+    kev: false
+    scope: traffic
+    title: Entra ID actor-token cross-tenant impersonation — the IdP many Gong tenants sign in through (Microsoft cloud CVE, not Gong)
+    affected: Microsoft Entra ID (cloud service, legacy Azure AD Graph) before Microsoft's service-side fix
+    fixed: Fixed by Microsoft globally on 17 July 2025; no customer action
+    detect: Actor tokens left no sign-in trail, so look one step later — new users or role changes on the Gong enterprise app in Entra audit logs, then first-time Gong AccessLog activity for those accounts or Gong admin actions from IPs that admin never used.
+    avoid: Nothing to patch now; keep reconciling SaaS sign-ins against IdP logs and require phishing-resistant MFA for Gong admins.
+  - id: CVE-2025-25291
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: ruby-saml parser-differential SAML bypass — the SAML service-provider library class used by many SaaS apps (protocol CVE; not attributed to Gong)
+    affected: ruby-saml before 1.12.4 and 1.13.0 – 1.17.x
+    fixed: 1.12.4, 1.18.0
+    detect: A forged assertion has no IdP sign-in behind it — Gong AccessLog activity for a user with no matching IdP SSO event at that time.
+    avoid: SaaS vendors patch the library; customers reconcile SP activity with IdP logs and enforce IdP-initiated MFA.
+  - id: CVE-2024-45409
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: ruby-saml signature-wrapping bypass — same SAML SP risk class (protocol CVE; not attributed to Gong)
+    affected: ruby-saml <= 1.12.2 and 1.13.0 – 1.16.0
+    fixed: 1.12.3, 1.17.0
+    detect: Same reconciliation as CVE-2025-25291 — SaaS sessions without an IdP authentication.
+    avoid: Patch SP libraries; monitor privileged SaaS users' sign-ins.
+detections:
+  - title: Impersonation of a user by an admin or vendor support
+    severity: high
+    signals:
+      - impersonatorEmailAddress not empty
+      - impersonatorCompanyId ≠ own company
+      - actions while impersonating
+    why: Impersonation hides an admin's (or a stolen admin session's) activity behind the target user. External company ids mean vendor support.
+    kql: |-
+      dataset="gong_logs" isnotempty(impersonatorEmailAddress)
+      | summarize actions=count(), types=make_set(logType), first=min(_time) by impersonatorEmailAddress, impersonatorCompanyId, userEmailAddress
+    mitre:
+      - T1078.004
+      - T1134
+  - title: Bulk listening to calls (data harvesting)
+    severity: high
+    signals:
+      - logType=UserCallPlay
+      - dcount(callId) per user per hour far above baseline
+    why: A departing employee or a stolen session can mine hundreds of customer calls for pricing and contacts — the play log is the only trace.
+    kql: |-
+      dataset="gong_logs" logType="UserCallPlay"
+      | summarize calls=dcount(logRecord.callId) by userEmailAddress, bin(_time, 1h)
+      | where calls > 40
+    mitre:
+      - T1213
+  - title: Calls shared externally and opened from unknown viewers
+    severity: medium
+    signals:
+      - logRecord.activity has Share / External
+      - logType=ExternallySharedCallAccess
+      - viewer domain not a customer domain
+    why: External share links are the main data-loss path for recordings; a link opened by a free-mail or unrelated domain was forwarded or leaked.
+    kql: |-
+      dataset="gong_logs" logType="ExternallySharedCallAccess"
+      | extend viewer_domain=tostring(split(logRecord.viewerEmailAddress,"@")[1])
+      | summarize opens=count(), calls=dcount(logRecord.callId) by viewer_domain, logRecord.ipAddress
+    mitre:
+      - T1567
+      - T1213
+  - title: API key requested or permissions changed
+    severity: high
+    signals:
+      - logType=UserActivityLog
+      - activity has ApiKey / Permission / Profile
+    why: A new API key gives non-interactive, MFA-free access to every call and transcript; permission-profile edits grant export rights.
+    kql: |-
+      dataset="gong_logs" logType="UserActivityLog"
+      | where logRecord.activity has_any ("ApiKey","Permission","Profile","Delete")
+      | project _time, userEmailAddress, impersonatorEmailAddress, logRecord.activity, logRecord.ipAddress
+    mitre:
+      - T1098
+      - T1098.001
+  - title: Access from a new country or hosting ASN
+    severity: medium
+    signals:
+      - logType=AccessLog
+      - logRecord.ipAddress geo / ASN not seen for user
+    why: Session-token theft (infostealer, AiTM) replays the seller's Gong session from attacker infrastructure.
+    kql: |-
+      dataset="gong_logs" logType="AccessLog"
+      | lookup asn_db on logRecord.ipAddress
+      | summarize hits=count(), countries=make_set(country) by userEmailAddress, asn_org
+      | where asn_org has_any ("hosting","cloud","vpn")
+    mitre:
+      - T1539
+      - T1078.004
+optimizations:
+  - title: Aggregate AccessLog navigation
+    saving: 50–75 %
+    fn: Aggregations
+    how: AccessLog records every URL fetch. Roll up per user, IP and user agent per 10 minutes (request count, distinct URLs) for the SIEM; keep raw in Cribl Lake for 14-day-plus look-back.
+    expr: logType=='AccessLog' → count(), dc(logRecord.url) by userEmailAddress, logRecord.ipAddress
+  - title: Drop empty impersonator fields
+    saving: 5–15 %
+    fn: Eval
+    how: impersonator* are null/empty on almost every entry; userId duplicates the email. Remove them when empty and derive a boolean impersonated flag.
+    expr: "impersonated = !!impersonatorEmailAddress; remove empty impersonator*, userId"
+  - title: Route sensitive log types at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: UserActivityLog, ExternallySharedCall* and anything with an impersonator → SIEM raw. AccessLog and UserCallPlay → aggregated metrics + Lake.
+    expr: "logType=='UserActivityLog' || logType.startsWith('ExternallyShared') || impersonatorEmailAddress → SIEM"
+references:
+  - title: Gong Auditing API overview
+    url: https://help.gong.io/apidocs/auditing
+  - title: Retrieve logs data by type and time range (/v2/logs)
+    url: https://help.gong.io/apidocs/retrieve-logs-data-by-type-and-time-range-v2logs
+  - title: Gong developer community — Auditing API log types explained
+    url: https://visioneers.gong.io/developers-79/regarding-api-documentation-auditing-api-823
+  - title: NVD — CVE-2025-55241
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-55241
+  - title: NVD — CVE-2025-25291
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-25291
+related:
+  - salesforce
+  - slack-audit
+  - okta
+  - entra-id
+  - google-workspace
+  - o365

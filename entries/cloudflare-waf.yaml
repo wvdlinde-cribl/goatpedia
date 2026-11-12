@@ -1,16 +1,309 @@
 # Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cloudflare-waf
-name: Cloudflare WAF
-short: CF WAF
+name: Cloudflare WAF & Application Security
+short: Cloudflare WAF
+aka:
+  - Cloudflare Application Security
+  - Cloudflare CDN
+  - Cloudflare Bot Management
+  - Cloudflare API Shield
+  - Cloudflare Logpush
 vendor: Cloudflare
 category: waf
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - waf
   - cdn
+  - reverse-proxy
   - ddos
-  - http
+  - bot-management
   - logpush
+  - json
+  - saas
+summary: Cloudflare's global reverse-proxy network sits in front of a website or API and applies WAF managed rules, custom rules, rate limiting, bot management and DDoS mitigation at the edge before traffic reaches the origin. Every request and every security match can be exported with Logpush as NDJSON — HTTP requests (the big one), firewall events, Workers traces and account audit logs — to object storage, a SIEM or straight into Cribl.
 sourcetypes:
+  - st: cloudflare_http_request
+    desc: Logpush http_requests dataset — one JSON line per request served at the edge (zone-scoped)
+  - st: cloudflare_firewall_event
+    desc: Logpush firewall_events dataset — one JSON line per security-rule match (WAF, rate limit, bot, IP rules…)
+  - st: cloudflare_workers_trace
+    desc: Logpush workers_trace_events dataset — Workers invocation outcome, logs and exceptions
+  - st: cloudflare_audit
+    desc: Logpush audit_logs dataset — account configuration changes by users and API tokens
   - st: cloudflare:json
-summary: Edge-hosted WAF and CDN; HTTP request and firewall events delivered via Logpush.
+    desc: Splunk sourcetype used by the Cloudflare App for Splunk for Logpush JSON
+  - st: CloudflareV2_CL
+    desc: Microsoft Sentinel custom table written by the Cloudflare (CCF) data connector
+facts:
+  First released: 2010 (Cloudflare CDN / proxy); WAF since 2012
+  Delivery model: SaaS reverse proxy on Cloudflare's anycast network (300+ cities)
+  Onboarding: Proxied DNS records (orange cloud) on a full or partial (CNAME) zone setup, or Magic Transit / Spectrum for non-HTTP
+  Security engines: WAF managed rules (Cloudflare + OWASP core), custom rules, rate limiting, WAF attack score (ML), Bot Management, API Shield, leaked-credential checks, L7 DDoS
+  Log transport: Logpush jobs (NDJSON, gzip) to R2, S3, GCS, Azure, Splunk HEC, Datadog, HTTP; Instant Logs; GraphQL Analytics API
+  Cribl integration: Native Cribl Cloudflare Source (HEC, Stream/Edge 4.15+) or S3 Source; Cloudflare pack on the Cribl Dispensary to parse and reduce volume
+  Timestamp formats: Per Logpush job — unixnano (legacy default), unix or rfc3339
+  Licensing note: Zone-scoped Logpush datasets (http_requests, firewall_events) require an Enterprise plan
+placement:
+  slots:
+    - cloud
+    - edge
+    - dmz
+  items:
+    - slot: cloud
+      title: Cloudflare edge
+      desc: Clients connect to the nearest Cloudflare data center; TLS terminates there, security products run, then Cloudflare connects to the origin.
+    - slot: edge
+      title: Origin firewall / Cloudflare Tunnel
+      desc: The origin should accept HTTP only from Cloudflare IP ranges (or only via cloudflared tunnel) — otherwise attackers bypass the WAF by hitting the origin IP directly.
+    - slot: dmz
+      title: Origin web servers
+      desc: Load balancers, NGINX, IIS or app servers behind Cloudflare; they see Cloudflare as the client and get the real IP from CF-Connecting-IP.
+howItWorks:
+  - title: Reverse proxy at the edge
+    body: DNS for a proxied hostname resolves to Cloudflare anycast IPs. Cloudflare terminates TLS, applies security and caching, and fetches from the origin only on a cache miss. Each request gets a RayID that also appears in firewall events and in the CF-Ray header at the origin.
+  - title: Security phases
+    body: "A request passes through ordered rulesets: IP access rules and DDoS, custom rules, rate limiting, managed rules (Cloudflare and OWASP), bot management and API Shield. A terminating action (block, managed challenge, JS challenge) stops the chain; log and skip do not."
+  - title: Attack and bot scores
+    body: Every request gets ML scores — WAFAttackScore with SQLi, XSS and RCE sub-scores (1–99, lower = more likely an attack) and BotScore (1–99, below 30 usually automated). Rules can act on the score, and the scores are in the logs even when nothing was blocked.
+  - title: Firewall events vs HTTP requests
+    body: http_requests has every request with a summary of security decisions (SecurityAction, SecuritySources[], SecurityRuleIDs[]). firewall_events has one record per rule match, with RuleID, Source and Description — including log-only matches that never blocked.
+  - title: Logpush
+    body: Logpush jobs choose a dataset, field list, filter, sampling rate and timestamp format, then batch NDJSON (gzip) to a destination every few seconds to minutes. Selecting only the fields you need at the job is the cheapest optimization.
+traffic:
+  handles:
+    - HTTP/1.1, HTTP/2, HTTP/3 (QUIC) and WebSocket
+    - TLS termination and re-encryption to origin
+    - REST / GraphQL APIs (API Shield schema validation)
+    - Bot and credential-stuffing traffic (Bot Management, leaked-credential checks)
+    - L7 DDoS and rate limiting
+    - Non-HTTP TCP/UDP via Spectrum
+  flow:
+    - step: Resolve
+      desc: Client resolves the proxied hostname to a Cloudflare anycast IP and connects to the nearest colo.
+    - step: TLS
+      desc: Edge terminates TLS (JA3/JA4 fingerprints recorded) and parses the request.
+    - step: Security
+      desc: DDoS, IP rules, custom rules, rate limits, managed WAF rules, bot and API checks run in phase order.
+    - step: Cache
+      desc: Cacheable responses served from the edge; misses go to the origin over a new connection.
+    - step: Origin
+      desc: Origin receives the request with CF-Connecting-IP and CF-Ray headers.
+    - step: Log
+      desc: The request lands in http_requests; every rule match also lands in firewall_events.
+logs:
+  - type: HTTP requests
+    sourcetype: cloudflare_http_request
+    format: json
+    share: 90–98 %
+    avg: ~1.5 KB
+    desc: One line per request — client, request, cache, edge and origin timing, plus WAF/bot scores and the security decision. Field set is chosen per Logpush job, so real feeds vary.
+    key:
+      - ClientIP
+      - ClientRequestHost
+      - ClientRequestPath
+      - EdgeResponseStatus
+      - SecurityAction
+      - WAFAttackScore
+      - BotScore
+      - RayID
+    noise:
+      - ClientTCPRTTMs
+      - EdgeColoID
+      - EdgeResponseCompressionRatio
+      - OriginTLSHandshakeDurationMs
+      - OriginDNSResponseTimeMs
+    sample: '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","EdgeEndTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e7f","ZoneName":"example.com","ClientIP":"203.0.113.77","ClientSrcPort":51822,"ClientCountry":"nl","ClientASN":64500,"ClientDeviceType":"desktop","ClientRequestMethod":"POST","ClientRequestHost":"shop.example.com","ClientRequestPath":"/account/login","ClientRequestURI":"/account/login?next=%2Fcart","ClientRequestProtocol":"HTTP/2","ClientRequestUserAgent":"python-requests/2.32.3","ClientRequestBytes":2110,"ClientSSLProtocol":"TLSv1.3","JA4":"t13d1516h2_8daaf6152771_02713d6af862","CacheCacheStatus":"dynamic","EdgeColoCode":"AMS","EdgeColoID":21,"EdgeServerIP":"198.51.100.10","EdgeResponseStatus":403,"EdgeResponseBytes":4870,"EdgeTimeToFirstByteMs":3,"EdgeResponseCompressionRatio":1,"ClientTCPRTTMs":11,"OriginIP":"","OriginResponseStatus":0,"OriginDNSResponseTimeMs":0,"OriginTLSHandshakeDurationMs":0,"BotScore":2,"BotScoreSrc":"Machine Learning","WAFAttackScore":12,"WAFSQLiAttackScore":9,"WAFXSSAttackScore":88,"WAFRCEAttackScore":91,"LeakedCredentialCheckResult":"username_and_password_leaked","SecurityAction":"block","SecurityActions":["log","block"],"SecuritySources":["firewallManaged","firewallCustom"],"SecurityRuleIDs":["5de7edfa648c4d6891dc3e7f84534ffa","a3f1c2d4e5b6478990ab12cd34ef5678"],"SecurityRuleDescription":"Block likely SQLi on login"}'
+  - type: Firewall events
+    sourcetype: cloudflare_firewall_event
+    format: json
+    share: 2–10 %
+    avg: ~900 B
+    desc: One line per security-rule match (blocking or log-only). Multiple matches on one request share a RayID and are ordered by MatchIndex.
+    key:
+      - Action
+      - Source
+      - RuleID
+      - Description
+      - ClientIP
+      - ClientRequestPath
+      - RayID
+    noise:
+      - Kind
+      - MatchIndex
+      - OriginatorRayID
+      - ClientRefererScheme
+    sample: '{"Datetime":"2026-11-12T09:20:14Z","Kind":"firewall","Action":"block","Source":"firewallCustom","RuleID":"a3f1c2d4e5b6478990ab12cd34ef5678","Description":"Block likely SQLi on login","MatchIndex":0,"RayID":"8e1f2a3b4c5d6e7f","OriginatorRayID":"00","ZoneName":"example.com","ClientIP":"203.0.113.77","ClientIPClass":"noRecord","ClientCountry":"nl","ClientASN":64500,"ClientASNDescription":"EXAMPLE-NET","ClientRequestMethod":"POST","ClientRequestScheme":"https","ClientRequestHost":"shop.example.com","ClientRequestPath":"/account/login","ClientRequestQuery":"?next=%2Fcart","ClientRequestProtocol":"HTTP/2","ClientRequestUserAgent":"python-requests/2.32.3","ClientRefererScheme":"","EdgeColoCode":"AMS","EdgeResponseStatus":403,"OriginResponseStatus":0,"Metadata":{"ruleset_version":"42"}}'
+  - type: Audit logs
+    sourcetype: cloudflare_audit
+    format: json
+    share: <1 %
+    avg: ~1 KB
+    desc: Account-level configuration changes — who (user or API token), from where, what resource, old and new value. Critical for detecting WAF rules being disabled.
+    key:
+      - ActorEmail
+      - ActorIP
+      - ActorType
+      - ActionType
+      - ResourceType
+      - ActionResult
+      - Interface
+    noise:
+      - OwnerID
+      - ID
+      - Metadata.zone_name
+    sample: '{"When":"2026-11-12T09:31:40Z","ID":"6c1a7b0e-1f2d-4e3c-9a8b-7c6d5e4f3a21","ActionType":"update","ActionResult":true,"ActorEmail":"jdoe@example.com","ActorID":"0f1e2d3c4b5a69788796a5b4c3d2e1f0","ActorIP":"198.51.100.42","ActorType":"user","Interface":"API","OwnerID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","ResourceType":"ruleset","ResourceID":"5de7edfa648c4d6891dc3e7f84534ffa","OldValue":{"enabled":true},"NewValue":{"enabled":false},"Metadata":{"zone_name":"example.com"}}'
+cves:
+  - id: CVE-2025-4366
+    cvss: 6.1
+    year: 2025
+    kev: false
+    scope: device
+    title: Pingora HTTP request smuggling via cached keep-alive requests (Cloudflare CDN proxy)
+    affected: Cloudflare Pingora before 0.5.0 (open-source framework; Cloudflare's own CDN was patched server-side)
+    fixed: Pingora 0.5.0
+    detect: Requests whose path or Host differs from what the origin logged for the same RayID; unexpected 3xx/4xx with mismatched ClientRequestPath in http_requests around cache hits.
+    avoid: Nothing to patch for Cloudflare-hosted zones; self-hosted Pingora users upgrade to 0.5.0+.
+  - id: CVE-2025-4821
+    cvss: 7.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Cloudflare quiche congestion-window growth via invalid ACK ranges (HTTP/3 DoS)
+    affected: Cloudflare quiche before 0.24.4
+    fixed: quiche 0.24.4
+    detect: Spikes of HTTP/3 requests (ClientRequestProtocol HTTP/3) from few clients with long EdgeTimeToFirstByteMs; mostly visible to Cloudflare, not customers.
+    avoid: Cloudflare edge handled by Cloudflare; applications embedding quiche upgrade to 0.24.4+.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 Rapid Reset DDoS — disclosed together by Cloudflare, Google and AWS
+    affected: HTTP/2 servers and proxies without stream-reset limits (origins behind Cloudflare remain exposed if reachable directly)
+    fixed: Vendor HTTP/2 stack updates (October 2023)
+    detect: Huge request-rate spikes from many IPs to one host with ClientRequestProtocol HTTP/2 and near-zero EdgeResponseBytes; L7 DDoS entries (Source l7ddos) in firewall events.
+    avoid: Keep the origin reachable only via Cloudflare; patch origin HTTP/2 servers; keep the HTTP DDoS managed ruleset at default or higher sensitivity.
+  - id: CVE-2025-55182
+    cvss: 10
+    year: 2025
+    kev: true
+    scope: traffic
+    title: React2Shell — unauthenticated RCE in React Server Components (Next.js apps behind the WAF)
+    affected: react-server-dom packages 19.0.0, 19.1.0–19.1.1, 19.2.0 and frameworks bundling them (Next.js App Router)
+    fixed: React 19.0.1, 19.1.2, 19.2.1 and matching Next.js releases
+    detect: POST requests with Next-Action / RSC headers and low WAFRCEAttackScore; firewall events from the Cloudflare managed rule released for React2Shell.
+    avoid: Patch React / Next.js; keep Cloudflare Managed Ruleset enabled in block mode for the emergency rule.
+detections:
+  - title: Likely attack allowed through to the origin
+    severity: high
+    signals:
+      - WAFAttackScore <= 20
+      - SecurityAction empty or not block
+      - OriginResponseStatus 200
+    why: The ML attack score flags SQLi/XSS/RCE payloads that no rule blocked. If the origin answered 200 the exploit attempt reached the application — the classic case for adding a score-based block rule.
+    kql: |-
+      dataset="cloudflare_logs" sourcetype="cloudflare_http_request"
+      | where WAFAttackScore <= 20 and SecurityAction != "block" and OriginResponseStatus == 200
+      | summarize hits=count(), paths=dcount(ClientRequestPath) by ClientIP, ClientRequestHost, ClientASN
+    mitre:
+      - T1190
+  - title: Login with leaked credentials
+    severity: high
+    signals:
+      - LeakedCredentialCheckResult username_and_password_leaked / password_leaked
+      - login path
+      - origin 2xx/3xx
+    why: Cloudflare checks submitted credentials against known breach corpora. A successful response to a known-leaked username+password pair is a probable account takeover.
+    kql: |-
+      dataset="cloudflare_logs" sourcetype="cloudflare_http_request"
+      | where LeakedCredentialCheckResult in ("username_and_password_leaked","password_leaked") and OriginResponseStatus < 400
+      | summarize attempts=count() by ClientIP, ClientRequestHost, ClientRequestPath, LeakedCredentialCheckResult
+    mitre:
+      - T1110.004
+      - T1078
+  - title: Automated credential stuffing / scraping
+    severity: medium
+    signals:
+      - BotScore < 30
+      - high request rate to one path
+      - many ClientIPs sharing a JA4
+    why: Stuffing tools rotate IPs but keep one TLS fingerprint and hammer the same endpoint; bot score plus JA4 grouping exposes the campaign.
+    kql: |-
+      dataset="cloudflare_logs" sourcetype="cloudflare_http_request" ClientRequestMethod="POST"
+      | where BotScore < 30
+      | summarize reqs=count(), ips=dcount(ClientIP) by JA4, ClientRequestHost, ClientRequestPath, bin(_time, 10m)
+      | where reqs > 500 or ips > 50
+    mitre:
+      - T1110.004
+  - title: Scanner hitting many WAF rules
+    severity: medium
+    signals:
+      - firewall_events
+      - one ClientIP matching many RuleIDs
+      - Source firewallManaged
+    why: Vulnerability scanners trip dozens of different managed rules in minutes; the same IP later sending a low-score allowed request is worth a look.
+    kql: |-
+      dataset="cloudflare_logs" sourcetype="cloudflare_firewall_event"
+      | summarize matches=count(), rules=dcount(RuleID), paths=dcount(ClientRequestPath) by ClientIP, ClientASN, bin(_time, 15m)
+      | where rules > 15
+    mitre:
+      - T1595.002
+  - title: WAF rule or ruleset disabled
+    severity: high
+    signals:
+      - audit_logs ResourceType ruleset / firewall rule
+      - NewValue enabled false
+      - API token actor
+    why: Turning off a WAF rule or switching a managed ruleset to log is how both mistakes and attackers with a stolen API token open the origin. Every such change should be traceable to a ticket.
+    kql: |-
+      dataset="cloudflare_logs" sourcetype="cloudflare_audit" ActionResult=true
+      | where ResourceType has_any ("ruleset","firewall","waf") and (tostring(NewValue) has "\"enabled\":false" or ActionType == "delete")
+      | summarize changes=count() by ActorEmail, ActorType, ActorIP, ResourceType, ResourceID
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Choose fields and filter at the Logpush job
+    saving: 40–70 %
+    fn: Logpush job config (upstream of Cribl)
+    how: http_requests has 130+ fields; most teams need 25. Set the job's field list and a filter (e.g. exclude static asset paths) so the bytes never leave Cloudflare.
+    expr: "output_options.field_names: [EdgeStartTimestamp, RayID, ClientIP, ClientRequestHost, ClientRequestPath, EdgeResponseStatus, SecurityAction, WAFAttackScore, BotScore]"
+  - title: Sample clean cached static requests
+    saving: 30–60 %
+    fn: Sampling
+    how: Cache hits for images, CSS and JS with status 200 and no security action are pure CDN telemetry. Keep 1 in 20 for capacity analytics; keep every request with a security signal.
+    expr: CacheCacheStatus=='hit' && EdgeResponseStatus==200 && !SecurityAction && /\.(png|jpe?g|gif|css|js|woff2?|svg|ico)$/.test(ClientRequestPath)
+  - title: Roll up performance fields to metrics
+    saving: 15–30 %
+    fn: Aggregations
+    how: Timing fields (ClientTCPRTTMs, EdgeTimeToFirstByteMs, Origin*DurationMs) are for dashboards, not hunting. Aggregate p50/p95 per host, colo and status every minute, then remove them from the events.
+    expr: "aggregations: perc(95, EdgeTimeToFirstByteMs), count() by ClientRequestHost, EdgeColoCode, EdgeResponseStatus"
+  - title: Route by security relevance
+    saving: SIEM licence
+    fn: Routes
+    how: Firewall events, audit logs and requests with a security action, low attack/bot score or leaked credentials go to the SIEM. All other requests go to Cribl Lake or R2 for replay.
+    expr: SecurityAction || WAFAttackScore<=30 || BotScore<30 || (LeakedCredentialCheckResult && LeakedCredentialCheckResult!='clean') → SIEM ; else → Lake
+references:
+  - title: Cloudflare Logpush — HTTP requests dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/
+  - title: Cloudflare Logpush — Firewall events dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/firewall_events/
+  - title: Cloudflare Logpush — Audit logs dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/audit_logs/
+  - title: Cloudflare Logpush — Workers trace events dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/workers_trace_events/
+  - title: Cribl Docs — Cloudflare Source
+    url: https://docs.cribl.io/stream/sources-cloudflare-hec/
+  - title: NVD — CVE-2025-4821 (quiche)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-4821
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-waf
+  - f5-awaf
+  - imperva-waf
+  - nginx
+  - cloudflare-zero-trust
+  - aws-cloudfront

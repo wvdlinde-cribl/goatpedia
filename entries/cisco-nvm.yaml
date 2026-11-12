@@ -1,0 +1,318 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-nvm
+name: Cisco Secure Client Network Visibility Module
+short: Cisco NVM
+aka:
+  - NVM
+  - AnyConnect Network Visibility Module
+  - nvzFlow
+  - Cisco Endpoint Security Analytics (CESA)
+  - NVM Collector
+vendor: Cisco
+category: edr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - endpoint
+  - flow
+  - ipfix
+  - process
+  - vpn
+  - json
+  - osquery
+summary: A module of Cisco Secure Client (formerly AnyConnect) that records every network flow on the endpoint together with the process, parent process, hashes, logged-in user and interface that produced it, and exports them as IPFIX (nvzFlow) to a collector — on or off VPN. Think NetFlow with endpoint context. The NVM Collector turns the records into JSON for syslog, Kafka or Splunk HEC; newer versions also ship osquery results.
+sourcetypes:
+  - st: cisco_nvm_flowdata_v2
+    desc: Flow records (5-tuple, bytes, process/parent, user, hashes, HTTP host/target)
+  - st: cisco_nvm_osquery_v2
+    desc: osquery results exported by NVM (paginated JSON response per query)
+  - st: cisco:nvm:flowdata
+    desc: Splunk CESA / NVM app — flow records
+  - st: cisco:nvm:flowdata:v2
+    desc: Splunk sourcetype for the v2 (Secure Client 5.x) flow export
+  - st: cisco:nvm:osquery:v2
+    desc: Splunk sourcetype for NVM osquery data
+  - st: cisco:nvm:sysdata
+    desc: Endpoint identity records (UDID, OS, manufacturer, agent version)
+facts:
+  First released: 2016 (AnyConnect 4.2 NVM)
+  Platforms: Windows, macOS, Linux endpoints (Secure Client 4.x/5.x)
+  Data records: Endpoint, interface, flow, process, osquery and EVE (Encrypted Visibility Engine)
+  Export: IPFIX (nvzFlow) over UDP to the collector, optionally DTLS 1.2 / mDTLS; cached locally when off-network
+  Collector output: JSON to syslog (one port per record type), Kafka or Splunk HEC
+  Collection policy: Trusted network only or always; configurable flow report stage (start, periodic, end)
+  Typical volume: Hundreds to thousands of flow records per endpoint per hour
+  Analysis: Splunk CESA app, Secure Network Analytics, XDR, or any SIEM
+  Cribl Pack: None dedicated in the Dispensary
+placement:
+  slots:
+    - endpoint
+    - remote
+    - internal
+    - cloud
+  items:
+    - slot: endpoint
+      title: Corporate laptops and desktops
+      desc: Runs inside Secure Client on the endpoint — sees flows before encryption decisions and attributes each one to a process and user, even for traffic that never crosses a corporate sensor.
+    - slot: remote
+      title: Off-network / split-tunnel users
+      desc: Records are cached while untrusted and exported when back on a trusted network or VPN, covering split-tunnel internet traffic that network NetFlow never sees.
+    - slot: internal
+      title: NVM Collector
+      desc: Linux (or container) collector receives IPFIX on UDP 2055 by default and exports JSON to the SIEM pipeline.
+    - slot: cloud
+      title: Cisco XDR / Secure Cloud Analytics
+      desc: Alternatively NVM telemetry feeds Cisco's cloud analytics for behavioural detections.
+howItWorks:
+  - title: Kernel-level flow capture
+    body: A Secure Client driver observes TCP and UDP connections on the endpoint and tracks each flow from start to end with byte counts (layer 4 payload, ibc/obc) and millisecond timestamps.
+  - title: Process and user attribution
+    body: Each flow is tagged with the process name, path, SHA-256 hash, arguments, PID and integrity level, the same for the parent process, the account it ran under and the logged-in user. Loaded module names and hashes (mnl/mhl) expose the DLL inside svchost/rundll32 containers.
+  - title: Network context
+    body: Interface records describe the adapter (type wired/wireless/VPN, SSID, trust state from Trusted Network Detection). Flows reference them by iid and include the DNS suffix and destination hostname (dh) resolved on the endpoint.
+  - title: nvzFlow export and caching
+    body: Records are exported as IPFIX templates (nvzFlow) to the collector. When the endpoint is on an untrusted network, data is cached and sent later, or sent directly if the profile allows. DTLS/mDTLS secures transport.
+  - title: Collector and osquery
+    body: The NVM Collector decodes IPFIX into key=value JSON with short field keys (sa, da, pn, ph…), filters and exports per record type. Secure Client 5.x can run osquery queries on the endpoint and ship paginated JSON responses as osquery records.
+traffic:
+  handles:
+    - All endpoint TCP and UDP flows (IPv4/IPv6)
+    - HTTP/1.1 host, method and target
+    - Process, parent and module attribution
+    - VPN and non-VPN interfaces
+    - Encrypted Visibility Engine (TLS fingerprint) records
+    - osquery inventory results
+  flow:
+    - step: Connection opens
+      desc: Process opens a socket; driver records 5-tuple and start time.
+    - step: Attribute
+      desc: Process, parent, hashes, user and interface attached.
+    - step: Flow ends / periodic
+      desc: Byte counts and end time recorded (fsg 0 end, 1 start, 2 periodic).
+    - step: Cache or export
+      desc: Exported as IPFIX if trusted/allowed, else cached on disk.
+    - step: Collector
+      desc: Decodes nvzFlow, filters, exports JSON per record type.
+    - step: SIEM
+      desc: Joined with endpoint and interface records on udid / iid.
+logs:
+  - type: Flow record
+    sourcetype: cisco_nvm_flowdata_v2
+    format: json
+    share: 85–95 %
+    avg: ~1.3 KB
+    desc: One record per flow (or per report stage). The core of NVM — who (user), what (process + hash), where (destination IP/host/port) and how much (bytes up/down).
+    key:
+      - sa
+      - da
+      - dp
+      - dh
+      - pn
+      - ph
+      - parg
+      - liuid
+      - obc
+    noise:
+      - fst
+      - fet
+      - fss
+      - fes
+      - iid
+      - eveuuid
+      - fv
+    sample: |-
+      {"fv":"nvzFlow_v11","pr":"6","sa":"10.20.30.44","sp":"51544","da":"203.0.113.50","dp":"443","fd":"1","fss":"1794557662","fst":"Thu Nov 12 09:14:22 2026","fes":"1794558262","fet":"Thu Nov 12 09:24:22 2026","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","liuid":"CORP\\jdoe","liuida":"CORP","liuidp":"jdoe","liuat":"2","pa":"CORP\\jdoe","puat":"2","pn":"rclone.exe","ph":"5A1F0C1E6A3B4D2F8E7C9B0A1D2E3F4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E","pid":"9132","ppath":"C:\\Users\\jdoe\\AppData\\Local\\Temp\\rclone.exe","parg":"copy C:\\Finance remote:backup --transfers 16","ppn":"cmd.exe","ppid":"8840","pppath":"C:\\Windows\\System32\\cmd.exe","ibc":"184220","obc":"2147483648","ds":"corp.example.com","dh":"files.example.net","iid":"50","fsms":"1794557662120","fems":"1794558262877","pil":"8192","ppil":"8192","fsg":"0","puid":"E89CC0DBD1F48055BB4FA09268E9B51D","eveuuid":"00000000000000000000000000000000"}
+  - type: osquery record
+    sourcetype: cisco_nvm_osquery_v2
+    format: json
+    share: 1–10 %
+    avg: 1–30 KB
+    desc: Result of an osquery query run by NVM on the endpoint, as a JSON string in qjr, paginated by qpi/qpn. Inventory of extensions, programs, services — joined to flows by udid.
+    key:
+      - udid
+      - qid
+      - qjr
+      - qv
+    noise:
+      - qpi
+      - qpn
+      - fv
+    sample: |-
+      {"fv":"nvzFlow_v8","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","qv":"5.12.1","qid":"38654705666","qt":"1794557700","qpi":"1","qpn":"1","qjr":"[{\"name\":\"Example PDF Helper\",\"identifier\":\"pdf-helper@example.org\",\"version\":\"2.4.1\",\"active\":\"1\",\"location\":\"app-profile\",\"uid\":\"1001\"}]"}
+  - type: Endpoint identity record
+    sourcetype: cisco:nvm:sysdata
+    format: json
+    share: < 1 %
+    avg: ~350 B
+    desc: Sent when NVM starts or the endpoint changes — maps udid to hostname, OS, manufacturer and agent version. Lookup table for every flow.
+    key:
+      - udid
+      - vsn
+      - osn
+      - osv
+      - agv
+    noise:
+      - ctm
+      - st
+    sample: |-
+      {"udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","vsn":"LAPTOP-JDOE","osn":"WinNT","osv":"10.0.22631","sm":"LENOVO","st":"x64","agv":"5.1.4.74","ampguid":"8d3f2a10-5b7c-4e9a-9c1d-2f6e4b8a0c37","ctm":"1794557600000"}
+cves:
+  - id: CVE-2023-20178
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Secure Client / AnyConnect for Windows update-process privilege escalation to SYSTEM
+    affected: AnyConnect for Windows 4.10 and earlier; Secure Client for Windows 5.0
+    fixed: 4.10MR7 (4.10.07061), 5.0MR2 (5.0.02075)
+    detect: Endpoint identity records with agv below the fixed versions (fleet exposure); flows from msiexec.exe or unexpected SYSTEM processes right after a VPN connect.
+    avoid: Upgrade; public PoC exists.
+  - id: CVE-2020-3433
+    cvss: 7.8
+    year: 2020
+    kev: true
+    scope: device
+    title: AnyConnect for Windows IPC DLL hijacking → SYSTEM (exploited in the wild 2022)
+    affected: AnyConnect for Windows before 4.9.00086
+    fixed: 4.9.00086
+    detect: agv < 4.9.00086 in sysdata; flows whose mnl lists unexpected DLLs loaded by vpndownloader.exe or the AnyConnect agent.
+    avoid: Upgrade; restrict local admin and write access to user-writable paths.
+  - id: CVE-2020-3153
+    cvss: 6.5
+    year: 2020
+    kev: true
+    scope: device
+    title: AnyConnect for Windows installer path handling lets a local user copy files to system directories
+    affected: AnyConnect Secure Mobility Client for Windows before 4.8.02042
+    fixed: 4.8.02042
+    detect: Same version-exposure check via sysdata agv; new flows from binaries in system directories with unfamiliar hashes (ph).
+    avoid: Upgrade; exploitation attempts were reported in October 2022.
+  - id: CVE-2024-20337
+    cvss: 8.2
+    year: 2024
+    kev: false
+    scope: device
+    title: Secure Client SAML external-browser CRLF injection — SAML token theft for VPN sessions
+    affected: Secure Client 4.10.04065 and later 4.10, 5.0, 5.1 when the headend uses SAML External Browser
+    fixed: 4.10.08025, 5.1.2.42 (5.0 → migrate)
+    detect: Version exposure via agv; VPN sessions for a user from an unusual source shortly after the user clicked an external link (correlate ASA/FTD VPN logs with NVM flows from the browser to the headend).
+    avoid: Upgrade; train users not to click VPN links from email.
+  - id: CVE-2023-20269
+    cvss: 9.1
+    year: 2023
+    kev: true
+    scope: traffic
+    title: ASA/FTD remote-access VPN brute force / unauthorized clientless session (headend Secure Client connects to)
+    affected: Cisco ASA and FTD software with remote-access VPN enabled
+    detect: Not in NVM — headend side. NVM helps confirm whether a VPN session came from a managed endpoint (flows from vpnagent with matching udid) or not.
+    avoid: Patch the headend; MFA; restrict DefaultRAGroup / DefaultWEBVPNGroup; rate-limit failed logins.
+detections:
+  - title: Large upload by a sync/exfil tool
+    severity: high
+    signals:
+      - pn in (rclone.exe, megasync.exe, winscp.exe, curl.exe)
+      - obc > 500 MB
+      - destination outside corporate ranges
+    why: Ransomware crews stage data with rclone/MEGA before encryption; NVM shows the exact process, arguments and bytes, even off-VPN.
+    kql: |-
+      dataset="cisco_nvm" pn in~ ("rclone.exe","megasync.exe","winscp.exe","curl.exe","restic.exe")
+      | summarize up=sum(tolong(obc)), dests=make_set(dh) by udid, liuid, pn, parg
+      | where up > 500000000
+    mitre:
+      - T1567.002
+      - T1048
+  - title: LOLBin making outbound connections
+    severity: high
+    signals:
+      - pn in (certutil.exe, mshta.exe, rundll32.exe, regsvr32.exe, bitsadmin.exe)
+      - external da
+      - parent Office or script host
+    why: Living-off-the-land binaries rarely need the internet; a connection from them is a strong sign of payload download or proxy execution.
+    kql: |-
+      dataset="cisco_nvm" pn in~ ("certutil.exe","mshta.exe","rundll32.exe","regsvr32.exe","bitsadmin.exe")
+      | where not(ipv4_is_private(da))
+      | project _time, udid, liuid, pn, parg, ppn, da, dh, dp
+    mitre:
+      - T1105
+      - T1218.005
+      - T1218.011
+  - title: Rare process hash talking to the internet
+    severity: medium
+    signals:
+      - ph seen on ≤ 2 endpoints fleet-wide
+      - external destinations
+      - binary in AppData / Temp
+    why: Fleet prevalence is one of the best malware signals — a hash on one laptop beaconing out is worth a look.
+    kql: |-
+      dataset="cisco_nvm"
+      | summarize hosts=dcount(udid), dests=make_set(dh), path=any(ppath) by ph, pn
+      | where hosts <= 2 and (path has "AppData" or path has "Temp")
+    mitre:
+      - T1071.001
+      - T1204.002
+  - title: Remote-access tool not on the approved list
+    severity: medium
+    signals:
+      - pn in (AnyDesk.exe, TeamViewer.exe, ScreenConnect.ClientService.exe, rustdesk.exe)
+      - user not in IT group
+    why: Commercial RMM tools are a favourite persistence and C2 channel for intrusions and help-desk scams.
+    kql: |-
+      dataset="cisco_nvm" pn in~ ("anydesk.exe","teamviewer.exe","screenconnect.clientservice.exe","rustdesk.exe")
+      | summarize first=min(_time), conns=count() by udid, liuid, pn, dh
+    mitre:
+      - T1219
+  - title: Unapproved browser extension (osquery)
+    severity: low
+    signals:
+      - cisco_nvm_osquery_v2 qjr lists extension identifiers
+      - identifier not on allow-list
+    why: Malicious extensions steal sessions and cookies; the osquery inventory gives fleet-wide visibility.
+    kql: |-
+      dataset="cisco_nvm_osquery"
+      | mv-expand e=parse_json(qjr)
+      | where tostring(e.identifier) !in (approved_extensions)
+      | summarize hosts=dcount(udid) by tostring(e.identifier), tostring(e.name)
+    mitre:
+      - T1176
+optimizations:
+  - title: Keep end-of-flow records only
+    saving: 30–60 %
+    fn: Drop
+    how: With start and periodic reporting enabled each long flow produces several records; the end record (fsg=0) carries the totals.
+    expr: fsg=='1' || fsg=='2'
+  - title: Drop duplicated time and module fields
+    saving: 20–35 %
+    fn: Eval
+    how: fst/fet duplicate fss/fes (and fsms/fems), mhl repeats per-flow module hashes, eveuuid is zeros when EVE is off. Keep ms epochs, drop the rest.
+    expr: "remove: fst, fet, fss, fes, eveuuid (when all zeros), mhl"
+  - title: Aggregate high-volume benign flows
+    saving: 25–50 %
+    fn: Aggregations
+    how: OS updates, browser telemetry, Teams/Zoom media and DNS dominate counts. Roll up per udid/pn/dh per 5 min with summed bytes; send raw to Lake.
+    expr: pn in ('svchost.exe','msedge.exe','chrome.exe','Teams.exe','Zoom.exe') && dp in ('443','53','3478')
+  - title: Enrich flows with endpoint identity
+    saving: Query speed
+    fn: Lookup
+    how: Keep a lookup of the latest sysdata record per udid (hostname, OS, agent version) and add vsn/osv to each flow so the SIEM doesn't need a join.
+    expr: lookup nvm_endpoints.csv on udid → vsn, osv, agv
+references:
+  - title: NVM Collector installation and configuration guide 5.1.x (field reference)
+    url: https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/nvm-collector-5-1-1-admin-guide.html
+  - title: Splunk Security Content — Cisco NVM flow data source
+    url: https://research.splunk.com/sources/d49bcd3c-da06-41c6-b33e-8b8d23078f68
+  - title: Cisco advisory CVE-2023-20178
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ac-csc-privesc-wx4U4Kw
+  - title: Cisco advisory CVE-2020-3433
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-anyconnect-dll-F26WwJW
+  - title: Cisco advisory CVE-2024-20337
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-secure-client-crlf-W43V4G7
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - osquery
+  - cisco-asa
+  - cisco-ftd
+  - netflow
+  - sysmon

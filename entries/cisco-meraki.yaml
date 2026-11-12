@@ -1,0 +1,324 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-meraki
+name: Cisco Meraki MX / MR / MS
+short: Meraki
+aka:
+  - Meraki MX Security & SD-WAN appliance
+  - Meraki MR wireless
+  - Meraki MS switches
+  - Meraki Z teleworker gateway
+  - Meraki Dashboard
+vendor: Cisco
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - sd-wan
+  - wireless
+  - cloud-managed
+  - syslog
+  - ids
+  - anyconnect
+  - 802.1x
+summary: Cisco's cloud-managed portfolio — MX security / SD-WAN appliances (L3/L7 firewall, Snort-based IDS/IPS, AMP file scanning, content filtering, AutoVPN, AnyConnect), MR access points and MS switches — all configured from the Meraki Dashboard. Devices send short, space-delimited syslog lines per role (flows/firewall, urls, security_event, events, airmarshal_events); the Dashboard API and webhooks expose the same events.
+sourcetypes:
+  - st: cisco_meraki
+    desc: Pack Generator sourcetype — Meraki device syslog (all roles)
+  - st: meraki
+    desc: SC4S sourcetype for all Meraki device syslog (key cisco_meraki), compliant with the Splunk Add-on for Cisco Meraki
+  - st: meraki:securityappliances
+    desc: Splunk Add-on for Cisco Meraki — MX events via Dashboard API
+  - st: meraki:accesspoints
+    desc: Splunk Add-on for Cisco Meraki — MR events via Dashboard API
+  - st: meraki:organizationsecurity
+    desc: Splunk Add-on for Cisco Meraki — IDS / AMP security events via Dashboard API
+facts:
+  First released: Meraki founded 2006; acquired by Cisco in 2012; MX appliances from 2011
+  OS: MX firmware (18.1xx / 18.2xx / 19.x trains), MR and MS firmware — all pushed from the Dashboard
+  Form factors: MX / Z hardware, vMX for AWS / Azure / GCP, MR access points, MS switches, MG cellular, MV cameras
+  Deployment modes: Routed (NAT) or passthrough / VPN concentrator; AutoVPN hub-and-spoke or full mesh; warm-spare HA
+  Central mgmt: Meraki Dashboard (cloud only); Dashboard API, webhooks
+  Log transport: Syslog over UDP to up to several servers per network, selected by role (Event log, Flows, URLs, Security events, Air Marshal, Switch event log)
+  Log format: '<pri>1 <epoch.nanoseconds> <device_name> <type>, then key=value pairs or free text that vary per type'
+  Typical EPS: Low for events; Flows and URLs roles can reach thousands per second per busy MX
+  Cribl Pack: Cribl Pack for Cisco Meraki (cribl-cisco-meraki, Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - remote
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: Branch / campus gateway (MX)
+      desc: The MX is the internet edge for thousands of retail, healthcare and school sites — L3/L7 firewall, IDS/IPS, content filtering and SD-WAN in one box.
+    - slot: remote
+      title: Remote access and teleworkers
+      desc: AnyConnect (SSL VPN) and Client VPN on the MX, plus Z-series teleworker gateways at home offices tunnelling back with AutoVPN.
+    - slot: internal
+      title: Access layer (MR / MS)
+      desc: MR access points and MS switches enforce 802.1X, group policies and per-SSID firewall rules; Air Marshal scans for rogue APs.
+    - slot: cloud
+      title: vMX in public cloud
+      desc: Virtual MX as an AutoVPN hub in AWS, Azure or GCP so branches reach cloud workloads over the SD-WAN fabric.
+howItWorks:
+  - title: Cloud management plane
+    body: Devices hold no local GUI config — they phone home to the Meraki cloud over an encrypted tunnel and receive configuration and firmware from the Dashboard. Only metadata (flows, events) goes to the cloud, user traffic stays local.
+  - title: L3 / L7 firewall and group policies
+    body: Ordered L3 rules (5-tuple) and L7 rules (application categories via NBAR) per network, plus group policies per client or VLAN. Matched L3 rules appear in syslog as firewall (formerly flows) with the matching rule text after "pattern:"; L7 blocks as l7_firewall.
+  - title: Threat protection
+    body: Snort-based IDS/IPS (Talos rules, detection or prevention mode) produces security_event ids_alerted with signature gid:sid:rev, priority and decision. AMP file reputation emits security_filtering_file_scanned and retrospective disposition changes.
+  - title: AutoVPN and AnyConnect
+    body: AutoVPN builds IPsec tunnels automatically between MX devices registered in the same organisation. AnyConnect (SSL/DTLS) on MX firmware 16.2+ serves remote users; its auth and session events are logged as events type=anyconnect_vpn_*.
+  - title: Wireless security (MR)
+    body: 802.1X / WPA2-3 Enterprise against RADIUS, splash pages, and Air Marshal radio scanning for rogue and spoofed SSIDs and deauth floods.
+traffic:
+  handles:
+    - IPv4 / IPv6 routing, NAT and L3 / L7 firewalling
+    - Application identification (NBAR)
+    - IDS / IPS (Snort) and AMP file inspection
+    - Content filtering (URL categories)
+    - AutoVPN (IPsec), Client VPN, AnyConnect SSL VPN
+    - Wi-Fi (802.11ac/ax/be) with 802.1X, and switched access with 802.1X / MAB
+  flow:
+    - step: Ingress
+      desc: Client traffic enters on a LAN VLAN, SSID or switch port; group policy is assigned.
+    - step: L3 / L7 rules
+      desc: Firewall rules and application rules evaluated; match logged under the firewall / l7_firewall role.
+    - step: Content filtering
+      desc: URL category lookup; blocks logged as content_filtering_block, requests under urls.
+    - step: IDS / AMP
+      desc: Snort and file reputation inspect the stream; hits logged as security_event.
+    - step: SD-WAN path
+      desc: Traffic steered to WAN1, WAN2, cellular or an AutoVPN tunnel by policy.
+    - step: Egress + log
+      desc: NAT applied and forwarded; syslog sent per enabled role.
+logs:
+  - type: L3 firewall (firewall / flows)
+    sourcetype: cisco_meraki
+    format: text
+    share: 60–85 %
+    avg: ~190 B
+    desc: One line per new flow that matched an L3 rule with logging enabled; "pattern:" carries the matched rule (allow all = default rule). Older firmware uses the type flows, VPN and cellular rules use vpn_firewall / cellular_firewall.
+    pattern: '^<(?<pri>\d+)>1 (?<epoch>[\d.]+) (?<device>\S+) (?<log_type>firewall|flows|vpn_firewall|cellular_firewall) (?:(?<flow_action>allow|deny) )?src=(?<src_ip>\S+) dst=(?<dst_ip>\S+) (?:mac=(?<mac>\S+) )?protocol=(?<protocol>\S+)(?: sport=(?<sport>\d+))?(?: dport=(?<dport>\d+))?(?: pattern: (?<pattern>.+))?$'
+    key:
+      - device
+      - log_type
+      - src_ip
+      - dst_ip
+      - dport
+      - protocol
+      - pattern
+    noise:
+      - pri
+      - mac
+      - sport
+    sample: '<134>1 1794474862.966807768 MX85_HQ firewall src=10.20.30.44 dst=203.0.113.80 mac=00:18:0A:12:34:56 protocol=tcp sport=51544 dport=443 pattern: allow all'
+  - type: IDS / IPS alert (security_event)
+    sourcetype: cisco_meraki
+    format: text
+    share: < 2 %
+    avg: ~330 B
+    desc: Snort signature match with gid:sid:rev, priority (1 high … 4 very low), direction and whether it was blocked (prevention mode) or allowed (detection mode).
+    pattern: '^<(?<pri>\d+)>1 (?<epoch>[\d.]+) (?<device>\S+) security_event (?<event>ids_alerted) signature=(?<signature>\S+) priority=(?<priority>\d+) timestamp=(?<ts>[\d.]+) (?:dhost=(?<dhost>\S+) )?direction=(?<direction>\S+) protocol=(?<protocol>\S+) src=(?<src>\S+) dst=(?<dst>\S+) decision=(?<decision>\S+)(?: action=(?<action>\S+))? message: (?<message>.+)$'
+    key:
+      - signature
+      - priority
+      - direction
+      - src
+      - dst
+      - decision
+      - message
+    noise:
+      - pri
+      - ts
+      - dhost
+    sample: '<134>1 1794474901.348215340 MX85_HQ security_event ids_alerted signature=1:58722:5 priority=1 timestamp=1794474901.322786 dhost=00:18:0A:9C:7E:81 direction=ingress protocol=tcp/ip src=198.51.100.23:43218 dst=10.10.5.20:443 decision=blocked action=rst message: SERVER-OTHER Apache Log4j logging remote code execution attempt'
+  - type: AnyConnect authentication
+    sourcetype: cisco_meraki
+    format: text
+    share: < 1 %
+    avg: ~200 B
+    desc: AnyConnect SSL VPN AAA result per attempt (anyconnect_vpn_auth_success / anyconnect_vpn_auth_failure) with the peer address. Session events carry the username.
+    pattern: '^<(?<pri>\d+)>1 (?<epoch>[\d.]+) (?<device>\S+) events type=(?<event_type>anyconnect_vpn_auth_\w+) msg= ''Peer IP=(?<peer_ip>[\d.]+?) ?Peer port[=\[](?<peer_port>\d+)\]? AAA\[(?<aaa_id>\d+)\]: (?<result>.+?) ?''$'
+    key:
+      - event_type
+      - peer_ip
+      - result
+      - device
+    noise:
+      - pri
+      - aaa_id
+      - peer_port
+    sample: "<134>1 1794470283.124589040 MX85_HQ events type=anyconnect_vpn_auth_failure msg= 'Peer IP=198.51.100.77Peer port[8748] AAA[8]: AAA authenticate failed retval=7 - Authentication failure '"
+  - type: 802.1X wireless authentication (MR)
+    sourcetype: cisco_meraki
+    format: kv
+    share: 1–5 %
+    avg: ~150 B
+    desc: MR access-point events for EAP success / failure and deauthentication, keyed by identity, SSID slot (vap) and radio.
+    key:
+      - header
+      - type
+      - identity
+      - vap
+    noise:
+      - radio
+      - aid
+    sample: "<134>1 1794469802.857790533 MR46_Lobby events type=8021x_eap_failure radio='1' vap='2' identity='jdoe@example.com' aid='1701992265'"
+cves:
+  - id: CVE-2025-20271
+    cvss: 8.6
+    year: 2025
+    kev: false
+    scope: device
+    title: AnyConnect VPN server DoS via crafted HTTPS requests (client-certificate authentication enabled)
+    affected: Meraki MX and Z series with AnyConnect + client certificate auth on MX firmware 16.2 – before 18.107.13, 18.2 before 18.211.6, 19.1 before 19.1.8
+    fixed: MX 18.107.13, 18.211.6, 19.1.8
+    detect: Repeated AnyConnect service restarts and mass SSL VPN session disconnects in the event log, with no matching user auth activity beforehand.
+    avoid: Upgrade MX firmware; restrict AnyConnect exposure with geo / allow-list rules where possible.
+  - id: CVE-2025-20212
+    cvss: 7.7
+    year: 2025
+    kev: false
+    scope: device
+    title: Authenticated AnyConnect VPN DoS via crafted session attributes
+    affected: Meraki MX / Z with AnyConnect enabled on MX 16.2, 17, 18.1 before 18.107.12, 18.2 before 18.211.4, 19.1 before 19.1.4
+    fixed: MX 18.107.12, 18.211.4, 19.1.4 (MX400 / MX600 end-of-life, no fix)
+    detect: anyconnect_vpn_auth_success for a user immediately followed by AnyConnect service restarts and mass disconnects; repeat pattern from the same peer_ip.
+    avoid: Upgrade; enforce MFA so stolen VPN credentials can't be used to trigger it; replace EOL MX400 / MX600.
+  - id: CVE-2024-20498
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: Unauthenticated AnyConnect VPN DoS (one of five bugs fixed together with CVE-2024-20499/20500/20501/20502)
+    affected: Meraki MX / Z with AnyConnect on MX 16.2, 17, 18.1 before 18.107.12, 18.2 before 18.211.2
+    fixed: MX 18.107.12, 18.211.2
+    detect: AnyConnect service restart messages and SSL VPN session drops correlated with HTTPS connection floods to the MX from a small set of sources.
+    avoid: Upgrade MX firmware; monitor AnyConnect availability.
+  - id: CVE-2024-3596
+    cvss: 9
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Blast-RADIUS — MD5 Response Authenticator forgery against RADIUS used for 802.1X, VPN and admin auth
+    affected: RADIUS/UDP deployments (RFC 2865) without Message-Authenticator enforcement, between MR / MS / MX and the RADIUS server
+    detect: 8021x_eap_success or anyconnect_vpn_auth_success for identities that the RADIUS server logged as rejected; RADIUS traffic crossing untrusted segments.
+    avoid: Require Message-Authenticator on the RADIUS server, use RadSec where supported, keep RADIUS on a protected management network.
+detections:
+  - title: AnyConnect password spray
+    severity: high
+    signals:
+      - event_type=anyconnect_vpn_auth_failure
+      - many failures per peer_ip
+    why: SSL VPN brute force and spraying are the most common attacks against MX edges and precede account takeover.
+    kql: |-
+      dataset="meraki_logs" event_type="anyconnect_vpn_auth_failure"
+      | summarize fails=count() by peer_ip, device, bin(_time, 10m)
+      | where fails > 20
+    mitre:
+      - T1110.003
+      - T1133
+  - title: High-priority IDS hit allowed
+    severity: high
+    signals:
+      - security_event ids_alerted
+      - priority=1
+      - decision=allowed
+    why: In detection mode the MX only alerts; priority-1 signatures that were allowed mean exploit traffic reached the target.
+    kql: |-
+      dataset="meraki_logs" event="ids_alerted" priority="1" decision="allowed"
+      | summarize hits=count(), sigs=make_set(message) by src, dst, device
+    mitre:
+      - T1190
+  - title: Wi-Fi 802.1X failure storm
+    severity: medium
+    signals:
+      - type=8021x_eap_failure
+      - many identities per AP or SSID
+    why: Many failing identities in a short window on one SSID indicates credential guessing over the air or a rogue client trying harvested accounts.
+    kql: |-
+      dataset="meraki_logs" type="8021x_eap_failure"
+      | summarize fails=count(), ids=dcount(identity) by header, vap, bin(_time, 15m)
+      | where ids > 10
+    mitre:
+      - T1110.003
+      - T1078
+  - title: Internal host contacting many external ports
+    severity: medium
+    signals:
+      - log_type=firewall
+      - one src_ip, many dport
+    why: Wide port fan-out from a branch client suggests scanning or worm propagation.
+    kql: |-
+      dataset="meraki_logs" log_type in ("firewall","flows")
+      | summarize ports=dcount(dport), dsts=dcount(dst_ip) by src_ip, device, bin(_time, 5m)
+      | where ports > 50 or dsts > 100
+    mitre:
+      - T1046
+  - title: Denied outbound to remote-admin ports
+    severity: low
+    signals:
+      - log_type=firewall
+      - pattern contains deny
+      - dport in 22 / 3389 / 5900
+    why: Branch clients trying outbound SSH / RDP / VNC that policy denies can indicate remote-access tooling or lateral movement attempts toward other sites.
+    kql: |-
+      dataset="meraki_logs" log_type in ("firewall","vpn_firewall")
+      | where pattern has "deny" and dport in ("22","3389","5900")
+      | summarize count() by src_ip, dst_ip, dport, device
+    mitre:
+      - T1021.001
+      - T1219
+optimizations:
+  - title: Turn off "allow all" flow logging at the source
+    saving: 40–70 %
+    fn: Drop
+    how: Flows matching the default allow rule are the bulk of Flows-role syslog. Disable logging on the default rule in Dashboard, or drop them in Stream and keep denies plus explicit rules.
+    expr: '/\s(firewall|flows)\s/.test(_raw) && /pattern: allow all$/.test(_raw)'
+  - title: Clean up key=value with quoted values
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: Meraki wraps many values in single quotes and puts free text after "pattern:" or "message:". Extract once, strip quotes, drop pri/aid/radio/dhost and re-serialise as JSON.
+    expr: "parse kv (quote ') → remove: pri, aid, radio, dhost, ts → JSON"
+  - title: Suppress URL role repeats
+    saving: 20–40 %
+    fn: Suppress
+    how: The urls role logs every HTTP request (URLs truncated at 500 characters), including telemetry beacons. Keep one per client/host per minute.
+    expr: "key: `${src}:${host}`  allow 1 / 60s  when log_type=='urls'"
+  - title: Aggregate flows to metrics
+    saving: 20–35 %
+    fn: Aggregations
+    how: Roll firewall / flows lines up to connections per src, dst, dport and pattern per minute for dashboards; send raw to Cribl Lake.
+    expr: log_type in ('firewall','flows') → count by src_ip, dst_ip, dport, pattern per 60s
+  - title: Route security events at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: security_event, AnyConnect, 802.1X and Air Marshal events → SIEM. Flows and URLs → Lake + aggregated SIEM copy.
+    expr: /security_event|anyconnect|8021x|airmarshal/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)
+references:
+  - title: Meraki syslog event types and log samples
+    url: https://documentation.meraki.com/General_Administration/Monitoring_and_Reporting/Syslog_Event_Types_and_Log_Samples
+  - title: Splunk Add-on for Cisco Meraki — source types
+    url: https://splunk.github.io/splunk-add-on-for-cisco-meraki/Sourcetypes/
+  - title: Splunk Connect for Syslog — Cisco Meraki
+    url: https://splunk.github.io/splunk-connect-for-syslog/latest/sources/vendor/Cisco/cisco_meraki/
+  - title: Cisco advisory — CVE-2025-20271
+    url: https://www.cisco.com/c/en/us/support/docs/csa/cisco-sa-meraki-mx-vpn-dos-sM5GCfm7.html
+  - title: Cisco advisory — CVE-2025-20212
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-meraki-mx-vpn-dos-vNRpDvfb
+  - title: Cisco advisory — CVE-2024-20498 / 20499 / 20500 / 20501 / 20502
+    url: https://www.cisco.com/c/en/us/support/docs/csa/cisco-sa-meraki-mx-vpn-dos-QTRHzG2.html
+  - title: CERT-FR — CVE-2025-20271 fixed versions
+    url: https://cert.cyber.gouv.fr/avis/CERTFR-2025-AVI-0523/
+related:
+  - cisco-asa
+  - cisco-ftd
+  - cisco-sdwan
+  - unifi
+  - fortigate
+  - snort

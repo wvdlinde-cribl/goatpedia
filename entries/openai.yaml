@@ -1,0 +1,339 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: openai
+name: OpenAI API Platform
+short: OpenAI
+aka:
+  - OpenAI Admin API
+  - OpenAI Audit Logs API
+  - OpenAI Usage API
+  - OpenAI Costs API
+  - ChatGPT Enterprise (Compliance API is separate)
+vendor: OpenAI
+category: ai
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ai
+  - llm
+  - genai
+  - saas
+  - api-keys
+  - audit
+  - usage
+  - json
+  - rest-api
+summary: "The OpenAI developer platform (GPT models via the Responses, Chat Completions, Embeddings, Realtime and Batch APIs) and its organisation Admin API. Security teams pull four feeds from it: audit logs (logins, API keys, projects, members, roles, IP allowlists), usage buckets per model/project/key, daily costs, and the user/project inventory. Together they show who holds keys, who changed access and where token spend — a proxy for abuse — is going."
+sourcetypes:
+  - st: openai_audit
+    desc: Organization audit log objects from GET /v1/organization/audit_logs
+  - st: openai_completions
+    desc: Completions usage buckets from GET /v1/organization/usage/completions (tokens and requests per model / project / key)
+  - st: openai_costs
+    desc: Cost buckets from GET /v1/organization/costs (amount per day per project / line item)
+  - st: openai_projects
+    desc: Project inventory from GET /v1/organization/projects
+  - st: openai_users
+    desc: Organisation member inventory from GET /v1/organization/users
+facts:
+  First released: API 2020; Admin API with audit logs 2024
+  Delivery model: SaaS (api.openai.com), with data residency regions; Azure OpenAI is a separate Microsoft service with its own logs
+  Access: Admin API key (sk-admin-…), created by an organisation Owner; audit logging must be enabled in organisation settings
+  Log transport: REST polling with cursor pagination (after / first_id / last_id); usage and costs as time buckets (1m / 1h / 1d)
+  Log format: JSON — audit objects carry type, effective_at (epoch seconds), actor (session or api_key) and a payload keyed by the event type
+  Event catalogue: ~150 audit types — login.*, logout.*, api_key.*, project.*, invite.*, role.*, group.*, ip_allowlist.*, rate_limit.*, service_account.*, certificate.*, organization.updated
+  Not logged: Prompt and completion content (only via request-side logging or the separate ChatGPT Enterprise Compliance API)
+  Typical volume: Audit low (tens to hundreds per day); usage buckets scale with group_by dimensions × bucket width
+  Cribl Pack: OpenAI Rest Collector IO (cribl-openai-rest-io) in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - internal
+    - endpoint
+  items:
+    - slot: cloud
+      title: OpenAI organisation (SaaS)
+      desc: The control plane and model endpoints. Cribl REST Collectors poll the Admin API on a schedule with an admin key held in Cribl secrets.
+    - slot: internal
+      title: Applications and AI gateways
+      desc: In-house apps, LiteLLM-style gateways and automation (n8n, agents) call the API with project or service-account keys. A stolen key here shows up as usage spikes from a new api_key_id.
+    - slot: endpoint
+      title: Developer tools
+      desc: Codex CLI/Desktop, SDKs and IDE plugins on laptops hold personal keys or session sign-ins; logins and key creation appear in the audit log with IP, user agent and JA3/JA4.
+howItWorks:
+  - title: Organisation, projects, keys
+    body: An organisation contains projects. Each project has members, service accounts, project API keys, rate limits and model access. Admin keys manage the organisation; project keys call models. Every key create/update/delete is audited with its scopes.
+  - title: Audit log objects
+    body: "Each object has id, type (for example api_key.created), effective_at, an actor and a payload stored under a key named after the type. actor.type is session (a signed-in user with ip_address, user_agent, ja3, ja4 and ip_address_details geo) or api_key (user or service-account key)."
+  - title: Usage API
+    body: "Usage endpoints (completions, embeddings, images, audio, moderations, vector stores, code interpreter) return buckets with start_time/end_time and results[] of organization.usage.*.result objects — input/output/cached tokens and num_model_requests, optionally grouped by project_id, user_id, api_key_id, model and batch."
+  - title: Costs API
+    body: Daily cost buckets with amount.value and currency, grouped by project_id and line_item. Costs reconcile to the invoice; usage is the near-real-time signal.
+  - title: Collection with Cribl
+    body: The OpenAI Rest Collector IO pack schedules REST collectors for audit logs, completions usage, costs, projects and users and applies event breakers per feed, so each API page becomes one event per object.
+traffic:
+  handles:
+    - Responses / Chat Completions / Embeddings API calls
+    - Realtime, audio, image and batch jobs
+    - Admin API (projects, users, keys, roles)
+    - Dashboard sign-ins (SSO / password / MFA)
+    - Project and service-account API keys
+    - IP allowlists and rate limits
+    - Tool / MCP connectors used by models
+  flow:
+    - step: Request
+      desc: App, gateway or developer tool calls a model endpoint with a project key.
+    - step: Authenticate
+      desc: Key checked against project, scopes and IP allowlist.
+    - step: Inference
+      desc: Model processes the prompt (and any tool calls); tokens counted.
+    - step: Meter
+      desc: Tokens and requests aggregated into usage buckets; costs computed daily.
+    - step: Admin change
+      desc: Key, project, member or setting changes written as audit log objects.
+    - step: Poll
+      desc: Cribl REST collectors page through the Admin API with cursors.
+    - step: Route
+      desc: Audit to SIEM; usage and costs to metrics / FinOps; inventories to lookups.
+logs:
+  - type: Audit log
+    sourcetype: openai_audit
+    format: json
+    share: 5–20 %
+    avg: ~900 B
+    desc: One organisation audit object. Session actors carry IP, user agent, TLS fingerprints and geo; the payload object is named after the event type (api_key.created, project.updated, …).
+    key:
+      - type
+      - effective_at
+      - actor.type
+      - actor.session.user.email
+      - actor.session.ip_address
+      - actor.session.ip_address_details.country
+      - actor.session.ja4
+    noise:
+      - object
+      - actor.session.ip_address_details.latitude
+      - actor.session.ip_address_details.longitude
+      - actor.session.ip_address_details.region_code
+    sample: '{"object":"organization.audit_log","id":"audit_log-7Hq2Lm9Xc4Vb1Nz8","type":"login.failed","effective_at":1762938862,"actor":{"type":"session","session":{"user":{"id":"user-Ab12Cd34Ef56Gh78","email":"jdoe@example.com"},"ip_address":"198.51.100.23","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","ja3":"a497151ce4338a12c4418c44d375173e","ja4":"t13d1516h2_8daaf6152771_02713d6af862","ip_address_details":{"country":"NL","city":"Amsterdam","region":"North Holland","region_code":"NH","asn":"64500","latitude":"52.37","longitude":"4.89"}}},"login.failed":{"error_code":"invalid_credentials","error_message":"Invalid email or password"}}'
+  - type: API key change (audit)
+    sourcetype: openai_audit
+    format: json
+    share: < 5 %
+    avg: ~600 B
+    desc: Key lifecycle — api_key.created / updated / deleted with the key id and scopes. Often performed by another key (actor.type=api_key) in automation.
+    key:
+      - type
+      - actor.type
+      - actor.api_key.type
+      - actor.api_key.user.email
+      - project.id
+      - api_key.created.id
+      - api_key.created.data.scopes[0]
+    noise:
+      - object
+    sample: '{"object":"organization.audit_log","id":"audit_log-Qw3Er5Ty7Ui9Op1A","type":"api_key.created","effective_at":1762939140,"project":{"id":"proj_Zx9Yw8Vu7Ts6Rq5P","name":"payments-assistant"},"actor":{"type":"api_key","api_key":{"id":"key_Lk2Jh4Gf6Ds8Aq0W","type":"user","user":{"id":"user-Ab12Cd34Ef56Gh78","email":"jdoe@example.com"}}},"api_key.created":{"id":"key_Mn4Bv6Cx8Zl0Kj2H","data":{"scopes":["api.model.request"]}}}'
+  - type: Completions usage bucket
+    sourcetype: openai_completions
+    format: json
+    share: 50–80 %
+    avg: ~500 B
+    desc: Token and request counts for one bucket (1m, 1h or 1d). With group_by, one result per project / key / model combination.
+    key:
+      - start_time
+      - results[0].project_id
+      - results[0].api_key_id
+      - results[0].model
+      - results[0].input_tokens
+      - results[0].output_tokens
+      - results[0].num_model_requests
+    noise:
+      - object
+      - results[0].object
+      - start_time_iso
+      - end_time_iso
+    sample: '{"object":"bucket","start_time":1762934400,"end_time":1762938000,"start_time_iso":"2026-11-12T08:00:00+00:00","end_time_iso":"2026-11-12T09:00:00+00:00","results":[{"object":"organization.usage.completions.result","input_tokens":1843200,"output_tokens":412800,"input_cached_tokens":905000,"input_audio_tokens":0,"output_audio_tokens":0,"num_model_requests":2210,"project_id":"proj_Zx9Yw8Vu7Ts6Rq5P","user_id":null,"api_key_id":"key_Mn4Bv6Cx8Zl0Kj2H","model":"gpt-5-mini","batch":false}]}'
+  - type: Cost bucket
+    sourcetype: openai_costs
+    format: json
+    share: < 5 %
+    avg: ~350 B
+    desc: Daily spend per project and line item. Use for budget alerts and to confirm usage anomalies.
+    key:
+      - start_time
+      - results[0].amount.value
+      - results[0].amount.currency
+      - results[0].project_id
+      - results[0].line_item
+    noise:
+      - object
+      - results[0].object
+      - results[0].organization_id
+    sample: '{"object":"bucket","start_time":1762905600,"end_time":1762992000,"results":[{"object":"organization.costs.result","amount":{"value":184.52,"currency":"usd"},"line_item":"gpt-5-mini, input","project_id":"proj_Zx9Yw8Vu7Ts6Rq5P","organization_id":"org-Qp1Rs3Tu5Vw7Xy9Z"}]}'
+  - type: User inventory
+    sourcetype: openai_users
+    format: json
+    share: < 1 %
+    avg: ~200 B
+    desc: Organisation members with role (owner / reader) and added_at. Snapshot feed — best used as a lookup and diffed over time. openai_projects is the equivalent project snapshot (id, name, created_at, archived_at, status).
+    key:
+      - id
+      - email
+      - name
+      - role
+      - added_at
+    noise:
+      - object
+    sample: '{"object":"organization.user","id":"user-Ab12Cd34Ef56Gh78","email":"jdoe@example.com","name":"John Doe","role":"owner","added_at":1675873831}'
+cves:
+  - id: CVE-2026-42208
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: traffic
+    title: LiteLLM AI-gateway SQL injection in proxy API-key checks — unauthenticated theft of the upstream OpenAI keys it manages (gateway traffic in front of the API)
+    affected: LiteLLM 1.81.16 to before 1.83.7
+    fixed: 1.83.7
+    detect: The OpenAI audit log won't see the gateway itself — watch usage buckets for a key's num_model_requests or tokens jumping, new models or projects, and api_key.created by service accounts right after.
+    avoid: Patch the gateway; give each gateway a dedicated project key with tight rate limits and an IP allowlist; rotate keys after exposure.
+  - id: CVE-2026-59822
+    cvss: 8.2
+    year: 2026
+    kev: true
+    scope: traffic
+    title: LiteLLM MCP Streamable HTTP endpoint auth bypass via fabricated Authorization header (AI gateway / MCP traffic)
+    affected: LiteLLM before 1.84.0
+    fixed: 1.84.0
+    detect: Usage from the gateway's key outside normal hours or with new models; tool-heavy requests; spend spikes in cost buckets for the gateway project.
+    avoid: Patch; never expose the gateway to the internet; set per-project budgets and rate limits.
+  - id: CVE-2025-61260
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: device
+    title: OpenAI Codex CLI command execution from a malicious repository's project-local .env / .codex/config.toml (MCP server definitions)
+    affected: Codex CLI 0.23.0 and earlier
+    detect: Not in Admin API logs. Look for the developer's key suddenly used from new IPs (login.succeeded / api_key.* from a new ja4 or country) after cloning untrusted repos; EDR shows codex spawning shells.
+    avoid: Update Codex CLI; open untrusted repositories only in a sandbox; use short-lived, project-scoped keys on developer machines.
+  - id: CVE-2026-19593
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: device
+    title: OpenAI Codex Desktop runs attacker-controlled Git filters when opening a prepared workspace (outside the command sandbox)
+    affected: Codex Desktop for macOS 260202.0859 through 26.513.31313, and Windows 26.304.38 through 26.513.40821
+    detect: Not visible in platform logs; downstream, credential theft shows as session logins and key use from unfamiliar IPs or TLS fingerprints.
+    avoid: Update Codex Desktop; do not open repositories received as archives with their .git/config intact; keep secrets out of the user profile.
+detections:
+  - title: Sign-in failures / spray against the organisation
+    severity: medium
+    signals:
+      - type=login.failed
+      - many users per actor.session.ip_address
+      - followed by login.succeeded
+    why: Platform accounts can mint API keys; spray and credential stuffing precede key theft.
+    kql: |-
+      dataset="openai_audit" type in ("login.failed","login.succeeded")
+      | summarize fails=countif(type=="login.failed"), ok=countif(type=="login.succeeded"), users=dcount(actor.session.user.email) by actor.session.ip_address, bin(_time, 15m)
+      | where fails > 10 or (fails > 3 and ok > 0)
+    mitre:
+      - T1110.003
+      - T1078.004
+  - title: API key created from a new country or TLS fingerprint
+    severity: high
+    signals:
+      - type=api_key.created
+      - actor.session.ip_address_details.country not seen for user
+      - new actor.session.ja4
+    why: The main persistence step after an account takeover — keys keep working after the password is reset.
+    kql: |-
+      dataset="openai_audit" type in ("api_key.created","service_account.created")
+      | lookup openai_known_user_geo on actor.session.user.email, actor.session.ip_address_details.country
+      | where isempty(first_seen)
+      | project _time, actor.session.user.email, actor.session.ip_address, actor.session.ja4, project.id
+    mitre:
+      - T1098.001
+      - T1528
+  - title: Token usage spike per key (LLMjacking / stolen key)
+    severity: high
+    signals:
+      - openai_completions results[0].num_model_requests or output_tokens > 5x baseline
+      - new model or new api_key_id
+    why: Stolen keys are resold for LLM access (MITRE ATLAS AML.T0034 Cost Harvesting, AML.T0040 AI Model Inference API Access). Usage buckets are the only place it shows.
+    kql: |-
+      dataset="openai_usage" object="bucket"
+      | summarize tokens=sum(results[0].output_tokens), reqs=sum(results[0].num_model_requests) by results[0].api_key_id, results[0].model, bin(_time, 1h)
+      | join kind=leftouter (dataset="openai_usage_baseline") on results[0].api_key_id
+      | where tokens > 5 * avg_tokens
+    mitre:
+      - T1496
+      - T1078.004
+  - title: Owner added or role escalated
+    severity: high
+    signals:
+      - type in invite.sent / role.assignment.created / organization.updated
+      - openai_users role changes to owner
+    why: An attacker-added owner can create admin keys and read every project. Owner changes are rare.
+    kql: |-
+      dataset="openai_audit" type in ("invite.sent","invite.accepted","role.assignment.created","role.updated","organization.updated")
+      | project _time, type, actor.type, actor.session.user.email, actor.session.ip_address
+    mitre:
+      - T1098
+      - T1136.003
+  - title: IP allowlist or rate limit removed
+    severity: medium
+    signals:
+      - type in ip_allowlist.deleted / ip_allowlist.config.deactivated / rate_limit.deleted
+    why: Removing network and spend guardrails is a defence-evasion step before abuse of a stolen key.
+    kql: |-
+      dataset="openai_audit" type in ("ip_allowlist.deleted","ip_allowlist.config.deactivated","rate_limit.updated","rate_limit.deleted")
+      | project _time, type, actor.type, actor.session.user.email, project.id
+    mitre:
+      - T1562
+      - T1556
+optimizations:
+  - title: Unroll usage buckets to one event per result
+    saving: Correct counting, smaller events
+    fn: Unroll + Eval
+    how: Each bucket holds results[]. Unroll into one event per result, copy start_time onto it, and drop the bucket wrapper and empty buckets (results=[]), which are common at 1m/1h granularity.
+    expr: results.length > 0 → unroll results; remove start_time_iso, end_time_iso, object
+  - title: Send usage and costs as metrics
+    saving: 60–90 % of usage volume in the SIEM
+    fn: Aggregations → Metrics
+    how: Usage and costs are numeric time series. Convert to metrics (tokens, requests, cost by project/key/model) for a TSDB or Cribl Lake; keep only anomalies in the SIEM.
+    expr: sourcetype in ('openai_completions','openai_costs')
+  - title: Turn inventories into lookups
+    saving: 90 %+ of inventory volume
+    fn: Lookup / Routes
+    how: openai_users and openai_projects are snapshots that repeat every poll. Write them to a lookup to enrich audit and usage events (email, role, project name) and only emit diffs.
+    expr: sourcetype in ('openai_users','openai_projects') → lookup
+  - title: Trim geo precision in audit events
+    saving: 5–10 %
+    fn: Eval
+    how: Keep country, city and ASN; drop latitude, longitude and region_code from actor.session.ip_address_details.
+    expr: "remove: actor.session.ip_address_details.latitude, actor.session.ip_address_details.longitude, actor.session.ip_address_details.region_code"
+references:
+  - title: OpenAI API reference — Audit logs
+    url: https://platform.openai.com/docs/api-reference/audit-logs
+  - title: OpenAI API reference — Usage (completions)
+    url: https://platform.openai.com/docs/api-reference/usage/completions
+  - title: Cribl Packs Dispensary (OpenAI Rest Collector IO)
+    url: https://packs.cribl.io/
+  - title: LiteLLM advisory GHSA-r75f-5x8p-qvmc (CVE-2026-42208)
+    url: https://github.com/BerriAI/litellm/security/advisories/GHSA-r75f-5x8p-qvmc
+  - title: LiteLLM advisory GHSA-7488-6r32-c95q (CVE-2026-59822)
+    url: https://github.com/BerriAI/litellm/security/advisories/GHSA-7488-6r32-c95q
+  - title: Check Point Research — OpenAI Codex CLI command injection (CVE-2025-61260)
+    url: https://research.checkpoint.com/2025/openai-codex-cli-command-injection-vulnerability/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATLAS
+    url: https://atlas.mitre.org
+related:
+  - ollama
+  - mcp
+  - cisco-ai-defense
+  - n8n
+  - entra-id
+  - okta

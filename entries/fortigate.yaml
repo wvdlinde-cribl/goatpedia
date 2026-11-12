@@ -4,20 +4,390 @@ name: Fortinet FortiGate
 short: FortiGate
 vendor: Fortinet
 category: ngfw
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 aka:
   - FortiOS
+  - FortiGate-VM
+  - FortiGate NGFW
+  - FortiWiFi
 tags:
   - firewall
   - vpn
   - sslvpn
+  - ipsec
   - kv
+  - syslog
+  - ips
+  - utm
+  - sd-wan
+summary: A next-generation firewall running FortiOS that combines stateful firewalling, SD-WAN, IPsec and SSL-VPN, IPS, antivirus, web/DNS filtering and application control on ASIC-accelerated hardware or as a VM. Logs are key=value syslog split into traffic, event and UTM types; its internet-facing SSL-VPN and management interfaces are among the most exploited edge services of the last five years.
 sourcetypes:
   - st: fortigate_traffic
+    desc: Traffic logs (type=traffic) — forward, local, multicast and sniffer sessions; the bulk of volume
   - st: fortigate_utm
+    desc: UTM logs (type=utm) — IPS, antivirus, webfilter, app-ctrl, DNS, DLP, anomaly, WAF verdicts
   - st: fortigate_event
-summary: NGFW running FortiOS with SSL-VPN; key=value syslog.
-cveIds:
-  - CVE-2024-21762
-  - CVE-2022-40684
-  - CVE-2018-13379
+    desc: Event logs (type=event) — system/admin, VPN (SSL and IPsec), user auth, HA, SD-WAN, router
+  - st: fortinet_fortigate
+    desc: Pack Generator sourcetype — all FortiGate key=value logs on one feed
+  - st: fortinet_fortigate_syslog
+    desc: Pack Generator sourcetype — FortiGate key=value with a syslog header (PRI / timestamp / host)
+  - st: fortinet_fortigate_syslog_wrapped
+    desc: Pack Generator sourcetype — FortiGate key=value wrapped by a relay's RFC 3164/5424 header
+  - st: my-fortinetv2
+    desc: Pack Generator sourcetype — custom FortiGate feed name seen in the field
+  - st: fortigate_log
+    desc: Splunk Fortinet FortiGate Add-on catch-all sourcetype before type-based split
+  - st: fgt_traffic
+    desc: Legacy Splunk TA sourcetype for traffic logs
+  - st: fgt_utm
+    desc: Legacy Splunk TA sourcetype for UTM logs
+  - st: fgt_event
+    desc: Legacy Splunk TA sourcetype for event logs
+  - st: FORTINET_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+  - st: CommonSecurityLog
+    desc: Microsoft Sentinel table when FortiGate sends CEF via the Fortinet connector
+facts:
+  First released: 2002 (FortiGate-300)
+  OS: FortiOS (current trains 7.2 / 7.4 / 7.6)
+  Form factors: Hardware with SPU/NP/CP ASICs (FortiGate 40F → 7000 chassis), FortiGate-VM, FortiGate CNF / cloud marketplace images
+  Deployment modes: NAT/route, transparent, VDOMs (multi-tenant), FGCP HA active-passive / active-active
+  Central mgmt: FortiManager, FortiAnalyzer, FortiGate Cloud
+  Log transport: Syslog UDP/TCP/TLS (up to 4 servers), FortiAnalyzer (OFTP), FortiGate Cloud
+  Log format: key=value (default); CSV, CEF and RFC 5424 selectable per syslog server
+  Log ID: 10-digit logid — 2 digits type, 2 digits subtype, 6 digits message id
+  Typical EPS: 500 – 50k+ per firewall (traffic logging per policy drives it)
+  Cribl Pack: Fortinet FortiGate Firewall (cribl-fortinet-fortigate-firewall, Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet perimeter / SD-WAN branch
+      desc: Most common. Sits between ISPs and the LAN, enforces outbound web/app policy, and doubles as the SD-WAN edge in branch offices with multiple uplinks.
+    - slot: internal
+      title: Internal segmentation (ISFW)
+      desc: Between user, server and OT zones; often in transparent mode or with VDOMs per tenant so east-west traffic gets IPS without re-addressing.
+    - slot: remote
+      title: Remote access VPN head-end
+      desc: Hosts SSL-VPN (web and tunnel mode) and IPsec dial-up for FortiClient. Internet-exposed — the source of most FortiOS KEV entries.
+    - slot: cloud
+      title: Cloud / VPC
+      desc: FortiGate-VM in AWS/Azure/GCP transit or inspection VPCs, typically behind a gateway load balancer in an HA pair.
+howItWorks:
+  - title: Kernel fast path and ASIC offload
+    body: The first packets of a session go through the FortiOS kernel for policy lookup; once established, the session is offloaded to NP (network processor) ASICs, while CP (content processor) ASICs accelerate IPS pattern matching and TLS. Offloaded sessions still log, but per-packet features like sniffer only see the kernel part.
+  - title: Policies, VDOMs and logid
+    body: Firewall policies match source/destination interface or zone, address, user, service, application and schedule; first match wins. Every log line carries a 10-digit logid (00 = traffic, 01 = event, 04xx = UTM subtype) that classifies the message regardless of free text, plus vd= for the VDOM.
+  - title: Flow vs proxy inspection
+    body: Each policy runs flow-based inspection (single-pass, IPS engine on the stream) or proxy-based inspection (buffers and reassembles the object for AV/webfilter/DLP). The mode decides which UTM subtypes can fire and how much latency is added.
+  - title: Security profiles (UTM)
+    body: IPS, antivirus, webfilter, DNS filter, application control, file filter, DLP and WAF profiles attach to a policy. Each verdict is a type=utm log tied to the session by sessionid, and the traffic log carries utmaction plus counters such as countips or countapp.
+  - title: SSL-VPN and IPsec
+    body: The sslvpnd daemon serves the web portal and tunnel mode on an internet-facing port, authenticating against local users, LDAP, RADIUS or SAML. IPsec uses IKEv1/IKEv2. Login and tunnel events land as type=event subtype=vpn (logid 0101039424 tunnel up, 0101039426 login fail).
+  - title: Logging pipeline
+    body: The miglogd daemon writes to memory/disk, FortiAnalyzer (OFTP, reliable) and up to four syslog servers. Traffic logging is per policy (all sessions or security events only), and session-start logging is optional, so policy settings directly control volume.
+traffic:
+  handles:
+    - IPv4/IPv6 L3–L4 stateful firewalling and NAT
+    - 4,000+ applications (FortiGuard Application Control)
+    - TLS 1.2/1.3 (deep inspection optional)
+    - SSL-VPN (web and tunnel mode) and IPsec IKEv1/IKEv2
+    - SD-WAN path steering and health checks
+    - DNS filtering and web filtering (FortiGuard categories)
+    - IPS, antivirus, sandbox (FortiSandbox) verdicts
+  flow:
+    - step: Ingress
+      desc: Packet arrives on a physical, VLAN, tunnel or ssl.root interface; DoS policy checks run first.
+    - step: Session lookup
+      desc: Existing session? It is forwarded on the NP fast path without another policy lookup.
+    - step: Route + DNAT (VIP)
+      desc: "New flow: virtual IPs translate the destination, then the route lookup picks the egress interface or SD-WAN member."
+    - step: Firewall policy
+      desc: Interface, address, user, service and application match; implicit deny at the end (logged only if enabled).
+    - step: Security profiles
+      desc: Flow or proxy inspection runs IPS, AV, webfilter and app-ctrl; each verdict writes a type=utm log.
+    - step: SNAT + egress
+      desc: Source NAT (IP pool or outgoing interface address) and forwarding.
+    - step: Log
+      desc: At session close a type=traffic log is written with bytes, duration, NAT and utmaction (optionally also at start).
+logs:
+  - type: Traffic
+    sourcetype: fortigate_traffic
+    format: kv
+    share: 80–90 %
+    avg: ~800 B
+    desc: One record per session (subtype forward = through traffic, local = to/from the FortiGate itself). Holds the 5-tuple, interfaces, policy, NAT, application, bytes, packets and the UTM outcome.
+    key:
+      - srcip
+      - dstip
+      - dstport
+      - action
+      - policyid
+      - app
+      - sentbyte
+      - rcvdbyte
+    noise:
+      - header
+      - devid
+      - eventtime
+      - tz
+      - poluuid
+      - mastersrcmac
+      - srcserver
+      - countapp
+    sample: |-
+      <189>date=2026-11-12 time=09:14:22 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935262412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.20.30.44 srcport=51544 srcintf="port2" srcintfrole="lan" dstip=203.0.113.80 dstport=443 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" sessionid=48211907 proto=6 action="close" policyid=12 policytype="policy" poluuid="5c1f7e2a-1b2c-51ee-8d6e-0a1b2c3d4e5f" policyname="allow-web-out" service="HTTPS" trandisp="snat" transip=198.51.100.10 transport=31544 appid=40568 app="HTTPS.BROWSER" appcat="Web.Client" apprisk="medium" duration=31 sentbyte=6842 rcvdbyte=53110 sentpkt=22 rcvdpkt=48 utmaction="allow" countapp=1 srcmac="00:50:56:aa:bb:01" mastersrcmac="00:50:56:aa:bb:01" srcserver=0
+  - type: Event — VPN
+    sourcetype: fortigate_event
+    format: kv
+    share: 2–8 %
+    avg: ~500 B
+    desc: SSL-VPN and IPsec events (subtype=vpn) — tunnel up/down, login success and failure with remote IP, user and reason. The primary source for VPN brute force and credential-stuffing detection.
+    key:
+      - logid
+      - action
+      - remip
+      - user
+      - reason
+      - tunneltype
+    noise:
+      - header
+      - devid
+      - eventtime
+      - tz
+      - dst_host
+    sample: |-
+      <185>date=2026-11-12 time=08:05:10 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762931110000000000 tz="+0100" logid="0101039426" type="event" subtype="vpn" level="alert" vd="root" logdesc="SSL VPN login fail" action="ssl-login-fail" tunnelid=0 remip=198.51.100.23 tunneltype="ssl-web" user="jdoe" group="N/A" dst_host="N/A" reason="sslvpn_login_permission_denied" msg="SSL user failed to logged in"
+  - type: Event — System / admin
+    sourcetype: fortigate_event
+    format: kv
+    share: < 1 %
+    avg: ~450 B
+    desc: Admin logins (logid 0100032001/32002), configuration changes (0100044547 object attribute configured), firmware and HA events. Low volume, highest value for detecting a compromised firewall.
+    key:
+      - logid
+      - user
+      - ui
+      - action
+      - cfgpath
+      - cfgattr
+      - msg
+    noise:
+      - header
+      - eventtime
+      - tz
+      - cfgtid
+    sample: |-
+      <189>date=2026-11-12 time=03:41:07 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762915267000000000 tz="+0100" logid="0100044547" type="event" subtype="system" level="information" vd="root" logdesc="Object attribute configured" user="admin" ui="jsconsole(127.0.0.1)" action="Add" cfgtid=1411317760 cfgpath="system.admin" cfgobj="svc_backup2" cfgattr="password[*]accprofile[super_admin]vdom[root]" msg="Add system.admin svc_backup2"
+  - type: UTM — IPS
+    sourcetype: fortigate_utm
+    format: kv
+    share: 1–5 %
+    avg: ~1 KB
+    desc: IPS signature, anomaly and botnet verdicts (subtype=ips). Joins to the traffic log on sessionid. Never sample or drop.
+    key:
+      - srcip
+      - dstip
+      - attack
+      - severity
+      - action
+      - crlevel
+    noise:
+      - header
+      - devid
+      - eventtime
+      - tz
+      - incidentserialno
+      - craction
+    sample: |-
+      <185>date=2026-11-12 time=08:02:41 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762930961000000000 tz="+0100" logid="0419016384" type="utm" subtype="ips" eventtype="signature" level="alert" vd="root" severity="critical" srcip=198.51.100.23 srccountry="Netherlands" dstip=203.0.113.10 srcintf="wan1" srcintfrole="wan" dstintf="root" dstintfrole="undefined" sessionid=77120334 action="dropped" proto=6 service="HTTPS" policyid=0 attack="HTTP.Chunk.Length.Invalid" srcport=43218 dstport=10443 hostname="vpn.example.com" direction="outgoing" profile="protect-vpn" incidentserialno=208611932 msg="web_misc: HTTP.Chunk.Length.Invalid," crscore=50 craction=4096 crlevel="critical"
+cves:
+  - id: CVE-2024-21762
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: device
+    title: SSL-VPN (sslvpnd) out-of-bounds write — unauthenticated RCE via crafted HTTP requests
+    affected: FortiOS 7.4.0–7.4.2, 7.2.0–7.2.6, 7.0.0–7.0.13, 6.4.0–6.4.14, 6.2.0–6.2.15, 6.0 all
+    fixed: 7.4.3, 7.2.7, 7.0.14, 6.4.15, 6.2.16 (6.0 → migrate)
+    detect: UTM IPS logs with attack="HTTP.Chunk.Length.Invalid" (Fortinet's virtual patch) against the SSL-VPN port; sslvpnd crash/restart in system events; unexpected outbound sessions sourced from the FortiGate (subtype=local, srcintf=root).
+    avoid: Patch. If not possible, disable SSL-VPN entirely (disabling web mode alone is NOT a workaround); move remote access to IPsec/ZTNA.
+  - id: CVE-2024-55591
+    cvss: 9.8
+    year: 2025
+    kev: true
+    scope: device
+    title: Authentication bypass in the Node.js websocket module — super-admin via crafted requests
+    affected: FortiOS 7.0.0–7.0.16
+    fixed: 7.0.17
+    detect: Event logs with ui="jsconsole(...)" and source 127.0.0.1 or odd IPs like 1.1.1.1 / 8.8.8.8, admin login success for unknown users, and logid 0100044547 cfgpath="system.admin" adding super_admin accounts with random names.
+    avoid: Patch; never expose HTTP/HTTPS admin to the internet — restrict with local-in policies or trusthosts; use non-guessable admin names.
+  - id: CVE-2022-40684
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: device
+    title: Administrative interface authentication bypass (alternate path) via crafted HTTP/HTTPS
+    affected: FortiOS 7.2.0–7.2.1, 7.0.0–7.0.6
+    fixed: 7.2.2, 7.0.7
+    detect: Fortinet's own IoC — any log with user="Local_Process_Access"; config downloads and new super_admin accounts (e.g. "fortigate-tech-support") in system event logs.
+    avoid: Patch; restrict admin access via local-in policy; review admin accounts and SSH keys after any exposure.
+  - id: CVE-2022-42475
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: device
+    title: SSL-VPN heap-based buffer overflow — unauthenticated RCE (used by state actors)
+    affected: FortiOS 7.2.0–7.2.2, 7.0.0–7.0.8, 6.4.0–6.4.10, 6.2.0–6.2.11, 6.0.0–6.0.15
+    fixed: 7.2.3, 7.0.9, 6.4.11, 6.2.12, 6.0.16
+    detect: System event "application sslvpnd, signal 11 (crash)" style crash entries; connections from the FortiGate to unknown hosts; gaps in logging (the implant could tamper with elog files — forward logs off-box in real time).
+    avoid: Patch; disable SSL-VPN if unused; stream logs to an external collector so tampering is visible.
+  - id: CVE-2018-13379
+    cvss: 9.8
+    year: 2019
+    kev: true
+    scope: device
+    title: SSL-VPN web portal path traversal — reads sslvpn_websession (cleartext credentials)
+    affected: FortiOS 6.0.0–6.0.4, 5.6.3–5.6.7, 5.4.6–5.4.12 with SSL-VPN enabled
+    fixed: 6.0.5, 5.6.8, 5.4.13, 6.2.0
+    detect: SSL-VPN logins (logid 0101039424 tunnel up) for many users from unfamiliar IPs; credential lists of 87,000 devices were leaked, so successful logins from new geographies even on patched boxes matter.
+    avoid: Patch AND reset all SSL-VPN passwords that existed on a vulnerable version; enforce MFA.
+  - id: CVE-2024-3596
+    cvss: 9.0
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Blast-RADIUS — MD5 Response Authenticator forgery in the RADIUS protocol the FortiGate uses for VPN/admin auth
+    affected: RADIUS over UDP/TCP without Message-Authenticator; FortiOS 7.6.0, 7.4.0–7.4.5, 7.2.0–7.2.10, 7.0 and 6.4 all
+    fixed: FortiOS 7.6.1, 7.4.6, 7.2.11 (enforce Message-Authenticator); RADIUS servers must be patched too
+    detect: Event logs for VPN/admin logins that succeed via RADIUS with no matching accept on the RADIUS server; after patching, RADIUS auth failures signal servers that do not send Message-Authenticator.
+    avoid: Use RADSEC (RADIUS over TLS) or EAP; patch both FortiGate and the RADIUS server; keep RADIUS on a protected management network.
+detections:
+  - title: SSL-VPN brute force / password spray
+    severity: high
+    signals:
+      - logid=0101039426 (SSL VPN login fail)
+      - many users per remip
+      - reason=sslvpn_login_unknown_user
+    why: Credential attacks against SSL-VPN are a leading ransomware initial-access vector, and they usually precede a successful login from the same IP.
+    kql: |-
+      dataset="fortigate_logs" type="event" subtype="vpn" logid="0101039426"
+      | summarize fails=count(), users=dcount(user) by remip, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
+  - title: Super-admin created by an unusual interface (CVE-2024-55591 / CVE-2022-40684)
+    severity: critical
+    signals:
+      - logid=0100044547
+      - cfgpath=system.admin
+      - ui=jsconsole(127.0.0.1) or user=Local_Process_Access
+    why: Both exploited auth bypasses end with a new super_admin account created from the websocket console or a local process. This should never happen outside a change window.
+    kql: |-
+      dataset="fortigate_logs" type="event" subtype="system" logid="0100044547" cfgpath="system.admin"
+      | where action == "Add" or ui has "jsconsole" or user == "Local_Process_Access"
+      | project _time, devname, user, ui, action, cfgobj, cfgattr
+    mitre:
+      - T1136.001
+      - T1190
+      - T1078
+  - title: Exploit attempts against the SSL-VPN interface
+    severity: critical
+    signals:
+      - type=utm subtype=ips
+      - attack=HTTP.Chunk.Length.Invalid or other critical sigs
+      - dstport = SSL-VPN port
+    why: IPS hits on traffic to the firewall's own VPN listener are direct evidence of exploitation attempts against an internet-facing service.
+    kql: |-
+      dataset="fortigate_logs" type="utm" subtype="ips" severity in ("critical","high")
+      | where dstintf == "root" or attack has "SSL.VPN" or attack == "HTTP.Chunk.Length.Invalid"
+      | summarize hits=count(), first=min(_time) by srcip, dstip, dstport, attack, action
+    mitre:
+      - T1190
+  - title: Successful VPN login after many failures
+    severity: high
+    signals:
+      - logid 0101039426 failures then 0101039424 tunnel up
+      - same remip or user
+    why: The point where a spray turns into access. Prioritise accounts without MFA.
+    kql: |-
+      dataset="fortigate_logs" type="event" subtype="vpn" logid in ("0101039426","0101039424")
+      | summarize fails=countif(logid=="0101039426"), ok=countif(logid=="0101039424") by remip, user, bin(_time, 1h)
+      | where fails >= 10 and ok > 0
+    mitre:
+      - T1110
+      - T1078
+  - title: Outbound sessions sourced from the firewall itself
+    severity: medium
+    signals:
+      - type=traffic subtype=local
+      - srcip = FortiGate interface IP
+      - dstip not FortiGuard / NTP / DNS / logging
+    why: Implants on compromised FortiGates (e.g. after CVE-2022-42475) beacon out from the device. Local-out traffic to unusual destinations is rare and high-signal.
+    kql: |-
+      dataset="fortigate_logs" type="traffic" subtype="local" srcintf=="root"
+      | lookup fortigate_expected_destinations on dstip
+      | where isempty(expected)
+      | summarize sessions=count(), bytes=sum(sentbyte) by devname, dstip, dstport
+    mitre:
+      - T1071.001
+      - T1571
+optimizations:
+  - title: Log at session end only
+    saving: 10–25 %
+    fn: Drop
+    how: With session-start logging enabled every session is written twice. Disable logtraffic-start on policies, or drop start records in Stream — the close record has the same 5-tuple plus bytes and duration.
+    expr: type=='traffic' && action=='start'
+  - title: Strip redundant and empty fields
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Parse the key=value pairs, drop eventtime (date/time duplicate), tz, poluuid, devid (map to a lookup), mastersrcmac, srcserver, zero counters and "N/A" values, then re-serialise as key=value or JSON.
+    expr: "remove: eventtime, tz, poluuid, mastersrcmac, srcserver, count*; drop values '' / 'N/A'"
+  - title: Suppress repetitive implicit denies
+    saving: 5–20 %
+    fn: Suppress
+    how: Internet scanning produces floods of policyid=0 denies on the WAN. Keep one per srcip/dstip/dstport every 60 s with a count field.
+    expr: "key: `${srcip}:${dstip}:${dstport}`  allow 1 / 60s  when action=='deny' && policyid==0"
+  - title: Aggregate allowed DNS/NTP/local traffic
+    saving: 10–30 %
+    fn: Aggregations
+    how: Allowed DNS (port 53), NTP and internal service traffic is rarely searched per session. Roll up bytes and sessions per srcip/dstip/service per minute for the SIEM; keep raw in Cribl Lake.
+    expr: type=='traffic' && action!='deny' && (service=='DNS' || service=='NTP')
+  - title: Route by type
+    saving: SIEM licence
+    fn: Routes
+    how: type=event and type=utm go to the SIEM at full fidelity; type=traffic goes raw to Cribl Lake and optimised to the SIEM. Replay from Lake during investigations.
+    expr: type!='traffic' → SIEM  |  type=='traffic' → Lake + SIEM(optimised)
+references:
+  - title: FortiOS log message reference — list of log types and subtypes
+    url: https://docs.fortinet.com/document/fortigate/7.4.11/fortios-log-message-reference/160372
+  - title: FortiOS log message reference — log message fields
+    url: https://docs.fortinet.com/document/fortigate/7.4.11/fortios-log-message-reference/357866
+  - title: FG-IR-24-015 — CVE-2024-21762 out-of-bound write in sslvpnd
+    url: https://www.fortiguard.com/psirt/FG-IR-24-015
+  - title: FG-IR-24-535 — CVE-2024-55591 Node.js websocket authentication bypass
+    url: https://www.fortiguard.com/psirt/FG-IR-24-535
+  - title: FG-IR-22-377 — CVE-2022-40684 administrative interface authentication bypass
+    url: https://www.fortiguard.com/psirt/FG-IR-22-377
+  - title: FG-IR-22-398 — CVE-2022-42475 heap-based buffer overflow in sslvpnd
+    url: https://www.fortiguard.com/psirt/FG-IR-22-398
+  - title: FG-IR-18-384 — CVE-2018-13379 SSL-VPN path traversal
+    url: https://www.fortiguard.com/psirt/FG-IR-18-384
+  - title: Cribl Pack — Fortinet FortiGate Firewall
+    url: https://packs.cribl.io/packs/cribl-fortinet-fortigate-firewall
+related:
+  - pan-ngfw
+  - cisco-asa
+  - checkpoint
+  - sonicwall
+  - sophos-xg
+  - juniper-srx

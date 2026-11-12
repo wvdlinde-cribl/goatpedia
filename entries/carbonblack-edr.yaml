@@ -1,0 +1,337 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: carbonblack-edr
+name: VMware Carbon Black EDR
+short: Carbon Black
+aka:
+  - Carbon Black EDR
+  - Cb Response
+  - CB Enterprise Response
+  - Bit9 + Carbon Black
+  - Carbon Black Cloud Enterprise EDR (SaaS successor)
+vendor: Broadcom (VMware)
+category: edr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - edr
+  - endpoint
+  - threat-hunting
+  - event-forwarder
+  - json
+  - leef
+  - on-prem
+summary: Threat-hunting EDR that continuously records every process start, network connection, file, registry and module event on the endpoint and centralises it on a customer-run (or hosted) EDR server with Solr-backed process search, watchlists and threat feeds. The cb-event-forwarder subscribes to the server's message bus and emits normalised JSON or LEEF to files, syslog, S3, Splunk HEC or Kafka. Carbon Black Cloud (Endpoint Standard / Enterprise EDR) is the SaaS successor with its own Event Forwarder to S3.
+sourcetypes:
+  - st: carbonblack_edr
+    desc: cb-event-forwarder JSON — ingress.event.* sensor events, watchlist/feed hits and alerts (also Carbon Black Cloud endpoint.event.* via its S3 Event Forwarder)
+  - st: bit9:carbonblack:json
+    desc: Splunk Add-on for Carbon Black (Bit9) — event-forwarder JSON
+facts:
+  First released: 2012 (Carbon Black); Cb Response 5.x 2015; renamed VMware Carbon Black EDR 2019
+  Platform: Sensors for Windows, macOS, Linux; server on RHEL / CentOS (on-prem or VMware-hosted)
+  Delivery model: Self-managed EDR server (or hosted EDR); SaaS successor = Carbon Black Cloud
+  Data export: cb-event-forwarder (subscribes to the server's RabbitMQ message bus)
+  Log transport: File, TCP/UDP, syslog (TCP+TLS), Amazon S3, Splunk HEC, Kafka, HTTP
+  Log format: JSON (default) or LEEF; raw sensor events are protobuf on the bus, converted by the forwarder
+  Typical volume: tens of thousands to hundreds of thousands of events/s on a busy server — forward only procstart + netconn unless needed
+  Ownership: Carbon Black → VMware (2019) → Broadcom (2023)
+  Cribl Pack: Carbon Black Events (cribl-carbon-black, Packs Dispensary)
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+  items:
+    - slot: endpoint
+      title: Sensor on every host
+      desc: The sensor records process, netconn, filemod, regmod, modload, childproc and crossproc events and can isolate the host or ban hashes. It reports to the EDR server over TLS (443 by default).
+    - slot: internal
+      title: EDR server cluster
+      desc: Customer-run master + minions storing events in Solr and binaries in the binary store. Runs watchlists, threat-intel feeds and the RabbitMQ bus the event forwarder reads.
+    - slot: internal
+      title: Event forwarder
+      desc: cb-event-forwarder runs on (or beside) the EDR server and ships normalised JSON/LEEF to the SIEM, S3 or Kafka. Cribl Stream receives it via syslog, HEC, Kafka or S3.
+    - slot: cloud
+      title: Carbon Black Cloud (successor)
+      desc: The SaaS product streams endpoint.event.* records via its Data Forwarder to an S3 bucket, with a different schema (device_*, process_*, action fields).
+howItWorks:
+  - title: Continuous recording
+    body: Unlike alert-only EDRs, the sensor records all activity of interest and sends it to the server, where it is indexed per process in Solr. Analysts query "process_name:powershell.exe and netconn_count:[1 TO *]" across all hosts, with full process trees.
+  - title: Process GUID and segments
+    body: Each process gets a GUID (sensor id + pid + start time). Busy processes are split into segments of 10,000 events; event-forwarder output for raw sensor events points to the first segment, alerts carry segment_id. Join child events to process starts on process_guid.
+  - title: Watchlists and threat feeds
+    body: Watchlists are saved queries run periodically against new data; threat-intel feeds (Carbon Black Threat Intel, custom feeds) match IOCs. Hits produce watchlist.hit.* / feed.*.hit.* messages and, if configured, alerts (alert.watchlist.hit.*) with report_score and severity.
+  - title: Message bus and event forwarder
+    body: The server publishes sensor events (protobuf, very high rate) and alerts/hits (JSON) on RabbitMQ. cb-event-forwarder subscribes to selected routing keys, converts protobuf to JSON/LEEF, adds deep links, and writes to the configured output. Subscribing to every ingress.event.* key can overwhelm both server and SIEM.
+  - title: Response actions
+    body: Live Response (remote shell), host isolation, hash banning and process kill are issued from the console or API. Tamper events (ingress.event.tamper) signal sensor-side interference.
+traffic:
+  handles:
+    - Process start / end with command line, user, hashes, parent
+    - Network connections per process (incl. proxy, JA3/JA3S when available)
+    - File modifications, executable writes
+    - Registry modifications
+    - Module and child-process loads, cross-process access
+    - Watchlist and threat-feed hits, alerts
+    - Sensor tamper and banned-binary block events
+  flow:
+    - step: Sensor event
+      desc: Kernel driver observes process, network, file, registry or module activity.
+    - step: Send to server
+      desc: Sensor batches events to the EDR server over TLS; server indexes them in Solr.
+    - step: Watchlists and feeds
+      desc: Saved queries and IOC feeds run against new data; hits become watchlist/feed messages and alerts.
+    - step: Message bus
+      desc: Sensor events (protobuf) and hits/alerts (JSON) are published on RabbitMQ.
+    - step: Event forwarder
+      desc: Subscribes to selected keys, normalises to JSON/LEEF, adds timestamp and links.
+    - step: Collect and route
+      desc: Syslog / HEC / S3 / Kafka into Cribl Stream → SIEM (alerts, procstart) and lake (everything).
+logs:
+  - type: Process start (ingress.event.procstart)
+    sourcetype: carbonblack_edr
+    format: json
+    share: 20–35 %
+    avg: ~900 B
+    desc: One record per process start — path, command line, hashes, user and parent. The anchor for hunting and for joining netconn/filemod events via process_guid.
+    key:
+      - type
+      - computer_name
+      - path
+      - command_line
+      - username
+      - parent_path
+      - sha256
+      - process_guid
+    noise:
+      - cb_server
+      - expect_followon_w_md5
+      - filtering_known_dlls
+      - link_process
+      - link_sensor
+      - link_parent
+    sample: '{"cb_server":"cbserver","type":"ingress.event.procstart","event_type":"proc","timestamp":1762938860,"sensor_id":1042,"computer_name":"WS-FIN-042","process_guid":"00000412-0000-1cf4-01db-53a1f0e2c3d4","pid":7412,"path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","md5":"7353f60b1739074eb17c5f4dddefe239","sha256":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","command_line":"powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=","username":"CORP\\jdoe","uid":"S-1-5-21-1004336348-1177238915-682003330-1104","parent_path":"c:\\program files\\microsoft office\\root\\office16\\winword.exe","parent_pid":6120,"parent_guid":"00000412-0000-17e8-01db-53a1eaa0b1c2","parent_create_time":1762938712,"parent_md5":"0c1d2e3f405162738495a6b7c8d9e0f1","filtering_known_dlls":false,"expect_followon_w_md5":false,"link_process":"https://cbserver.corp.example.com/#analyze/00000412-0000-1cf4-01db-53a1f0e2c3d4/1","link_sensor":"https://cbserver.corp.example.com/#/host/1042","link_parent":"https://cbserver.corp.example.com/#analyze/00000412-0000-17e8-01db-53a1eaa0b1c2/1"}'
+  - type: Network connection (ingress.event.netconn)
+    sourcetype: carbonblack_edr
+    format: json
+    share: 40–60 %
+    avg: ~700 B
+    desc: One record per connection made or accepted by a process, with local/remote IP and port, domain and direction. The highest-volume event type.
+    key:
+      - type
+      - computer_name
+      - direction
+      - remote_ip
+      - remote_port
+      - domain
+      - process_path
+      - process_guid
+    noise:
+      - cb_server
+      - proxy
+      - link_process
+      - link_sensor
+    sample: '{"cb_server":"cbserver","type":"ingress.event.netconn","event_type":"netconn","timestamp":1762938864,"sensor_id":1042,"computer_name":"WS-FIN-042","process_guid":"00000412-0000-1cf4-01db-53a1f0e2c3d4","pid":7412,"process_path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","md5":"7353f60b1739074eb17c5f4dddefe239","direction":"outbound","domain":"cdn.update-check.example.org","protocol":6,"local_ip":"10.20.30.44","local_port":51544,"remote_ip":"198.51.100.77","remote_port":443,"proxy":false,"link_process":"https://cbserver.corp.example.com/#analyze/00000412-0000-1cf4-01db-53a1f0e2c3d4/1","link_sensor":"https://cbserver.corp.example.com/#/host/1042"}'
+  - type: Watchlist alert (alert.watchlist.hit.query.process)
+    sourcetype: carbonblack_edr
+    format: json
+    share: < 1 %
+    avg: ~1.5 KB
+    desc: A process matched a watchlist query and the watchlist is configured to alert. Carries the watchlist name, score, severity and the process counters at the time of the hit.
+    key:
+      - alert_type
+      - watchlist_name
+      - hostname
+      - username
+      - process_name
+      - process_path
+      - report_score
+      - alert_severity
+    noise:
+      - feed_id
+      - unique_id
+      - segment_id
+      - sensor_criticality
+      - ioc_attr
+    sample: '{"type":"alert.watchlist.hit.query.process","alert_type":"watchlist.hit.query.process","event_timestamp":1762938900.954,"created_time":"2026-11-12T09:15:00.830563Z","watchlist_id":"27","watchlist_name":"Office spawning PowerShell","feed_id":"-1","feed_name":"My Watchlists","feed_rating":"3.0","ioc_type":"query","ioc_confidence":"0.5","ioc_attr":"{\"highlights\": [\"PREPREPREpowershell.exePOSTPOSTPOST\"]}","report_score":"75","alert_severity":"60.5","status":"Unresolved","hostname":"WS-FIN-042","sensor_id":"1042","sensor_criticality":"3.0","os_type":"windows","interface_ip":"10.20.30.44","comms_ip":"10.20.30.44","group":"Finance","username":"CORP\\jdoe","process_id":"00000412-0000-1cf4-01db-53a1f0e2c3d4","segment_id":"1","process_name":"powershell.exe","process_path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","md5":"7353f60b1739074eb17c5f4dddefe239","netconn_count":"1","childproc_count":"0","modload_count":"61","filemod_count":"2","regmod_count":"0","crossproc_count":"1","unique_id":"c02c7a6a-07a5-49d9-8e7a-930413575d2f"}'
+  - type: Carbon Black Cloud endpoint event (Data Forwarder)
+    sourcetype: carbonblack_edr
+    format: json
+    share: SaaS deployments
+    avg: ~1.2 KB
+    desc: "Carbon Black Cloud's Data Forwarder writes endpoint.event.* records (procstart, netconn, filemod, regmod, crossproc …) to S3 with device_*, process_*, parent_* and action fields — a different schema from the on-prem forwarder."
+    key:
+      - type
+      - device_name
+      - action
+      - process_cmdline
+      - process_username
+      - parent_path
+      - sensor_action
+    noise:
+      - schema
+      - event_description
+      - alert_id
+      - event_id
+      - process_fork_pid
+      - device_group
+    sample: '{"type":"endpoint.event.procstart","process_guid":"7ZXFDDV7-0002e290-00001cf4-00000000-1db53a1f0e2c3d4","parent_guid":"7ZXFDDV7-0002e290-000017e8-00000000-1db53a1eaa0b1c2","backend_timestamp":"2026-11-12 09:14:24 +0000 UTC","device_timestamp":"2026-11-12 09:14:20.110 +0000 UTC","org_key":"7ZXFDDV7","device_id":"189072","device_name":"ws-fin-042","device_external_ip":"203.0.113.45","device_os":"WINDOWS","device_group":"Finance","action":"ACTION_PROCESS_START","schema":1,"event_description":"","alert_id":"","event_id":"","event_origin":"EDR","sensor_action":"ACTION_ALLOW","process_pid":7412,"process_path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","process_cmdline":"powershell.exe -nop -w hidden -enc SQBFAFgA","process_username":"CORP\\jdoe","process_reputation":"REP_WHITE","process_hash":["7353f60b1739074eb17c5f4dddefe239","9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f"],"parent_pid":6120,"parent_path":"c:\\program files\\microsoft office\\root\\office16\\winword.exe","parent_cmdline":"WINWORD.EXE /n invoice.docm","process_fork_pid":0}'
+cves:
+  - id: CVE-2016-9568
+    cvss: 9.8
+    year: 2016
+    kev: false
+    scope: device
+    title: Sensor design flaw lets an unprivileged user interact with the Carbon Black sensor and perform unauthorized actions
+    affected: Carbon Black (Cb Response) sensor 5.1.1.60603
+    detect: ingress.event.tamper events; sensor going offline or sensor config changes not initiated by admins; process events for unexpected clients talking to the sensor's local interfaces.
+    avoid: Upgrade the sensor to a current release; keep tamper protection on; alert on sensor health and tamper events.
+  - id: CVE-2018-10407
+    cvss: 5.5
+    year: 2018
+    kev: false
+    scope: device
+    title: Cb Response on macOS mis-validates Universal/fat binaries so unsigned code appears Apple-signed
+    affected: Carbon Black Cb Response macOS sensor (versions current at the June 2018 Okta disclosure; NVD lists no fixed build)
+    detect: procstart events on macOS where a binary reported as Apple-signed has an unknown hash or runs from a user-writable path; mismatch between signature state and reputation.
+    avoid: Upgrade the sensor; do not whitelist by "signed by Apple" alone — use hash and path rules.
+  - id: CVE-2022-30190
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Microsoft Support Diagnostic Tool "Follina" RCE via ms-msdt URL from Office documents — an endpoint exploit Carbon Black is used to hunt
+    affected: Windows client and server before the June 2022 cumulative update
+    fixed: Microsoft June 2022 security updates
+    detect: procstart with parent_path ending winword.exe / excel.exe / outlook.exe and path ending msdt.exe, or command_line containing "ms-msdt:" / "IT_BrowseForFile"; follow-on netconn from sdiagnhost.exe.
+    avoid: Patch; remove the ms-msdt protocol handler; block Office child processes.
+  - id: CVE-2021-40444
+    cvss: 8.8
+    year: 2021
+    kev: true
+    scope: traffic
+    title: MSHTML remote code execution via malicious ActiveX in Office documents
+    affected: Windows 7 – 11 and Server 2008 – 2022 before the September 2021 update
+    fixed: Microsoft September 2021 security updates
+    detect: procstart of control.exe or rundll32.exe with a .cpl/.inf from %TEMP% and a parent of winword.exe; filemod of .inf/.cab files in INetCache by Office; netconn from Office to an external host just before.
+    avoid: Patch; disable ActiveX in Internet Explorer zones via GPO; Protected View for internet files.
+detections:
+  - title: Office application spawning a script interpreter or LOLBin
+    severity: high
+    signals:
+      - type=ingress.event.procstart
+      - parent_path ends winword.exe / excel.exe / outlook.exe
+      - path ends powershell.exe / cmd.exe / msdt.exe / mshta.exe / rundll32.exe
+    why: Covers macro malware, Follina and MSHTML exploitation in one rule. Rare in legitimate use.
+    kql: |-
+      dataset="cb_edr" type="ingress.event.procstart"
+      | where parent_path matches regex @"(?i)\\(winword|excel|powerpnt|outlook)\.exe$"
+      | where path matches regex @"(?i)\\(powershell|pwsh|cmd|msdt|mshta|rundll32|wscript|cscript|control)\.exe$"
+      | summarize count(), cmds=make_set(command_line, 5) by computer_name, username, parent_path, path
+    mitre:
+      - T1566.001
+      - T1204.002
+      - T1203
+  - title: Encoded PowerShell
+    severity: high
+    signals:
+      - type=ingress.event.procstart
+      - path ends powershell.exe
+      - command_line has -enc / -EncodedCommand
+    why: Encoded commands are the default for loaders and post-exploitation frameworks.
+    kql: |-
+      dataset="cb_edr" type="ingress.event.procstart"
+      | where path endswith "powershell.exe" or path endswith "pwsh.exe"
+      | where command_line matches regex @"(?i)\s-(e|en|enc|encodedcommand)\s"
+      | summarize count() by computer_name, username, command_line
+    mitre:
+      - T1059.001
+      - T1027.010
+  - title: Scripting host connecting to the internet
+    severity: medium
+    signals:
+      - type=ingress.event.netconn
+      - direction=outbound
+      - process_path is powershell / wscript / mshta / rundll32
+      - remote_ip not RFC1918
+    why: Download cradles and C2 implants commonly run inside script hosts; legitimate admin scripts rarely talk to random internet hosts.
+    kql: |-
+      dataset="cb_edr" type="ingress.event.netconn" direction="outbound"
+      | where process_path matches regex @"(?i)\\(powershell|pwsh|wscript|cscript|mshta|rundll32|regsvr32)\.exe$"
+      | where not(ipv4_is_private(remote_ip))
+      | summarize conns=count(), domains=make_set(domain, 10) by computer_name, process_path, remote_ip, remote_port
+    mitre:
+      - T1059.001
+      - T1105
+      - T1071.001
+  - title: High-score watchlist / feed alert
+    severity: critical
+    signals:
+      - alert_type starts watchlist.hit or feed
+      - report_score >= 75
+    why: Watchlists encode your own hunting knowledge; a high-score hit should become an incident immediately.
+    kql: |-
+      dataset="cb_edr" type startswith "alert."
+      | where toint(report_score) >= 75
+      | summarize count(), first=min(_time) by hostname, username, watchlist_name, process_name
+    mitre:
+      - T1059
+  - title: Sensor tamper or blocked process storm
+    severity: high
+    signals:
+      - type=ingress.event.tamper
+      - many ingress.event.processblock on one host
+    why: Tampering precedes disabling the sensor; a burst of banned-hash blocks means something is trying repeatedly to run.
+    kql: |-
+      dataset="cb_edr" type in ("ingress.event.tamper","ingress.event.processblock")
+      | summarize events=count(), types=make_set(type) by computer_name, bin(_time, 10m)
+      | where events > 5 or set_has_element(types, "ingress.event.tamper")
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Subscribe only to what you use
+    saving: 50–80 % at the source
+    fn: Event forwarder config + Routes
+    how: The forwarder README itself recommends at most procstart and netconn for broadcasting raw events. Enable filemod/regmod/modload only for the lake route, never for the SIEM.
+    expr: "events_raw_sensor = ingress.event.procstart, ingress.event.netconn; events_watchlist = ALL; events_alert = ALL"
+  - title: Drop links and constant fields
+    saving: 20–35 %
+    fn: Eval (remove fields)
+    how: link_process, link_sensor, link_parent (long URLs), cb_server, expect_followon_w_md5, filtering_known_dlls and proxy=false are on most events and rebuildable from process_guid.
+    expr: "remove: link_*, cb_server, expect_followon_w_md5, filtering_known_dlls; drop proxy when false"
+  - title: Aggregate netconn
+    saving: 20–40 %
+    fn: Aggregations
+    how: Roll up repeated outbound connections per computer_name / process_path / remote_ip / remote_port per minute; keep first-seen raw.
+    expr: "type=='ingress.event.netconn'  group by computer_name, process_path, remote_ip, remote_port  window 60s"
+  - title: Drop trusted system processes
+    saving: 10–25 %
+    fn: Lookup + Drop
+    how: Drop procstart/netconn for known-good hashes (AV, backup, management agents) from a lookup; keep anything with an unknown hash.
+    expr: C.Lookup('cb_trusted_sha256.csv','sha256').match(sha256) && type.startsWith('ingress.event.')
+references:
+  - title: carbonblack/cb-event-forwarder (GitHub)
+    url: https://github.com/carbonblack/cb-event-forwarder
+  - title: Carbon Black Developer Network — EDR event forwarder event schema
+    url: https://developer.carbonblack.com/reference/enterprise-response/event-forwarder/event-schema/
+  - title: Cribl Pack Dispensary — cribl-carbon-black
+    url: https://github.com/criblpacks/cribl-carbon-black
+  - title: Nettitude — Carbon Black advisories CVE-2016-9568 / 9569 / 9570
+    url: https://labs.nettitude.com/blog/carbon-black-security-advisories-cve-2016-9570-cve-2016-9568-and-cve-2016-9569/
+  - title: NVD — CVE-2018-10407
+    url: https://nvd.nist.gov/vuln/detail/CVE-2018-10407
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK — T1566.001 Spearphishing Attachment
+    url: https://attack.mitre.org/techniques/T1566/001/
+  - title: Splunk Add-on for Carbon Black — Source types and CIM
+    url: https://splunk.github.io/splunk-add-on-for-carbon-black/Sourcetypes/
+related:
+  - crowdstrike
+  - sentinelone
+  - mde
+  - sysmon
+  - win-security
+  - osquery

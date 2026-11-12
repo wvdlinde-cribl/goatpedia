@@ -1,0 +1,345 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sentinelone
+name: SentinelOne Singularity
+short: SentinelOne
+aka:
+  - S1
+  - Singularity Complete / Control / Core
+  - Singularity XDR
+  - Deep Visibility
+  - Cloud Funnel
+  - Singularity Data Lake
+vendor: SentinelOne
+category: edr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - edr
+  - xdr
+  - epp
+  - endpoint
+  - deep-visibility
+  - cloud-funnel
+  - json
+  - s3
+summary: AI-driven EPP/EDR platform. An autonomous agent with static and behavioural AI engines prevents and remediates on the endpoint (including ransomware rollback) and groups every action into a "Storyline". Deep Visibility telemetry is exported by Cloud Funnel as newline-delimited JSON into a customer S3 / GCS / Azure Blob bucket; threats and alerts come from the management REST API.
+sourcetypes:
+  - st: sentinelone_cloudfunnel_v1
+    desc: Cloud Funnel 1.0 — nested JSON (meta / event objects) via the SentinelOne-owned S3 bucket or Kafka
+  - st: sentinelone_cloudfunnel_v2
+    desc: Cloud Funnel 2.0 — flat dotted-key JSON (src.process.*, tgt.*, event.*) from Singularity Data Lake to a customer bucket
+  - st: SentinelOne_CL
+    desc: Microsoft Sentinel table of the SentinelOne connector, read by the ASIM SentinelOne parsers (the newer codeless connector writes SentinelOneThreats_CL, SentinelOneActivities_CL, SentinelOneAgents_CL and others)
+facts:
+  First released: 2013 (company); Deep Visibility 2018; Cloud Funnel 2.0 2022
+  Platform: Windows, macOS, Linux, Kubernetes / containers, cloud workloads
+  Delivery model: SaaS management console (or on-prem / air-gapped) + autonomous agent
+  Telemetry export: Cloud Funnel 2.0 → customer S3 (also GCS / Azure Blob); Cloud Funnel 1.0 → SentinelOne S3 / Kafka
+  Alert export: Management REST API (threats, alerts, activities, agents) and syslog/CEF notifications
+  Log format: Newline-delimited JSON, one event per line (gzip objects); CEF for syslog notifications
+  Event categories: Process, Cross Process, DNS, File, IP, Indicators, Logins, Module, Registry, Scheduled Task, URL, Driver, Group
+  Typical volume: 20–150 MB per endpoint per day Cloud Funnel (filters reduce this at the source)
+  Cribl Pack: Cribl Pack for SentinelOne Cloud Funnel (v1 and v2), Packs Dispensary
+placement:
+  slots:
+    - endpoint
+    - cloud
+    - internal
+  items:
+    - slot: endpoint
+      title: Agent on every host
+      desc: The agent prevents, detects and remediates locally (kill, quarantine, network isolation, ransomware rollback via VSS) and works offline. It streams Deep Visibility events to the console.
+    - slot: cloud
+      title: Management console + Singularity Data Lake
+      desc: Multi-tenant SaaS (Account → Site → Group hierarchy). Deep Visibility / Data Lake stores telemetry; Cloud Funnel copies it out to a bucket the customer or MDR reads.
+    - slot: cloud
+      title: Customer S3 / GCS / Blob bucket
+      desc: Cloud Funnel 2.0 writes gzip NDJSON objects organised by account, date and event type. Cribl Stream reads them via an S3 Source with SQS notifications.
+    - slot: internal
+      title: Servers, Kubernetes and Ranger
+      desc: Server and container agents cover workloads; Ranger uses agents to discover unmanaged devices on the same subnet; Singularity Identity adds AD deception and protection on domain controllers.
+howItWorks:
+  - title: Static and behavioural AI
+    body: A static AI engine scores files pre-execution; a behavioural engine watches process activity on the endpoint in real time. Detections are mapped to MITRE techniques and raised as threats with a mitigation status (killed, quarantined, remediated, rolled back).
+  - title: Storyline
+    body: Every process is assigned a Storyline id (src.process.storyline.id) that follows the chain of related activity across process creation, injection and file/network actions — even across reboots. Hunting and remediation operate on the whole Storyline, and Cloud Funnel exports the id so a SIEM can reconstruct the chain.
+  - title: Deep Visibility event model
+    body: "Events have a category (process, dns, ip, file, registry, indicators, logins …), an event.type, the source process (src.process.*, with parent.*) and a target (tgt.process.* / tgt.file.* / event.dns.* / dst.ip.*). Indicators events carry behavioural verdicts (indicator.category, indicator.name, indicator.description with MITRE ids)."
+  - title: Cloud Funnel 1.0 vs 2.0
+    body: "Cloud Funnel 1.0 delivered nested JSON (meta{} + event{}) via a SentinelOne-owned bucket or Kafka. 2.0 is fed from Singularity Data Lake, writes flat dotted-key JSON (\"src.process.cmdline\") to a customer-owned bucket and supports query filters to export only the categories you need. Field names differ completely — pipelines must detect the version."
+  - title: Management API and notifications
+    body: The REST API (API token) exposes threats, alerts, activities (console and agent audit), agents and applications/vulnerabilities. Syslog/CEF notifications can push threats and activities in near real time.
+  - title: Anti-tamper and agent upgrade
+    body: The agent protects itself (Anti-Tamper, PPL). Two public techniques — "Bring Your Own Installer" (2025, interrupting a local version change) and "Bring Your Own EDR" (2026, abusing the SentinelHelper COM Dump method, fixed in agent 26.1.1) — need local admin but leave hosts unprotected or abuse the agent's trust. Enable Local Upgrade Authorization and watch agent version and status events.
+traffic:
+  handles:
+    - Process creation and termination with command line and Storyline
+    - Cross-process access (injection, handle duplication)
+    - DNS and IP connections per process, URLs
+    - File create/modify/delete, module and driver loads
+    - Registry and scheduled-task persistence
+    - Logins (local, RDP, network) with success/failure
+    - Behavioural indicators and threats with mitigation status
+  flow:
+    - step: Event on endpoint
+      desc: Agent observes a process, file, network or registry action and tags it with the Storyline.
+    - step: On-agent AI
+      desc: Static/behavioural engines decide; policy can kill, quarantine, isolate or roll back immediately.
+    - step: Console + Data Lake
+      desc: Telemetry and threats are sent to the console; Deep Visibility events land in Singularity Data Lake.
+    - step: Cloud Funnel export
+      desc: Filtered telemetry is written as gzip NDJSON objects into the customer bucket by account/date/type.
+    - step: Collect
+      desc: S3 object-created notification → SQS → Cribl Stream S3 Source downloads and breaks events.
+    - step: Shape and route
+      desc: Pipeline detects v1/v2, drops noisy categories, enriches with CMDB, routes to SIEM and lake.
+logs:
+  - type: Process creation (Cloud Funnel 2.0)
+    sourcetype: sentinelone_cloudfunnel_v2
+    format: json
+    share: 15–25 %
+    avg: ~3 KB
+    desc: "meta.event.name=PROCESSCREATION: the source (parent) process creating a target process, with command lines, hashes, signer, integrity level and Storyline ids."
+    key:
+      - event.type
+      - endpoint.name
+      - src.process.user
+      - src.process.name
+      - tgt.process.name
+      - tgt.process.cmdline
+      - tgt.process.image.sha256
+      - src.process.storyline.id
+    noise:
+      - i.scheme
+      - i.version
+      - sca:atlantisIngestTime
+      - sca:ingestTime
+      - mgmt.url
+      - src.process.moduleCount
+      - src.process.crossProcessDupRemoteProcessHandleCount
+      - src.process.indicatorRansomwareCount
+    sample: '{"event.category":"process","event.type":"Process Creation","meta.event.name":"PROCESSCREATION","event.id":"01JCX3M8Q7Z5D2K9W1T4H6B8NA_12","event.time":1762938860110,"timestamp":"2026-11-12T09:14:20.110Z","account.id":"1450129248765485585","site.id":"1450129249210081821","site.name":"Default site","group.id":"1450129249235247646","agent.uuid":"a1b2c3d4e5f60718293a4b5c6d7e8f90","agent.version":"26.1.1.48","endpoint.name":"WS-FIN-042","endpoint.os":"windows","endpoint.type":"laptop","os.name":"Windows 11 Enterprise","mgmt.url":"usea1-example.sentinelone.net","dataSource.name":"SentinelOne","dataSource.category":"security","i.scheme":"edr","i.version":"preprocess-lib-1.0","sca:atlantisIngestTime":1762938865938,"sca:ingestTime":1762938866,"src.process.name":"WINWORD.EXE","src.process.pid":6120,"src.process.user":"CORP\\jdoe","src.process.cmdline":"\"WINWORD.EXE\" /n \"C:\\Users\\jdoe\\Downloads\\invoice.docm\"","src.process.image.path":"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE","src.process.image.sha1":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678","src.process.publisher":"MICROSOFT CORPORATION","src.process.signedStatus":"signed","src.process.integrityLevel":"MEDIUM","src.process.storyline.id":"3178760C0D18489D","src.process.parent.name":"explorer.exe","src.process.moduleCount":224,"src.process.crossProcessDupRemoteProcessHandleCount":12,"src.process.indicatorRansomwareCount":0,"tgt.process.name":"powershell.exe","tgt.process.pid":7412,"tgt.process.cmdline":"powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=","tgt.process.image.path":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","tgt.process.image.sha256":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","tgt.process.publisher":"MICROSOFT WINDOWS","tgt.process.integrityLevel":"MEDIUM","tgt.process.storyline.id":"3178760C0D18489D","tgt.process.verifiedStatus":"verified"}'
+  - type: DNS (Cloud Funnel 2.0)
+    sourcetype: sentinelone_cloudfunnel_v2
+    format: json
+    share: 20–35 %
+    avg: ~2.5 KB
+    desc: One record per DNS resolution by a process — very high volume, mostly OS and browser lookups.
+    key:
+      - event.type
+      - endpoint.name
+      - event.dns.request
+      - event.dns.response
+      - src.process.name
+      - src.process.storyline.id
+    noise:
+      - i.scheme
+      - i.version
+      - sca:atlantisIngestTime
+      - sca:ingestTime
+      - mgmt.url
+      - src.process.moduleCount
+    sample: '{"event.category":"dns","event.type":"DNS Resolved","meta.event.name":"DNS","event.id":"01JCX3M8Q7Z5D2K9W1T4H6B8NB_3","event.time":1762938863102,"timestamp":"2026-11-12T09:14:23.102Z","account.id":"1450129248765485585","site.id":"1450129249210081821","site.name":"Default site","agent.uuid":"a1b2c3d4e5f60718293a4b5c6d7e8f90","endpoint.name":"WS-FIN-042","endpoint.os":"windows","mgmt.url":"usea1-example.sentinelone.net","i.scheme":"edr","i.version":"preprocess-lib-1.0","sca:atlantisIngestTime":1762938868100,"sca:ingestTime":1762938868,"event.dns.request":"cdn.update-check.example.org","event.dns.response":"IP: 198.51.100.77;","src.process.name":"powershell.exe","src.process.pid":7412,"src.process.user":"CORP\\jdoe","src.process.cmdline":"powershell.exe -nop -w hidden -enc SQBFAFgA","src.process.storyline.id":"3178760C0D18489D","src.process.moduleCount":61}'
+  - type: Behavioural indicator (Cloud Funnel 2.0)
+    sourcetype: sentinelone_cloudfunnel_v2
+    format: json
+    share: 1–3 %
+    avg: ~3 KB
+    desc: "meta.event.name=BEHAVIORALINDICATORS: a behaviour the agent considered suspicious, with category (Evasion, Persistence, Injection, Ransomware …), name and MITRE mapping. Not every indicator is a threat, but they are the best hunting pivot."
+    key:
+      - indicator.category
+      - indicator.name
+      - indicator.description
+      - endpoint.name
+      - src.process.name
+      - src.process.storyline.id
+    noise:
+      - i.scheme
+      - i.version
+      - sca:atlantisIngestTime
+      - sca:ingestTime
+      - indicator.metadata
+    sample: '{"event.category":"indicators","event.type":"Behavioral Indicators","meta.event.name":"BEHAVIORALINDICATORS","event.time":1762938864010,"timestamp":"2026-11-12T09:14:24.010Z","account.id":"1450129248765485585","site.name":"Default site","endpoint.name":"WS-FIN-042","i.scheme":"edr","i.version":"preprocess-lib-1.0","sca:atlantisIngestTime":1762938869240,"sca:ingestTime":1762938869,"indicator.category":"Evasion","indicator.name":"EncodedPowershellCommand","indicator.description":"PowerShell executed an encoded command. MITRE: Defense Evasion T1027.010, Execution T1059.001","indicator.metadata":"Process: powershell.exe, Pid: 7412","src.process.name":"powershell.exe","src.process.user":"CORP\\jdoe","src.process.parent.name":"WINWORD.EXE","src.process.storyline.id":"3178760C0D18489D"}'
+  - type: Process (Cloud Funnel 1.0)
+    sourcetype: sentinelone_cloudfunnel_v1
+    format: json
+    share: legacy
+    avg: ~5 KB
+    desc: Cloud Funnel 1.0 nests everything under meta{} and event{} with long counters blocks. Same information as 2.0, different field names — still seen in older tenants and MDR feeds.
+    key:
+      - meta.computerName
+      - meta.agentVersion
+      - event.process.name
+      - event.process.commandLine
+      - event.process.executable.hashes.sha256
+      - event.process.user.name
+    noise:
+      - meta.seqId
+      - meta.traceId
+      - event.process.counters.crossProcess
+      - event.process.counters.moduleLoad
+    sample: '{"@timestamp":1762938860110,"meta":{"traceId":"01JCX3M8Q7Z5D2K9W1T4H6B8NA","accountId":"1450129248765485585","osFamily":"windows","computerName":"WS-FIN-042","agentVersion":"S1-WIN/24.2.3.471","siteId":"1450129249210081821","machineType":"laptop","uuid":"a1b2c3d4e5f60718293a4b5c6d7e8f90","seqId":0},"event":{"process":{"name":"powershell.exe","commandLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","integrityLevel":"INTEGRITY_LEVEL_MEDIUM","user":{"name":"CORP\\jdoe","sid":"S-1-5-21-1004336348-1177238915-682003330-1104"},"executable":{"path":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","hashes":{"sha256":"9f914d42706fe215501044acd85a32d58aaef1419d404fddfa5d3b48f66ccd9f","sha1":"6cbce4a295c163791b60fc23d285e6d84f28ee4c"}},"counters":{"crossProcess":3,"moduleLoad":61,"dnsLookups":1,"netConnOut":1}},"parent":{"name":"WINWORD.EXE"}}}'
+cves:
+  - id: CVE-2025-29824
+    cvss: 7.8
+    year: 2025
+    kev: true
+    scope: traffic
+    title: Windows CLFS driver use-after-free → SYSTEM (exploited by ransomware) — the agent itself has no NVD CVEs, so this is an endpoint exploit SentinelOne must catch
+    affected: Windows 10/11 and Windows Server before the April 2025 update
+    fixed: Microsoft April 2025 security updates
+    detect: "Process events: dllhost.exe or a user process spawning a SYSTEM-integrity child; file events writing .blf files under C:\\ProgramData\\SkyPDF\\ or unusual CLFS paths; Indicators category Exploitation / PrivilegeEscalation in the same Storyline."
+    avoid: Patch; keep the agent in Protect mode; alert on low-to-SYSTEM integrity transitions.
+  - id: CVE-2023-36884
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Office and Windows HTML / Search RCE via crafted documents (RomCom/Storm-0978)
+    affected: Microsoft Office and Windows before the August 2023 update
+    fixed: Microsoft August 2023 security updates (Office defense-in-depth ADV230003)
+    detect: Process events with WINWORD.EXE spawning MSDT/cmd/powershell or loading remote content; IP/DNS events from Office processes to newly seen domains; Indicators "Exploitation" in an Office Storyline.
+    avoid: Patch; block Office child processes; disable MSHTML/remote-template loading for internet documents.
+  - id: CVE-2025-33053
+    cvss: 8.8
+    year: 2025
+    kev: true
+    scope: traffic
+    title: Internet Shortcut (.url) WebDAV working-directory hijack → remote code execution (Stealth Falcon)
+    affected: Windows 10/11 and Windows Server before the June 2025 update
+    fixed: Microsoft June 2025 security updates
+    detect: File events creating .url files; process events where a signed Windows tool (iediagcmd.exe, etc.) starts from a WebDAV path (\\host@SSL\…); DNS/IP events to external WebDAV servers.
+    avoid: Patch; block outbound WebDAV / SMB to the internet; enable Storyline-based remediation.
+  - id: CVE-2024-1086
+    cvss: 7.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Linux kernel nf_tables use-after-free LPE (used by ransomware) — relevant for Linux server agents
+    affected: Linux kernel 3.15 through 6.8-rc1 (distribution kernels before their early-2024 fixes)
+    fixed: Upstream kernel commit f342de4e2f33 (6.8-rc2 and stable backports)
+    detect: Linux process events where an unprivileged user's process chain gains uid 0 without sudo/su; unshare / user-namespace creation followed by a root shell in the same Storyline.
+    avoid: Patch the kernel; restrict unprivileged user namespaces (kernel.unprivileged_userns_clone=0).
+detections:
+  - title: Office application spawning a script interpreter
+    severity: high
+    signals:
+      - meta.event.name=PROCESSCREATION
+      - src.process.name in WINWORD/EXCEL/OUTLOOK
+      - tgt.process.name in powershell/cmd/wscript/mshta
+    why: The most common initial-access chain after a malicious document. The Storyline id lets you pull every follow-on action.
+    kql: |-
+      dataset="s1_cloudfunnel" meta.event.name="PROCESSCREATION"
+      | where src.process.name in~ ("WINWORD.EXE","EXCEL.EXE","POWERPNT.EXE","OUTLOOK.EXE")
+      | where tgt.process.name in~ ("powershell.exe","pwsh.exe","cmd.exe","wscript.exe","cscript.exe","mshta.exe")
+      | summarize count(), cmds=make_set(tgt.process.cmdline, 5) by endpoint.name, src.process.user, src.process.storyline.id
+    mitre:
+      - T1566.001
+      - T1204.002
+      - T1059.001
+  - title: Ransomware or injection indicators
+    severity: critical
+    signals:
+      - meta.event.name=BEHAVIORALINDICATORS
+      - indicator.category in Ransomware / Injection / Evasion
+    why: Behavioural indicators are SentinelOne's own early-warning signal; several in one Storyline on one host is a strong attack signal even when no threat was raised.
+    kql: |-
+      dataset="s1_cloudfunnel" meta.event.name="BEHAVIORALINDICATORS"
+      | where indicator.category in ("Ransomware","Injection","Evasion","Persistence")
+      | summarize indicators=dcount(indicator.name), names=make_set(indicator.name, 10) by endpoint.name, src.process.storyline.id
+      | where indicators >= 3
+    mitre:
+      - T1486
+      - T1055
+  - title: DNS to rare domains from scripting hosts
+    severity: medium
+    signals:
+      - meta.event.name=DNS
+      - src.process.name in powershell/wscript/rundll32
+      - event.dns.request seen on < 3 endpoints
+    why: Script interpreters rarely resolve unique domains; this catches download cradles and early C2.
+    kql: |-
+      dataset="s1_cloudfunnel" meta.event.name="DNS"
+      | where src.process.name in~ ("powershell.exe","pwsh.exe","wscript.exe","cscript.exe","rundll32.exe","mshta.exe")
+      | summarize hosts=dcount(endpoint.name), lookups=count() by event.dns.request
+      | where hosts < 3
+    mitre:
+      - T1071.004
+      - T1105
+  - title: Agent bypass via local installer (Bring Your Own Installer)
+    severity: high
+    signals:
+      - PROCESSCREATION of SentinelOneInstaller*.exe / SentinelInstaller*.msi by a non-deployment account
+      - msiexec.exe killed during a version change
+      - agent then stops reporting
+    why: Documented 2025 technique that leaves a host unprotected when Local Upgrade Authorization is off; no CVE, so only telemetry catches it.
+    kql: |-
+      dataset="s1_cloudfunnel" meta.event.name="PROCESSCREATION"
+      | where tgt.process.name matches regex @"(?i)^Sentinel(One)?Installer.*\.(exe|msi)$" or (tgt.process.name =~ "taskkill.exe" and tgt.process.cmdline has "msiexec")
+      | summarize count(), first=min(_time) by endpoint.name, src.process.user, tgt.process.cmdline
+    mitre:
+      - T1562.001
+  - title: Encoded PowerShell
+    severity: high
+    signals:
+      - tgt.process.name=powershell.exe
+      - tgt.process.cmdline has -enc / -EncodedCommand
+    why: Encoded commands hide the payload from simple string matching and are the default in most loaders.
+    kql: |-
+      dataset="s1_cloudfunnel" meta.event.name="PROCESSCREATION" tgt.process.name in~ ("powershell.exe","pwsh.exe")
+      | where tgt.process.cmdline matches regex @"(?i)\s-(e|en|enc|encodedcommand)\s"
+      | summarize count() by endpoint.name, src.process.name, tgt.process.cmdline
+    mitre:
+      - T1059.001
+      - T1027.010
+optimizations:
+  - title: Filter categories at the source, then in Stream
+    saving: 30–60 %
+    fn: Drop + Routes
+    how: Use Cloud Funnel query filters to stop exporting categories nobody uses; in Stream, route module loads, cross-process handle duplication and registry reads to the lake only.
+    expr: event.category in ('module','cross_process') || (event.category=='registry' && event.type=='Registry Value Read')
+  - title: Remove counters and ingest metadata
+    saving: 25–40 %
+    fn: Eval (remove fields)
+    how: Every 2.0 event repeats dozens of src.process.*Count counters, osSrc.* duplicates and pipeline metadata (i.scheme, i.version, sca:*, mgmt.url). Remove them before the SIEM.
+    expr: "remove: src.process.*Count, src.process.parent.*Count, osSrc.*, i.*, sca:*, mgmt.url"
+  - title: Drop DNS to top domains
+    saving: 10–20 %
+    fn: Lookup + Drop
+    how: Most DNS events are OS, browser and SaaS lookups. Drop event.dns.request values in a top-domains list; keep everything from scripting hosts.
+    expr: meta.event.name=='DNS' && C.Lookup('top_domains.csv','domain').match(event.dns.request) && !/powershell|wscript|rundll32/i.test(src.process.name)
+  - title: Normalise v1 and v2 to one schema
+    saving: Detection reuse
+    fn: Eval + Serialize
+    how: Detect the version (meta.traceId → v1, meta.event.name → v2) and map both to one schema (OCSF or your SIEM model) so detections are written once.
+    expr: "__ver = meta && meta.traceId ? 'v1' : 'v2'"
+references:
+  - title: SentinelOne — Singularity Cloud Funnel
+    url: https://www.sentinelone.com/platform/singularity-cloud-funnel/
+  - title: Cribl blog — Cribl Pack for SentinelOne Cloud Funnel
+    url: https://cribl.io/blog/streamline-endpoint-data-with-cribl-pack-for-sentinelone-cloud-funnel/
+  - title: Elastic — SentinelOne Cloud Funnel integration (field reference)
+    url: https://www.elastic.co/docs/reference/integrations/sentinel_one_cloud_funnel
+  - title: SentinelOne — Protection against local upgrade technique (BYOI)
+    url: https://www.sentinelone.com/blog/protection-against-local-upgrade-technique-described-in-aon-research/
+  - title: Akamai — Bring Your Own EDR (fixed in agent 26.1.1)
+    url: https://www.akamai.com/blog/security-research/bring-your-own-edr-turn-commercial-edr-trojan-horse
+  - title: NVD — CVE-2025-29824
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-29824
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK — T1562.001 Disable or Modify Tools
+    url: https://attack.mitre.org/techniques/T1562/001/
+  - title: Microsoft Learn — List of ASIM parsers (SentinelOne_CL)
+    url: https://learn.microsoft.com/en-us/azure/sentinel/normalization-parsers-list
+  - title: Microsoft Learn — Microsoft Sentinel tables and associated connectors
+    url: https://learn.microsoft.com/en-us/azure/sentinel/sentinel-tables-connectors-reference
+related:
+  - crowdstrike
+  - mde
+  - carbonblack-edr
+  - sysmon
+  - win-security
+  - linux-auditd

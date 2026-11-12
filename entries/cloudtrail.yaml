@@ -2,14 +2,362 @@
 id: cloudtrail
 name: AWS CloudTrail
 short: CloudTrail
+aka:
+  - CloudTrail Lake
+  - CloudTrail Insights
+  - AWS API audit log
 vendor: Amazon Web Services
 category: cloud
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - aws
   - audit
   - s3
+  - sqs
   - json
+  - iam
+  - control-plane
+summary: The audit log of the AWS control plane. Every API call (console, CLI, SDK, or an AWS service acting for you) is written as a JSON record with who called it, from where, with which credentials and whether it succeeded. It is the primary source for cloud identity abuse, persistence and defence-evasion detections, and it is usually collected from S3 via SQS notifications.
 sourcetypes:
   - st: aws:cloudtrail
-summary: Records AWS API calls; delivered to S3, often via SQS notification.
+    desc: Splunk Add-on for AWS sourcetype for CloudTrail records (S3/SQS or CloudWatch input)
+  - st: aws_cloudtrail
+    desc: Pack Generator sourcetype for individual CloudTrail event records (JSON)
+  - st: cloudtrail_digest
+    desc: Pack Generator sourcetype for hourly log-file integrity digest files (CloudTrail-Digest/ prefix)
+  - st: cloudtrail_event
+    desc: Pack Generator sourcetype for a single CloudTrail record, e.g. from EventBridge or CloudTrail Lake
+  - st: AWSCloudTrail
+    desc: Microsoft Sentinel table populated by the Amazon Web Services connector
+  - st: AWS_CLOUDTRAIL
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: November 2013
+  Delivery model: Managed AWS service (per account, or organization trail from the management account)
+  Event categories: Management events (default), data events (S3 objects, Lambda, DynamoDB …), network activity events, Insights events
+  Log transport: S3 (gzip JSON files every ~5 min, SQS/SNS notification), CloudWatch Logs, EventBridge, CloudTrail Lake
+  Log format: "JSON — S3 files wrap records in {\"Records\": [...]}; one record per API call"
+  Delivery latency: Typically within 5 minutes of the API call (no guaranteed SLA)
+  Event history: 90 days of management events free in the console / LookupEvents API
+  Integrity: SHA-256 digest files signed hourly (log file validation)
+  Typical volume: 10k – 10M+ events/day per account; data events can be 100× management events
+  Cribl Pack: cribl-aws-cloudtrail-logs (Packs Dispensary); Cribl Search CloudTrail Activity
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: Organization trail
+      desc: Created in the AWS Organizations management (or delegated admin) account, it records every member account and region into one central S3 bucket in a log-archive account. This is the usual collection point for Cribl S3/SQS sources.
+    - slot: cloud
+      title: Per-account / per-region trails
+      desc: Additional trails for data events on sensitive buckets or functions, or sent to CloudWatch Logs for metric filters. Watch for duplicates when an org trail already covers the account.
+    - slot: remote
+      title: Console and CLI users
+      desc: Admins and pipelines calling AWS from laptops, CI runners or federated SSO sessions. sourceIPAddress and userAgent show where the call came from — the key context for stolen-key detections.
+howItWorks:
+  - title: Event capture
+    body: Each AWS service emits a record to CloudTrail for every API call it handles, whether it came from the console, CLI, SDK, or another AWS service (invokedBy / sourceIPAddress = service principal). Read-only calls (Get/List/Describe) are management events too and are usually the bulk of the volume.
+  - title: Event types
+    body: Management events cover control-plane operations (IAM, EC2 RunInstances, CreateTrail). Data events cover resource operations (s3:GetObject, lambda:Invoke) and are off by default because of cost and volume. Insights events flag unusual API-call rates or error rates against a baseline. Network activity events record VPC-endpoint API calls.
+  - title: Identity model
+    body: "userIdentity describes the caller: type (Root, IAMUser, AssumedRole, FederatedUser, AWSService, IdentityCenterUser), arn, accessKeyId (AKIA… = long-term key, ASIA… = temporary STS key) and sessionContext (MFA, role session issuer, source identity). Following an AssumedRole back to the AssumeRole call that minted it is how you attribute actions to a person."
+  - title: Delivery to S3
+    body: "CloudTrail batches records per account and region into gzip JSON files under AWSLogs/<account>/CloudTrail/<region>/YYYY/MM/DD/ and writes a notification to SNS/SQS. Collectors such as Cribl's S3 source read the SQS queue, fetch the object and break the Records array into one event per API call."
+  - title: Integrity and tamper evidence
+    body: With log file validation on, CloudTrail writes hourly digest files that hash every log file and are signed with a private key. A missing or broken digest chain shows deleted or modified logs. Stopping, deleting or changing the trail is itself recorded (StopLogging, DeleteTrail, UpdateTrail, PutEventSelectors).
+traffic:
+  handles:
+    - Management (control-plane) API calls in all regions
+    - Data events for S3, Lambda, DynamoDB, and others (opt-in)
+    - Console sign-in and federation (signin.amazonaws.com, sts.amazonaws.com)
+    - IAM Identity Center and Organizations activity
+    - Calls made by AWS services on your behalf
+    - Insights events (API-rate and error-rate anomalies)
+    - Network activity events through VPC endpoints
+  flow:
+    - step: API request
+      desc: A principal signs a request (SigV4) with long-term or temporary credentials and sends it to a service endpoint.
+    - step: Authentication + authorization
+      desc: IAM evaluates the identity, SCPs, permission boundaries and resource policies; the outcome is success or AccessDenied.
+    - step: Action
+      desc: The service executes (or refuses) the operation and returns a response.
+    - step: Record
+      desc: The service emits a CloudTrail record with userIdentity, eventName, requestParameters, responseElements and errorCode.
+    - step: Batch + deliver
+      desc: Records are written to S3 every few minutes (and/or CloudWatch Logs / EventBridge), with an SQS/SNS notification.
+    - step: Digest
+      desc: Hourly signed digest files are written for integrity checks.
+    - step: Collect
+      desc: Cribl reads SQS, fetches the object, splits Records[] into events and routes them.
+logs:
+  - type: Management event
+    sourcetype: aws_cloudtrail
+    format: json
+    share: 85–99 %
+    avg: ~1.5 KB
+    desc: One record per API call. Read-only Describe/List/Get calls dominate; write calls, errors and IAM/STS activity carry most of the detection value.
+    key:
+      - eventName
+      - eventSource
+      - userIdentity.arn
+      - userIdentity.accessKeyId
+      - sourceIPAddress
+      - userAgent
+      - recipientAccountId
+      - awsRegion
+    noise:
+      - eventVersion
+      - eventID
+      - requestID
+      - managementEvent
+      - eventCategory
+      - tlsDetails.tlsVersion
+      - tlsDetails.cipherSuite
+      - tlsDetails.clientProvidedHostHeader
+    sample: '{"eventVersion":"1.09","userIdentity":{"type":"AssumedRole","principalId":"AROAEXAMPLEID1234:jdoe","arn":"arn:aws:sts::111122223333:assumed-role/AdminRole/jdoe","accountId":"111122223333","accessKeyId":"ASIAEXAMPLEKEY12345","sessionContext":{"sessionIssuer":{"type":"Role","principalId":"AROAEXAMPLEID1234","arn":"arn:aws:iam::111122223333:role/AdminRole","accountId":"111122223333","userName":"AdminRole"},"attributes":{"creationDate":"2026-11-12T08:55:02Z","mfaAuthenticated":"true"}}},"eventTime":"2026-11-12T09:14:22Z","eventSource":"iam.amazonaws.com","eventName":"CreateAccessKey","awsRegion":"us-east-1","sourceIPAddress":"203.0.113.45","userAgent":"aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0","requestParameters":{"userName":"svc-backup"},"responseElements":{"accessKey":{"userName":"svc-backup","accessKeyId":"AKIAEXAMPLEKEY67890","status":"Active","createDate":"Nov 12, 2026 9:14:22 AM"}},"requestID":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","eventID":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","readOnly":false,"eventType":"AwsApiCall","managementEvent":true,"recipientAccountId":"111122223333","eventCategory":"Management","tlsDetails":{"tlsVersion":"TLSv1.3","cipherSuite":"TLS_AES_128_GCM_SHA256","clientProvidedHostHeader":"iam.amazonaws.com"}}'
+  - type: Console sign-in
+    sourcetype: aws:cloudtrail
+    format: json
+    share: < 1 %
+    avg: ~1.1 KB
+    desc: "eventType AwsConsoleSignIn from signin.amazonaws.com. responseElements.ConsoleLogin = Success/Failure and additionalEventData.MFAUsed show brute force and MFA gaps. Root sign-ins should be rare."
+    key:
+      - eventName
+      - userIdentity.type
+      - userIdentity.arn
+      - sourceIPAddress
+      - responseElements.ConsoleLogin
+      - additionalEventData.MFAUsed
+      - errorMessage
+    noise:
+      - eventVersion
+      - eventID
+      - additionalEventData.MobileVersion
+      - additionalEventData.LoginTo
+    sample: '{"eventVersion":"1.09","userIdentity":{"type":"IAMUser","principalId":"AIDAEXAMPLEUSER1234","arn":"arn:aws:iam::111122223333:user/jdoe","accountId":"111122223333","userName":"jdoe"},"eventTime":"2026-11-12T07:41:09Z","eventSource":"signin.amazonaws.com","eventName":"ConsoleLogin","awsRegion":"us-east-1","sourceIPAddress":"198.51.100.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36","errorMessage":"Failed authentication","requestParameters":null,"responseElements":{"ConsoleLogin":"Failure"},"additionalEventData":{"LoginTo":"https://console.aws.amazon.com/console/home","MobileVersion":"No","MFAUsed":"No"},"eventID":"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e","readOnly":false,"eventType":"AwsConsoleSignIn","managementEvent":true,"recipientAccountId":"111122223333","eventCategory":"Management"}'
+  - type: S3 data event
+    sourcetype: cloudtrail_event
+    format: json
+    share: 0–90 % (when enabled)
+    avg: ~1.3 KB
+    desc: Object-level calls (GetObject, PutObject, DeleteObject). Only present when data-event selectors are configured; can dwarf management events on busy buckets. Essential for exfiltration and ransomware investigations.
+    key:
+      - eventName
+      - userIdentity.arn
+      - requestParameters.bucketName
+      - requestParameters.key
+      - sourceIPAddress
+      - additionalEventData.bytesTransferredOut
+      - userIdentity.accessKeyId
+    noise:
+      - eventVersion
+      - eventID
+      - requestID
+      - additionalEventData.SignatureVersion
+      - additionalEventData.CipherSuite
+      - additionalEventData.AuthenticationMethod
+      - additionalEventData.x-amz-id-2
+    sample: '{"eventVersion":"1.10","userIdentity":{"type":"IAMUser","principalId":"AIDAEXAMPLEUSER5678","arn":"arn:aws:iam::111122223333:user/svc-backup","accountId":"111122223333","accessKeyId":"AKIAEXAMPLEKEY67890","userName":"svc-backup"},"eventTime":"2026-11-12T09:31:57Z","eventSource":"s3.amazonaws.com","eventName":"GetObject","awsRegion":"eu-west-1","sourceIPAddress":"203.0.113.45","userAgent":"[aws-cli/2.17.20]","requestParameters":{"bucketName":"example-finance-reports","Host":"example-finance-reports.s3.eu-west-1.amazonaws.com","key":"2026/q3/payroll.csv"},"responseElements":null,"additionalEventData":{"SignatureVersion":"SigV4","CipherSuite":"TLS_AES_128_GCM_SHA256","bytesTransferredIn":0,"AuthenticationMethod":"AuthHeader","x-amz-id-2":"EXAMPLEid2value","bytesTransferredOut":48211},"requestID":"EXAMPLE9A8B7C6D5","eventID":"c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f","readOnly":true,"resources":[{"type":"AWS::S3::Object","ARN":"arn:aws:s3:::example-finance-reports/2026/q3/payroll.csv"},{"accountId":"111122223333","type":"AWS::S3::Bucket","ARN":"arn:aws:s3:::example-finance-reports"}],"eventType":"AwsApiCall","managementEvent":false,"recipientAccountId":"111122223333","eventCategory":"Data"}'
+  - type: Digest file
+    sourcetype: cloudtrail_digest
+    format: json
+    share: < 0.1 %
+    avg: ~2 KB
+    desc: Hourly integrity digest listing the hash of every log file delivered in the period, chained to the previous digest. Not for detection — for proving logs were not deleted or altered.
+    key:
+      - digestStartTime
+      - digestEndTime
+      - digestS3Bucket
+      - previousDigestSignature
+      - logFiles[0].s3Object
+      - logFiles[0].hashValue
+    noise:
+      - digestPublicKeyFingerprint
+      - digestSignatureAlgorithm
+      - previousDigestHashAlgorithm
+    sample: '{"awsAccountId":"111122223333","digestStartTime":"2026-11-12T08:00:00Z","digestEndTime":"2026-11-12T09:00:00Z","digestS3Bucket":"example-org-cloudtrail","digestS3Object":"AWSLogs/111122223333/CloudTrail-Digest/us-east-1/2026/11/12/111122223333_CloudTrail-Digest_us-east-1_org-trail_us-east-1_20261112T090000Z.json.gz","digestPublicKeyFingerprint":"0123456789abcdef0123456789abcdef","digestSignatureAlgorithm":"SHA256withRSA","newestEventTime":"2026-11-12T08:59:41Z","oldestEventTime":"2026-11-12T07:58:12Z","previousDigestS3Bucket":"example-org-cloudtrail","previousDigestS3Object":"AWSLogs/111122223333/CloudTrail-Digest/us-east-1/2026/11/12/111122223333_CloudTrail-Digest_us-east-1_org-trail_us-east-1_20261112T080000Z.json.gz","previousDigestHashValue":"aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899","previousDigestHashAlgorithm":"SHA-256","previousDigestSignature":"EXAMPLEsignaturehex","logFiles":[{"s3Bucket":"example-org-cloudtrail","s3Object":"AWSLogs/111122223333/CloudTrail/us-east-1/2026/11/12/111122223333_CloudTrail_us-east-1_20261112T0805Z_EXAMPLE.json.gz","hashValue":"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff","hashAlgorithm":"SHA-256","newestEventTime":"2026-11-12T08:04:59Z","oldestEventTime":"2026-11-12T07:58:12Z"}]}'
+cves:
+  - id: CVE-2025-0693
+    cvss: 5.3
+    year: 2025
+    kev: false
+    scope: traffic
+    title: AWS Sign-in IAM user enumeration via response timing (the sign-in flow CloudTrail records)
+    affected: AWS Sign-in IAM user login flow (AWS-managed service)
+    fixed: Fixed server-side by AWS — no customer action (bulletin AWS-2025-002)
+    detect: Bursts of ConsoleLogin with responseElements.ConsoleLogin=Failure from one sourceIPAddress across many distinct userIdentity.userName values (including names that do not exist, which CloudTrail records as HIDDEN_DUE_TO_SECURITY_REASONS).
+    avoid: Enforce MFA for every IAM user; prefer IAM Identity Center/SSO over IAM users; alert on failed-login bursts.
+  - id: CVE-2024-28056
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Amplify CLI left IAM role trust policies open to sts:AssumeRoleWithWebIdentity (role takeover recorded in CloudTrail)
+    affected: Amplify CLI before 12.10.1 and Amplify Studio — projects where the Authentication component was removed (Aug 2019 – Jan 2024)
+    fixed: Amplify CLI 12.10.1; AWS also added STS and IAM-side mitigations
+    detect: AssumeRoleWithWebIdentity events on amplify-* roles from a cognito-identity.amazonaws.com principal in an unexpected account, followed by API calls from that role session from unfamiliar sourceIPAddress values.
+    avoid: Upgrade Amplify CLI; review trust policies of Amplify auth/unauth roles for missing aud/amr conditions; use IAM Access Analyzer.
+  - id: CVE-2023-35165
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: traffic
+    title: AWS CDK EKS constructs created over-permissive role trust policies (account root principal)
+    affected: aws-cdk-lib 2.0.0 – 2.79.x; "@aws-cdk/aws-eks 1.57.0 – 1.201.x"
+    fixed: aws-cdk-lib 2.80.0, @aws-cdk/aws-eks 1.202.0
+    detect: AssumeRole events on the cluster CreationRole or default MastersRole from principals other than the CDK Lambda handlers, then EKS/kubectl activity (see aws-eks-audit) from that session.
+    avoid: Upgrade CDK and redeploy; pass an explicit mastersRole; scope trust policies to specific role ARNs.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — RCE on EC2/container workloads, used to steal instance-role credentials that then show up in CloudTrail
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: The instance role's ASIA… keys used from a sourceIPAddress outside AWS or the VPC (GuardDuty InstanceCredentialExfiltration); unusual GetCallerIdentity, ListBuckets or RunInstances from that role.
+    avoid: Patch; enforce IMDSv2 (hop limit 1); least-privilege instance roles; aws:SourceVpc / aws:ec2InstanceSourceVPC conditions.
+  - id: CVE-2022-26134
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Confluence OGNL injection — widely used to hijack cloud-hosted servers and their IAM credentials for cryptomining
+    affected: Confluence Server and Data Center (all supported versions before the June 2022 fixes)
+    fixed: 7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1
+    detect: Stolen role credentials calling RunInstances for large GPU/compute instance types in unused regions, RequestServiceQuotaIncrease, or CreateUser/CreateAccessKey for persistence.
+    avoid: Patch; do not expose Confluence directly; least-privilege instance roles; SCPs that deny unused regions.
+detections:
+  - title: CloudTrail logging tampered with
+    severity: critical
+    signals:
+      - eventSource=cloudtrail.amazonaws.com
+      - eventName in StopLogging / DeleteTrail / UpdateTrail / PutEventSelectors
+    why: Attackers disable or narrow logging before acting. Legitimate changes are rare and come from a known IaC role.
+    kql: |-
+      dataset="aws_cloudtrail" eventSource="cloudtrail.amazonaws.com"
+      | where eventName in ("StopLogging","DeleteTrail","UpdateTrail","PutEventSelectors","DeleteEventDataStore")
+      | summarize count() by eventName, userIdentity.arn, sourceIPAddress, awsRegion
+    mitre:
+      - T1562.008
+  - title: Root account used
+    severity: high
+    signals:
+      - userIdentity.type=Root
+      - eventType != AwsServiceEvent
+    why: Root bypasses IAM policies and SCPs in the management account. Day-to-day use should be zero; any sign-in or API call needs review.
+    kql: |-
+      dataset="aws_cloudtrail" userIdentity.type="Root"
+      | where eventType != "AwsServiceEvent"
+      | summarize calls=count(), first=min(_time) by eventName, sourceIPAddress, recipientAccountId
+    mitre:
+      - T1078.004
+  - title: Console brute force or login without MFA
+    severity: high
+    signals:
+      - eventName=ConsoleLogin
+      - responseElements.ConsoleLogin=Failure burst
+      - additionalEventData.MFAUsed=No on success
+    why: Password spraying against IAM users, and successful console logins without MFA, are a common cloud initial-access path.
+    kql: |-
+      dataset="aws_cloudtrail" eventName="ConsoleLogin"
+      | summarize fails=countif(responseElements.ConsoleLogin=="Failure"), nomfa=countif(responseElements.ConsoleLogin=="Success" and additionalEventData.MFAUsed=="No"), users=dcount(userIdentity.arn) by sourceIPAddress, bin(_time, 15m)
+      | where fails > 10 or nomfa > 0
+    mitre:
+      - T1110.003
+      - T1078.004
+  - title: New long-term access key or login profile for another user
+    severity: high
+    signals:
+      - eventName in CreateAccessKey / CreateLoginProfile / UpdateLoginProfile
+      - caller differs from requestParameters.userName
+    why: Minting credentials for a different (often service) user is a classic persistence step after a compromise.
+    kql: |-
+      dataset="aws_cloudtrail" eventSource="iam.amazonaws.com"
+      | where eventName in ("CreateAccessKey","CreateLoginProfile","UpdateLoginProfile") and isempty(errorCode)
+      | where not(userIdentity.arn endswith requestParameters.userName)
+      | project _time, eventName, userIdentity.arn, requestParameters.userName, sourceIPAddress, userAgent
+    mitre:
+      - T1098.001
+  - title: Reconnaissance burst with AccessDenied
+    severity: medium
+    signals:
+      - many distinct List/Describe/Get eventName
+      - high errorCode=AccessDenied ratio
+      - one accessKeyId
+    why: A stolen key being tested enumerates many services quickly and fails on most of them; normal workloads call a small, stable set of APIs.
+    kql: |-
+      dataset="aws_cloudtrail" readOnly=true
+      | summarize apis=dcount(eventName), denied=countif(errorCode in ("AccessDenied","Client.UnauthorizedOperation")), total=count() by userIdentity.accessKeyId, sourceIPAddress, bin(_time, 10m)
+      | where apis > 30 and denied * 1.0 / total > 0.3
+    mitre:
+      - T1580
+      - T1087.004
+  - title: Bulk S3 object reads by an unusual principal
+    severity: medium
+    signals:
+      - eventName=GetObject (data events)
+      - high count / bytesTransferredOut per principal
+    why: Exfiltration from S3 appears only in data events; volume per principal compared with its baseline is the main signal.
+    kql: |-
+      dataset="aws_cloudtrail" eventSource="s3.amazonaws.com" eventName="GetObject"
+      | summarize objects=count(), bytes=sum(additionalEventData.bytesTransferredOut) by userIdentity.arn, requestParameters.bucketName, sourceIPAddress, bin(_time, 1h)
+      | where objects > 1000 or bytes > 5000000000
+    mitre:
+      - T1530
+optimizations:
+  - title: Drop noisy read-only service calls
+    saving: 30–60 %
+    fn: Drop
+    how: "Describe/List/Get calls made by AWS services and monitoring tools (Config, Trusted Advisor, CSPM scanners) dominate volume and are rarely searched. Drop or route them to Lake only; keep every write call, every error, and all IAM/STS/sign-in events."
+    expr: readOnly===true && !errorCode && /^(Describe|List|Get)/.test(eventName) && !['iam.amazonaws.com','sts.amazonaws.com','signin.amazonaws.com'].includes(eventSource)
+  - title: Strip low-value fields
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: "Remove eventVersion, eventID, requestID, tlsDetails.*, sessionContext.sessionIssuer.principalId and empty responseElements; keep requestParameters (that is where the evidence is)."
+    expr: "remove: eventVersion, eventID, requestID, tlsDetails, managementEvent, eventCategory; drop null/empty"
+  - title: Aggregate S3 data events
+    saving: 50–90 % of data events
+    fn: Aggregations
+    how: "Roll GetObject/PutObject up to count and bytes per principal, bucket, source IP and operation per minute for the SIEM; keep the raw data events in Lake for investigations."
+    expr: eventCategory=='Data' && eventSource=='s3.amazonaws.com'
+  - title: Route digests and high-value events
+    saving: SIEM licence
+    fn: Routes
+    how: "Send cloudtrail_digest only to object storage for integrity checks. Send IAM, STS, sign-in, CloudTrail/GuardDuty/Config changes and all errors to the SIEM at full fidelity; send the rest to Lake."
+    expr: "eventSource in (iam, sts, signin, cloudtrail, organizations) || errorCode → SIEM | else → Lake"
+  - title: Deduplicate overlapping trails
+    saving: 0–50 %
+    fn: Suppress
+    how: An org trail plus account-level trails deliver the same record twice. Suppress on eventID within a short window.
+    expr: "key: eventID  allow 1 / 900s"
+references:
+  - title: CloudTrail record contents for management, data, and network activity events
+    url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html
+  - title: CloudTrail userIdentity element
+    url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-user-identity.html
+  - title: Validating CloudTrail log file integrity
+    url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html
+  - title: AWS security bulletin AWS-2025-002 (CVE-2025-0693)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2025-002/
+  - title: AWS security bulletin AWS-2024-003 (CVE-2024-28056)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2024-003/
+  - title: AWS CDK advisory GHSA-rx28-r23p-2qc3 (CVE-2023-35165)
+    url: https://github.com/aws/aws-cdk/security/advisories/GHSA-rx28-r23p-2qc3
+  - title: "MITRE ATT&CK T1562.008: Disable or Modify Cloud Logs"
+    url: https://attack.mitre.org/techniques/T1562/008/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-guardduty
+  - aws-security-hub
+  - aws-config
+  - aws-s3-access
+  - aws-security-lake
+  - gcp-audit
+  - azure-activity

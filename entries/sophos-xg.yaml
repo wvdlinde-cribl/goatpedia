@@ -1,0 +1,375 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sophos-xg
+name: Sophos Firewall (XG / XGS)
+short: Sophos XG
+aka:
+  - Sophos XG Firewall
+  - Sophos XGS
+  - SFOS
+  - Sophos Firewall OS
+  - Cyberoam (predecessor)
+vendor: Sophos
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - ips
+  - atp
+  - vpn
+  - syslog
+  - key-value
+  - web-filtering
+  - synchronized-security
+summary: Sophos Firewall (SFOS, on XGS hardware, virtual and cloud) combines stateful firewalling, Xstream deep-packet inspection (IPS, TLS inspection, web and app control), ATP threat-feed matching, email protection and SSL/IPsec VPN. Every module writes its own key=value syslog line identified by log_type / log_component / log_subtype, and the internet-facing User Portal and Webadmin have a long record of exploited CVEs.
+sourcetypes:
+  - st: sophos_xg
+    desc: Pack Generator sourcetype — all SFOS key=value syslog (firewall, IPS, ATP, web, auth, events)
+  - st: sophos.xg
+    desc: Elastic Sophos integration data stream (logs-sophos.xg)
+  - st: SOPHOS_FIREWALL
+    desc: Google SecOps (Chronicle) log type for Sophos Firewall (Next Gen)
+facts:
+  First released: 2016 as Sophos XG Firewall (SFOS, built on the Cyberoam OS acquired in 2014); XGS hardware with Xstream flow processors from 2021
+  OS: SFOS (Sophos Firewall OS) — versioned as vNN.N with MR (maintenance release) and hotfixes
+  Form factors: XGS hardware appliances, virtual (VMware, Hyper-V, KVM, Nutanix), AWS / Azure marketplace, software on x86
+  Deployment modes: Routed (gateway), bridge, discover / TAP (mirror), mixed; active-passive or active-active HA
+  Central mgmt: Sophos Central (Sophos Fusion) Firewall Management, Central Firewall Reporting
+  Log transport: Syslog over UDP, TCP or TLS to external servers; Sophos Central / Central Firewall Reporting
+  Log format: key=value per module; "Sophos Fusion" (central) format or legacy "Device Standard" format
+  Log ID scheme: 12-digit log_id = log type (2) + component (2) + subtype (2) + severity (1) + message id (5)
+  Typical EPS: 100 – 20k per appliance; firewall-rule records dominate
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet perimeter / branch gateway
+      desc: Most common in mid-market and branch. Routes and NATs internet traffic, terminates SD-WAN links and hosts the User Portal, VPN portal and Webadmin — keep the latter two off the WAN.
+    - slot: internal
+      title: Internal segmentation
+      desc: Zone-based policy between LAN, DMZ, server and Wi-Fi zones. Synchronized Security heartbeat lets the firewall isolate endpoints flagged by Sophos Intercept X.
+    - slot: remote
+      title: Remote access VPN
+      desc: SSL VPN (Sophos Connect client) and IPsec remote access; RED / SD-RED devices tunnel small sites back to the hub. Authentication events are logged per client type.
+    - slot: cloud
+      title: Cloud VPC / VNet
+      desc: Virtual SFOS in AWS or Azure as the inspection or egress gateway for workloads.
+howItWorks:
+  - title: Xstream architecture
+    body: Traffic first hits the firewall/NAT stack, then the Xstream DPI engine which runs IPS, TLS inspection, app control and web filtering in one streaming pass. On XGS hardware a dedicated flow processor (FastPath) offloads trusted flows after inspection, so only the first packets of a session carry the DPI cost.
+  - title: Firewall rules and connection logging
+    body: Rules match zone, network, user, service and schedule, and reference IPS, web, app and QoS policies. A firewall-rule record (log_type Firewall, log_component "Firewall Rule") is written per connection event — con_event Start, Interim or Stop — with bytes, packets, NAT and the rule id/name.
+  - title: IPS (IDP)
+    body: Snort-derived signature engine with Sophos-curated rules. Each hit is an IDP record with signature_id, signature_msg, classification, platform and category; log_subtype Detect means alert-only, Drop means the packet was dropped.
+  - title: Advanced Threat Protection (ATP)
+    body: Matches DNS, web and IP traffic against SophosLabs, MDR and third-party threat feeds (C2 hosts, botnets). Hits are log_type ATP with the malware name (e.g. C2/Generic-A), the feed and whether the firewall only logged or dropped.
+  - title: Synchronized Security heartbeat
+    body: Endpoints running Sophos Intercept X send a heartbeat with their health (Green / Yellow / Red). Rules can block or isolate hosts with a Red heartbeat; hb_status appears in firewall records.
+  - title: Logging pipeline
+    body: Each module formats its record through a named formatter (e.g. CR_atp_log_fmt). Up to several syslog servers can be configured with per-module checkboxes, so a SOC can send IPS, ATP, auth and admin events while leaving high-volume firewall-rule or web logs off.
+traffic:
+  handles:
+    - IPv4 / IPv6 L3–L4 with NAT and SD-WAN routing
+    - TLS 1.2 / 1.3 inspection (Xstream TLS)
+    - Web (HTTP/S) filtering, application control, CASB
+    - IPS and ATP threat-feed matching
+    - SMTP / POP / IMAP email protection (MTA mode)
+    - SSL VPN, IPsec, L2TP, RED tunnels
+    - Web Application Firewall (reverse proxy)
+  flow:
+    - step: Ingress
+      desc: Packet arrives; DoS, spoof and MAC/IP-MAC checks drop invalid traffic first (Firewall log components DoS Attack, IP Spoof, Invalid Traffic).
+    - step: NAT + rule lookup
+      desc: DNAT, then firewall rule match on zone, network, user, service; SNAT on egress.
+    - step: Xstream DPI
+      desc: App identification, TLS inspection, IPS and web policy run on the stream.
+    - step: Threat feeds
+      desc: ATP compares destination IP, domain and URL with the threat feeds.
+    - step: FastPath
+      desc: Trusted flows are offloaded to the flow processor once inspection is done.
+    - step: Egress + log
+      desc: Connection forwarded; firewall-rule record at start, interim and stop, plus module records (IDP, ATP, Content Filtering).
+logs:
+  - type: Firewall rule
+    sourcetype: sophos_xg
+    format: kv
+    share: 60–85 %
+    avg: ~1.1 KB
+    desc: One record per connection event (con_event Start / Interim / Stop) with zones, interfaces, NAT, rule, user, bytes and packets. log_subtype Allowed / Denied is the action. Shown in Sophos Fusion format.
+    key:
+      - log_subtype
+      - fw_rule_name
+      - src_ip
+      - dst_ip
+      - dst_port
+      - user_name
+      - bytes_sent
+      - con_event
+    noise:
+      - device_model
+      - log_version
+      - ether_type
+      - app_resolved_by
+      - app_is_cloud
+      - qualifier
+      - in_display_interface
+      - out_display_interface
+    sample: 'Nov 12 09:14:22 sfw01 device_name="SFW" timestamp="2026-11-12T09:14:22+0100" device_model="XGS2100" device_serial_id="X21000EXAMPLE01" log_id="010101600001" log_type="Firewall" log_component="Firewall Rule" log_subtype="Allowed" log_version=1 severity="Information" duration=31 fw_rule_id="12" fw_rule_name="LAN_to_WAN_web" fw_rule_section="Local rule" nat_rule_id="2" nat_rule_name="Default SNAT IPv4" fw_rule_type="USER" web_policy_id=4 ips_policy_id=8 app_filter_policy_id=6 user_name="jdoe" user_group="Sales" ether_type="IPv4 (0x0800)" in_interface="Port1" out_interface="Port2" src_mac="00:50:56:B0:C0:59" dst_mac="00:1A:8C:10:20:30" src_ip="10.20.30.44" src_country="R1" dst_ip="203.0.113.80" dst_country="USA" protocol="TCP" src_port=51544 dst_port=443 packets_sent=22 packets_received=19 bytes_sent=6842 bytes_received=15310 src_trans_ip="198.51.100.10" src_zone_type="LAN" src_zone="LAN" dst_zone_type="WAN" dst_zone="WAN" con_event="Stop" con_id="981166219" hb_status="Green" app_resolved_by="Signature" app_is_cloud="FALSE" qualifier="New" in_display_interface="Port1" out_display_interface="Port2" log_occurrence="1"'
+  - type: IPS (IDP)
+    sourcetype: sophos_xg
+    format: kv
+    share: 1–5 %
+    avg: ~650 B
+    desc: Signature or anomaly hit from the IPS engine. log_subtype Detect = alert only, Drop = blocked. Shown in the legacy Device Standard layout (device/date/time/priority) that many older collectors still receive.
+    key:
+      - log_subtype
+      - signature_id
+      - signature_msg
+      - classification
+      - src_ip
+      - dst_ip
+      - dst_port
+    noise:
+      - device
+      - timezone
+      - device_id
+      - rule_priority
+    sample: 'device="SFW" date=2026-11-12 time=08:02:41 timezone="CET" device_name="XGS2100" device_id=X21000EXAMPLE01 log_id=020804407001 log_type="IDP" log_component="Signatures" log_subtype="Drop" priority=Warning idp_policy_id=8 fw_rule_id=21 user_name="" signature_id=58722 signature_msg="SERVER-OTHER Apache Log4j logging remote code execution attempt" classification="Attempted User Privilege Gain" rule_priority=1 src_ip=198.51.100.23 src_country_code=NLD dst_ip=10.10.5.20 dst_country_code=R1 protocol="TCP" src_port=43218 dst_port=443 platform="Linux,Windows" category="Web Servers and Applications" target="Server" detection_severity="9"'
+  - type: ATP (threat feed match)
+    sourcetype: sophos_xg
+    format: kv
+    share: < 1 %
+    avg: ~600 B
+    desc: Connection or DNS lookup to a known C2 / malware host from SophosLabs, MDR or third-party feeds. Log* subtypes only logged; Drop* subtypes were blocked.
+    key:
+      - log_subtype
+      - malware
+      - threatfeed
+      - src_ip
+      - dst_ip
+      - url
+    noise:
+      - device_model
+      - log_version
+      - event_type
+    sample: 'device_name="SFW" timestamp="2026-11-12T10:41:07+0100" device_model="XGS2100" device_serial_id="X21000EXAMPLE01" log_id="086304418010" log_type="ATP" log_component="DNS" log_subtype="Drop destination match" log_version=1 severity="Warning" user_name="jdoe" protocol="UDP" src_ip="10.20.30.61" dst_ip="203.0.113.66" src_port=53022 dst_port=53 url="update-check.example.org" malware="C2/Generic-A" threatfeed="SophosLabs ML threat feeds" event_id="FA797EA1-6ED1-4007-B17D-A0222B71D7F1" event_type="Standard" src_country="R1" dst_country="USA"'
+  - type: Authentication event
+    sourcetype: sophos_xg
+    format: kv
+    share: < 1 %
+    avg: ~550 B
+    desc: Logins to the firewall, User Portal (My Account), VPN portal, SSL VPN, IPsec/L2TP and the admin GUI. status Successful / Failed with the auth mechanism and failure reason.
+    key:
+      - log_component
+      - status
+      - user_name
+      - src_ip
+      - auth_mechanism
+      - reason
+    noise:
+      - device_model
+      - log_version
+      - src_mac
+    sample: 'device_name="SFW" timestamp="2026-11-12T07:58:03+0100" device_model="XGS2100" device_serial_id="X21000EXAMPLE01" log_id="062910617711" log_type="Event" log_component="SSL VPN Authentication" log_subtype="Authentication" log_version=1 severity="Information" status="Failed" user_name="jdoe" user_group="" client_used="SSLVPN" auth_mechanism="Local,AD" reason="wrong credentials" src_ip="198.51.100.77" src_country="NLD" message="User jdoe failed to login to SSLVPN through Local,AD authentication mechanism because of wrong credentials" src_mac=""'
+cves:
+  - id: CVE-2022-1040
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: device
+    title: User Portal / Webadmin authentication bypass leading to RCE
+    affected: Sophos Firewall v18.5 MR3 (18.5.3) and older
+    fixed: Hotfixes for 17.0 MR10 EAL4+, 17.5 MR12–MR17, 18.0 MR3–MR6, 18.5 GA–MR3; fix included in v18.5 MR4 (18.5.4) and v19.0 GA
+    detect: Firewall-rule records allowing WAN-zone sources to the User Portal / Webadmin ports (default 443 / 4444); GUI Admin events or new admin accounts from public src_ip; unexpected outbound connections from the firewall itself.
+    avoid: Disable WAN access to User Portal and Webadmin (Device access); keep automatic hotfix installation on; manage via VPN or Sophos Central.
+  - id: CVE-2022-3236
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: device
+    title: User Portal / Webadmin code injection (RCE), re-exploited on EOL firmware in 2023
+    affected: Sophos Firewall v19.0 MR1 (19.0.1) and older
+    fixed: Hotfixes for 17.0 MR10, 17.5 MR12–MR17, 18.0 MR3–MR6, 18.5 GA–MR4, 19.0 GA–MR1-1; fix included in v18.5 MR5, v19.0 MR2 and v19.5 GA
+    detect: Same exposure signals as CVE-2022-1040 — WAN connections to User Portal / Webadmin, followed by GUI Admin changes or firewall-originated outbound traffic.
+    avoid: Upgrade off end-of-life firmware; block WAN access to User Portal and Webadmin; confirm hotfix status.
+  - id: CVE-2020-12271
+    cvss: 9.8
+    year: 2020
+    kev: true
+    scope: device
+    title: Pre-auth SQL injection exploited by the "Asnarök" trojan campaign
+    affected: SFOS 17.0, 17.1, 17.5 and 18.0 before 2020-04-25 with the HTTPS admin service or User Portal exposed
+    fixed: Automatic hotfix pushed 2020-04-25 for SFOS 17.0, 17.1, 17.5 and 18.0
+    detect: Webadmin / User Portal reachable from WAN; firewall-originated DNS or HTTPS to unknown hosts; admin or local-user password resets in Event logs.
+    avoid: Never expose admin services on WAN; reset all local passwords after exposure; keep hotfixes automatic.
+  - id: CVE-2024-12727
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Pre-auth SQL injection in email protection (SPX + HA) leading to RCE
+    affected: Sophos Firewall v21.0 GA (21.0.0) and older with Secure PDF eXchange enabled in HA mode
+    fixed: Hotfixes for v19.0 MR2, v19.5 MR3–MR4, v20 GA–MR3, v21 GA; fix included in v21 MR1 and newer
+    detect: Unusual SMTP sessions to the firewall MTA from WAN followed by Email anti-spam errors; outbound connections from the appliance.
+    avoid: Patch; disable SPX if unused; restrict SMTP to known relays.
+  - id: CVE-2024-12729
+    cvss: 8.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Post-auth User Portal code injection (RCE)
+    affected: Sophos Firewall v21.0 GA (21.0.0) and older
+    fixed: Hotfixes for v19.0 MR2–MR3, v19.5 GA–MR4, v20 GA–MR3, v21 GA; fix included in v21 MR1 and newer
+    detect: Successful My Account Authentication from public src_ip followed by User Portal activity and firewall-originated connections; pairs with password-spray detections.
+    avoid: Keep the User Portal off the WAN; enforce MFA; patch.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell (Apache Log4j JNDI RCE) — attacks against Java services behind the firewall
+    affected: Apache Log4j 2.0-beta9 through 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1) in protected servers
+    fixed: Log4j 2.16.0+ (2.17.1 recommended); Sophos IPS signatures for detection
+    detect: IDP records with signature_msg containing "Log4j" toward DMZ servers; then outbound LDAP / RMI (ports 389, 1389, 1099) firewall-rule records from those servers.
+    avoid: Patch Log4j; set the Log4j signatures to Drop; deny server egress except to known destinations.
+detections:
+  - title: VPN / User Portal password spray
+    severity: high
+    signals:
+      - log_type=Event
+      - log_component contains Authentication
+      - status=Failed
+      - many users per src_ip
+    why: Credential spraying against SSL VPN and the User Portal is the main initial-access path to SFOS; successful logins after the spray are the key pivot.
+    kql: |-
+      dataset="sophos_logs" log_type="Event" log_subtype="Authentication" status="Failed"
+      | where log_component in ("SSL VPN Authentication","VPN Portal Authentication","My Account Authentication","Firewall Authentication")
+      | summarize fails=count(), users=dcount(user_name) by src_ip, src_country, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
+  - title: IPS hit allowed (Detect only)
+    severity: medium
+    signals:
+      - log_type=IDP
+      - log_subtype=Detect
+      - detection_severity >= 8
+    why: High-severity signatures that only alert indicate a policy gap — the exploit traffic reached the server.
+    kql: |-
+      dataset="sophos_logs" log_type="IDP" log_subtype="Detect"
+      | where toint(detection_severity) >= 8
+      | summarize hits=count(), srcs=dcount(src_ip) by signature_id, signature_msg, dst_ip, dst_port
+    mitre:
+      - T1190
+  - title: Threat-feed C2 match from internal host
+    severity: high
+    signals:
+      - log_type=ATP
+      - log_subtype contains "source match"
+      - malware C2/*
+    why: An internal host contacting a known C2 host or domain is a strong compromise signal, even when the firewall dropped it.
+    kql: |-
+      dataset="sophos_logs" log_type="ATP"
+      | where log_subtype has "source match" or log_subtype has "destination match"
+      | summarize hits=count(), first=min(_time), domains=make_set(url) by src_ip, user_name, malware, threatfeed
+    mitre:
+      - T1071
+      - T1071.004
+  - title: Admin access from the internet
+    severity: high
+    signals:
+      - log_type=Firewall
+      - src_zone_type=WAN
+      - dst_port 4444 / 443 to the appliance
+    why: Exposure of Webadmin / User Portal is the precondition for CVE-2020-12271, CVE-2022-1040 and CVE-2022-3236. Should be zero.
+    kql: |-
+      dataset="sophos_logs" log_type="Firewall" src_zone_type="WAN" log_subtype="Allowed"
+      | where dst_port in (4444, 443)
+      | lookup sophos_appliance_ips on dst_ip
+      | where isnotempty(appliance)
+      | summarize count() by src_ip, src_country, dst_ip, dst_port
+    mitre:
+      - T1190
+      - T1133
+  - title: Internal host scanning many ports
+    severity: medium
+    signals:
+      - log_type=Firewall
+      - log_subtype=Denied
+      - many dst_port per src_ip
+    why: Denied connections spread over many ports or hosts from one LAN address indicates discovery or worm activity.
+    kql: |-
+      dataset="sophos_logs" log_type="Firewall" log_subtype="Denied" src_zone_type="LAN"
+      | summarize ports=dcount(dst_port), hosts=dcount(dst_ip) by src_ip, bin(_time, 5m)
+      | where ports > 50 or hosts > 100
+    mitre:
+      - T1046
+  - title: Large upload to a rare country
+    severity: medium
+    signals:
+      - log_type=Firewall
+      - con_event=Stop
+      - high bytes_sent
+      - dst_country uncommon
+    why: Exfiltration often shows as long, upload-heavy sessions to destinations the user never contacts otherwise.
+    kql: |-
+      dataset="sophos_logs" log_type="Firewall" con_event="Stop" dst_zone_type="WAN"
+      | summarize up=sum(bytes_sent), down=sum(bytes_received) by src_ip, user_name, dst_country
+      | where up > 500000000 and up > down * 5
+    mitre:
+      - T1048
+optimizations:
+  - title: Keep only connection Stop records
+    saving: 20–45 %
+    fn: Drop
+    how: Start and Interim records are superseded by the Stop record, which carries the final bytes, packets and duration. Drop Start/Interim unless you need real-time session visibility.
+    expr: log_type=='Firewall' && log_component=='Firewall Rule' && con_event!='Stop'
+  - title: Strip constant and display-only fields
+    saving: 20–30 %
+    fn: Parser → Serialize
+    how: Parse the key=value line, remove device_model, device_serial_id, log_version, ether_type, display interfaces, app_resolved_by, app_is_cloud, qualifier and empty values, then re-serialise as key=value or JSON.
+    expr: "remove: device_model, device_serial_id, log_version, ether_type, *_display_interface, app_resolved_by, app_is_cloud, qualifier; drop empty"
+  - title: Suppress repetitive WAN denies
+    saving: 5–20 %
+    fn: Suppress
+    how: Internet background scanning produces floods of identical Denied records. Keep one per src_ip/dst_port per minute with a count.
+    expr: "key: `${src_ip}:${dst_port}`  allow 1 / 60s  when log_subtype=='Denied' && src_zone_type=='WAN'"
+  - title: Aggregate heartbeat and Invalid Traffic noise
+    saving: 5–10 %
+    fn: Aggregations
+    how: Heartbeat, ICMP ERROR MESSAGE and Invalid Traffic components are rarely investigated individually. Roll up to counts per component, src and dst per 5 minutes.
+    expr: log_component in ('Heartbeat','ICMP ERROR MESSAGE','Invalid Traffic','Local ACL')
+  - title: Route security modules at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: IDP, ATP, Event (auth, admin) and Anti-Virus records → SIEM unchanged. Firewall-rule and Content Filtering → Cribl Lake raw + SIEM optimised.
+    expr: log_type in ('IDP','ATP','Event','Anti-Virus') → SIEM  |  else → Lake + SIEM(optimised)
+references:
+  - title: Sophos Firewall syslog reference guide (SFOS 23.0)
+    url: https://docs.sophos.com/nsg/sophos-firewall/23.0/syslog/index.html
+  - title: Sophos Firewall syslog reference guide (SFOS 21.5)
+    url: https://docs.sophos.com/nsg/sophos-firewall/21.5/syslog/index.html
+  - title: Sophos advisory — CVE-2022-1040
+    url: https://www.sophos.com/en-us/security-advisories/sophos-sa-20220325-sfos-rce
+  - title: Sophos advisory — CVE-2022-3236
+    url: https://www.sophos.com/en-us/security-advisories/sophos-sa-20220923-sfos-rce
+  - title: Sophos advisory — CVE-2024-12727 / 12728 / 12729
+    url: https://www.sophos.com/en-us/security-advisories/sophos-sa-20241219-sfos-rce
+  - title: NVD — CVE-2020-12271
+    url: https://nvd.nist.gov/vuln/detail/CVE-2020-12271
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - fortigate
+  - pan-ngfw
+  - sonicwall
+  - checkpoint
+  - pfsense
+  - barracuda-cloudgen

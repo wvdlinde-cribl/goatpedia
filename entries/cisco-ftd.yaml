@@ -1,0 +1,341 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-ftd
+name: Cisco Secure Firewall Threat Defense (Firepower)
+short: Cisco FTD
+vendor: Cisco
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+aka:
+  - FTD
+  - Firepower Threat Defense
+  - Cisco Secure Firewall
+  - FTDv
+  - Sourcefire (heritage)
+  - FMC / FDM (managers)
+tags:
+  - firewall
+  - ips
+  - snort
+  - estreamer
+  - vpn
+  - syslog
+  - json
+summary: Cisco's NGFW image that fuses the ASA data plane (LINA) with the Sourcefire/Snort 3 inspection engine, managed by Firewall Management Center (FMC), cloud-delivered FMC or on-box FDM. It produces two log families — LINA syslog with %FTD- message IDs, and Snort-side connection, intrusion, file and malware events exported by syslog (430001–430005) or eStreamer.
+sourcetypes:
+  - st: cisco_ftd
+    desc: FTD syslog — LINA %FTD- messages and 4300xx Snort event messages
+  - st: cisco_firepower
+    desc: Firepower / FTD events from the legacy Firepower add-on
+  - st: cisco_estreamer
+    desc: eStreamer events (connection, intrusion, file, malware) from FMC
+  - st: cisco_sfw_estreamer
+    desc: Pack Generator sourcetype — eStreamer events as JSON (Cisco Security Cloud app format)
+  - st: cisco_ips_alert
+    desc: Intrusion (Snort) alerts — 430001 syslog or eStreamer intrusion events
+  - st: cisco:sfw:estreamer
+    desc: Splunk Cisco Security Cloud app sourcetype for eStreamer JSON
+  - st: cisco:estreamer:data
+    desc: Legacy Splunk eStreamer eNcore add-on sourcetype
+  - st: CISCO_FIREPOWER_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: 2016 (FTD 6.0 — ASA LINA + Sourcefire Snort)
+  OS: Secure Firewall Threat Defense 7.x / 10.x (Snort 3 default since 7.0)
+  Form factors: Secure Firewall 1200/1000/3100/4200/9300, Firepower 1000/2100/4100 (older), FTDv on VMware/KVM/AWS/Azure/GCP
+  Management: FMC (on-prem), cloud-delivered FMC / Security Cloud Control, FDM (on-box, single device)
+  Deployment modes: Routed, transparent, inline IPS set, inline tap / passive, HA pairs and clustering
+  Log transport: LINA syslog UDP/TCP/TLS; Snort events by syslog (430001–430005) or eStreamer from FMC (TCP 8302, TLS client cert)
+  Log format: "Free-text syslog (%FTD-sev-id); comma-separated Key: value lists for 4300xx; eStreamer binary records, usually converted to JSON"
+  Typical EPS: 1k – 30k+ per device (connection events dominate; intrusion is low volume)
+  Cribl Pack: cribl-cisco-ftd-cleanup (Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet perimeter NGFW / IPS
+      desc: Access control with application, URL and Snort intrusion policies; the common replacement for ASA + FirePOWER module stacks.
+    - slot: internal
+      title: Data-center and inline IPS
+      desc: Inline sets or transparent mode inserted in front of server tiers for IPS without routing changes; clustered on 4200/9300 for throughput.
+    - slot: remote
+      title: Remote-access VPN head-end
+      desc: Secure Client (AnyConnect) SSL/IKEv2 and ZTNA are served by the LINA web server — the same code path as ASA, so it inherits ASA VPN CVEs.
+    - slot: cloud
+      title: FTDv in public cloud
+      desc: Inspection VPC/VNet deployments behind gateway load balancers, managed from cloud-delivered FMC.
+howItWorks:
+  - title: Two engines in one box — LINA and Snort
+    body: LINA (the ASA code base) handles interfaces, routing, NAT, prefilter rules and VPN. Traffic that needs deeper inspection is handed to Snort 3 instances for application detection (OpenAppID), access-control rules, intrusion policy and file policy. This is why an FTD logs both %FTD-6-302013 style LINA messages and Snort connection events for the same flow.
+  - title: Prefilter, access control and intrusion policy
+    body: Prefilter rules can fastpath or block tunnels/flows in LINA before Snort. The access control policy matches zones, networks, users (ISE/passive identity), applications and URLs; allow rules attach an intrusion policy (Balanced, Security over Connectivity, …) and a file policy (AMP/Secure Malware Analytics).
+  - title: Events and where they are stored
+    body: Snort-side events — connection, intrusion, file, malware, security intelligence — are sent to FMC, which stores them and can stream them via eStreamer. The device can also send them directly as syslog (430001 intrusion, 430002/430003 connection start/end, 430004 file, 430005 file malware).
+  - title: Security Intelligence and Encrypted Visibility
+    body: IP, URL and DNS reputation feeds (Talos) block known-bad destinations before deeper inspection and log with a Security Intelligence category. The Encrypted Visibility Engine fingerprints TLS client hellos to name the client process without decryption (EVE_Process).
+  - title: FMC as a single point of failure — and attack
+    body: FMC holds policy, credentials and the event database for every managed device. Its web interface is a high-value target; a compromise means control of every firewall it manages, so FMC audit logs belong in the SIEM too.
+traffic:
+  handles:
+    - IPv4/IPv6 stateful firewalling and NAT (LINA)
+    - Snort 3 intrusion prevention (Talos rules)
+    - OpenAppID application and URL filtering
+    - File and malware inspection (Secure Malware Analytics)
+    - TLS decryption and Encrypted Visibility (EVE)
+    - Secure Client SSL/IKEv2 remote access and ZTNA
+    - Security Intelligence (IP / URL / DNS reputation)
+  flow:
+    - step: Ingress (LINA)
+      desc: Interface, route lookup, un-NAT; existing connections skip policy.
+    - step: Prefilter
+      desc: Fastpath, block or analyze decision on outer headers and tunnels.
+    - step: Security Intelligence
+      desc: Reputation blocklists for IP, URL and DNS hit before rule matching.
+    - step: Access control (Snort)
+      desc: Zones, networks, users, applications and URLs; first matching rule.
+    - step: Intrusion + file policy
+      desc: Snort rules and file/malware inspection on allowed traffic → 430001 / 430004 / 430005.
+    - step: NAT + egress (LINA)
+      desc: Source NAT and forwarding.
+    - step: Connection event
+      desc: At connection end Snort logs the connection event (430003 / eStreamer) with bytes, application, rule and SSL details.
+logs:
+  - type: Connection event (eStreamer JSON)
+    sourcetype: cisco_sfw_estreamer
+    format: json
+    share: 70–90 %
+    avg: ~1.5 KB
+    desc: One record per connection (start and/or end, per access-control rule logging). Carries rule, zones, applications, URL, NAT, bytes and TLS / Encrypted Visibility details. Highest volume.
+    key:
+      - AC_RuleAction
+      - InitiatorIP
+      - ResponderIP
+      - ResponderPort
+      - FirewallRule
+      - Application
+      - InitiatorBytes
+      - ResponderBytes
+    noise:
+      - DeviceUUID
+      - InstanceID
+      - IngressVRF
+      - EgressVRF
+      - SSL_CertFingerprint
+      - EVE_Fingerprint
+    sample: '{"EventType":"ConnectionEvent","FirstPacketSecond":1762935231,"LastPacketSecond":1762935262,"DeviceUUID":"7d0c3a52-8f33-11ef-9a1b-005056aa0101","InstanceID":1,"ConnectionID":48211,"AC_RuleAction":"Allow","InitiatorIP":"10.20.30.44","ResponderIP":"203.0.113.80","InitiatorPort":51544,"ResponderPort":443,"Protocol":"tcp","IngressInterface":"inside","EgressInterface":"outside","IngressZone":"INSIDE","EgressZone":"OUTSIDE","IngressVRF":"Global","EgressVRF":"Global","FirewallPolicy":"Edge-ACP","FirewallRule":"allow-web-out","ClientApplication":"Firefox","Application":"HTTPS","WebApplication":"Example Web","URL":"https://www.example.com","URLCategory":"Business and Industry","InitiatorPackets":22,"ResponderPackets":48,"InitiatorBytes":6842,"ResponderBytes":53110,"NAT_InitiatorIP":"198.51.100.10","NAT_InitiatorPort":31544,"SSL_FlowStatus":"Success","SSL_ActualAction":"Do Not Decrypt","SSL_CertFingerprint":"0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c","EVE_Process":"firefox browser","EVE_ProcessConfidencePct":100,"EVE_Fingerprint":"tls/1/(0303)(1301...)","User":"EXAMPLE\\jdoe"}'
+  - type: Intrusion event (430001)
+    sourcetype: cisco_ftd
+    format: text
+    share: 0.1–2 %
+    avg: ~900 B
+    desc: Snort rule match with GID:SID:Revision, priority, classification and the inline result (Block / Would block / Allow). Highest value per byte — keep at full fidelity.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\S+) (?<host>\S+) : %(?<facility>FTD)-(?<severity>\d)-(?<message_id>\d{6}): DeviceUUID: (?<DeviceUUID>[^,]*), InstanceID: (?<InstanceID>[^,]*), FirstPacketSecond: (?<FirstPacketSecond>[^,]*), ConnectionID: (?<ConnectionID>[^,]*), SrcIP: (?<SrcIP>[^,]*), DstIP: (?<DstIP>[^,]*), SrcPort: (?<SrcPort>[^,]*), DstPort: (?<DstPort>[^,]*), Protocol: (?<Protocol>[^,]*), IngressInterface: (?<IngressInterface>[^,]*), EgressInterface: (?<EgressInterface>[^,]*), IngressZone: (?<IngressZone>[^,]*), EgressZone: (?<EgressZone>[^,]*), Priority: (?<Priority>[^,]*), GID: (?<GID>[^,]*), SID: (?<SID>[^,]*), Revision: (?<Revision>[^,]*), Message: (?<Message>[^,]*), Classification: (?<Classification>[^,]*), Client: (?<Client>[^,]*), ApplicationProtocol: (?<ApplicationProtocol>[^,]*), IntrusionPolicy: (?<IntrusionPolicy>[^,]*), ACPolicy: (?<ACPolicy>[^,]*), AccessControlRuleName: (?<AccessControlRuleName>[^,]*), NAPPolicy: (?<NAPPolicy>[^,]*), InlineResult: (?<InlineResult>[^,]*), IngressVRF: (?<IngressVRF>[^,]*), EgressVRF: (?<EgressVRF>[^,]*), HTTP_Hostname: (?<HTTP_Hostname>[^,]*), HTTP_URI: (?<HTTP_URI>.*)$'
+    key:
+      - message_id
+      - SrcIP
+      - DstIP
+      - SID
+      - Message
+      - Priority
+      - InlineResult
+    noise:
+      - pri
+      - DeviceUUID
+      - InstanceID
+      - IngressVRF
+      - EgressVRF
+      - NAPPolicy
+    sample: |-
+      <185>2026-11-12T08:02:41Z FTD-EDGE-01 : %FTD-1-430001: DeviceUUID: 7d0c3a52-8f33-11ef-9a1b-005056aa0101, InstanceID: 1, FirstPacketSecond: 2026-11-12T08:02:40Z, ConnectionID: 51244, SrcIP: 198.51.100.23, DstIP: 10.30.1.25, SrcPort: 43218, DstPort: 443, Protocol: tcp, IngressInterface: outside, EgressInterface: dmz, IngressZone: OUTSIDE, EgressZone: DMZ, Priority: 1, GID: 1, SID: 58722, Revision: 4, Message: SERVER-OTHER Apache Log4j logging remote code execution attempt, Classification: Attempted User Privilege Gain, Client: cURL, ApplicationProtocol: HTTP, IntrusionPolicy: Balanced-Plus, ACPolicy: Edge-ACP, AccessControlRuleName: allow-dmz-web, NAPPolicy: Balanced Security and Connectivity, InlineResult: Block, IngressVRF: Global, EgressVRF: Global, HTTP_Hostname: app.example.com, HTTP_URI: /api/login
+  - type: LINA VPN authentication (113015)
+    sourcetype: cisco_ftd
+    format: text
+    share: < 2 %
+    avg: ~200 B
+    desc: Remote-access VPN authentication rejected against the local database (113015) or AAA server (113005); with 716039 these are Cisco's documented password-spray indicators. Same message IDs as ASA, %FTD- prefix.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\S+) (?<host>\S+) : %(?<facility>FTD)-(?<severity>\d)-(?<message_id>\d{6}): AAA user authentication (?<result>Rejected) : reason = (?<reason>[^:]+?) : local database : user = (?<user>\S+) : user IP = (?<src_ip>[\d.]+)$'
+    key:
+      - message_id
+      - reason
+      - user
+      - src_ip
+    noise:
+      - pri
+      - facility
+    sample: |-
+      <166>2026-11-12T08:05:10Z FTD-EDGE-01 : %FTD-6-113015: AAA user authentication Rejected : reason = User was not found : local database : user = admin : user IP = 198.51.100.23
+cves:
+  - id: CVE-2026-20131
+    cvss: 10.0
+    year: 2026
+    kev: true
+    scope: device
+    title: FMC web interface insecure Java deserialization — unauthenticated RCE as root (used by ransomware)
+    affected: Secure Firewall Management Center (on-prem) and SCC Firewall Management, multiple releases (see advisory)
+    detect: FMC is not a data-plane device, so watch FMC audit and web logs (and connection events to the FMC IP) for unauthenticated POSTs from unexpected sources, new admin users and policy deployments nobody scheduled.
+    avoid: Upgrade per cisco-sa-fmc-rce-NKhnULJh (no workaround); never expose the FMC management interface to the internet.
+  - id: CVE-2026-20079
+    cvss: 10.0
+    year: 2026
+    kev: true
+    scope: device
+    title: FMC authentication bypass via an improper boot-time process — root via crafted HTTP requests
+    affected: Secure Firewall Management Center (on-prem); SCC Firewall Management fixed by Cisco
+    detect: Same as CVE-2026-20131 — unexpected HTTP sessions to the FMC from outside the admin network; scripts executed and policy pushes not tied to an admin change. CISA lists forensic triage as required for this KEV entry.
+    avoid: Upgrade per cisco-sa-onprem-fmc-authbypass-5JPp45V2; restrict FMC access to a management VLAN / jump host.
+  - id: CVE-2026-20349
+    cvss: 8.6
+    year: 2026
+    kev: true
+    scope: device
+    title: Remote Access SSL VPN heap inspection flaw — unauthenticated device reload (DoS)
+    affected: FTD 7.0, 7.2, 7.4, 7.6, 7.7, 10.0 (and ASA) with SSL VPN, IKEv2 client services or ZTNA enabled
+    fixed: FTD 7.0.10, 7.2.12, 7.4.8, 7.6.6, 7.7.13, 10.0.2 (hotfixes were provided earlier; FMC not affected)
+    detect: Unplanned reloads of the FTD (199005 startup without 199001), HA failovers, and HTTPS sessions to the VPN listener immediately before.
+    avoid: Upgrade; limit SSL VPN exposure; monitor for reload loops.
+  - id: CVE-2026-76418
+    cvss: 8.6
+    year: 2026
+    kev: true
+    scope: device
+    title: Remote Access SSL VPN tunnel DoS when secondary authentication is configured on a tunnel group
+    affected: FTD and ASA with SSL RA-VPN reachable and secondary-authentication-server-group on any tunnel group (incl. DefaultWEBVPNGroup)
+    detect: Device reloads correlated with VPN login attempts — no successful login is required to reach the bug.
+    avoid: Upgrade per cisco-sa-asaftd-tunnel-dos-s6mgkb75; as a mitigation, remove secondary authentication from DefaultWEBVPNGroup and listed tunnel groups.
+  - id: CVE-2024-20481
+    cvss: 5.8
+    year: 2024
+    kev: true
+    scope: device
+    title: RAVPN resource exhaustion through mass VPN authentication requests (large-scale brute-force campaign)
+    affected: FTD and ASA with remote-access VPN enabled
+    detect: Spikes of 113015 / 113005 / 716039 rejects from many IPs, followed by RA-VPN service failure or reload.
+    avoid: Upgrade; apply Cisco's password-spray mitigations (threat-detection service remote-access-authentication, shun lists, disable unused default tunnel groups); enforce MFA.
+  - id: CVE-2021-44228
+    cvss: 10.0
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — Log4j JNDI injection in traffic the FTD inspects toward protected web apps
+    affected: Java applications using Apache Log4j 2.0-beta9 – 2.14.1 behind the firewall
+    fixed: Log4j 2.17.1 (server side); Talos Snort rules (e.g. SID 58722-58744 family) detect attempts
+    detect: 430001 / eStreamer intrusion events with Message containing "Log4j" and InlineResult Block or Would block; follow-up outbound LDAP/RMI connection events from the targeted server.
+    avoid: Patch the application; keep the intrusion policy in Block mode for the Log4j SIDs; egress-filter LDAP/RMI from servers.
+detections:
+  - title: High-priority intrusion event not blocked
+    severity: high
+    signals:
+      - message_id=430001
+      - Priority=1
+      - InlineResult is Allow or Would block
+    why: A priority-1 signature that only alerted (policy in detection mode or rule set to generate events) is a prevention gap on an active attack.
+    kql: |-
+      dataset="cisco_ftd_logs" message_id="430001" Priority="1"
+      | where InlineResult != "Block"
+      | summarize hits=count() by SrcIP, DstIP, SID, Message, InlineResult
+    mitre:
+      - T1190
+  - title: Log4Shell or other exploit attempts against DMZ servers
+    severity: critical
+    signals:
+      - message_id=430001
+      - Message has Log4j / SERVER- rules
+      - EgressZone=DMZ
+    why: Exploit-class signatures toward published services show active targeting; correlate with outbound connections from the same server.
+    kql: |-
+      dataset="cisco_ftd_logs" message_id="430001" EgressZone="DMZ"
+      | where Message has_any ("Log4j","SERVER-WEBAPP","SERVER-OTHER")
+      | summarize hits=count(), first=min(_time) by SrcIP, DstIP, Message, InlineResult
+    mitre:
+      - T1190
+      - T1203
+  - title: RA-VPN password spray (Cisco IDs 113015 / 113005 / 716039)
+    severity: high
+    signals:
+      - message_id in 113015, 113005, 716039
+      - many users per src_ip
+    why: Cisco tied the 2024 brute-force campaign and CVE-2024-20481 to these IDs; spraying precedes credential-based access.
+    kql: |-
+      dataset="cisco_ftd_logs" message_id in ("113015","113005","716039")
+      | summarize fails=count(), users=dcount(user) by src_ip, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
+  - title: Large upload to an uncommon destination
+    severity: medium
+    signals:
+      - EventType=ConnectionEvent
+      - InitiatorBytes >> ResponderBytes
+      - EgressZone=OUTSIDE
+    why: Exfiltration shows as connections where the inside host sends far more than it receives, often to file-sharing or new hosting IPs.
+    kql: |-
+      dataset="cisco_ftd_logs" EventType="ConnectionEvent" EgressZone="OUTSIDE"
+      | summarize up=sum(InitiatorBytes), down=sum(ResponderBytes) by InitiatorIP, ResponderIP, WebApplication
+      | where up > 500000000 and up > 10 * down
+    mitre:
+      - T1048
+      - T1567.002
+  - title: Process fingerprint mismatch on TLS (Encrypted Visibility)
+    severity: low
+    signals:
+      - EVE_Process is a scripting tool or unknown
+      - Application=HTTPS to rare destination
+    why: EVE names the client by its TLS fingerprint; curl, python or malware families talking TLS from user subnets are worth a look.
+    kql: |-
+      dataset="cisco_ftd_logs" EventType="ConnectionEvent" Application="HTTPS"
+      | where EVE_Process has_any ("curl","python","powershell","unknown")
+      | summarize conns=count() by InitiatorIP, ResponderIP, EVE_Process
+    mitre:
+      - T1071.001
+optimizations:
+  - title: Log connections at end only
+    saving: 30–50 %
+    fn: Drop
+    how: Access-control rules can log at beginning and end; the end event has everything plus bytes and duration. Set rules to "log at end" or drop 430002 / start events in Stream.
+    expr: message_id=='430002'
+  - title: Do not log fastpathed and trusted flows
+    saving: 10–30 %
+    fn: Drop
+    how: Connection events for Trust/Fastpath rules (backup, replication, monitoring) add volume without detection value. Drop by FirewallRule via a lookup, keep in Lake.
+    expr: C.Lookup('ftd_quiet_rules.csv','FirewallRule').match(FirewallRule)
+  - title: Strip eStreamer bulk fields
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Remove DeviceUUID (map to device name), InstanceID, VRF names, EVE_Fingerprint and certificate fingerprints, and empty or "Unknown" values before the SIEM.
+    expr: "remove: DeviceUUID, InstanceID, *VRF, EVE_Fingerprint, SSL_CertFingerprint; drop values 'Unknown' / ''"
+  - title: Suppress repeated LINA denies and teardowns
+    saving: 5–20 %
+    fn: Suppress
+    how: LINA still emits ASA-style 106023/302014 messages next to Snort connection events. Keep one deny per src/dst/port per minute and drop LINA teardowns when Snort connection events are collected.
+    expr: "key: `${src_ip}:${dest_ip}:${dest_port}`  allow 1 / 60s  when message_id=='106023'"
+references:
+  - title: FTD Syslog Messages — Security event syslog messages (430001–430005 field reference)
+    url: https://www.cisco.com/c/en/us/td/docs/security/firepower/Syslogs/fptd_syslog_guide/security-event-syslog-messages.html
+  - title: Mitigate password spray attacks on remote access VPN (Cisco)
+    url: https://www.cisco.com/c/en/us/support/docs/security/secure-firewall-threat-defense/221806-password-spray-attacks-impacting-custome.html
+  - title: cisco-sa-fmc-rce-NKhnULJh — CVE-2026-20131
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-fmc-rce-NKhnULJh
+  - title: cisco-sa-onprem-fmc-authbypass-5JPp45V2 — CVE-2026-20079
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-onprem-fmc-authbypass-5JPp45V2
+  - title: cisco-sa-asaftd-vpn-dos-dzv4mQFF — CVE-2026-20349
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-vpn-dos-dzv4mQFF
+  - title: cisco-sa-asaftd-tunnel-dos-s6mgkb75 — CVE-2026-76418
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-tunnel-dos-s6mgkb75
+  - title: cisco-sa-asaftd-bf-dos-vDZhLqrW — CVE-2024-20481
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-bf-dos-vDZhLqrW
+  - title: Cribl Pack — Cisco FTD cleanup
+    url: https://packs.cribl.io/packs/cribl-cisco-ftd-cleanup
+related:
+  - cisco-asa
+  - snort
+  - pan-ngfw
+  - fortigate
+  - checkpoint
+  - cisco-ios

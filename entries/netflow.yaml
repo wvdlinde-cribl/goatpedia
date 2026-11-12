@@ -1,0 +1,323 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: netflow
+name: Cisco NetFlow v9 / IPFIX
+short: NetFlow
+aka:
+  - NetFlow v5
+  - Flexible NetFlow (FNF)
+  - IPFIX (NetFlow v10, RFC 7011)
+  - J-Flow / cflowd
+  - sFlow (sampled cousin)
+vendor: Cisco (IETF)
+category: ndr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - flow
+  - netflow
+  - ipfix
+  - udp
+  - metadata
+  - network-visibility
+summary: The standard way routers, switches and firewalls summarise traffic. The device keeps a flow cache keyed on the 5-tuple and exports one record per conversation (addresses, ports, protocol, bytes, packets, TCP flags, interfaces, AS numbers) over UDP. v9 and IPFIX are template-based, so the collector must learn the exporter's templates before it can decode anything. There is no payload, but it covers every link that can export.
+sourcetypes:
+  - st: cisco_netflow_v9
+    desc: NetFlow v9 / IPFIX flow records decoded by a collector — 5-tuple, bytes, packets, TCP flags, interfaces, AS, timing
+  - st: netflow
+    desc: Generic NetFlow/IPFIX sourcetype used by many collectors and Splunk add-ons
+  - st: stream:netflow
+    desc: NetFlow v5/v9, IPFIX and sFlow received by Splunk Stream (streamfwd)
+facts:
+  First released: NetFlow 1996 (Cisco IOS); v5 the long-time default; v9 RFC 3954 (2004); IPFIX RFC 7011 (2013)
+  Exporters: Cisco IOS / IOS XE / IOS XR / NX-OS, ASA (NSEL), Juniper (J-Flow), Palo Alto, Fortinet, VMware vDS, most routers and L3 switches
+  Transport: UDP to a collector (commonly 2055, 9995, 9996, IPFIX 4739); IPFIX may also use TCP or SCTP
+  Record model: "v5 = fixed 48-byte record; v9/IPFIX = template FlowSets define the fields, data FlowSets carry the values"
+  Templates: Resent periodically (often every 20 packets or 30 minutes); records that arrive before their template cannot be decoded
+  Sampling: Often 1:N packet sampling on high-speed links — counts must be multiplied by samplingInterval
+  Typical volume: One record per flow per active timeout (default 30 min active / 15 s inactive on IOS); thousands to millions of records/s at large carriers
+  Cribl: Native NetFlow & IPFIX Source (v5, v9, IPFIX over UDP), templates shared across workers via the Leader; no NetFlow Pack verified in the Packs Dispensary
+placement:
+  slots:
+    - edge
+    - internal
+    - dmz
+    - cloud
+  items:
+    - slot: edge
+      title: Internet edge routers
+      desc: Ingress/egress flow export on WAN and ISP interfaces gives every conversation in or out of the organisation, including AS numbers for peering and DDoS analysis.
+    - slot: internal
+      title: Core and distribution switches
+      desc: Flexible NetFlow on L3 switches records east-west traffic between VLANs and data-center segments where no firewall or sensor sits.
+    - slot: dmz
+      title: Firewalls (NSEL)
+      desc: Cisco ASA/FTD NetFlow Security Event Logging and NGFW flow export add firewall action and NAT fields to the flow record.
+    - slot: cloud
+      title: Virtual routers and vSwitches
+      desc: Cloud and virtual routers (CSR/Catalyst 8000v, VMware vDS IPFIX) export the same records from inside the virtual network.
+howItWorks:
+  - title: Flow cache
+    body: The exporter tracks each unidirectional flow by its key fields (source/destination IP and port, protocol, ToS, input interface) and keeps counters for bytes, packets and the OR of all TCP flags seen.
+  - title: Expiry
+    body: A flow is exported when it ends (TCP FIN/RST), when it has been idle for the inactive timeout, when it has been active longer than the active timeout, or when the cache is full. One long session therefore produces several records.
+  - title: Templates
+    body: In v9 and IPFIX the exporter first sends a template FlowSet that lists field type codes and lengths under a template ID. Data FlowSets then carry only values. The collector keys templates on exporter address, observation domain (source ID) and template ID.
+  - title: Options records
+    body: Options templates describe the exporter itself — sampling interval and algorithm, interface names, exported flow/packet totals. They are needed to turn sampled counts into real volume.
+  - title: Collection
+    body: The collector (Cribl Stream NetFlow source, nfdump, Logstash, Splunk Stream, an NDR) decodes each record into fields. Cribl names v9 fields in camelCase after the Cisco names (ipv4SrcAddr, l4DstPort, inBytes) and IPFIX fields after the IANA information elements.
+  - title: Limits
+    body: No payload, no usernames, no URLs (unless the exporter adds application fields such as NBAR applicationName). Records are unidirectional, so request and reply are two records that the collector or analyst must pair.
+traffic:
+  handles:
+    - IPv4 and IPv6 flows (any IP protocol)
+    - TCP/UDP ports, ICMP type and code
+    - Byte and packet counters, first/last switched times
+    - Cumulative TCP flags per flow
+    - Input/output interface, VLAN, next hop, BGP AS numbers
+    - NBAR / AVC application names (Flexible NetFlow)
+    - MPLS labels and firewall/NAT fields (NSEL) where exported
+  flow:
+    - step: Packet
+      desc: A packet crosses an interface with flow monitoring enabled (ingress or egress).
+    - step: Cache
+      desc: The exporter creates or updates the flow entry for its key fields.
+    - step: Expire
+      desc: The flow ends, idles out, hits the active timeout or is evicted.
+    - step: Export
+      desc: Records are packed into a v5/v9/IPFIX datagram with a header (sequence number, uptime, source ID) and sent over UDP.
+    - step: Decode
+      desc: The collector applies the matching template and turns each record into an event.
+    - step: Enrich and route
+      desc: Cribl adds direction, GeoIP/ASN, sampling correction and service names, then routes to a SIEM, NDR or data lake.
+logs:
+  - type: NetFlow v9 data record
+    sourcetype: cisco_netflow_v9
+    format: json
+    share: 85–95 %
+    avg: ~400 B decoded
+    desc: One unidirectional flow as decoded by the Cribl NetFlow source. Only the fields in the exporter's template appear; this one is a typical Flexible NetFlow IPv4 record with NBAR application.
+    key:
+      - ipv4SrcAddr
+      - ipv4DstAddr
+      - l4DstPort
+      - protocol
+      - inBytes
+      - inPkts
+      - tcpFlags
+      - applicationName
+    noise:
+      - srcTos
+      - srcMask
+      - dstMask
+      - flowSamplerId
+      - engineType
+      - engineId
+    sample: '{"_time":1762938841.512,"source":"udp|192.0.2.1|61844","host":"cribl-worker-01","ipv4SrcAddr":"10.10.20.31","ipv4DstAddr":"203.0.113.45","l4SrcPort":52814,"l4DstPort":443,"protocol":6,"srcTos":0,"tcpFlags":27,"inBytes":184533,"inPkts":162,"inputSnmp":3,"outputSnmp":1,"ipv4NextHop":"198.51.100.1","srcMask":24,"dstMask":0,"srcAs":0,"dstAs":64500,"firstSwitched":918233114,"lastSwitched":918262905,"direction":0,"flowSamplerId":0,"engineType":0,"engineId":0,"applicationName":"ssl"}'
+  - type: IPFIX data record
+    sourcetype: netflow
+    format: json
+    share: varies (replaces v9 on newer exporters)
+    avg: ~450 B decoded
+    desc: The same flow as IPFIX, with IANA information-element names and absolute millisecond timestamps instead of uptime offsets.
+    key:
+      - sourceIPv4Address
+      - destinationIPv4Address
+      - destinationTransportPort
+      - protocolIdentifier
+      - octetDeltaCount
+      - packetDeltaCount
+      - tcpControlBits
+    noise:
+      - ipClassOfService
+      - sourceIPv4PrefixLength
+      - destinationIPv4PrefixLength
+      - flowEndReason
+    sample: '{"_time":1762938902.007,"source":"udp|192.0.2.9|50211","host":"cribl-worker-01","sourceIPv4Address":"10.10.40.12","destinationIPv4Address":"198.51.100.25","sourceTransportPort":49733,"destinationTransportPort":3389,"protocolIdentifier":6,"tcpControlBits":2,"octetDeltaCount":120,"packetDeltaCount":2,"ingressInterface":7,"egressInterface":2,"ipClassOfService":0,"sourceIPv4PrefixLength":24,"destinationIPv4PrefixLength":0,"flowStartMilliseconds":1762938899120,"flowEndMilliseconds":1762938900121,"flowEndReason":1,"observationDomainId":256}'
+  - type: NetFlow v5 record
+    sourcetype: cisco_netflow_v9
+    format: json
+    share: legacy exporters only
+    avg: ~350 B decoded
+    desc: Fixed-format v5 record (IPv4 only, no templates). Cribl adds a header object with the export sequence and sampling settings.
+    key:
+      - srcAddr
+      - dstAddr
+      - dstPort
+      - protocol
+      - octets
+      - packets
+      - durationMs
+    noise:
+      - inputInt
+      - tos
+      - srcMask
+      - dstMask
+      - header.engineType
+      - header.engineId
+    sample: '{"_time":1762939010.250,"source":"udp|192.0.2.17|60001","host":"cribl-worker-02","srcAddr":"198.51.100.200","dstAddr":"10.10.5.20","nextHop":"10.10.5.1","srcPort":51111,"dstPort":22,"protocol":6,"tcpFlags":2,"tos":0,"inputInt":0,"outputInt":4,"srcMask":0,"dstMask":24,"srcAs":64511,"dstAs":0,"packets":1,"octets":60,"startTime":77311020,"endTime":77311020,"durationMs":0,"header":{"version":5,"count":30,"sysUptimeMs":77311544,"unixSecs":1762939010,"unixNsecs":0,"flowSequence":884120,"engineType":0,"engineId":0,"samplingMode":0,"samplingInterval":0}}'
+cves:
+  - id: CVE-2020-3221
+    cvss: 8.6
+    year: 2020
+    kev: false
+    scope: device
+    title: Cisco IOS XE Flexible NetFlow v9 parser infinite loop and reload on Catalyst 9800 wireless controllers
+    affected: Cisco IOS XE on Catalyst 9800 Series Wireless Controllers with AVC enabled (16.10.x, 16.11.x, 16.12.1 per NVD)
+    detect: Gaps in flow export and a cold-start sequence/uptime reset in the header from the controller; unexpected UDP to the CAPWAP data port (5247) carrying NetFlow-shaped payloads.
+    avoid: Upgrade using the Cisco Software Checker; no workaround exists. Restrict CAPWAP data ports to known access points.
+  - id: CVE-2016-10363
+    cvss: 7.5
+    year: 2017
+    kev: false
+    scope: device
+    title: Logstash NetFlow codec crashes on crafted v5/v9/IPFIX packets — a collector DoS
+    affected: Logstash before 2.3.3 with the Netflow codec
+    fixed: 2.3.3
+    detect: Collector process restarts and a hole in flow volume from every exporter at once; a burst of UDP from an unexpected source to the collector port.
+    avoid: Upgrade; only accept flow export from known exporter addresses (ACL or Cribl allow-list on the source); keep collectors off the internet.
+  - id: CVE-2024-56073
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: FastNetMon divide-by-zero on zero-length NetFlow v9 templates (CNA score)
+    affected: FastNetMon Community Edition through 1.2.7
+    detect: Collector crash after a template with zero length arrives; UDP to the collector from a host that is not a known exporter.
+    avoid: Upgrade to a release containing the upstream fix; filter flow export to known exporters.
+  - id: CVE-2023-20198
+    cvss: 10
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Cisco IOS XE web UI unauthenticated privilege-15 account creation (used with CVE-2023-20273 to implant routers)
+    affected: Cisco IOS XE with the HTTP/HTTPS server (web UI) enabled — 16.x and 17.x trains
+    fixed: 16.12.10a, 17.3.8a, 17.6.6a, 17.9.4a
+    detect: Flows from external addresses to TCP 80/443 on router management or WAN addresses, followed by unusual outbound flows from the router itself. On the device, new local users (ios syslog) and the implant check from the Cisco advisory.
+    avoid: Disable ip http server / ip http secure-server on internet-facing interfaces; upgrade; ACL management planes.
+  - id: CVE-2018-0171
+    cvss: 9.8
+    year: 2018
+    kev: true
+    scope: traffic
+    title: Cisco Smart Install RCE on TCP 4786 — still mass-scanned and used by state actors against unpatched switches
+    affected: Cisco IOS and IOS XE switches with Smart Install client enabled
+    detect: Flows to TCP 4786 from outside the management network, especially from the internet; any switch initiating TFTP (UDP 69) to an unknown host afterwards.
+    avoid: no vstack on every switch; upgrade per the Cisco advisory; block 4786 at the edge.
+detections:
+  - title: Horizontal port scan (SYN-only flows to many hosts)
+    severity: medium
+    signals:
+      - tcpFlags = 2 (SYN only)
+      - 1–2 packets per flow
+      - one source to 100+ destinations on the same port
+    why: A completed TCP session always sets ACK. Many SYN-only flows from one source show a scan, and flows are often the only telemetry on internal segments.
+    kql: |-
+      dataset="netflow"
+      | where protocol == 6 and tcpFlags == 2 and inPkts <= 2
+      | summarize targets=dcount(ipv4DstAddr), flows=count() by ipv4SrcAddr, l4DstPort, bin(_time, 10m)
+      | where targets > 100
+    mitre:
+      - T1046
+  - title: RDP or SSH from the internet
+    severity: high
+    signals:
+      - destination port 3389 or 22
+      - public source, private destination
+      - more than a handshake of bytes
+    why: Exposed remote-access services are a top initial-access route. Flow export at the edge sees them even when the host does not log the connection.
+    kql: |-
+      dataset="netflow"
+      | where destinationTransportPort in (3389, 22) and not(ipv4_is_private(sourceIPv4Address)) and ipv4_is_private(destinationIPv4Address)
+      | summarize flows=count(), bytes=sum(octetDeltaCount) by sourceIPv4Address, destinationIPv4Address, destinationTransportPort
+    mitre:
+      - T1133
+      - T1021.001
+  - title: Large outbound transfer to a new external host
+    severity: high
+    signals:
+      - internal source, external destination
+      - inBytes far above the host's baseline
+      - destination not seen in the last 30 days
+    why: Flows show volume without payload. Gigabytes leaving to an unknown address is the clearest exfiltration signal flows can give.
+    kql: |-
+      dataset="netflow"
+      | where ipv4_is_private(ipv4SrcAddr) and not(ipv4_is_private(ipv4DstAddr))
+      | summarize sent=sum(inBytes), flows=count() by ipv4SrcAddr, ipv4DstAddr, bin(_time, 1h)
+      | where sent > 2147483648
+    mitre:
+      - T1048
+      - T1041
+  - title: Beaconing — regular small flows to one destination
+    severity: medium
+    signals:
+      - same src/dst/port many times per hour
+      - near-constant bytes per flow
+      - low variance in interval
+    why: C2 implants check in on a timer. Many near-identical small flows to one external host stand out against normal browsing.
+    kql: |-
+      dataset="netflow"
+      | where not(ipv4_is_private(ipv4DstAddr))
+      | summarize flows=count(), avg_bytes=avg(inBytes), stdev_bytes=stdev(inBytes) by ipv4SrcAddr, ipv4DstAddr, l4DstPort, bin(_time, 1h)
+      | where flows > 50 and stdev_bytes < avg_bytes * 0.1
+    mitre:
+      - T1071
+      - T1573
+  - title: Smart Install or router web UI reached from outside
+    severity: critical
+    signals:
+      - destination port 4786, or 80/443 to router addresses
+      - source outside management ranges
+    why: CVE-2018-0171 and CVE-2023-20198 are exploited at scale. Any external flow to these services on network gear needs a look.
+    kql: |-
+      dataset="netflow"
+      | where (l4DstPort == 4786 or (l4DstPort in (80, 443) and ipv4DstAddr in ("192.0.2.1","192.0.2.9","192.0.2.17"))) and not(ipv4_is_private(ipv4SrcAddr))
+      | summarize flows=count(), first=min(_time) by ipv4SrcAddr, ipv4DstAddr, l4DstPort
+    mitre:
+      - T1190
+optimizations:
+  - title: Aggregate flows per minute
+    saving: 50–90 %
+    fn: Aggregations
+    how: Roll records up to bytes, packets and flow count per src/dst/port/protocol per minute for the SIEM. Send the raw records to Cribl Lake for forensics.
+    expr: "group by: ipv4SrcAddr, ipv4DstAddr, l4DstPort, protocol; sum(inBytes), sum(inPkts), count()"
+  - title: Drop template-noise fields
+    saving: 10–25 %
+    fn: Eval
+    how: Remove fields used only by the exporter — engine type/ID, sampler ID, ToS, masks, MPLS labels — and the uptime-relative firstSwitched/lastSwitched once _time is set.
+    expr: "remove: engineType, engineId, flowSamplerId, srcTos, dstTos, srcMask, dstMask, mplsLabel*"
+  - title: Correct for sampling, then normalise names
+    saving: n/a (accuracy)
+    fn: Eval
+    how: Multiply bytes and packets by the exporter's samplingInterval (from options records, kept in a lookup per exporter). Rename v5, v9 and IPFIX fields to one model (src_ip, dest_ip, dest_port, bytes, packets) so one detection covers all versions.
+    expr: "bytes = (inBytes || octetDeltaCount || octets) * (samplingInterval || 1)"
+  - title: Drop internal-only chatter you never investigate
+    saving: 20–50 %
+    fn: Drop
+    how: Backup, replication and monitoring flows between known servers are huge and repetitive. Drop them at the SIEM route (keep them in Lake).
+    expr: ipv4_is_private(ipv4SrcAddr) && ipv4_is_private(ipv4DstAddr) && [9100, 10050, 873].includes(l4DstPort)
+references:
+  - title: RFC 3954 — Cisco Systems NetFlow Services Export Version 9
+    url: https://www.rfc-editor.org/rfc/rfc3954.html
+  - title: RFC 7011 — IPFIX Protocol Specification
+    url: https://www.rfc-editor.org/rfc/rfc7011.html
+  - title: Cribl Docs — NetFlow & IPFIX Source
+    url: https://docs.cribl.io/stream/sources-netflow/
+  - title: Cisco advisory — IOS XE Flexible NetFlow v9 DoS (CVE-2020-3221)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-iosxe-fnfv9-dos-HND6Fc9u
+  - title: Cisco advisory — IOS XE web UI privilege escalation (CVE-2023-20198)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-iosxe-webui-privesc-j22SaA4z
+  - title: NVD — CVE-2024-56073 (FastNetMon NetFlow v9 templates)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-56073
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - splunk-stream
+  - zeek
+  - cisco-ios
+  - cisco-asa
+  - aws-vpc-flow
+  - azure-nsg-flow
+  - gcp-vpc

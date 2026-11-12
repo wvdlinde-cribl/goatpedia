@@ -1,0 +1,312 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-security-hub
+name: AWS Security Hub
+short: Security Hub
+aka:
+  - AWS Security Hub CSPM
+  - ASFF
+  - AWS Security Finding Format
+vendor: Amazon Web Services
+category: cloud
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - cspm
+  - findings
+  - asff
+  - ocsf
+  - json
+  - eventbridge
+  - compliance
+summary: The AWS findings aggregator and posture-management service. Security Hub CSPM runs compliance controls (AWS FSBP, CIS, PCI DSS, NIST) against your accounts and imports findings from GuardDuty, Inspector, Macie, IAM Access Analyzer, Config and partner tools, all normalised to the AWS Security Finding Format (ASFF). The newer Security Hub correlates the same signals and uses OCSF. For a SIEM it is a single feed of AWS security findings, but control re-evaluations make it noisier than it looks.
+sourcetypes:
+  - st: aws_security_hub
+    desc: Pack Generator sourcetype for Security Hub EventBridge events (Security Hub Findings - Imported)
+  - st: aws_securityhub_finding
+    desc: Pack Generator sourcetype for a single ASFF finding
+  - st: aws:securityhub:finding
+    desc: Splunk Add-on for AWS sourcetype for Security Hub findings
+  - st: AWSSecurityHubFindings
+    desc: Microsoft Sentinel table for Security Hub findings
+  - st: AWS_SECURITY_HUB
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: re:Invent 2018 (GA June 2019); OCSF-based Security Hub alongside "Security Hub CSPM" from 2025
+  Delivery model: Managed regional service; delegated administrator + cross-region aggregation for the organization
+  Finding sources: Own CSPM controls, GuardDuty, Inspector, Macie, IAM Access Analyzer, Config, Firewall Manager, Health, 3rd-party products via BatchImportFindings
+  Log transport: EventBridge (Security Hub Findings - Imported), then Firehose/SQS/HTTP; GetFindings API; export to Security Lake
+  Log format: "JSON — ASFF (SchemaVersion 2018-10-08); new Security Hub findings in OCSF 1.6"
+  Severity: "Label INFORMATIONAL / LOW / MEDIUM / HIGH / CRITICAL (Normalized 0–100)"
+  Typical volume: Thousands to millions of findings/day per organization — control re-evaluations dominate
+  Cribl Pack: None found in the Packs Dispensary (OCSF Post Processor pack can help with OCSF output)
+placement:
+  slots:
+    - cloud
+  items:
+    - slot: cloud
+      title: Delegated administrator account
+      desc: Security Hub is enabled for the organization from a security account. Findings from every member account arrive there, and EventBridge rules in that account forward them.
+    - slot: cloud
+      title: Aggregation region
+      desc: Cross-region aggregation copies findings from linked regions into one home region, so one EventBridge rule captures the whole organization. Without it you need a rule (and collector) per region.
+    - slot: cloud
+      title: Security Lake / SIEM export
+      desc: Findings are often sent on to Amazon Security Lake (OCSF in S3) or streamed via EventBridge → Firehose into Cribl and the SIEM.
+howItWorks:
+  - title: Normalisation to ASFF
+    body: Every integrated product sends findings through BatchImportFindings in ASFF — a fixed JSON schema with ProductArn, GeneratorId, Types (namespace/category/classifier), Severity, Resources[], Compliance, Workflow and RecordState. ProductFields holds the vendor-specific extras.
+  - title: Security controls and standards
+    body: Security Hub CSPM evaluates controls (e.g. S3.8, IAM.6, EC2.19) mostly through AWS Config rules, and periodically or on change re-evaluates them. Each evaluation updates the control finding with Compliance.Status PASSED, FAILED, WARNING or NOT_AVAILABLE. Consolidated control findings produce one finding per control per resource instead of one per standard.
+  - title: Finding lifecycle
+    body: "A finding keeps its Id; updates change UpdatedAt and fields such as Compliance.Status, RecordState (ACTIVE/ARCHIVED) and Workflow.Status (NEW, NOTIFIED, RESOLVED, SUPPRESSED). Every update is a new EventBridge event, so a single misconfiguration can produce an event per evaluation cycle."
+  - title: Automations and enrichment
+    body: Automation rules rewrite severity, workflow or notes on matching findings at import time; BatchUpdateFindings lets SOAR and analysts change workflow state. Insights are saved group-by queries over findings.
+  - title: OCSF-based Security Hub
+    body: The newer Security Hub (the classic service is now called Security Hub CSPM) correlates GuardDuty, Inspector, Macie and posture signals into exposure findings and stores findings in OCSF 1.6. Plan parsers for both shapes during a migration.
+traffic:
+  handles:
+    - CSPM control findings (FSBP, CIS, PCI DSS, NIST 800-53)
+    - GuardDuty threat findings
+    - Inspector vulnerability findings (EC2, ECR, Lambda)
+    - Macie sensitive-data findings
+    - IAM Access Analyzer external-access findings
+    - AWS Config and Firewall Manager findings
+    - Third-party findings via BatchImportFindings
+  flow:
+    - step: Signal
+      desc: A control evaluation, GuardDuty detection, Inspector scan or partner product produces a result.
+    - step: Import
+      desc: The result is sent to Security Hub as an ASFF finding (BatchImportFindings).
+    - step: Automation
+      desc: Automation rules adjust severity, workflow or notes; duplicates are merged on Id.
+    - step: Aggregate
+      desc: The finding is copied to the delegated admin account and the aggregation region.
+    - step: Emit
+      desc: EventBridge publishes a Security Hub Findings - Imported event with detail.findings[].
+    - step: Collect
+      desc: An EventBridge rule targets Firehose / SQS / an HTTP endpoint; Cribl splits detail.findings[] into one event per finding.
+logs:
+  - type: Control finding (ASFF)
+    sourcetype: aws_securityhub_finding
+    format: json
+    share: 70–95 %
+    avg: ~3 KB
+    desc: "One CSPM control result for one resource. Compliance.Status says whether the resource passes; the same Id is re-sent on every evaluation."
+    key:
+      - Title
+      - Severity.Label
+      - Compliance.Status
+      - Compliance.SecurityControlId
+      - AwsAccountId
+      - Resources[0].Id
+      - Workflow.Status
+      - RecordState
+    noise:
+      - SchemaVersion
+      - Remediation.Recommendation.Text
+      - ProductFields.aws/securityhub/ProductName
+      - ProductFields.aws/securityhub/CompanyName
+      - FindingProviderFields.Severity.Label
+      - Severity.Original
+    sample: '{"SchemaVersion":"2018-10-08","Id":"arn:aws:securityhub:us-east-1:111122223333:security-control/S3.8/finding/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","ProductArn":"arn:aws:securityhub:us-east-1::product/aws/securityhub","ProductName":"Security Hub","CompanyName":"AWS","Region":"us-east-1","GeneratorId":"security-control/S3.8","AwsAccountId":"111122223333","Types":["Software and Configuration Checks/Industry and Regulatory Standards"],"FirstObservedAt":"2026-10-02T11:04:18.112Z","LastObservedAt":"2026-11-12T08:15:40.507Z","CreatedAt":"2026-10-02T11:04:18.112Z","UpdatedAt":"2026-11-12T08:15:33.981Z","Severity":{"Label":"HIGH","Normalized":70,"Original":"HIGH"},"Title":"S3 general purpose buckets should block public access","Description":"This control checks whether an Amazon S3 general purpose bucket blocks public access at the bucket level.","Remediation":{"Recommendation":{"Text":"For information on how to correct this issue, consult the AWS Security Hub controls documentation.","Url":"https://docs.aws.amazon.com/console/securityhub/S3.8/remediation"}},"ProductFields":{"aws/securityhub/ProductName":"Security Hub","aws/securityhub/CompanyName":"AWS","aws/securityhub/FindingId":"arn:aws:securityhub:us-east-1::product/aws/securityhub/arn:aws:securityhub:us-east-1:111122223333:security-control/S3.8/finding/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"},"Resources":[{"Type":"AwsS3Bucket","Id":"arn:aws:s3:::example-public-assets","Partition":"aws","Region":"us-east-1"}],"Compliance":{"Status":"FAILED","SecurityControlId":"S3.8","AssociatedStandards":[{"StandardsId":"standards/aws-foundational-security-best-practices/v/1.0.0"},{"StandardsId":"standards/cis-aws-foundations-benchmark/v/3.0.0"}]},"WorkflowState":"NEW","Workflow":{"Status":"NEW"},"RecordState":"ACTIVE","FindingProviderFields":{"Severity":{"Label":"HIGH","Original":"HIGH"},"Types":["Software and Configuration Checks/Industry and Regulatory Standards"]},"ProcessedAt":"2026-11-12T08:15:41.220Z"}'
+  - type: Imported finding (EventBridge)
+    sourcetype: aws_security_hub
+    format: json
+    share: 5–30 %
+    avg: ~4 KB
+    desc: "EventBridge envelope (detail-type Security Hub Findings - Imported) carrying one or more ASFF findings in detail.findings[]. This example is an Inspector package-vulnerability finding; Vulnerabilities[] lists the CVE, CVSS and fixed version."
+    key:
+      - detail.findings[0].ProductName
+      - detail.findings[0].Severity.Label
+      - detail.findings[0].Vulnerabilities[0].Id
+      - detail.findings[0].Vulnerabilities[0].FixAvailable
+      - detail.findings[0].Resources[0].Id
+      - detail.findings[0].AwsAccountId
+      - detail.findings[0].RecordState
+    noise:
+      - version
+      - id
+      - source
+      - detail-type
+      - detail.findings[0].SchemaVersion
+      - detail.findings[0].FindingProviderFields.Severity.Label
+    sample: '{"version":"0","id":"9a8b7c6d-5e4f-3a2b-1c0d-ef9876543210","detail-type":"Security Hub Findings - Imported","source":"aws.securityhub","account":"111122223333","time":"2026-11-12T09:20:11Z","region":"us-east-1","resources":["arn:aws:securityhub:us-east-1::product/aws/inspector/arn:aws:inspector2:us-east-1:111122223333:finding/0f1e2d3c4b5a69788796a5b4c3d2e1f0"],"detail":{"findings":[{"SchemaVersion":"2018-10-08","Id":"arn:aws:inspector2:us-east-1:111122223333:finding/0f1e2d3c4b5a69788796a5b4c3d2e1f0","ProductArn":"arn:aws:securityhub:us-east-1::product/aws/inspector","ProductName":"Inspector","CompanyName":"Amazon","Region":"us-east-1","GeneratorId":"AWSInspector","AwsAccountId":"111122223333","Types":["Software and Configuration Checks/Vulnerabilities/CVE"],"FirstObservedAt":"2026-11-12T09:02:44.000Z","UpdatedAt":"2026-11-12T09:19:58.000Z","Severity":{"Label":"HIGH","Normalized":70,"Original":"HIGH"},"Title":"CVE-2024-6387 - openssh-server","Description":"A signal handler race condition in sshd allows unauthenticated remote code execution.","Resources":[{"Type":"AwsEc2Instance","Id":"arn:aws:ec2:us-east-1:111122223333:instance/i-0abc123def4567890","Partition":"aws","Region":"us-east-1"}],"Vulnerabilities":[{"Id":"CVE-2024-6387","VulnerablePackages":[{"Name":"openssh-server","Version":"9.6p1","PackageManager":"OS"}],"Cvss":[{"Version":"3.1","BaseScore":8.1,"Source":"NVD"}],"FixAvailable":"YES","ExploitAvailable":"YES"}],"Workflow":{"Status":"NEW"},"RecordState":"ACTIVE","FindingProviderFields":{"Severity":{"Label":"HIGH","Original":"HIGH"},"Types":["Software and Configuration Checks/Vulnerabilities/CVE"]}}]}}'
+  - type: Threat finding from GuardDuty (ASFF)
+    sourcetype: aws_securityhub_finding
+    format: json
+    share: 1–10 %
+    avg: ~3.5 KB
+    desc: A GuardDuty finding re-expressed in ASFF. Types carry the TTP namespace (TTPs/, Effects/, Unusual Behaviors/) and ProductFields keeps the original GuardDuty type and count.
+    key:
+      - Types[0]
+      - Severity.Label
+      - Title
+      - Resources[0].Type
+      - Resources[0].Id
+      - ProductFields.aws/guardduty/service/action/actionType
+      - AwsAccountId
+    noise:
+      - SchemaVersion
+      - ProductFields.aws/securityhub/ProductName
+      - ProductFields.aws/securityhub/CompanyName
+      - FindingProviderFields.Severity.Label
+    sample: '{"SchemaVersion":"2018-10-08","Id":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/8ac9f1e2d3b4a5968778695a4b3c2d1e","ProductArn":"arn:aws:securityhub:us-east-1::product/aws/guardduty","ProductName":"GuardDuty","CompanyName":"Amazon","Region":"us-east-1","GeneratorId":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0","AwsAccountId":"111122223333","Types":["TTPs/Initial Access/UnauthorizedAccess:IAMUser-InstanceCredentialExfiltration.OutsideAWS"],"FirstObservedAt":"2026-11-12T08:41:10.000Z","LastObservedAt":"2026-11-12T09:02:55.000Z","CreatedAt":"2026-11-12T08:47:31.512Z","UpdatedAt":"2026-11-12T09:08:02.113Z","Severity":{"Label":"HIGH","Normalized":80,"Original":"8"},"Title":"Credentials for the EC2 instance role web-app-role were used from a remote AWS account.","Description":"Credentials created exclusively for an EC2 instance using instance role web-app-role have been used from external IP address 198.51.100.23.","ProductFields":{"aws/guardduty/service/action/actionType":"AWS_API_CALL","aws/guardduty/service/count":"7","aws/securityhub/ProductName":"GuardDuty","aws/securityhub/CompanyName":"Amazon"},"Resources":[{"Type":"AwsIamAccessKey","Id":"AWS::IAM::AccessKey:ASIAEXAMPLEKEY12345","Partition":"aws","Region":"us-east-1"}],"Workflow":{"Status":"NEW"},"RecordState":"ACTIVE","FindingProviderFields":{"Severity":{"Label":"HIGH","Original":"8"},"Types":["TTPs/Initial Access/UnauthorizedAccess:IAMUser-InstanceCredentialExfiltration.OutsideAWS"]}}'
+cves:
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH "regreSSHion" unauthenticated RCE — a top Inspector finding surfaced through Security Hub
+    affected: OpenSSH 8.5p1 – 9.7p1 on glibc Linux (and before 4.4p1)
+    fixed: OpenSSH 9.8p1 (plus distribution backports)
+    detect: Inspector findings in Security Hub with Vulnerabilities[].Id=CVE-2024-6387 on EC2 instances; combine with EC2.13/EC2.19 control failures (SSH open to 0.0.0.0/0) to rank exposure.
+    avoid: Patch sshd; remove 0.0.0.0/0 on port 22; use SSM Session Manager instead of public SSH.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — found by Inspector in EC2, ECR and Lambda packages
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: Inspector findings with Vulnerabilities[].Id=CVE-2021-44228 and ExploitAvailable=YES; correlated GuardDuty findings on the same resource indicate active exploitation.
+    avoid: Patch and rebuild images; ECR enhanced scanning on push; WAF Known Bad Inputs rule group.
+  - id: CVE-2022-22965
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Spring4Shell — Spring Framework data-binding RCE in Java workloads
+    affected: Spring Framework 5.3.0 – 5.3.17, 5.2.0 – 5.2.19 on JDK 9+ (Tomcat WAR deployment)
+    fixed: Spring Framework 5.3.18, 5.2.20
+    detect: Inspector findings with Vulnerabilities[].Id=CVE-2022-22965 on ECR images / EC2; prioritise those behind internet-facing ALBs.
+    avoid: Upgrade Spring (or Spring Boot 2.6.6 / 2.5.12); WAF rule group with the Spring4Shell signatures.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 Rapid Reset DoS — in web servers and proxies on EC2 and in containers
+    affected: HTTP/2 server implementations (nginx, Envoy, Go net/http, Tomcat, Jetty, …) before their October 2023 fixes
+    detect: Inspector findings with Vulnerabilities[].Id=CVE-2023-44487 on self-managed web tiers. AWS-managed ALB/CloudFront were mitigated by AWS.
+    avoid: Patch the HTTP/2 stacks; put self-managed servers behind CloudFront/ALB with AWS Shield.
+  - id: CVE-2024-3094
+    cvss: 10
+    year: 2024
+    kev: false
+    scope: traffic
+    title: xz/liblzma backdoor (supply chain) — packaged into some rolling-release distro images
+    affected: xz-utils / liblzma 5.6.0 and 5.6.1
+    detect: Inspector findings with Vulnerabilities[].Id=CVE-2024-3094 in ECR images or EC2 instances built from Fedora Rawhide/Debian testing/Kali-era images.
+    avoid: Rebuild with a non-backdoored xz (distributions reverted to 5.4.x); pin base images; ECR continuous scanning.
+detections:
+  - title: Critical or high new finding (any product)
+    severity: high
+    signals:
+      - Severity.Label in CRITICAL / HIGH
+      - RecordState=ACTIVE
+      - Workflow.Status=NEW
+    why: The single triage queue for AWS-native detections — GuardDuty, Inspector, Macie and Access Analyzer all land here with one schema.
+    kql: |-
+      dataset="aws_security_hub"
+      | where Severity.Label in ("CRITICAL","HIGH") and RecordState=="ACTIVE" and Workflow.Status=="NEW"
+      | summarize count(), first=min(_time) by ProductName, Title, AwsAccountId
+    mitre:
+      - T1078.004
+  - title: Public exposure control newly failing
+    severity: high
+    signals:
+      - Compliance.SecurityControlId in S3.8 / S3.1 / EC2.19 / RDS.2
+      - Compliance.Status=FAILED
+    why: A bucket, security group or database just became public — often a misconfiguration minutes before data is exposed or a deliberate step by an attacker.
+    kql: |-
+      dataset="aws_security_hub" Compliance.Status="FAILED"
+      | where Compliance.SecurityControlId in ("S3.1","S3.8","EC2.19","RDS.2","Lambda.1")
+      | summarize first=min(_time) by Compliance.SecurityControlId, Resources[0].Id, AwsAccountId
+    mitre:
+      - T1530
+  - title: Exploitable vulnerability on an internet-facing workload
+    severity: high
+    signals:
+      - ProductName=Inspector
+      - Vulnerabilities[0].ExploitAvailable=YES
+      - resource also fails an exposure control
+    why: Inspector's exploit flag plus a public network path is the shortest route to T1190; joining the two control families prioritises patching.
+    kql: |-
+      dataset="aws_security_hub" detail.findings[0].ProductName="Inspector"
+      | where detail.findings[0].Vulnerabilities[0].ExploitAvailable=="YES" and detail.findings[0].Severity.Label in ("CRITICAL","HIGH")
+      | summarize cves=make_set(detail.findings[0].Vulnerabilities[0].Id) by detail.findings[0].Resources[0].Id, detail.findings[0].AwsAccountId
+    mitre:
+      - T1190
+  - title: Findings suppressed or archived in bulk
+    severity: medium
+    signals:
+      - Workflow.Status=SUPPRESSED or RecordState=ARCHIVED
+      - many findings, one actor
+    why: An attacker with securityhub:BatchUpdateFindings or automation-rule rights can silence detections. Pair with CloudTrail BatchUpdateFindings / CreateAutomationRule / DisableSecurityHub events.
+    kql: |-
+      dataset="aws_security_hub"
+      | where Workflow.Status=="SUPPRESSED" or RecordState=="ARCHIVED"
+      | summarize n=count(), products=make_set(ProductName) by AwsAccountId, bin(_time, 1h)
+      | where n > 50
+    mitre:
+      - T1562.001
+  - title: GuardDuty TTP finding via Security Hub
+    severity: high
+    signals:
+      - ProductName=GuardDuty
+      - Types[0] startswith TTPs/
+    why: The ASFF TTP namespace already names the ATT&CK tactic; useful when Security Hub is the only AWS feed in the SIEM.
+    kql: |-
+      dataset="aws_security_hub" ProductName="GuardDuty"
+      | where Types[0] startswith "TTPs/"
+      | summarize count() by Types[0], Resources[0].Id, AwsAccountId
+    mitre:
+      - T1552.005
+optimizations:
+  - title: Drop PASSED control re-evaluations
+    saving: 40–80 %
+    fn: Drop
+    how: "Most control findings are re-sent as PASSED on every evaluation. Keep a PASSED only when it follows a FAILED (state change) and drop the rest — or send them to Lake for compliance reporting."
+    expr: Compliance && Compliance.Status=='PASSED' && ProductName=='Security Hub'
+  - title: Split detail.findings[] and unwrap the envelope
+    saving: 5–15 %
+    fn: Unroll → Eval
+    how: One EventBridge event can carry several findings. Unroll detail.findings into one event per finding, then drop version, id, source, detail-type and the resources array.
+    expr: "unroll: detail.findings → finding; remove: version, id, source, detail-type, resources"
+  - title: Suppress unchanged updates
+    saving: 20–50 %
+    fn: Suppress
+    how: Keep one event per finding Id per state; repeated updates with the same status and severity (only UpdatedAt/LastObservedAt changed) are dropped.
+    expr: "key: `${Id}:${Compliance && Compliance.Status}:${Severity.Label}:${RecordState}`  allow 1 / 86400s"
+  - title: Strip remediation text and duplicate fields
+    saving: 10–25 %
+    fn: Parser → Serialize
+    how: Remediation.Recommendation.Text, Description, FindingProviderFields (duplicates Severity/Types) and ProductFields aws/securityhub/* are static per control; remove them or keep them in a lookup keyed by SecurityControlId.
+    expr: "remove: Remediation, FindingProviderFields, ProductFields['aws/securityhub/ProductName'], ProductFields['aws/securityhub/CompanyName']"
+references:
+  - title: AWS Security Finding Format (ASFF)
+    url: https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html
+  - title: ASFF syntax
+    url: https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format-syntax.html
+  - title: EventBridge event formats for Security Hub CSPM
+    url: https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-cwe-event-formats.html
+  - title: Introduction to AWS Security Hub CSPM
+    url: https://docs.aws.amazon.com/securityhub/latest/userguide/what-is-securityhub.html
+  - title: Security Hub and the Open Cybersecurity Schema Framework (OCSF)
+    url: https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-ocsf.html
+  - title: OpenSSH 9.8 release notes (CVE-2024-6387)
+    url: https://www.openssh.com/txt/release-9.8
+  - title: Spring Framework RCE advisory (CVE-2022-22965)
+    url: https://spring.io/security/cve-2022-22965
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-guardduty
+  - cloudtrail
+  - aws-config
+  - aws-security-lake

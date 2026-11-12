@@ -2,16 +2,371 @@
 id: zscaler-zia
 name: Zscaler Internet Access
 short: ZIA
+aka:
+  - Zscaler Internet & SaaS
+  - Zscaler SWG
+  - Zscaler Cloud Firewall
+  - Zero Trust Exchange
+  - NSS / Cloud NSS
 vendor: Zscaler
 category: swg
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - proxy
   - swg
   - nss
   - sse
   - web
+  - casb
+  - dlp
+  - cloud-firewall
+  - tls-inspection
+summary: Cloud-delivered secure web gateway and firewall. User traffic is steered (Client Connector, GRE/IPsec, PAC) to the nearest Zscaler data center, where a full proxy inspects TLS and applies URL filtering, cloud app control, malware and sandbox analysis, DLP, firewall/IPS and DNS policy. Every transaction becomes a Nanolog record that is streamed to the SIEM by NSS (syslog VM) or Cloud NSS (HTTPS push).
 sourcetypes:
   - st: zscalernss-web
+    desc: Splunk TA name for the NSS/Cloud NSS Web feed — one record per HTTP(S)/FTP transaction
   - st: zscalernss-fw
-summary: Cloud secure web gateway; logs delivered via NSS / Cloud NSS.
+    desc: Splunk TA name for the Firewall feed — sessions (aggregated when allowed on Standard Firewall) incl. IPS verdicts
+  - st: zscalernss-dns
+    desc: Splunk TA name for the DNS feed — request/response actions per query
+  - st: zscalernss-tunnel
+    desc: Splunk TA name for the Tunnel feed — GRE/IPsec tunnel up/down and IKE events
+  - st: zscalernss-alerts
+    desc: Splunk TA name for NSS VM health alerts
+  - st: zia_alerts
+    desc: NSS server health alerts sent over syslog (feed or cloud connection lost)
+  - st: zia_csv
+    desc: ZIA feed delivered with a CSV output template
+  - st: zia_json
+    desc: ZIA feed delivered with a JSON output template (Cloud NSS default)
+  - st: zia_tsv
+    desc: ZIA feed delivered with a tab-separated output template
+  - st: zscaler_web
+    desc: Generic name for ZIA web transaction logs
+facts:
+  First released: 2008 (cloud web security service; now part of the Zero Trust Exchange)
+  Delivery model: Multi-tenant SaaS proxy in 150+ Zscaler data centers
+  Traffic forwarding: Zscaler Client Connector (Z-Tunnel 1.0/2.0), GRE / IPsec tunnels, PAC / explicit proxy, Branch & Cloud Connector
+  Policy engines: URL filtering, Cloud App Control, File Type, Malware / ATP, Sandbox, DLP, Cloud Firewall + IPS, DNS Control
+  Log transport: NSS VM (syslog over TCP) or Cloud NSS (HTTPS POST to an HEC/HTTP endpoint)
+  Log format: Per-feed output template — CSV, TSV, key=value, JSON (custom fields, %s{field} specifiers)
+  Log types: Web, Firewall, DNS, Tunnel, SaaS Security (CASB), Endpoint DLP, Admin Audit, NSS alerts
+  Typical volume: Web feed dominates; hundreds to thousands of transactions per user per day
+  Cribl Pack: cribl-zscaler (Packs Dispensary)
+placement:
+  slots:
+    - cloud
+    - remote
+    - edge
+    - endpoint
+  items:
+    - slot: cloud
+      title: Zero Trust Exchange
+      desc: The proxy, firewall and DLP engines run in Zscaler's cloud. Nothing to rack; the "device" you log from is a Nanolog cluster that NSS reads.
+    - slot: remote
+      title: Roaming users
+      desc: Client Connector tunnels laptop traffic (Z-Tunnel 2.0 = all ports, 1.0 = web only) to the nearest public service edge, so policy follows the user off-network.
+    - slot: edge
+      title: Branch / data-center egress
+      desc: GRE or IPsec tunnels from the branch router or SD-WAN send all internet-bound traffic to ZIA; logs carry the location name instead of a user if no auth.
+    - slot: endpoint
+      title: Client Connector agent
+      desc: Installed on the device; supplies user and device identity (devicehostname, deviceowner) and is the component with most CVE history.
+howItWorks:
+  - title: Full inline proxy
+    body: ZIA terminates the client connection and opens its own to the server, so it can inspect the full request and response (not only packets). With SSL/TLS inspection enabled the Zscaler intermediate CA re-signs server certificates; without it ZIA sees SNI and certificate metadata only, and ssldecrypted=No in the log.
+  - title: Policy evaluation order
+    body: "A web transaction passes URL filtering and Cloud App Control, then File Type Control, Malware Protection / Advanced Threat Protection (PageRisk index 0–100 = riskscore), Sandbox for unknown files, and DLP on uploads. The first blocking engine sets ruletype and rulelabel; allowed transactions carry no rule label."
+  - title: Cloud Firewall, IPS and DNS
+    body: Non-web traffic (Z-Tunnel 2.0, GRE/IPsec) is handled by the Cloud Firewall with IPS signatures and DNS Control. On the Standard Firewall subscription allowed sessions are aggregated per user, rule, service, app and IP category over 15 minutes; blocked sessions are always logged individually.
+  - title: Nanolog
+    body: Each enforcement node writes compressed transaction logs to the Nanolog cluster for the tenant's region. The admin console's Insights reads the same data; retention in the cloud is limited, which is why logs are streamed out.
+  - title: NSS and Cloud NSS
+    body: "NSS is a VM you deploy that pulls your tenant's logs from Nanolog over an encrypted tunnel and forwards them over syslog TCP using a feed output template. Cloud NSS skips the VM: Zscaler POSTs batches to your HTTPS endpoint (Splunk HEC, Cribl HTTP/HEC Source, Sentinel). A 200/204 is success, 400 drops the batch, any other code retries for up to one hour."
+traffic:
+  handles:
+    - HTTP / HTTPS (TLS 1.2/1.3 inspection optional)
+    - FTP over HTTP and native FTP
+    - All TCP/UDP ports via Cloud Firewall (Z-Tunnel 2.0, GRE, IPsec)
+    - DNS (DNS Control, DNS tunnel detection)
+    - SaaS app activity (Cloud App Control, inline CASB)
+    - File uploads and downloads (DLP, sandbox)
+  flow:
+    - step: Steer
+      desc: Client Connector, GRE/IPsec or PAC sends the request to the nearest public service edge.
+    - step: Authenticate
+      desc: User identified by SAML/SCIM via the Client Connector session or a location cookie; unauthenticated tunnels log the location only.
+    - step: Decrypt
+      desc: SSL/TLS Inspection policy decides whether to decrypt; exempt categories (finance, health) stay encrypted.
+    - step: Inspect
+      desc: URL category, app, file type, AV/ATP, sandbox and DLP engines run on the request and response.
+    - step: Enforce
+      desc: Allow, Block (403 page), Caution or Isolate; firewall and IPS for non-web traffic.
+    - step: Log
+      desc: Transaction written to Nanolog; NSS / Cloud NSS streams it to the SIEM in the feed's template.
+logs:
+  - type: Web
+    sourcetype: zscalernss-web
+    format: json
+    share: 75–90 %
+    avg: ~1.3 KB
+    desc: One record per web transaction (Cloud NSS JSON, Splunk-style envelope). Carries user, URL, category, app, action, rule, threat, DLP, sizes and device. The core proxy log.
+    key:
+      - event.login
+      - event.eurl
+      - event.action
+      - event.urlcat
+      - event.threatname
+      - event.riskscore
+      - event.rulelabel
+      - event.dlpeng
+    noise:
+      - sourcetype
+      - event.ereferer
+      - event.unscannabletype
+      - event.dlpdict
+      - event.appclass
+      - event.urlclass
+    sample: '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:22 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"files.example.org/dl/invoice_2026.zip","action":"Blocked","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"403","reqsize":"612","respsize":"1480","urlclass":"Security Risk","urlsupercat":"Security","urlcat":"Newly Registered and Observed Domains","malwarecat":"Trojan","threatname":"Win32.Trojan.Agent","riskscore":"88","threatseverity":"High (75-89)","dlpeng":"None","dlpdict":"None","filetype":"ZIP","ssldecrypted":"Yes","ruletype":"Malware Protection","rulelabel":"Malware_Block_All","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+  - type: Firewall
+    sourcetype: zscalernss-fw
+    format: json
+    share: 10–20 %
+    avg: ~900 B
+    desc: Cloud Firewall sessions with client/server 5-tuples, tunnel type, network app and service, rule, bytes, IPS rule and threat. Allowed sessions may be aggregated (aggregate=Yes, numsessions>1).
+    key:
+      - event.user
+      - event.csip
+      - event.cdip
+      - event.cdport
+      - event.action
+      - event.nwapp
+      - event.rulelabel
+      - event.threatname
+    noise:
+      - sourcetype
+      - event.ssport
+      - event.tunsport
+      - event.avgduration
+      - event.duration
+    sample: '{"sourcetype":"zscalernss-fw","event":{"datetime":"Thu Nov 12 09:15:03 2026","user":"jdoe@example.com","department":"Finance","locationname":"Road Warrior","cdport":4444,"csport":51544,"sdport":4444,"ssport":51544,"csip":"10.20.30.44","cdip":"198.51.100.23","ssip":"203.0.113.45","sdip":"198.51.100.23","tsip":"203.0.113.45","tunsport":0,"tuntype":"ZscalerClientConnector","action":"Drop","dnat":"No","stateful":"Yes","aggregate":"No","nwsvc":"ANY","nwapp":"unknown","proto":"TCP","ipcat":"Botnet Callback","destcountry":"Netherlands","avgduration":0,"rulelabel":"Block_Malicious_IPs","inbytes":0,"outbytes":74,"duration":0,"durationms":12,"numsessions":1,"ipsrulelabel":"Default IPS Rule","threatcat":"Botnet Callback","threatname":"Win32.Backdoor.Meterpreter","deviceowner":"jdoe","devicehostname":"LT-JDOE-01"}}'
+  - type: DNS
+    sourcetype: zscalernss-dns
+    format: json
+    share: 5–15 %
+    avg: ~600 B
+    desc: Request and response actions of DNS Control per query, with the rule that matched, query type, answer and category.
+    key:
+      - event.user
+      - event.dns_req
+      - event.dns_reqtype
+      - event.reqaction
+      - event.resaction
+      - event.category
+    noise:
+      - sourcetype
+      - event.resrulelabel
+      - event.durationms
+    sample: '{"sourcetype":"zscalernss-dns","event":{"datetime":"Thu Nov 12 09:16:41 2026","user":"jdoe@example.com","department":"Finance","location":"Road Warrior","reqaction":"REQ_ALLOW","resaction":"RES_ALLOW","reqrulelabel":"Default DNS Rule","resrulelabel":"None","dns_reqtype":"TXT","dns_req":"a9f3k2q8z1x7c4v6.t.example.net","dns_resp":"v=spf1 -all","srv_dport":"53","durationms":"21","clt_sip":"10.20.30.44","srv_dip":"198.51.100.53","category":"Miscellaneous or Unknown","deviceowner":"jdoe","devicehostname":"LT-JDOE-01"}}'
+  - type: NSS alert
+    sourcetype: zia_alerts
+    format: text
+    share: < 0.1 %
+    avg: ~180 B
+    desc: Health alerts from the NSS VM over syslog — feed or cloud connection lost. Each one marks a gap in the other feeds.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ \d{2}:\d{2}:\d{2}) \[(?<nss_ip>[^\]]+)\] (?<app>ZscalerNSS): (?<message>.*)$'
+    key:
+      - nss_ip
+      - message
+    noise:
+      - pri
+    sample: '<114>Nov 12 09:20:04 [192.0.2.10] ZscalerNSS: SIEM Feed connection "Web Logs Feed" to 198.51.100.20:514 lost and unavailable for the past 12.00 minutes'
+cves:
+  - id: CVE-2025-54982
+    cvss: 9.6
+    year: 2025
+    kev: false
+    scope: device
+    title: ZIA SAML 2.0 authentication bypass — assertions signed with any certificate were accepted
+    affected: Zscaler Authentication Server (ZIA SAML service provider) before 6.2r
+    fixed: Server-side fix rolled out to all Zscaler clouds by 2025-08-04 (no customer action)
+    detect: Not visible in web logs. Look for Client Connector device enrolments for a user that have no matching IdP sign-in, and new devicehostname / deviceowner values for an existing login.
+    avoid: Correlate ZIA device registration with IdP sign-in logs; enable device posture and trusted-device policies so a newly registered device gets restricted access.
+  - id: CVE-2026-59568
+    cvss: 9.1
+    year: 2026
+    kev: false
+    scope: device
+    title: Zscaler Client Connector remote code execution (unauthenticated, ZCC context)
+    affected: Client Connector before Windows 4.6.0.457 / 4.7.0.317 / 4.8.0.232 / 4.9.0.372, macOS 4.5.2.312 / 4.7.0.292 / 4.8.0.191, Linux 3.7.2.64 / 4.2.1.64, Android & ChromeOS 4.2, iOS 4.5.1
+    fixed: The versions listed above (per train) and later
+    detect: Devices whose Z-Tunnel stops sending traffic (web/firewall records for a devicehostname suddenly cease) or whose traffic appears with bypassed_session=1; outbound connections from the ZCC process seen by EDR.
+    avoid: Enforce the patched ZCC version through the Client Connector Portal app profile; alert on stale ZCC versions; restrict who can reach the device's local ZCC services.
+  - id: CVE-2024-23463
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: device
+    title: Client Connector anti-tampering bypass via the Repair App function (TOCTOU)
+    affected: Zscaler Client Connector for Windows before 4.2.1
+    fixed: 4.2.1
+    detect: A user's device disappears from Web/Firewall feeds while the user is still active in IdP and email logs — traffic is going direct instead of through ZIA.
+    avoid: Upgrade ZCC; enable fail-close / strict enforcement so traffic is blocked when the tunnel is down; monitor ZCC disable and repair events.
+  - id: CVE-2023-4863
+    cvss: 8.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: libwebp heap buffer overflow — browsers that ZIA proxies (Chrome, Edge, Firefox, Electron apps)
+    affected: Google Chrome before 116.0.5845.187 and libwebp before 1.3.2 (and every app embedding it)
+    fixed: Chrome 116.0.5845.187, libwebp 1.3.2
+    detect: Web logs with contenttype image/webp from newly registered or low-reputation domains, combined with eua strings showing a Chrome major version below 116; AV verdicts in threatname.
+    avoid: Patch browsers; use the eua field to report outdated browsers; block Newly Registered Domains and enable Browser Isolation for risky categories.
+  - id: CVE-2024-21412
+    cvss: 8.1
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Windows Internet Shortcut (.url) SmartScreen bypass — delivered over web downloads and WebDAV
+    affected: Windows 10, Windows 11 and Windows Server before the February 2024 updates
+    fixed: Microsoft February 2024 security updates
+    detect: Web transactions downloading .url / .lnk files, or reqmethod PROPFIND / OPTIONS (WebDAV) to external hosts, followed by an executable or MSI download from the same host.
+    avoid: Patch Windows; File Type Control to block .url/.lnk/.vhd from the internet; block WebDAV methods to uncategorized and newly registered destinations.
+detections:
+  - title: Malware or sandbox verdict on an allowed transaction
+    severity: high
+    signals:
+      - zscalernss-web
+      - action=Allowed
+      - malwarecat or threatname not None
+    why: A threat was identified but the policy only alerted or the file was allowed before the sandbox verdict — the user may already be running it.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zscalernss-web" event.action="Allowed"
+      | where event.threatname != "None" or event.malwarecat != "None"
+      | summarize hits=count(), urls=dcount(event.eurl) by event.login, event.devicehostname, event.threatname
+    mitre:
+      - T1189
+      - T1105
+  - title: Repeated phishing or newly-registered-domain blocks per user
+    severity: medium
+    signals:
+      - action=Blocked
+      - urlcat in Phishing / Newly Registered / Spyware Callback
+      - count per login
+    why: A user clicking several blocked phishing links in a short window often means a campaign is landing in that mailbox — check whether one succeeded on another channel.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zscalernss-web" event.action="Blocked"
+      | where event.urlcat in ("Phishing","Newly Registered and Observed Domains","Spyware Callback")
+      | summarize blocks=count(), domains=dcount(event.eurl) by event.login, bin(_time, 1h)
+      | where blocks > 5
+    mitre:
+      - T1566.002
+      - T1204.001
+  - title: Large uploads to personal cloud storage with a DLP hit
+    severity: high
+    signals:
+      - reqmethod POST/PUT
+      - reqsize large
+      - dlpeng not None
+      - appclass File Sharing
+    why: Bulk upload of sensitive data to unsanctioned storage is the most common insider and pre-ransomware exfiltration path.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zscalernss-web" event.reqmethod in ("POST","PUT")
+      | where event.dlpeng != "None"
+      | summarize bytes_up=sum(toint(event.reqsize)), files=count() by event.login, event.appname, bin(_time, 1h)
+      | where bytes_up > 50000000
+    mitre:
+      - T1567.002
+      - T1048
+  - title: Firewall or IPS hit on a botnet / C2 category
+    severity: high
+    signals:
+      - zscalernss-fw
+      - threatcat=Botnet Callback or ipcat=Botnet Callback
+    why: Non-web C2 (raw TCP on odd ports) never reaches the web proxy — the Cloud Firewall/IPS feed is the only Zscaler record of it.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zscalernss-fw"
+      | where event.threatcat != "None" or event.ipcat == "Botnet Callback"
+      | summarize sessions=count(), ports=make_set(event.cdport) by event.user, event.devicehostname, event.cdip, event.threatname
+    mitre:
+      - T1071
+      - T1571
+  - title: DNS tunnelling (long, high-entropy subdomains)
+    severity: medium
+    signals:
+      - zscalernss-dns
+      - many unique subdomains of one parent
+      - TXT / NULL query types
+    why: Tunnelling tools encode data in query labels; hundreds of unique labels under one domain per hour is abnormal for humans.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zscalernss-dns"
+      | extend parent=extract("([^.]+\\.[^.]+)$", 1, event.dns_req)
+      | summarize uniq=dcount(event.dns_req), txt=countif(event.dns_reqtype == "TXT") by event.user, parent, bin(_time, 1h)
+      | where uniq > 200 or txt > 100
+    mitre:
+      - T1071.004
+      - T1048.003
+  - title: NSS feed down (logging gap)
+    severity: medium
+    signals:
+      - zia_alerts
+      - message contains "lost and unavailable"
+    why: While a feed is down nothing reaches the SIEM; Cloud NSS drops batches after one hour of retries. Treat a gap as a blind spot to explain, not noise.
+    kql: |-
+      dataset="zscaler_logs" sourcetype="zia_alerts"
+      | where message has "lost and unavailable"
+      | summarize alerts=count(), last=max(_time) by nss_ip, message
+    mitre:
+      - T1562.008
+optimizations:
+  - title: Drop "None" / "NA" placeholder values
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: NSS templates emit every field, filling empty ones with None or NA. Parse the JSON, drop placeholder values and the static envelope, and re-serialise. The SIEM sees the same information in a much smaller event.
+    expr: "remove fields where value in ('None','NA','') ; remove: sourcetype envelope after routing"
+  - title: Route by action and verdict
+    saving: 40–60 % SIEM licence
+    fn: Routes
+    how: Blocked, threat, DLP and Caution transactions go to the SIEM at full fidelity. Allowed, clean web traffic goes to Cribl Lake (or object storage) and can be replayed during an investigation.
+    expr: event.action!='Allowed' || event.threatname!='None' || event.dlpeng!='None'  → SIEM ; else → Lake
+  - title: Aggregate allowed CDN and update traffic
+    saving: 10–25 %
+    fn: Aggregations
+    how: Software updates, CDNs and SaaS telemetry produce thousands of identical allowed records per device. Roll them up to bytes and request counts per user, app and category per 5 minutes.
+    expr: event.action=='Allowed' && ['Content Server','Software Updates','Web Analytics'].includes(event.urlcat)
+  - title: Suppress repeated blocked ad and tracker requests
+    saving: 5–15 %
+    fn: Suppress
+    how: Browsers retry blocked ad and tracker hosts constantly. Keep one record per user and host per 10 minutes with a count.
+    expr: "key: `${event.login}:${event.eurl}`  allow 1 / 600s  when event.urlcat=='Advertising'"
+references:
+  - title: Zscaler — NSS Feed Output Format, Web Logs
+    url: https://help.zscaler.com/zia/nss-feed-output-format-web-logs
+  - title: Zscaler — NSS Feed Output Format, Firewall Logs
+    url: https://help.zscaler.com/zia/nss-feed-output-format-firewall-logs
+  - title: Zscaler — About Cloud NSS Feeds
+    url: https://help.zscaler.com/zia/about-cloud-nss-feeds
+  - title: Zscaler Trust — CVE-2025-54982 SAML 2.0 public key validation issue
+    url: https://trust.zscaler.com/zscaler.net/posts/24666
+  - title: NVD — CVE-2026-59568 (Zscaler Client Connector RCE)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-59568
+  - title: Zscaler and Splunk Deployment Guide (sourcetype reference)
+    url: https://help.zscaler.com/downloads/zscaler-technology-partners/q-s/zscaler-and-splunk-deployment-guide/Zscaler-Splunk-Deployment-Guide-FINAL.pdf
+  - title: Zscaler and Cribl Deployment Guide (Cloud NSS → Cribl, cribl-zscaler Pack)
+    url: https://help.zscaler.com/downloads/zscaler-technology-partners/operations/zscaler-and-cribl-deployment-guide/Zscaler-Cribl-Deployment-Guide-FINAL.pdf
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Zscaler press release — in-the-cloud security services available (August 4, 2008)
+    url: https://www.zscaler.com/press/zscaler-defines-new-standard-cloud-security
+related:
+  - zscaler-zpa
+  - netskope
+  - umbrella
+  - cloudflare-zero-trust
+  - squid
+  - pan-ngfw
+  - okta
+  - entra-id

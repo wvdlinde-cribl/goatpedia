@@ -1,0 +1,373 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: zscaler-zpa
+name: Zscaler Private Access (ZPA)
+short: Zscaler ZPA
+aka:
+  - ZPA
+  - Zscaler Private Access
+  - Zscaler App Connector
+  - Zscaler Log Streaming Service (LSS)
+  - Zscaler Privileged Remote Access (PRA)
+vendor: Zscaler
+category: swg
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ztna
+  - sse
+  - vpn-replacement
+  - app-connector
+  - lss
+  - json
+  - zero-trust
+summary: Zero-trust network access service that replaces remote-access VPN. Users never join the network — the Client Connector (or a browser) reaches a Zscaler Public Service Edge, which brokers a per-application tunnel to an outbound-only App Connector sitting next to the app. Policy is per user, group, posture and app segment, and the Log Streaming Service sends user activity, user status, connector and audit records as JSON, CSV or TSV.
+sourcetypes:
+  - st: zpa_user_activity
+    desc: One record per application connection (open / active / close) with user, app segment, connector, server and the internal reason for blocks and errors
+  - st: zpa_user_status
+    desc: Client Connector session authentications and disconnects with public IP, geo, posture hits/misses and IdP
+  - st: zpa_app_connector
+    desc: App Connector status and metrics — control-session state, version, CPU/memory, interface counters
+  - st: zpa_audit
+    desc: Admin console changes and sign-ins (who changed which policy, segment or connector)
+  - st: zpa_browser_access
+    desc: HTTP request records for clientless Browser Access applications
+  - st: zscalerlss-zpa-app
+    desc: Splunk TA name for the LSS User Activity feed
+  - st: zscalerlss-zpa-auth
+    desc: Splunk TA name for the LSS User Status feed
+  - st: zscalerlss-zpa-audit
+    desc: Splunk TA name for the LSS Audit feed
+  - st: zscalerlss-zpa-connector
+    desc: Splunk TA name for the LSS App Connector Status feed
+  - st: zscalerlss-zpa-bba
+    desc: Splunk TA name for the LSS Browser Access feed
+  - st: zscalerlss-zpa-web-inspection
+    desc: Splunk TA name for AppProtection (web inspection) logs
+facts:
+  First released: "2016"
+  Delivery model: SaaS broker (Public Service Edges) + customer-hosted App Connectors / optional Private Service Edges
+  Access methods: Zscaler Client Connector, clientless Browser Access, Privileged Remote Access (RDP/SSH/VNC in browser)
+  Connector platforms: RHEL / Rocky / AlmaLinux VMs, VMware, Hyper-V, AWS, Azure, GCP, containers
+  Log transport: Log Streaming Service — App Connector forwards a TCP stream (optionally mutual TLS) to your log receiver
+  Log format: Per-receiver template — JSON (default for SIEMs), CSV or TSV
+  Log types: User Activity, User Status, App Connector Status/Metrics, Audit, Browser Access, AppProtection, PRA, Microsegmentation
+  Cloud retention: User Activity / Status / Connector ≥14 days, Audit ≥6 months (stream out for longer)
+  Typical volume: User Activity ≈ 1 record per app connection; low compared with web proxy logs
+placement:
+  slots:
+    - remote
+    - cloud
+    - internal
+    - endpoint
+  items:
+    - slot: remote
+      title: Remote users (VPN replacement)
+      desc: Client Connector on the laptop intercepts traffic for defined application segments and sends it to ZPA; there is no network-level access and no inbound port.
+    - slot: cloud
+      title: Public Service Edges (broker)
+      desc: Zscaler-run brokers authenticate the user, evaluate access policy and stitch the user's tunnel to the App Connector's tunnel.
+    - slot: internal
+      title: App Connectors in DC / VPC
+      desc: Lightweight Linux VMs next to the applications. They only dial out (TLS 443) to ZPA, and they also forward LSS logs to your receiver.
+    - slot: endpoint
+      title: Client Connector agent
+      desc: Same agent as ZIA. Supplies identity, device posture and trusted-network state; its CVEs affect both services.
+howItWorks:
+  - title: Inside-out connectivity
+    body: App Connectors establish outbound TLS control sessions to the ZPA cloud. Applications are never exposed to the internet — no listener, no public IP, no inbound firewall rule — which removes the VPN concentrator as an attack surface.
+  - title: Application segments and policy
+    body: Admins define application segments (FQDNs / IP ranges + ports) and segment groups. Access policy rules match user, SAML/SCIM attributes, posture profile, trusted network, client type and country, top-down first match. No matching Allow rule means the session is refused with BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY or BRK_MT_SETUP_FAIL_NO_POLICY_FOUND.
+  - title: Microtunnels
+    body: For every allowed request the broker selects an App Connector that can reach the server (app discovery / health), and creates a per-user, per-application microtunnel. The User Activity log records each step's timing (policy, CA processing, connector setup) and the bytes exchanged.
+  - title: Browser Access and PRA
+    body: Web apps can be published clientless (Browser Access, logged as HTTP records), and RDP/SSH/VNC consoles through Privileged Remote Access with approvals, credential vaulting, session recording and file-transfer inspection.
+  - title: AppProtection
+    body: An inline ModSecurity-based inspection engine (OWASP CRS plus Zscaler controls) running in the App Connector path. It is the only ZPA component that sees request payloads, so exploit attempts against published apps appear in AppProtection logs, not in User Activity.
+  - title: Log Streaming Service
+    body: LSS starts in the ZPA cloud and is delivered through an App Connector to a log receiver (TCP, optional mTLS). If the connector-to-SIEM link breaks, non-audit data generated during the outage is not retransmitted — a lost receiver is a permanent gap.
+traffic:
+  handles:
+    - Private TCP and UDP applications (by FQDN / IP and port)
+    - Web apps over HTTPS (Browser Access)
+    - RDP, SSH, VNC (Privileged Remote Access)
+    - ICMP to private hosts (optional)
+    - Kerberos, LDAP and SMB inspection (optional)
+  flow:
+    - step: Intercept
+      desc: Client Connector sees a request for an app segment FQDN and forwards it to the nearest Public Service Edge.
+    - step: Authenticate
+      desc: SAML assertion and device posture already established in the user session (User Status log).
+    - step: Authorize
+      desc: Access policy evaluated; no match or a Block rule ends the request with a BRK_MT_* reason.
+    - step: Connector selection
+      desc: Broker picks an App Connector that can reach the server; connector opens the server connection.
+    - step: Microtunnel
+      desc: User and connector tunnels are stitched; optional double encryption and AppProtection inspection.
+    - step: Log
+      desc: User Activity records at open, periodically while active, and at close, streamed by LSS.
+logs:
+  - type: User Activity
+    sourcetype: zpa_user_activity
+    format: json
+    share: 70–85 %
+    avg: ~2 KB
+    desc: One record per application connection state (open, active, close). Carries user, client public IP and geo, the policy rule, application and segment group, connector, server IP/port, InternalReason for failures, timings and byte counters.
+    key:
+      - Username
+      - ClientPublicIP
+      - ClientCountryCode
+      - Application
+      - Policy
+      - ServerIP
+      - ServerPort
+      - InternalReason
+    noise:
+      - TimestampCATx
+      - TimestampCARx
+      - TimestampAppLearnStart
+      - TimestampZENFirstTxClient
+      - TimestampZENFirstRxConnector
+      - PolicyProcessingTime
+      - CAProcessingTime
+      - AppLearnTime
+    sample: '{"LogTimestamp":"Thu Nov 12 09:31:07 2026","Customer":"Example Corp","SessionID":"Kq7wP2mZx9TbLc4RvnA1","ConnectionID":"Kq7wP2mZx9TbLc4RvnA1,Hd8sQ1kLp0XyWe3NvbM2","InternalReason":"BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY","ConnectionStatus":"close","IPProtocol":6,"DoubleEncryption":0,"Username":"jdoe@example.com","ServicePort":445,"ClientPublicIP":"203.0.113.45","ClientPrivateIP":"192.168.1.23","ClientLatitude":52.37,"ClientLongitude":4.89,"ClientCountryCode":"NL","ClientZEN":"broker2a.ams1","Policy":"Block_Finance_Shares","Connector":"","ConnectorZEN":"","ConnectorIP":"","ConnectorPort":0,"Host":"fs01.corp.example.com","Application":"Finance File Shares","AppGroup":"Finance","Server":"0","ServerIP":"","ServerPort":0,"PolicyProcessingTime":31,"CAProcessingTime":402,"ConnectorZENSetupTime":0,"ConnectionSetupTime":0,"ServerSetupTime":0,"AppLearnTime":0,"TimestampConnectionStart":"2026-11-12T09:31:07.112Z","TimestampConnectionEnd":"2026-11-12T09:31:07.118Z","TimestampCATx":"2026-11-12T09:31:07.113Z","TimestampCARx":"2026-11-12T09:31:07.114Z","TimestampAppLearnStart":"","TimestampZENFirstRxClient":"","TimestampZENFirstTxClient":"","TimestampZENFirstRxConnector":"","ZENTotalBytesRxClient":0,"ZENTotalBytesTxClient":0,"ZENTotalBytesRxConnector":0,"ZENTotalBytesTxConnector":0,"Idp":"Okta","Platform":"windows","Hostname":"LT-JDOE-01"}'
+  - type: User Status
+    sourcetype: zpa_user_status
+    format: json
+    share: 5–15 %
+    avg: ~1 KB
+    desc: Client Connector session authentication, failure and disconnect. Public IP and country of the client, the Service Edge used, IdP, SAML attributes and posture profiles that passed or failed.
+    key:
+      - Username
+      - SessionStatus
+      - PublicIP
+      - CountryCode
+      - Hostname
+      - PosturesMiss
+      - Version
+    noise:
+      - Latitude
+      - Longitude
+      - ZENLatitude
+      - ZENLongitude
+      - FQDNRegistered
+      - FQDNRegisteredError
+    sample: '{"LogTimestamp":"Thu Nov 12 09:30:55 2026","Customer":"Example Corp","Username":"jdoe@example.com","SessionID":"Kq7wP2mZx9TbLc4RvnA1","SessionStatus":"ZPN_STATUS_AUTHENTICATED","Version":"4.8.0.232","ZEN":"broker2a.ams1","CertificateCN":"c1a2b3.example.zpa-customer.com","PrivateIP":"192.168.1.23","PublicIP":"203.0.113.45","Latitude":52.37,"Longitude":4.89,"CountryCode":"NL","TimestampAuthentication":"2026-11-12T09:30:55.000Z","TimestampUnAuthentication":"","TotalBytesRx":0,"TotalBytesTx":0,"Idp":"Okta","Hostname":"LT-JDOE-01","Platform":"windows","ClientType":"zpn_client_type_zapp","TrustedNetworks":"","TrustedNetworksNames":"","SAMLAttributes":"email:jdoe@example.com,groups:Finance","PosturesHit":"Domain Joined,EDR Running","PosturesMiss":"Disk Encrypted","ZENLatitude":52.3,"ZENLongitude":4.9,"ZENCountryCode":"NL","FQDNRegistered":"0","FQDNRegisteredError":"CUSTOMER_NOT_ENABLED"}'
+  - type: Audit
+    sourcetype: zpa_audit
+    format: json
+    share: < 1 %
+    avg: ~1 KB
+    desc: Admin console actions — create, update, delete, sign in / sign-in failure — with object type and name, old and new values and the admin. Retained ≥6 months in the cloud.
+    key:
+      - modifiedByUser
+      - auditOperationType
+      - objectType
+      - objectName
+      - auditNewValue
+    noise:
+      - customerID
+      - clientAuditUpdate
+      - requestID
+    sample: '{"modifiedTime":"2026-11-12T08:02:19.000Z","creationTime":"2026-11-12T08:02:19.000Z","modifiedBy":72058340288491234,"requestID":"5f1c2d3e-4b5a-6978-8a9b-0c1d2e3f4a5b","auditOldValue":"{\"action\":\"DENY\",\"name\":\"Block_Finance_Shares\"}","auditNewValue":"{\"action\":\"ALLOW\",\"name\":\"Block_Finance_Shares\"}","auditOperationType":"Update","objectType":"Policy","objectName":"Block_Finance_Shares","objectID":72058340288495701,"customerID":72058340288490000,"modifiedByUser":"admin@example.com","clientAuditUpdate":0}'
+  - type: App Connector Status
+    sourcetype: zpa_app_connector
+    format: json
+    share: 2–5 %
+    avg: ~1 KB
+    desc: Connector control-session state (authenticated / disconnected), version, platform, CPU and memory, service count and interface counters. Health and patch-level telemetry for the only ZPA component you run.
+    key:
+      - Connector
+      - ConnectorGroup
+      - SessionStatus
+      - Version
+      - PrivateIP
+      - CPUUtilization
+    noise:
+      - Latitude
+      - Longitude
+      - HostStartTime
+      - ConnectorStartTime
+      - PacketsRxInterface
+      - PacketsTxInterface
+    sample: '{"LogTimestamp":"Thu Nov 12 09:00:00 2026","Customer":"Example Corp","SessionID":"Zx1Lk9Pq2Wm8Rt7Yh6Ub","SessionType":"ZPN_ASSISTANT_BROKER_CONTROL","SessionStatus":"ZPN_STATUS_DISCONNECTED","Version":"26.57.3","Platform":"el9","ZEN":"broker2a.ams1","Connector":"ac-dc1-01","ConnectorGroup":"DC1 Connectors","PrivateIP":"10.10.5.21","PublicIP":"198.51.100.14","Latitude":52.37,"Longitude":4.89,"CountryCode":"NL","TimestampAuthentication":"2026-11-01T02:10:44.000Z","TimestampUnAuthentication":"2026-11-12T08:59:41.000Z","CPUUtilization":3,"MemUtilization":24,"ServiceCount":42,"InterfaceDefRoute":"eth0","DefRouteGW":"10.10.5.1","PrimaryDNSResolver":"10.10.0.53","HostStartTime":"1761963000","ConnectorStartTime":"1761963044","NumOfInterfaces":1,"BytesRxInterface":918273645,"PacketsRxInterface":1203344,"BytesTxInterface":812736451,"PacketsTxInterface":1100223,"TotalBytesRx":5120334,"TotalBytesTx":4980112}'
+cves:
+  - id: CVE-2026-59564
+    cvss: 9.1
+    year: 2026
+    kev: false
+    scope: device
+    title: Authentication bypass between Zscaler Client Connector and the Client Connector Portal
+    affected: Client Connector before Windows 4.6.0.457 / 4.7.0.317 / 4.8.0.232 / 4.9.0.372, macOS 4.5.2.312 / 4.7.0.292 / 4.8.0.191, Linux 3.7.2.64 / 4.2.1.64, Android & ChromeOS 4.2, iOS 4.5.1
+    fixed: The versions listed above (per train) and later
+    detect: User Status records with a Version older than the fixed build; new Hostname values authenticating for an existing Username; PosturesMiss suddenly empty on a device that used to fail posture.
+    avoid: Enforce minimum ZCC versions in the app profile; alert on Version below the fixed build in User Status; require posture profiles in access policy.
+  - id: CVE-2023-28805
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Client Connector for Linux improper input validation → privilege escalation
+    affected: Zscaler Client Connector for Linux before 1.4.0.105
+    fixed: 1.4.0.105
+    detect: User Status records with Platform=linux and Version below 1.4.0.105; on the host, EDR sees child processes of the ZCC service running as root.
+    avoid: Upgrade Linux ZCC; report outdated versions from User Status; restrict local shell access on Linux endpoints.
+  - id: CVE-2026-31431
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Linux kernel local privilege escalation (algif_aead) — on customer-managed App Connector, Private Service Edge and Private Cloud Controller hosts
+    affected: Linux kernel 4.14 and later until patched by the OS vendor (Zscaler lists App Connector, Network Connector, PSE and PCC as needing OS updates)
+    detect: Not visible in LSS. Track App Connector Status Platform/Version and patch level; investigate unexpected restarts (TimestampUnAuthentication followed by a new ConnectorStartTime) and any interactive logins on connector hosts.
+    avoid: Patch the connector OS kernel per the OS vendor; keep connectors on Zscaler-supported images; no interactive accounts beyond admin break-glass.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell (Apache Log4j2 JNDI injection) — private Java apps published through ZPA
+    affected: Apache Log4j2 2.0-beta9 to 2.14.1 (incomplete fixes up to 2.16.0)
+    fixed: 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: AppProtection logs matching JNDI lookup patterns (${jndi:) in headers or URLs; afterwards, outbound LDAP/RMI from the app server in firewall logs. User Activity shows only the connection, not the payload.
+    avoid: Enable an AppProtection profile on Java app segments; restrict segments to the users who need them; patch Log4j.
+  - id: CVE-2022-26134
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Confluence Server/Data Center OGNL injection RCE — internal wiki published through ZPA
+    affected: Confluence Server and Data Center from 1.3.0 before the fixed versions
+    fixed: 7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1
+    detect: AppProtection hits on OGNL expressions in the URI (%24%7B); User Activity for the Confluence segment from users or countries that never used it before.
+    avoid: Publish Confluence through ZPA only (no internet exposure), restrict the segment to employees, enable AppProtection, patch.
+detections:
+  - title: Access policy refusals across many apps (internal reconnaissance)
+    severity: high
+    signals:
+      - zpa_user_activity
+      - InternalReason=BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY / NO_POLICY_FOUND
+      - many distinct Application or Host values
+    why: A legitimate user hits a handful of apps they are allowed to use. One identity being refused across dozens of hosts or ports looks like a stolen session or malware scanning through the tunnel.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_user_activity"
+      | where InternalReason in ("BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY","BRK_MT_SETUP_FAIL_NO_POLICY_FOUND")
+      | summarize refusals=count(), hosts=dcount(Host), ports=dcount(ServicePort) by Username, ClientPublicIP, bin(_time, 15m)
+      | where hosts > 10 or refusals > 50
+    mitre:
+      - T1046
+      - T1078
+  - title: Access attempts from a device failing posture
+    severity: medium
+    signals:
+      - InternalReason=BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY_POSTURE_FAILED
+      - PosturesMiss not empty in User Status
+    why: Credentials used from an unmanaged or tampered device (EDR stopped, disk not encrypted) are a common sign of account takeover or of a personal device being used against policy.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_user_activity" InternalReason="BRK_MT_SETUP_FAIL_REJECTED_BY_POLICY_POSTURE_FAILED"
+      | summarize attempts=count(), apps=make_set(Application) by Username, Hostname, ClientPublicIP
+    mitre:
+      - T1078
+  - title: Same user authenticating from two countries in a short window
+    severity: high
+    signals:
+      - zpa_user_status
+      - SessionStatus=ZPN_STATUS_AUTHENTICATED
+      - CountryCode changes within 1h
+    why: ZPA sessions are long-lived and tied to the device; two countries for one user within an hour is impossible travel or a cloned session.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_user_status" SessionStatus="ZPN_STATUS_AUTHENTICATED"
+      | summarize countries=dcount(CountryCode), list=make_set(CountryCode), ips=make_set(PublicIP), hosts=make_set(Hostname) by Username, bin(_time, 1h)
+      | where countries > 1
+    mitre:
+      - T1078
+      - T1550.004
+  - title: Access policy or app segment loosened
+    severity: high
+    signals:
+      - zpa_audit
+      - auditOperationType Update/Delete
+      - objectType Policy / Application Segment / Segment Group
+    why: Changing a Block rule to Allow, or widening a segment to a whole subnet, quietly opens internal reach for everyone matching the rule — a classic persistence step after an admin compromise.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_audit"
+      | where auditOperationType in ("Update","Delete") and objectType in ("Policy","Application Segment","Segment Group","Administrator")
+      | project _time, modifiedByUser, auditOperationType, objectType, objectName, auditOldValue, auditNewValue
+    mitre:
+      - T1562.007
+      - T1098
+  - title: Admin console sign-in failures
+    severity: medium
+    signals:
+      - zpa_audit
+      - auditOperationType="Sign In Failure"
+    why: The admin console controls who can reach every private app. Repeated failures for one admin, or failures from many admins at once, indicate password guessing.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_audit" auditOperationType="Sign In Failure"
+      | summarize fails=count() by modifiedByUser, bin(_time, 15m)
+      | where fails > 5
+    mitre:
+      - T1110
+  - title: App Connector disconnected
+    severity: low
+    signals:
+      - zpa_app_connector
+      - SessionStatus=ZPN_STATUS_DISCONNECTED
+    why: Besides breaking access, a disconnected connector also stops LSS — every ZPA log type routed through it goes dark, and data from the outage is not resent.
+    kql: |-
+      dataset="zpa_logs" sourcetype="zpa_app_connector" SessionStatus="ZPN_STATUS_DISCONNECTED"
+      | summarize last=max(_time) by Connector, ConnectorGroup, Version, PrivateIP
+    mitre:
+      - T1562.008
+optimizations:
+  - title: Keep close records, drop "active" refreshes
+    saving: 20–40 %
+    fn: Drop
+    how: Long sessions emit periodic active records with incremental byte counters. The close record carries the totals. Drop ConnectionStatus=active unless you need near-real-time byte accounting.
+    expr: ConnectionStatus=='active'
+  - title: Strip timing and empty fields
+    saving: 25–40 %
+    fn: Parser → Serialize
+    how: User Activity carries more than a dozen Timestamp*/ProcessingTime fields used for troubleshooting latency, plus many empty strings. Remove them and empty values before the SIEM; keep the full record in Lake.
+    expr: "remove: Timestamp* (except TimestampConnectionStart/End), *ProcessingTime, *SetupTime, AppLearnTime; drop empty"
+  - title: Turn connector metrics into metrics
+    saving: 5–10 %
+    fn: Aggregations
+    how: App Connector status records are periodic health telemetry. Convert CPU, memory and interface counters to metrics per connector and keep only state changes as events.
+    expr: sourcetype=='zpa_app_connector' && SessionStatus=='ZPN_STATUS_AUTHENTICATED'
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Audit, User Status and refused / failed User Activity go to the SIEM. Successful User Activity goes to Lake with an optimised copy to the SIEM for investigations.
+    expr: InternalReason!='' || sourcetype!='zpa_user_activity' → SIEM ; else → Lake + SIEM(optimised)
+references:
+  - title: Zscaler — About the Log Streaming Service
+    url: https://help.zscaler.com/zpa/about-log-streaming-service
+  - title: Zscaler — Understanding User Activity Log Fields
+    url: https://help.zscaler.com/zpa/user-activity-log-fields
+  - title: Zscaler — Understanding User Status Log Fields
+    url: https://help.zscaler.com/zpa/understanding-user-status-log-fields
+  - title: Zscaler — Understanding Audit Log Fields
+    url: https://help.zscaler.com/zpa/understanding-audit-log-fields
+  - title: Zscaler — Understanding Private Access Session Status Codes
+    url: https://help.zscaler.com/zpa/understanding-private-access-session-status-codes
+  - title: Zscaler Trust — Private Access security advisories (CVE-2026-31431 guidance)
+    url: https://trust.zscaler.com/private.zscaler.com/security-advisories
+  - title: NVD — CVE-2023-28805 (Client Connector for Linux)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-28805
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Atlassian — Confluence Security Advisory 2022-06-02 (CVE-2022-26134)
+    url: https://confluence.atlassian.com/doc/confluence-security-advisory-2022-06-02-1130377146.html
+  - title: Zscaler press release — Zscaler Private Access (April 26, 2016)
+    url: https://www.zscaler.com/press/zscaler-private-access-remote-access-without-security-risks-vpns
+related:
+  - zscaler-zia
+  - netskope
+  - cloudflare-zero-trust
+  - okta
+  - entra-id
+  - pan-ngfw

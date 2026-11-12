@@ -1,0 +1,283 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ivanti-vtm
+name: Ivanti Virtual Traffic Manager
+short: Ivanti vTM
+aka:
+  - vTM
+  - Pulse Secure Virtual Traffic Manager
+  - Brocade Virtual Traffic Manager
+  - Riverbed SteelApp
+  - Zeus Traffic Manager (ZXTM)
+vendor: Ivanti
+category: netinfra
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - adc
+  - load-balancer
+  - reverse-proxy
+  - trafficscript
+  - audit
+  - kev
+summary: A software application delivery controller (load balancer and reverse proxy) that descends from Zeus ZXTM. It terminates TLS, balances HTTP and TCP across server pools and runs TrafficScript rules on every request. Its admin audit log records every login and configuration change; after CVE-2024-7593, an admin account created with no authenticated user behind it is the key indicator.
+sourcetypes:
+  - st: ivanti_vtm_audit
+    desc: "Admin-server audit log: logins, login failures, user/group/authenticator changes, config file and key edits, rule edits, maintenance CLI commands"
+  - st: ivanti_vtm_event
+    desc: "Generic name used here for the vTM event log (zeus.eventd syslog: node/pool health, virtual-server start/stop, license, SSL, rule errors); no standard Splunk sourcetype exists"
+facts:
+  First released: Zeus ZXTM (mid-2000s); later Riverbed SteelApp, Brocade, Pulse Secure; Ivanti since 2020
+  OS: Software on Linux, virtual appliance, cloud images (AWS/Azure/GCP), Docker
+  Form factors: Software install, virtual appliance, cloud marketplace image, container
+  Deployment modes: Reverse proxy / ADC in front of server pools, clustered active-active with Traffic IP groups, GSLB
+  Admin interface: Web UI and REST/SOAP control API on TCP 9090 (default)
+  Log transport: Local audit/event log files, remote syslog (event log), per-virtual-server request logs to file or syslog
+  Log format: "Audit: [date] then tab-separated KEY=VALUE pairs; event log: syslog with LEVEL, object tags and event key"
+  Typical EPS: Audit < 1; event log 1–50; request logs scale with traffic (1k+)
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Internet-facing ADC
+      desc: Terminates TLS for public web apps and APIs in the DMZ. The admin UI (9090) must not be reachable from the internet — CVE-2024-7593 targeted exactly that exposure.
+    - slot: internal
+      title: Internal service load balancing
+      desc: Balances internal web, LDAP or database tiers and fronts legacy apps that need TrafficScript rewrites.
+    - slot: cloud
+      title: Cloud / container ADC
+      desc: Marketplace images or containers in AWS/Azure/GCP, often scaled with autoscaling pools that discover nodes via the cloud API.
+howItWorks:
+  - title: Virtual servers, pools and nodes
+    body: A virtual server listens on a Traffic IP and port and hands each connection or request to a pool of back-end nodes using a balancing algorithm, session persistence and health monitors. Node failures and recoveries are event-log entries (nodefail / nodeworking).
+  - title: TrafficScript and rules
+    body: Request and response rules written in TrafficScript (or Java extensions) can inspect and rewrite headers, bodies and cookies, choose pools and log via log.info/log.warn/log.error. A malicious rule edit can silently redirect or harvest traffic, so rulemod audit events matter.
+  - title: Admin server and audit log
+    body: Every admin action through the web UI, REST/SOAP control API or maintenance CLI is written to the audit log as a date followed by USER, GROUP, AUTH (authenticator), IP and OPERATION, plus operation-specific keys such as MODUSER/MODGROUP or FILE/KEY/VALUE/OLDVAL.
+  - title: Clustering
+    body: Traffic managers in a cluster share configuration and fail over Traffic IP groups between each other. Configuration replication generates synchronise and confmod events on every member.
+  - title: Security features
+    body: TLS offload with client-cert auth, rate shaping, service protection classes (connection limits, IP block/allow lists), and an optional web application firewall add-on.
+traffic:
+  handles:
+    - HTTP/1.1 and HTTP/2 (reverse proxy)
+    - TLS termination and re-encryption
+    - Generic TCP/UDP streaming
+    - SIP, RTSP, DNS, LDAP protocol-aware balancing
+    - Global server load balancing (DNS)
+    - Admin REST/SOAP API on TCP 9090
+  flow:
+    - step: Connect
+      desc: Client connects to a Traffic IP; virtual server accepts and (optionally) terminates TLS.
+    - step: Protect
+      desc: Service protection and rate shaping classes are applied; blocked clients are refused.
+    - step: Rules
+      desc: Request rules run in TrafficScript — rewrite, route, persist or log.
+    - step: Balance
+      desc: Pool selects a healthy node; monitors keep node state current (event log on change).
+    - step: Respond
+      desc: Response rules run; response returned; request log written if enabled.
+    - step: Administer
+      desc: Admin logins and config changes hit the admin server and land in the audit log.
+logs:
+  - type: Audit — account change
+    sourcetype: ivanti_vtm_audit
+    format: kv
+    share: 1–5 %
+    avg: ~180 B
+    desc: One line per admin operation. A legitimate adduser carries the acting USER, its GROUP, the AUTH method and source IP. The CVE-2024-7593 exploit produces adduser with USER, GROUP, AUTH and IP all set to !!ABSENT!! and MODGROUP=admin.
+    key:
+      - USER
+      - AUTH
+      - IP
+      - OPERATION
+      - MODUSER
+      - MODGROUP
+    noise:
+      - header
+    sample: '[12/Nov/2026:08:41:22 +0000]	USER=jdoe	GROUP=admin	AUTH=ldap-corp	IP=10.20.1.15	OPERATION=adduser	MODUSER=svc_deploy	MODGROUP=admin'
+  - type: Audit — configuration change
+    sourcetype: ivanti_vtm_audit
+    format: kv
+    share: 1–5 %
+    avg: ~220 B
+    desc: keymod / filemod / rulemod records show which config file (virtual server, pool, rule, ssl/…) changed, and for keymod the key with old and new value.
+    key:
+      - USER
+      - IP
+      - OPERATION
+      - FILE
+      - KEY
+      - VALUE
+      - OLDVAL
+    noise:
+      - header
+      - GROUP
+    sample: '[12/Nov/2026:09:02:10 +0000]	USER=jdoe	GROUP=admin	AUTH=ldap-corp	IP=10.20.1.15	OPERATION=keymod	FILE=vservers/www-https	KEY=protection_class	VALUE=	OLDVAL=public-web'
+  - type: Event log
+    sourcetype: ivanti_vtm_event
+    format: text
+    share: 90–98 % (excluding request logs)
+    avg: ~170 B
+    desc: Operational events from zeus.eventd — node and pool health, virtual-server start/stop, cluster state, SSL failures, license warnings, rule errors and TrafficScript log.* messages. Sent to syslog and kept in the local event log.
+    pattern: '^<(?<pri>\d+)>1 (?<timestamp>\S+) (?<host>\S+) (?<app>zeus\.eventd) (?<pid>\d+) - - (?<level>[A-Z]+) (?<object>\S+/\S+) (?<subobject>\S+/\S+) (?<event>\w+) (?<message>.*)$'
+    key:
+      - host
+      - level
+      - object
+      - subobject
+      - event
+      - message
+    noise:
+      - pri
+      - pid
+      - app
+    sample: '<11>1 2026-11-12T08:42:01Z vtm01 zeus.eventd 14176 - - SERIOUS pools/web-pool nodes/10.20.5.11:443 nodefail Node 10.20.5.11:443 has failed - A monitor has detected a failure'
+cves:
+  - id: CVE-2024-7593
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: device
+    title: Admin panel authentication bypass — unauthenticated creation of admin accounts
+    affected: vTM 22.2, 22.3, 22.3R2, 22.5R1, 22.6R1, 22.7R1 (all versions other than 22.2R1 / 22.7R2 at disclosure)
+    fixed: 22.2R1, 22.3R3, 22.5R2, 22.6R2, 22.7R2
+    detect: Audit log OPERATION=adduser MODGROUP=admin with USER, GROUP, AUTH and IP = !!ABSENT!!; followed by OPERATION=login of that new MODUSER from an external IP.
+    avoid: Patch; bind the admin interface (9090) to an internal management IP; audit the admin user list for unknown accounts.
+  - id: CVE-2026-8051
+    cvss: 7.2
+    year: 2026
+    kev: false
+    scope: device
+    title: Authenticated OS command injection to RCE (post-auth step after an admin bypass)
+    affected: vTM before 22.9R4
+    fixed: 22.9R4
+    detect: Audit keymod / filemod / maintclicmd records from admins or IPs that rarely change config; event log errors from unexpected processes.
+    avoid: Patch; limit admin accounts and use an external authenticator with MFA; restrict the admin network.
+  - id: CVE-2021-31922
+    cvss: 7.5
+    year: 2021
+    kev: false
+    scope: device
+    title: HTTP request smuggling through an HTTP/2 header
+    affected: Pulse Secure vTM before 21.1
+    fixed: 21.1, 20.3R1, 20.2R1, 20.1R2, 19.2R4, 18.2R3
+    detect: Back-end web logs showing requests that never appear in vTM request logs; HTTP/2 clients sending malformed or duplicated content-length / transfer-encoding headers.
+    avoid: Upgrade; disable HTTP/2 on virtual servers that do not need it; normalise headers in a request rule.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS — affects HTTP/2 virtual servers and the back ends they protect
+    affected: Any HTTP/2 endpoint, including vTM virtual servers with HTTP/2 enabled
+    detect: Spike of short HTTP/2 connections with many reset streams per client; connection-limit / service-protection events in the event log; CPU warnings.
+    avoid: Apply vendor HTTP/2 fixes; use service protection classes to cap concurrent streams/connections per IP; disable HTTP/2 where not needed.
+detections:
+  - title: Admin created without an authenticated actor (CVE-2024-7593)
+    severity: critical
+    signals:
+      - OPERATION=adduser
+      - MODGROUP=admin
+      - IP=!!ABSENT!!
+    why: A real admin creating a user always leaves USER, AUTH and IP. All three absent means the request bypassed authentication.
+    kql: |-
+      dataset="ivanti_vtm" OPERATION="adduser" MODGROUP="admin" IP="!!ABSENT!!"
+      | summarize count(), first=min(_time) by MODUSER, MODGROUP, AUTH
+    mitre:
+      - T1190
+      - T1136.001
+  - title: Admin login brute force
+    severity: high
+    signals:
+      - OPERATION=loginfail
+      - count per IP / USER
+    why: The admin server has local accounts; repeated failures from one IP are a guessing attack, and loginlockout/loginsusp follow.
+    kql: |-
+      dataset="ivanti_vtm" OPERATION in ("loginfail","loginlockout","loginsusp")
+      | summarize fails=count(), users=dcount(USER) by IP, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110
+  - title: New admin logs in from a new IP
+    severity: high
+    signals:
+      - OPERATION=adduser then OPERATION=login for the same user
+      - IP outside the admin network
+    why: The usual follow-up to a bypass is logging in with the rogue account to change configuration.
+    kql: |-
+      dataset="ivanti_vtm" OPERATION in ("adduser","login")
+      | extend acct=iff(OPERATION=="adduser", MODUSER, USER)
+      | summarize ops=make_set(OPERATION), ips=make_set(IP), first=min(_time) by acct
+      | where set_has_element(ops, "adduser") and set_has_element(ops, "login")
+    mitre:
+      - T1078
+  - title: Traffic-altering change (rules, protection, SSL)
+    severity: medium
+    signals:
+      - OPERATION in rulemod, keymod, filemod
+      - FILE under rules/, vservers/, ssl/
+      - change outside a change window
+    why: A TrafficScript edit or a removed protection class can redirect users, strip security headers or expose a back end without any server-side change.
+    kql: |-
+      dataset="ivanti_vtm" OPERATION in ("rulemod","keymod","filemod")
+      | where FILE startswith "rules/" or FILE startswith "vservers/" or FILE startswith "ssl/"
+      | summarize changes=count(), files=make_set(FILE) by USER, IP, bin(_time, 1h)
+    mitre:
+      - T1565.002
+      - T1562
+  - title: Node failure cascade
+    severity: low
+    signals:
+      - event=nodefail
+      - many nodes in one pool within minutes
+    why: Several back ends failing together points to an attack on the pool (DoS) or a network change; also explains user-facing outages during an incident.
+    kql: |-
+      dataset="ivanti_vtm" event="nodefail"
+      | summarize nodes=dcount(subobject) by object, host, bin(_time, 5m)
+      | where nodes >= 3
+    mitre:
+      - T1499
+optimizations:
+  - title: Keep the audit log whole
+    saving: 0 % (by design)
+    fn: Routes
+    how: The audit log is tiny and is the only record of admin actions — send every line to the SIEM unfiltered.
+    expr: sourcetype=='ivanti_vtm_audit' → SIEM
+  - title: Suppress repeated health flaps
+    saving: 20–50 % of event log
+    fn: Suppress
+    how: A flapping node logs nodefail / nodeworking every monitor interval. Keep one per node/state per 5 minutes with a count.
+    expr: "key: `${object}:${subobject}:${event}`  allow 1 / 300s  when event in ('nodefail','nodeworking')"
+  - title: Drop INFO housekeeping events
+    saving: 10–30 % of event log
+    fn: Drop
+    how: INFO-level events such as license-in-use, statistics and routine cluster sync messages rarely matter; keep WARN/SERIOUS/FATAL and anything from rules.
+    expr: level=='INFO' && !/^rules\//.test(object)
+  - title: Parse request logs and drop static assets
+    saving: 30–60 % of request logs
+    fn: Parser → Serialize
+    how: If per-virtual-server request logging is on, parse it, drop 2xx/3xx requests for static assets, and keep errors, auth paths and API calls.
+    expr: /\.(js|css|png|jpg|gif|svg|woff2?)(\?|$)/.test(uri) && status<400
+references:
+  - title: Ivanti vTM Control API — System.Log (audit log fields and operation types)
+    url: https://help.ivanti.com/ps/help/en_US/VTM/22.x/controlapi/ps-vtm-controlapi/system_log.htm
+  - title: Ivanti vTM release notes — revision history (CVE-2024-7593 fixed releases)
+    url: https://docs.ivanti.com/ps/help/en_us/vtm/relnotes/revision-history
+  - title: CERT-EU Security Advisory 2024-078 — Ivanti vTM authentication bypass
+    url: https://cert.europa.eu/publications/security-advisories/2024-078/
+  - title: Splunk Security Content — Ivanti VTM Audit data source
+    url: https://research.splunk.com/sources/b04be6e5-2002-4a49-8722-52285635b8f5/
+  - title: NVD — CVE-2024-7593
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-7593
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - f5-awaf
+  - nginx
+  - apache-httpd
+  - imperva-waf

@@ -1,0 +1,347 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cloudflare-zero-trust
+name: Cloudflare Zero Trust (Cloudflare One)
+short: Cloudflare ZT
+aka:
+  - Cloudflare One
+  - Cloudflare Gateway
+  - Cloudflare Access
+  - Cloudflare WARP
+  - Cloudflare Tunnel (cloudflared)
+  - Cloudflare for Teams
+vendor: Cloudflare
+category: swg
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - sse
+  - swg
+  - ztna
+  - dns
+  - casb
+  - dlp
+  - logpush
+  - json
+summary: Cloudflare's SSE platform. Gateway filters DNS, HTTP and network traffic from WARP clients, office locations and Magic WAN. Access puts identity-aware ZTNA in front of private and SaaS apps, which are published through cloudflared tunnels. Every decision is exported per account with Logpush as NDJSON — Gateway DNS, HTTP and network, Access requests and Zero Trust network sessions.
+sourcetypes:
+  - st: cloudflare_gateway_dns
+    desc: Logpush gateway_dns dataset — one JSON line per DNS query resolved by Gateway, with categories and resolver decision
+  - st: cloudflare_gateway
+    desc: Logpush gateway_http dataset — Gateway secure web gateway HTTP requests (URL, action, policy, DLP, file info)
+  - st: cloudflare_gateway_network
+    desc: Logpush gateway_network dataset — Gateway L4 firewall decisions per session (SNI, ports, action)
+  - st: cloudflare_access_request
+    desc: Logpush access_requests dataset — Access logins and logouts per application, with IdP and allow/deny
+  - st: cloudflare_zero_trust_network_session
+    desc: Logpush zero_trust_network_sessions dataset — full session records (bytes, TLS, origin, close reason) for proxied traffic
+facts:
+  First released: 2020 (Cloudflare for Teams — Gateway + Access); rebranded Cloudflare One / Zero Trust
+  Delivery model: SaaS on Cloudflare's anycast network — same data centers as the CDN
+  Components: Gateway (DNS / HTTP / network filtering, AV, DLP, browser isolation), Access (ZTNA), Tunnel (cloudflared), WARP client, CASB, DLP, Email Security
+  On-ramps: WARP device client, DNS locations (DoH / DoT / IPv4), PAC files, Magic WAN IPsec/GRE, cloudflared and WARP Connector
+  Log transport: Logpush (account-scoped datasets, NDJSON) to R2, S3, GCS, Azure, Splunk HEC, Datadog, HTTP; dashboard log retention; GraphQL Analytics
+  Cribl integration: Native Cribl Cloudflare Source (HEC) or S3 / R2 collection
+  Identity: Email and UserID from the IdP (Entra ID, Okta, Google, SAML/OIDC); DeviceID and DeviceName from WARP enrolment
+placement:
+  slots:
+    - cloud
+    - endpoint
+    - remote
+    - internal
+  items:
+    - slot: cloud
+      title: Gateway and Access at the edge
+      desc: Policies run in every Cloudflare data center; traffic egresses from Cloudflare (or dedicated egress IPs) to the internet, or into a tunnel to private apps.
+    - slot: endpoint
+      title: WARP client
+      desc: Device agent that sends DNS and traffic to Gateway, carries device posture and identity, and replaces the VPN client.
+    - slot: remote
+      title: Remote users
+      desc: Users anywhere reach SaaS and private apps through WARP or clientless Access (browser-rendered SSH/RDP/VNC).
+    - slot: internal
+      title: cloudflared / WARP Connector
+      desc: Outbound-only connectors in the data centre or VPC that publish private hostnames and networks without opening inbound ports.
+howItWorks:
+  - title: DNS filtering
+    body: Gateway resolves every query from a WARP device or registered location. It categorizes the domain, CNAMEs and resolved IPs, applies DNS policies (block, allow, override, SafeSearch) and logs the resolver decision (blockedByCategory, allowedOnNoPolicyMatch, …).
+  - title: HTTP and network filtering
+    body: With WARP in Gateway-with-WARP mode, traffic is proxied. L4 network policies decide on IP, port, SNI and protocol. HTTP policies decrypt TLS (with the Cloudflare root on the device), then apply URL categories, app controls, AV scanning, DLP profiles and browser isolation.
+  - title: Access (ZTNA)
+    body: Each application gets an Access policy (IdP groups, device posture, country, mTLS). The user authenticates once at the Access login page, gets a signed JWT per app, and every login or logout is recorded in access_requests.
+  - title: Tunnels to private apps
+    body: cloudflared on the origin network dials out to Cloudflare. Private hostnames and CIDRs behind it are reachable only through Access or Gateway — the app has no public IP, so it can't be attacked directly from the internet.
+  - title: Logpush
+    body: Account-level Logpush jobs stream each dataset as NDJSON with chosen fields and filters. Field names are PascalCase and many are arrays (category IDs and names, resolved IPs), which flatten to x[0], x[1] when parsed.
+traffic:
+  handles:
+    - DNS (UDP/TCP 53, DoH, DoT)
+    - HTTP / HTTPS with TLS inspection
+    - Any TCP/UDP via Gateway network policies and WARP
+    - Private apps (SSH, RDP, HTTP, databases) via cloudflared tunnels
+    - SaaS app controls, DLP and AV on uploads and downloads
+    - Browser isolation sessions
+  flow:
+    - step: On-ramp
+      desc: WARP, a DNS location, PAC or Magic WAN brings user traffic to the nearest Cloudflare data center.
+    - step: Identify
+      desc: Identity (Email, UserID) and device (DeviceID, posture) attached from WARP enrolment and the IdP.
+    - step: DNS policy
+      desc: Query categorized and resolved or blocked; gateway_dns line written.
+    - step: Network policy
+      desc: L4 session allowed or blocked on IP, port, SNI and protocol; gateway_network line written.
+    - step: HTTP policy
+      desc: TLS decrypted, URL, app, DLP and AV checked; gateway_http line written.
+    - step: Egress / tunnel
+      desc: Traffic leaves to the internet or into a cloudflared tunnel; zero_trust_network_sessions line written at session end.
+logs:
+  - type: Gateway DNS
+    sourcetype: cloudflare_gateway_dns
+    format: json
+    share: 55–75 %
+    avg: ~1.2 KB
+    desc: One line per DNS query — device, user, location, query name and type, categories, resolved IPs and the resolver decision.
+    key:
+      - Email
+      - DeviceName
+      - SrcIP
+      - QueryName
+      - QueryTypeName
+      - ResolverDecision
+      - PolicyName
+      - QueryCategoryNames[0]
+    noise:
+      - QueryNameReversed
+      - ColoID
+      - TimeZoneInferredMethod
+      - IsResponseCached
+      - QuerySize
+    sample: '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60718","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"login.example-secure-update.net","QueryNameReversed":"net.example-secure-update.login","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"blockedByCategory","PolicyID":"7c1e9f2a-3b4d-4e5f-8a6b-7c8d9e0f1a2b","PolicyName":"Block security threats","QueryCategoryIDs":[68,80],"QueryCategoryNames":["Phishing","Security Risks"],"ResolvedIPs":[],"IsResponseCached":false,"ResponseTimeMs":2,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+  - type: Gateway HTTP
+    sourcetype: cloudflare_gateway
+    format: json
+    share: 15–30 %
+    avg: ~1.5 KB
+    desc: One line per inspected HTTP request — user, device, URL, method, status, action, policy, categories, apps, and blocked-file and DLP details.
+    key:
+      - Email
+      - DeviceName
+      - URL
+      - Action
+      - PolicyName
+      - BlockedFileReason
+      - UploadMatchedDlpProfiles[0]
+      - CategoryNames[0]
+    noise:
+      - SourceIPContinentCode
+      - DestinationIPContinentCode
+      - ExperimentalFeatures
+      - ProxyEndpoint
+    sample: '{"Datetime":"2026-11-12T09:41:27Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","RequestID":"01HZX4K2M8Q7R6S5T4V3W2X1Y0","SessionID":"b7c6d5e4f3a2b1c0","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","SourceIP":"203.0.113.45","SourceInternalIP":"10.20.30.44","SourcePort":55012,"SourceIPCountryCode":"NL","SourceIPContinentCode":"EU","DestinationIP":"198.51.100.88","DestinationPort":443,"DestinationIPCountryCode":"US","DestinationIPContinentCode":"NA","HTTPHost":"files.example.org","HTTPMethod":"POST","HTTPVersion":"HTTP/2","HTTPStatusCode":403,"URL":"https://files.example.org/upload","UserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","Referer":"","Action":"block","PolicyID":"2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a","PolicyName":"Block uploads with customer data","CategoryIDs":[166],"CategoryNames":["File Sharing"],"ApplicationIDs":[1001],"ApplicationNames":["Example Drive"],"UploadedFileNames":["customers_q3.csv"],"UploadMatchedDlpProfiles":["Customer PII"],"UploadMatchedDlpProfileEntries":["Credit card number"],"BlockedFileName":"","BlockedFileReason":"","IsIsolated":false,"ProxyEndpoint":"","ExperimentalFeatures":[]}'
+  - type: Access requests
+    sourcetype: cloudflare_access_request
+    format: json
+    share: 1–5 %
+    avg: ~600 B
+    desc: Access logins and logouts per application — user, IdP connection, source IP and country, allowed or denied.
+    key:
+      - Email
+      - AppDomain
+      - Action
+      - Allowed
+      - IPAddress
+      - Country
+      - Connection
+    noise:
+      - PurposeJustificationPrompt
+      - TemporaryAccessApprovers
+      - TemporaryAccessDuration
+    sample: '{"CreatedAt":"2026-11-12T09:43:55Z","RayID":"8e1f2a3b4c5d7a8b","Action":"login","Allowed":false,"AppDomain":"jira.internal.example.com","AppUUID":"c0ffee00-1234-4abc-9def-0123456789ab","Connection":"okta","Country":"ro","Email":"jdoe@example.com","IPAddress":"198.51.100.200","UserUID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","PurposeJustificationPrompt":"","PurposeJustificationResponse":"","TemporaryAccessApprovers":[],"TemporaryAccessDuration":0}'
+  - type: Zero Trust network sessions
+    sourcetype: cloudflare_zero_trust_network_session
+    format: json
+    share: 10–20 %
+    avg: ~1.3 KB
+    desc: One record per proxied TCP/UDP session at close — user, device, origin, SNI, bytes in each direction, TLS details and close reason.
+    key:
+      - Email
+      - DeviceName
+      - OriginIP
+      - OriginPort
+      - SNI
+      - BytesSent
+      - BytesReceived
+      - ConnectionCloseReason
+    noise:
+      - ClientTCPHandshakeDurationMs
+      - RuleEvaluationDurationMs
+      - DestinationReplicaID
+      - ConnectionReuse
+    sample: '{"SessionStartTime":"2026-11-12T09:10:02Z","SessionEndTime":"2026-11-12T09:44:18Z","SessionID":"0f9e8d7c6b5a4f3e","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","SourceIP":"203.0.113.45","SourceInternalIP":"10.20.30.44","SourcePort":55101,"OnrampType":"WARP","Offramp":"cloudflared","Protocol":"TCP","DetectedProtocol":"SSH","OriginIP":"10.50.0.12","OriginPort":22,"InitialOriginIP":"10.50.0.12","ResolvedFQDN":"db01.internal.example.com","SNI":"","DestinationTunnelID":"4b3a2c1d-0e9f-4a8b-b7c6-d5e4f3a2b1c0","DestinationReplicaID":"","EgressColoName":"AMS","IngressColoName":"AMS","BytesSent":2183420,"BytesReceived":918274563,"ClientTCPHandshakeDurationMs":12,"RuleEvaluationDurationMs":1,"ConnectionCloseReason":"CLIENT_CLOSED","ConnectionReuse":false}'
+cves:
+  - id: CVE-2023-1412
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Cloudflare WARP for Windows MSI installer — local privilege escalation to SYSTEM via opportunistic locks
+    affected: Cloudflare WARP Client for Windows up to 2022.12.582.0
+    fixed: 2023.3.381.0
+    detect: Not in Gateway logs. Inventory WARP versions from device enrolment; EDR for msiexec running the WARP package while a non-admin process holds oplocks on its files, or SYSTEM shells spawned from it.
+    avoid: Update WARP to 2023.3.381.0+ and enforce a minimum client version in device settings.
+  - id: CVE-2023-0652
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Cloudflare WARP for Windows installer — hard link in ProgramData during repair allows privilege escalation
+    affected: Cloudflare WARP Client for Windows up to 2022.12.582.0
+    fixed: 2023.3.381.0
+    detect: Not in Gateway logs. EDR for hard links or junctions created in WARP's ProgramData folder by non-admin users.
+    avoid: Update WARP; enforce a minimum client version; remove local admin.
+  - id: CVE-2022-2145
+    cvss: 7.8
+    year: 2022
+    kev: false
+    scope: device
+    title: Cloudflare WARP for Windows — mount points from ProgramData allow overwriting SYSTEM-protected files
+    affected: Cloudflare WARP client for Windows up to 2022.5.309.0
+    detect: Not in Gateway logs; devices still reporting pre-2022.5 WARP builds in device inventory are exposed.
+    avoid: Update WARP and enforce a minimum client version.
+  - id: CVE-2023-22515
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Confluence Data Center / Server broken access control — unauthenticated admin creation (typical private app behind Access)
+    affected: Confluence Data Center and Server 8.0.0 – 8.3.2, 8.4.0 – 8.4.2, 8.5.0 – 8.5.1
+    fixed: 8.3.3, 8.4.3, 8.5.2
+    detect: Gateway HTTP or ZT session records hitting /server-info.action?bootstrapStatusProvider or /setup/*.action on a Confluence hostname; Access logins for the app from users who never used it before.
+    avoid: Patch Confluence; publish it only via a tunnel behind an Access policy so unauthenticated internet requests never reach it.
+  - id: CVE-2024-21412
+    cvss: 8.1
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Windows Internet Shortcut Files security feature bypass (SmartScreen) — used by Water Hydra to deliver DarkMe
+    affected: Windows 10, 11 and Server 2008–2022 before the February 2024 updates
+    fixed: Microsoft February 2024 security updates
+    detect: Gateway HTTP downloads of .url or .lnk files (DownloadedFileNames) from file-sharing or newly seen domains, followed by WebDAV/SMB sessions to the same host.
+    avoid: Patch Windows; block .url / .lnk downloads and WebDAV egress with Gateway HTTP and network policies.
+detections:
+  - title: Device resolving phishing / malware domains
+    severity: high
+    signals:
+      - ResolverDecision blockedByCategory / blockedRule
+      - QueryCategoryNames Malware, Phishing, Command and Control, Security Risks
+      - repeats per device
+    why: Repeated blocked lookups of security-category domains from one device usually mean malware or a user clicking through a phishing campaign — the block hides the symptom, not the cause.
+    kql: |-
+      dataset="cloudflare_zt" sourcetype="cloudflare_gateway_dns"
+      | where ResolverDecision in ("blockedByCategory","blockedRule","blockedAlwaysCategory")
+      | summarize hits=count(), domains=dcount(QueryName) by Email, DeviceName, PolicyName
+      | where hits > 10
+    mitre:
+      - T1071.004
+      - T1566.002
+  - title: Sensitive data upload matched DLP
+    severity: high
+    signals:
+      - gateway_http
+      - UploadMatchedDlpProfiles not empty
+      - Action allow (log-only policy) or block
+    why: DLP matches on uploads to file sharing or personal SaaS are the main exfiltration signal for an SSE — even blocked attempts show intent.
+    kql: |-
+      dataset="cloudflare_zt" sourcetype="cloudflare_gateway"
+      | where isnotempty(UploadMatchedDlpProfiles)
+      | summarize uploads=count(), hosts=dcount(HTTPHost) by Email, DeviceName, Action, tostring(UploadMatchedDlpProfiles)
+    mitre:
+      - T1567.002
+  - title: Malicious file download blocked
+    severity: medium
+    signals:
+      - BlockedFileReason malware
+      - BlockedFileHash
+      - DownloadedFileNames
+    why: Gateway AV blocked a file — check the same hash on endpoints in case it arrived another way (email, USB) or an earlier copy got through.
+    kql: |-
+      dataset="cloudflare_zt" sourcetype="cloudflare_gateway"
+      | where isnotempty(BlockedFileReason)
+      | summarize count() by Email, DeviceName, HTTPHost, BlockedFileName, BlockedFileHash, BlockedFileReason
+    mitre:
+      - T1105
+  - title: Access login denials or new country for a user
+    severity: medium
+    signals:
+      - access_requests Allowed=false bursts
+      - Country not seen for that Email
+      - many apps tried
+    why: A burst of denied Access logins across apps, or a login from a new country, suggests a stolen IdP session or password spraying against the Access login page.
+    kql: |-
+      dataset="cloudflare_zt" sourcetype="cloudflare_access_request" Action="login"
+      | summarize denied=countif(Allowed == false), apps=dcount(AppDomain), countries=dcount(Country) by Email, bin(_time, 1h)
+      | where denied > 10 or countries > 2
+    mitre:
+      - T1110.003
+      - T1078.004
+  - title: Large download from a private app through a tunnel
+    severity: medium
+    signals:
+      - zero_trust_network_sessions
+      - Offramp cloudflared
+      - BytesReceived very high
+    why: ZTNA records show exactly which user pulled how much data from which internal host — gigabytes from a database or file server over SSH/SMB is a data-theft pattern.
+    kql: |-
+      dataset="cloudflare_zt" sourcetype="cloudflare_zero_trust_network_session" Offramp="cloudflared"
+      | summarize bytes=sum(BytesReceived), sessions=count() by Email, DeviceName, ResolvedFQDN, OriginPort, bin(_time, 1d)
+      | where bytes > 5000000000
+    mitre:
+      - T1048
+      - T1021.004
+optimizations:
+  - title: Aggregate allowed DNS with no policy match
+    saving: 35–60 %
+    fn: Aggregations
+    how: allowedOnNoPolicyMatch queries for well-categorized domains are most of Gateway DNS volume. Roll them up per user, device, domain and type per 5 minutes; keep every block, override and security category raw.
+    expr: ResolverDecision=='allowedOnNoPolicyMatch' && !/Security Risks|Malware|Phishing|New Domains|Newly Seen/.test(JSON.stringify(QueryCategoryNames))
+  - title: Drop redundant and reversed fields
+    saving: 15–30 %
+    fn: Eval (remove)
+    how: QueryNameReversed and CNAMEsReversed duplicate names, ResourceRecordsJSON duplicates ResolvedIPs, and continent codes, timezone and duration fields rarely matter. Remove them, or better, leave them out of the Logpush job field list.
+    expr: "remove: QueryNameReversed, CNAMEsReversed, ResourceRecordsJSON, *ContinentCode, TimeZone*, *DurationMs"
+  - title: Suppress repeated identical lookups
+    saving: 10–20 %
+    fn: Suppress
+    how: Apps and OS telemetry re-query the same name every few seconds. Keep one event per device, query name and decision per 60 s with a count.
+    expr: "key: `${DeviceID}:${QueryName}:${ResolverDecision}`  allow 1 / 60s"
+  - title: Route by decision
+    saving: SIEM licence
+    fn: Routes
+    how: Blocks, DLP matches, AV blocks, Access denials and network sessions to private apps go to the SIEM. Allowed DNS and HTTP go to Cribl Lake or R2 for hunting and replay.
+    expr: /^blocked/.test(ResolverDecision) || Action=='block' || UploadMatchedDlpProfiles || Allowed===false → SIEM ; else → Lake
+references:
+  - title: Cloudflare Logpush — Gateway DNS dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/gateway_dns/
+  - title: Cloudflare Logpush — Gateway HTTP dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/gateway_http/
+  - title: Cloudflare Logpush — Access requests dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/access_requests/
+  - title: Cloudflare Logpush — Zero Trust network sessions dataset fields
+    url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/zero_trust_network_sessions/
+  - title: Cloudflare One — Gateway activity logs (resolver decisions)
+    url: https://developers.cloudflare.com/cloudflare-one/insights/logs/gateway-logs/
+  - title: NVD — CVE-2023-22515 (Confluence)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-22515
+  - title: Cribl Docs — Cloudflare Source
+    url: https://docs.cribl.io/stream/sources-cloudflare-hec/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cloudflare-waf
+  - zscaler-zia
+  - zscaler-zpa
+  - netskope
+  - umbrella
+  - okta
+  - entra-id

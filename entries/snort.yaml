@@ -1,0 +1,321 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: snort
+name: Snort
+short: Snort
+aka:
+  - Snort 3
+  - Snort++
+  - Snort 2
+  - Sourcefire Snort
+  - Talos Snort
+vendor: Cisco (Talos)
+category: ids
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ids
+  - ips
+  - signatures
+  - talos
+  - syslog
+  - span
+  - inline
+summary: Snort is the original open-source signature-based network IDS/IPS, now maintained by Cisco Talos. Snort 3 is the current engine. It is multi-threaded, configured in Lua, and has service inspectors and file processing. Open-source Snort 2 reached end of life in October 2026. The same engine powers Cisco Secure Firewall (FTD), Meraki MX, UTD on IOS XE and Cyber Vision, and Snort rule syntax is the lingua franca of IDS rules (Suricata reads it too).
+sourcetypes:
+  - st: snort_alert_full
+    desc: alert_full output — multi-line alert with rule, classification, priority and IP/TCP header details
+  - st: snort_alert_syslog
+    desc: alert_syslog output — one-line alert sent to the host syslog (rule, msg, class, priority, proto, src → dst)
+  - st: snort
+    desc: Generic sourcetype used by Splunk add-ons for Snort alerts (alert_fast, alert_json)
+  - st: SNORT_IDS
+    desc: Google SecOps (Chronicle) log type for Snort
+facts:
+  First released: 1998 (Martin Roesch). Sourcefire 2001, acquired by Cisco 2013
+  Current version: Snort 3 (3.x, GA 2021). Open-source Snort 2 (2.9.20) end-of-life October 2026
+  Platforms: Linux, FreeBSD, Windows (community builds). Embedded in Cisco FTD, Meraki MX, IOS XE UTD, pfSense/OPNsense packages
+  Deployment modes: Passive IDS on SPAN/TAP (DAQ afpacket/pcap), inline IPS (DAQ afpacket inline, NFQ), offline PCAP
+  Rules: Snort Subscriber Rule Set (Talos, 30-day lead for paid), Community Rules, ET (Snort syntax), custom
+  Log transport: alert_* loggers to file, stdout, syslog or unix socket. Unified2 (Snort 2) for Barnyard2-style spoolers
+  Log formats: alert_fast / alert_full / alert_syslog (text), alert_csv, alert_json
+  Typical volume: Alerts only — typically 10–10,000 per hour per sensor, depending on tuning
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - edge
+    - internal
+    - dmz
+    - cloud
+  items:
+    - slot: edge
+      title: Inline IPS at the perimeter
+      desc: Behind the internet firewall (or inside it — FTD and Meraki MX run Snort on the firewall itself). Blocks exploits and C2 with drop/reject rules.
+    - slot: dmz
+      title: In front of published services
+      desc: Protects web, mail and VPN servers. Web-application and server-other rule categories matter most here.
+    - slot: internal
+      title: Passive sensor on core SPAN
+      desc: East-west IDS for SMB, RDP, DCE-RPC and lateral-movement signatures without risking inline outages.
+    - slot: cloud
+      title: Cloud IDS / mirroring
+      desc: Snort on a VM fed by VPC traffic mirroring, or as Cisco Secure Firewall virtual / Cloud-delivered Firewall.
+howItWorks:
+  - title: DAQ and packet processing
+    body: The Data Acquisition library (afpacket, pcap, nfq, dpdk) feeds packets to Snort 3 packet threads. Each thread decodes the packet, normalises it, tracks flows (stream_tcp/stream_udp) and reassembles TCP so rules see the application data as the endpoint would.
+  - title: Wizard, binder and inspectors
+    body: The wizard identifies the service by content (HTTP on any port, for example). The binder attaches the right inspector (http_inspect, smb, dce, ssl, dns, sip, modbus …), and inspectors expose sticky buffers such as http_uri, http_header and file_data to rules.
+  - title: Rule engine
+    body: Rules (action, protocol, addresses, ports, options) are compiled into fast-pattern groups (Hyperscan or the internal MPSE), then fully evaluated. A match produces an event with gid:sid:rev, msg, classtype and priority.
+  - title: Actions and IPS
+    body: alert, block, drop, reject (with TCP RST / ICMP unreachable), pass and rewrite. In inline mode a drop or block stops the packet or flow. In IDS mode the logged action is would_drop. Thresholds, suppressions and detection_filter control alert volume.
+  - title: Loggers
+    body: alert_fast, alert_full, alert_syslog, alert_csv and alert_json format the events. JSON and CSV fields are configurable (msg, class, priority, src_addr, dst_port, b64_data, …). Packet logging (pcap) is optional.
+traffic:
+  handles:
+    - IPv4/IPv6, TCP/UDP/ICMP, tunnels (GRE, Teredo, Geneve)
+    - HTTP/1.x and HTTP/2, TLS (ssl_state/ssl_version), DNS
+    - SMB, DCE-RPC, SIP, FTP, SMTP/POP/IMAP with MIME decoding
+    - File type identification and file_data inspection (Office VBA, PDF, JS)
+    - ICS — Modbus, DNP3, CIP, IEC 104, S7CommPlus
+    - Snort ML (machine-learning exploit detection on HTTP params)
+  flow:
+    - step: Acquire
+      desc: DAQ hands the packet to a Snort packet thread (IDS copy or inline).
+    - step: Decode + normalise
+      desc: Protocol layers decoded and anomalies normalised.
+    - step: Stream
+      desc: Flow tracked, TCP reassembled, IP defragmented.
+    - step: Inspect
+      desc: Wizard picks the service. Inspector parses it and fills the buffers.
+    - step: Detect
+      desc: Fast-pattern match, then full rule evaluation.
+    - step: Act + log
+      desc: alert / drop / reject, and the event is written by the configured logger.
+logs:
+  - type: Alert (alert_full)
+    sourcetype: snort_alert_full
+    format: text
+    share: 40–70 %
+    avg: ~350 B
+    desc: Multi-line record per event, with rule, classification, priority, timestamp, 5-tuple and IP/TCP header details. Common in file-based deployments and older SIEM integrations. Event breaking must start on the "[**]" line.
+    pattern: '^\[\*\*\] \[(?<gid>\d+):(?<sid>\d+):(?<rev>\d+)\] "(?<msg>[^"]+)" \[\*\*\]\n\[Classification: (?<classification>[^\]]+)\] \[Priority: (?<priority>\d+)\] ?\n(?<timestamp>\d{2}/\d{2}-[\d:.]+) (?<src_ip>[\d.]+):(?<src_port>\d+) -> (?<dst_ip>[\d.]+):(?<dst_port>\d+)\n(?<proto>TCP) TTL:(?<ttl>\d+) TOS:(?<tos>0x[0-9A-Fa-f]+) ID:(?<ip_id>\d+) IpLen:(?<ip_len>\d+) DgmLen:(?<dgm_len>\d+)(?: (?<ip_flags>DF))?\n(?<tcp_flags>[*A-Z]{8}) Seq: (?<seq>0x[0-9A-Fa-f]+)  Ack: (?<ack>0x[0-9A-Fa-f]+)  Win: (?<win>0x[0-9A-Fa-f]+)  TcpLen: (?<tcp_len>\d+)$'
+    key:
+      - sid
+      - msg
+      - classification
+      - priority
+      - src_ip
+      - dst_ip
+      - dst_port
+    noise:
+      - ttl
+      - tos
+      - ip_id
+      - ip_len
+      - dgm_len
+      - seq
+      - ack
+      - win
+      - tcp_len
+    sample: "[**] [1:58726:3] \"MALWARE-CNC Win.Trojan.Agent variant outbound connection\" [**]\n[Classification: A Network Trojan was detected] [Priority: 1] \n11/12-09:14:22.512031 10.20.30.44:51544 -> 203.0.113.50:80\nTCP TTL:64 TOS:0x0 ID:40312 IpLen:20 DgmLen:412 DF\n***AP*** Seq: 0x1A2B3C4D  Ack: 0x5E6F7A8B  Win: 0x1F6  TcpLen: 20"
+  - type: Alert (alert_syslog)
+    sourcetype: snort_alert_syslog
+    format: text
+    share: 30–60 %
+    avg: ~250 B
+    desc: The same event on one line through the host syslog (and usually forwarded to a collector). It is the easiest format to stream and carries everything needed for triage except the packet header details.
+    pattern: '^<(?<pri>\d+)>(?<syslog_time>\w{3}\s+\d+ [\d:]+) (?<host>\S+) (?<process>snort)\[(?<pid>\d+)\]: \[(?<gid>\d+):(?<sid>\d+):(?<rev>\d+)\] "(?<msg>[^"]+)" \[Classification: (?<classification>[^\]]+)\] \[Priority: (?<priority>\d+)\] \{(?<proto>\w+)\} (?<src_ip>[\d.]+):(?<src_port>\d+) -> (?<dst_ip>[\d.]+):(?<dst_port>\d+)$'
+    key:
+      - host
+      - sid
+      - msg
+      - classification
+      - priority
+      - src_ip
+      - dst_ip
+      - dst_port
+    noise:
+      - pri
+      - pid
+      - rev
+    sample: '<33>Nov 12 09:20:05 ids1.example.com snort[2211]: [1:58901:2] "SERVER-OTHER Apache Log4j logging remote code execution attempt" [Classification: Attempted User Privilege Gain] [Priority: 1] {TCP} 198.51.100.23:50284 -> 10.10.5.20:8080'
+  - type: Alert (alert_json, Snort 3)
+    sourcetype: snort
+    format: json
+    share: varies
+    avg: ~400 B
+    desc: Snort 3's JSON logger. The defaults are timestamp, pkt_num, proto, pkt_gen, pkt_len, dir, src_ap, dst_ap, rule and action, and msg, class and priority are added through alert_json.fields. It is the best format for pipelines because nothing needs regex parsing.
+    key:
+      - rule
+      - msg
+      - class
+      - priority
+      - action
+      - src_ap
+      - dst_ap
+      - dir
+    noise:
+      - pkt_num
+      - pkt_gen
+      - pkt_len
+    sample: '{ "timestamp" : "11/12-09:20:05.153899", "pkt_num" : 5, "proto" : "TCP", "pkt_gen" : "stream_tcp", "pkt_len" : 97, "dir" : "C2S", "src_ap" : "198.51.100.23:50284", "dst_ap" : "10.10.5.20:8080", "rule" : "1:58901:2", "action" : "would_drop", "msg" : "SERVER-OTHER Apache Log4j logging remote code execution attempt", "class" : "Attempted User Privilege Gain", "priority" : 1 }'
+cves:
+  - id: CVE-2026-20043
+    cvss: 9
+    year: 2026
+    kev: false
+    scope: device
+    title: Snort 3 out-of-bounds write class (October 2026 security hardening release)
+    affected: Open Source Snort 3 before 3.12.4.0, and Cisco products embedding it (FTD, Meraki MX, UTD on IOS XE, Cyber Vision, CDFW, Secure Access)
+    fixed: Snort 3.12.4.0 (FTD 7.0.10 / 7.2.12 / 7.4.8 / 7.6.6 / 7.7.13 / 10.0.2)
+    detect: Unexpected Snort process restarts and gaps in alert output. On FTD, "Snort process restarted" health events. Traffic that was being inspected when the engine crashed.
+    avoid: Upgrade to 3.12.4.0 or the fixed Cisco release. Monitor sensor health and treat engine restarts as security events.
+  - id: CVE-2026-20236
+    cvss: 7.5
+    year: 2026
+    kev: false
+    scope: device
+    title: Snort 3 incorrect-calculation class (October 2026 security hardening release)
+    affected: Open Source Snort 3 before 3.12.4.0 and the Cisco products that embed it
+    fixed: Snort 3.12.4.0
+    detect: Engine restarts and alert gaps, or missed detections during crafted traffic. Compare alert counts with flow volume from a second source (NetFlow, Zeek).
+    avoid: Upgrade. Run a second detection layer for critical segments.
+  - id: CVE-2025-20359
+    cvss: 9.1
+    year: 2025
+    kev: false
+    scope: device
+    title: Snort 3 HTTP MIME decoder buffer under-read — engine crash or leak of stream data (Cisco rates 6.5)
+    affected: Open Source Snort 3 before 3.9.3.0, Cisco FTD with Snort 3, UTD on IOS XE, Meraki MX, Cyber Vision
+    fixed: Snort 3.9.3.0 (3.9.1.0 for the sibling CVE-2025-20360)
+    detect: Snort restarts while processing HTTP multipart/MIME uploads, and alert gaps. Repeated crafted multipart requests from one source in web-server logs.
+    avoid: Upgrade. Rate-limit or block the source at the edge.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI injection in HTTP headers that Snort inspects
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 on servers behind the sensor
+    detect: Alerts whose msg contains "Apache Log4j" (Talos rules published from December 2021). Outbound LDAP/RMI from the targeted server afterwards.
+    avoid: Patch Log4j. Run the Talos Log4j rules in block mode. Block outbound LDAP/RMI from servers.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: EternalBlue — SMBv1 RCE (WannaCry / NotPetya) seen by Snort's SMB inspector
+    affected: Windows SMBv1 servers without MS17-010
+    detect: OS-WINDOWS SMB remote-code-execution (MS17-010) rule alerts on port 445. One source alerting against many internal destinations (worm spread).
+    avoid: Apply MS17-010, disable SMBv1, block 445 between workstations, and keep the SMB rules in block mode.
+detections:
+  - title: Priority-1 alert not blocked
+    severity: high
+    signals:
+      - priority=1
+      - action allow / would_drop (IDS or alert-only)
+      - repeat from same source
+    why: Priority 1 covers exploit and trojan classtypes. If the engine only alerted, the attack reached the target and needs triage.
+    kql: |-
+      dataset="snort" priority=1
+      | summarize hits=count(), first=min(_time), sigs=make_set(msg) by src_ip, dst_ip, dst_port
+      | sort by hits desc
+    mitre:
+      - T1190
+      - T1071
+  - title: Malware C2 check-in from an internal host
+    severity: high
+    signals:
+      - msg starts with MALWARE-CNC
+      - classification "A Network Trojan was detected"
+      - src_ip internal
+    why: Talos MALWARE-CNC rules match known implant traffic, so an internal source means an infected host.
+    kql: |-
+      dataset="snort" classification="A Network Trojan was detected"
+      | where msg startswith "MALWARE-CNC" and ipv4_is_private(src_ip)
+      | summarize hits=count(), dests=make_set(dst_ip) by src_ip, msg
+    mitre:
+      - T1071.001
+      - T1105
+  - title: Exploit attempts against a public server
+    severity: high
+    signals:
+      - msg starts with SERVER- (SERVER-WEBAPP, SERVER-APACHE …)
+      - dst_ip in DMZ
+      - classification "Attempted … Privilege Gain"
+    why: Mass exploitation (Log4Shell and VPN/appliance CVEs) shows up first as SERVER-* rule hits against published services.
+    kql: |-
+      dataset="snort"
+      | where msg startswith "SERVER-" and classification has "Privilege Gain"
+      | summarize attempts=count(), sources=dcount(src_ip) by dst_ip, dst_port, msg
+    mitre:
+      - T1190
+  - title: Worm-like SMB/RDP fan-out
+    severity: critical
+    signals:
+      - OS-WINDOWS SMB alerts
+      - one src_ip to many dst_ip on 445/3389
+    why: EternalBlue-style spread hits dozens of internal hosts in minutes. Count of distinct targets per source is the signal.
+    kql: |-
+      dataset="snort" dst_port in (445,3389)
+      | summarize targets=dcount(dst_ip), hits=count() by src_ip, bin(_time, 10m)
+      | where targets > 20
+    mitre:
+      - T1210
+      - T1021.002
+  - title: Sensor silence / engine restarts
+    severity: medium
+    signals:
+      - no alerts from a sensor for an unusual period
+      - snort process restart in syslog
+    why: Several Snort 3 CVEs crash the engine. A blind sensor is an evasion opportunity, so alert on absence as well as presence.
+    kql: |-
+      dataset="snort"
+      | summarize last_alert=max(_time) by host
+      | where last_alert < ago(1h)
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Convert multi-line alert_full to one compact JSON event
+    saving: 30–50 %
+    fn: Parser → Serialize
+    how: Break events on "[**]", extract rule, msg, class, priority and 5-tuple, and drop TTL/TOS/ID/IpLen/DgmLen/Seq/Ack/Win/TcpLen, which are rarely used outside packet forensics. Better still, switch the sensor to alert_json.
+    expr: "remove: ttl, tos, ip_id, ip_len, dgm_len, seq, ack, win, tcp_len"
+  - title: Suppress repeated alerts per signature and pair
+    saving: 20–60 % of alerts
+    fn: Suppress
+    how: Scans and policy rules fire repeatedly on the same pair. Keep one per sid, src and dst per 5 minutes with a count, but never suppress priority-1.
+    expr: "key: `${sid}:${src_ip}:${dst_ip}`  allow 1 / 300s  when priority > 1"
+  - title: Drop informational / policy noise
+    saving: 10–30 %
+    fn: Drop
+    how: Priority-3/4 classtypes (Misc activity, Not Suspicious Traffic, Generic Protocol Command Decode) rarely drive investigations. Send them to Lake instead of the SIEM.
+    expr: priority >= 3 && /Not Suspicious|Misc activity|Protocol Command Decode/.test(classification)
+  - title: Enrich with rule metadata
+    saving: analyst time
+    fn: Lookup
+    how: Join sid to a lookup built from the rule files (classtype, CVE references, MITRE metadata, policy) so the SIEM gets context without storing it in every event.
+    expr: "lookup snort_rules.csv on sid → cve, mitre_technique, policy"
+references:
+  - title: Snort 3 Rule Writing Guide — Alert Logging (alert_json, alert_full, alert_syslog)
+    url: https://docs.snort.org/start/alert_logging
+  - title: Snort 3 Rule Writing Guide — Rule Actions
+    url: https://docs.snort.org/rules/headers/actions
+  - title: Cisco advisory — Snort 3 Security Hardening Release, October 2026 (CVE-2026-20043, -20236, -20291, -20356)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-hardening-snort3-ybgmhTQe
+  - title: Cisco advisory — Snort 3 MIME vulnerabilities (CVE-2025-20359, CVE-2025-20360)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-snort3-mime-vulns-tTL8PgVH
+  - title: Snort blog — End-of-life announcement for open-source Snort 2 (October 2026)
+    url: https://blog.snort.org/2026/10/end-of-life-announcement-for-open.html
+  - title: Snort EOL / rule-set life-cycle policy
+    url: https://snort.org/eol
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - suricata
+  - cisco-ftd
+  - cisco-meraki
+  - pfsense
+  - zeek

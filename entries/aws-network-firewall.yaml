@@ -1,0 +1,316 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-network-firewall
+name: AWS Network Firewall
+short: AWS NFW
+aka:
+  - Amazon Network Firewall
+  - ANFW
+  - NFW
+  - AWS Network Firewall Next Generation policy
+vendor: Amazon Web Services
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - cloud
+  - aws
+  - vpc
+  - suricata
+  - eve-json
+  - ips
+  - egress-filtering
+summary: Managed, auto-scaling VPC firewall. A stateless 5-tuple engine forwards traffic to a stateful engine that runs Suricata-compatible rules, domain lists, AWS managed threat signatures and optional TLS inspection. Flow, alert and TLS logs are written as Suricata EVE-style JSON wrapped in AWS metadata to S3, CloudWatch Logs or Firehose — there is no syslog.
+sourcetypes:
+  - st: aws_network_firewall
+    desc: Pack Generator sourcetype — EVE JSON flow, alert and TLS records with firewall_name / availability_zone envelope
+  - st: AWSNetworkFirewallFlow
+    desc: Microsoft Sentinel table for flow logs (AWS S3 connector)
+  - st: AWSNetworkFirewallAlert
+    desc: Microsoft Sentinel table for alert logs (AWS S3 connector)
+facts:
+  First released: November 2020
+  Delivery model: AWS-managed service; firewall endpoints (Gateway Load Balancer based) per Availability Zone, scaled by AWS
+  Engines: Stateless rule engine (5-tuple, priority ordered) → stateful engine (Suricata-compatible rules, domain lists, managed threat signatures); separate TLS inspection engine
+  Deployment modes: Distributed (endpoint per VPC), centralised inspection VPC behind Transit Gateway, ingress / egress / east-west
+  Log types: FLOW (EVE netflow), ALERT (EVE alert), TLS (TLS engine errors / revocation checks)
+  Log transport: Amazon S3, CloudWatch Logs or Kinesis Data Firehose — one destination per log type
+  Log format: JSON — firewall_name, availability_zone, event_timestamp envelope around a Suricata EVE event
+  Typical volume: Flow logs are unidirectional (2 records per connection) and can reach TB/day in busy egress VPCs
+  Pricing driver: Per endpoint-hour plus per GB processed; log delivery billed separately (vended logs)
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+  items:
+    - slot: cloud
+      title: Centralised inspection VPC
+      desc: Transit Gateway routes spoke-VPC traffic through firewall endpoints in an inspection VPC — one policy for east-west and egress across many accounts.
+    - slot: edge
+      title: Internet egress / ingress
+      desc: Endpoints between the Internet Gateway (or NAT Gateway) and workload subnets; domain allow-lists and SNI filtering for egress control, IPS for inbound to public services.
+    - slot: internal
+      title: East-west between VPCs / subnets
+      desc: Segmentation of prod, dev and shared-services VPCs with stateful rules, logging every flow that crosses.
+howItWorks:
+  - title: Stateless engine
+    body: Evaluates each packet in isolation against priority-ordered 5-tuple rules with pass, drop or forward-to-stateful actions. Stateless decisions are NOT logged — only traffic forwarded to the stateful engine appears in flow and alert logs.
+  - title: Stateful engine (Suricata)
+    body: Tracks flows and applies Suricata-compatible rules, 5-tuple stateful rules and domain lists (HTTP Host / TLS SNI). Rule order is either strict (priority) or action order (pass → drop → reject → alert). drop, reject and alert actions write alert log entries.
+  - title: Managed threat signatures
+    body: AWS managed rule groups provide curated Suricata signatures for malware, botnet C2, exploits, crypto-mining and web attacks, plus URL / domain category filtering. resource_arn in each alert identifies the rule group that fired.
+  - title: TLS inspection
+    body: An optional TLS engine decrypts outbound or inbound TLS with ACM certificates so the stateful rules can see HTTP inside. Inspected events carry tls_inspected true; certificate revocation failures and SNI mismatches go to the TLS log.
+  - title: Logging pipeline
+    body: Each firewall endpoint writes JSON records to the configured destination per log type. Flow events use the EVE netflow type, which logs each direction separately, so a TCP connection produces two records.
+traffic:
+  handles:
+    - VPC IPv4 / IPv6 traffic routed through firewall endpoints
+    - 5-tuple stateless and stateful filtering
+    - Domain allow / deny lists on HTTP Host and TLS SNI
+    - Suricata IPS signatures (custom and AWS managed)
+    - TLS 1.2 / 1.3 inspection (optional)
+    - URL and domain category filtering
+  flow:
+    - step: Route table
+      desc: Subnet or TGW route sends traffic to the firewall endpoint (GWLB endpoint) in the same AZ.
+    - step: Stateless rules
+      desc: Priority-ordered 5-tuple match; pass, drop or forward to stateful.
+    - step: TLS inspection
+      desc: If configured, TLS is decrypted for the stateful engine.
+    - step: Stateful rules
+      desc: Suricata rules, domain lists and threat signatures; alert record on drop / reject / alert.
+    - step: Egress
+      desc: Permitted traffic returns to the route table toward IGW, NAT Gateway or the destination VPC.
+    - step: Log delivery
+      desc: Flow, alert and TLS JSON records delivered to S3, CloudWatch Logs or Firehose.
+logs:
+  - type: Flow (netflow)
+    sourcetype: aws_network_firewall
+    format: json
+    share: 85–95 %
+    avg: ~550 B
+    desc: Unidirectional flow record for traffic that reached the stateful engine — packets, bytes, start/end time and TCP flags per direction.
+    key:
+      - event.src_ip
+      - event.dest_ip
+      - event.dest_port
+      - event.proto
+      - event.app_proto
+      - event.netflow.bytes
+      - firewall_name
+    noise:
+      - event.netflow.min_ttl
+      - event.netflow.max_ttl
+      - event.netflow.age
+      - event.tcp.tcp_flags
+      - event.tcp.syn
+      - event.tcp.ack
+      - event.tcp.psh
+      - event.tcp.fin
+    sample: '{"firewall_name":"egress-fw","availability_zone":"eu-west-1a","event_timestamp":"1794474862","event":{"tcp":{"tcp_flags":"1b","syn":true,"fin":true,"psh":true,"ack":true},"app_proto":"tls","src_ip":"10.0.2.53","src_port":55930,"netflow":{"pkts":14,"bytes":2814,"start":"2026-11-12T09:13:51.104822+0000","end":"2026-11-12T09:14:22.301119+0000","age":31,"min_ttl":63,"max_ttl":63},"event_type":"netflow","flow_id":1582438383425873,"dest_ip":"203.0.113.80","proto":"TCP","dest_port":443,"timestamp":"2026-11-12T09:14:22.301119+0000"}}'
+  - type: Alert
+    sourcetype: aws_network_firewall
+    format: json
+    share: 2–10 %
+    avg: ~800 B
+    desc: Written when a stateful rule with drop, reject or alert matches — signature, action, severity, the app-layer context (TLS SNI, HTTP host) and the ARN of the rule group that fired.
+    key:
+      - event.alert.action
+      - event.alert.signature
+      - event.alert.signature_id
+      - event.src_ip
+      - event.dest_ip
+      - event.tls.sni
+      - event.aws_metadata.resource_arn
+    noise:
+      - event.tx_id
+      - event.alert.rev
+      - event.pkt_src
+      - event.flow_id
+    sample: '{"firewall_name":"egress-fw","availability_zone":"eu-west-1a","event_timestamp":"1794474901","event":{"aws_category":"[\"Malware\"]","tx_id":0,"app_proto":"tls","src_ip":"10.0.12.41","src_port":44474,"event_type":"alert","alert":{"severity":1,"signature_id":2027758,"rev":3,"signature":"ET MALWARE Observed Malicious SSL Cert (C2)","action":"blocked","category":"A Network Trojan was detected"},"flow_id":1972143099170468,"dest_ip":"198.51.100.66","proto":"TCP","verdict":{"action":"drop"},"tls":{"sni":"cdn-update.example.org","version":"TLS 1.2"},"dest_port":443,"pkt_src":"geneve encapsulation","timestamp":"2026-11-12T09:15:01.006867+0000","direction":"to_server","aws_metadata":{"resource_arn":"arn:aws:network-firewall:eu-west-1:111122223333:stateful-rulegroup/AttackInfrastructureStrictOrder"}}}'
+  - type: TLS
+    sourcetype: aws_network_firewall
+    format: json
+    share: < 1 %
+    avg: ~400 B
+    desc: Produced by the TLS inspection engine — certificate revocation failures and SNI errors, with the action taken.
+    key:
+      - event.revocation_check.status
+      - event.revocation_check.action
+      - event.sni
+      - event.src_ip
+      - event.dest_ip
+    noise:
+      - event.revocation_check.leaf_cert_fpr
+      - availability_zone
+    sample: '{"firewall_name":"egress-fw","availability_zone":"eu-west-1b","event_timestamp":1794475012,"event":{"src_ip":"10.0.2.77","src_port":"51022","revocation_check":{"leaf_cert_fpr":"0123456789ABCDEFEXAMPLE","status":"REVOKED","action":"DROP"},"dest_ip":"203.0.113.44","dest_port":"443","timestamp":"2026-11-12T09:16:52.441824Z","sni":"revoked.example.com"}}'
+cves:
+  - id: CVE-2024-37151
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: Upstream Suricata fragment-reassembly policy bypass — the engine family NFW stateful rules run on (AWS-managed)
+    affected: Upstream Suricata before 7.0.6 / 6.0.20; AWS does not publish the engine version, patching is AWS's responsibility
+    fixed: Suricata 7.0.6 and 6.0.20 upstream; no customer action on NFW
+    detect: Alerts expected for known-bad traffic are missing while flow records show fragmented sessions to the same destination; compare with VPC Flow Logs.
+    avoid: Drop IP fragments in a stateless rule where the workload does not need them; keep defence in depth (WAF, host controls).
+  - id: CVE-2024-45797
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: LibHTP unbounded HTTP header processing (CPU / memory exhaustion) in the Suricata HTTP parser (AWS-managed)
+    affected: LibHTP before 0.5.49 upstream; relevance to NFW depends on AWS's engine build
+    fixed: LibHTP 0.5.49 upstream; no customer action on NFW
+    detect: CloudWatch metrics show dropped packets or rising latency while flow logs show HTTP sessions with very large header counts from a few sources.
+    avoid: Rely on AWS patching; front public HTTP services with AWS WAF / CloudFront header limits.
+  - id: CVE-2023-46604
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Apache ActiveMQ OpenWire deserialization RCE — exploited against cloud-hosted brokers behind the firewall
+    affected: Apache ActiveMQ before 5.15.16, 5.16.7, 5.17.6 and 5.18.3
+    fixed: ActiveMQ 5.15.16, 5.16.7, 5.17.6, 5.18.3
+    detect: Inbound flows to tcp/61616 from the internet; alert records from managed threat signatures for the ActiveMQ exploit; the broker then fetching an XML file over HTTP (egress flow from the broker subnet).
+    avoid: Never expose 61616 publicly; enable AWS managed threat signatures in drop mode; restrict broker egress with domain allow-lists.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell (Apache Log4j JNDI RCE) — inbound exploit strings and LDAP/RMI callbacks from workloads
+    affected: Apache Log4j 2.0-beta9 through 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.16.0+ (2.17.1 recommended)
+    detect: Alert records for Log4j signatures on inbound HTTP; egress flow records from app subnets to tcp/389, 1389 or 1099 on the internet.
+    avoid: Default-deny egress with domain allow-lists; drop outbound LDAP/RMI; patch Log4j.
+detections:
+  - title: Threat signature matched but traffic allowed
+    severity: high
+    signals:
+      - event.event_type=alert
+      - event.alert.action=allowed
+      - severity 1
+    why: In alert-only mode the managed threat signatures detect but don't stop the attack; severity-1 hits that were allowed need triage and a policy change.
+    kql: |-
+      dataset="aws_nfw_logs" event.event_type="alert" event.alert.action="allowed"
+      | where event.alert.severity == 1
+      | summarize hits=count(), sigs=make_set(event.alert.signature) by event.src_ip, event.dest_ip, firewall_name
+    mitre:
+      - T1190
+      - T1071
+  - title: Workload contacting C2 / malware infrastructure
+    severity: critical
+    signals:
+      - event.alert.category = Trojan / Malware
+      - event.tls.sni or HTTP host
+      - internal src_ip
+    why: Blocked or not, an internal instance attempting to reach known C2 infrastructure indicates a compromised workload or credential.
+    kql: |-
+      dataset="aws_nfw_logs" event.event_type="alert"
+      | where event.alert.category has "Trojan" or event.aws_category has "Malware"
+      | summarize attempts=count(), snis=make_set(event.tls.sni) by event.src_ip, event.alert.action
+    mitre:
+      - T1071.001
+      - T1573
+  - title: Egress to non-allow-listed domain
+    severity: medium
+    signals:
+      - event.verdict.action=drop
+      - resource_arn = egress domain-list rule group
+      - event.tls.sni
+    why: Domain allow-list drops from server subnets show tooling or malware trying to reach the internet — often the earliest sign of an intrusion or misconfigured software.
+    kql: |-
+      dataset="aws_nfw_logs" event.event_type="alert" event.verdict.action="drop"
+      | where event.aws_metadata.resource_arn has "egress-allow"
+      | summarize drops=count() by event.src_ip, event.tls.sni, bin(_time, 1h)
+    mitre:
+      - T1071.001
+      - T1567
+  - title: Outbound LDAP / RMI from application subnets
+    severity: high
+    signals:
+      - event.event_type=netflow
+      - event.dest_port in (389, 1389, 1099)
+      - public dest_ip
+    why: Application servers rarely speak LDAP or RMI to the internet; it is the callback pattern of JNDI injection (Log4Shell and similar).
+    kql: |-
+      dataset="aws_nfw_logs" event.event_type="netflow"
+      | where event.dest_port in (389, 636, 1389, 1099) and not(ipv4_is_private(event.dest_ip))
+      | summarize flows=count(), bytes=sum(event.netflow.bytes) by event.src_ip, event.dest_ip, event.dest_port
+    mitre:
+      - T1190
+      - T1071
+  - title: Large egress volume to a single destination
+    severity: medium
+    signals:
+      - event.event_type=netflow
+      - high event.netflow.bytes from an internal src_ip
+    why: Flow logs are unidirectional, so outbound bytes are measured directly. Hundreds of MB from a server to one external IP is a classic exfiltration indicator.
+    kql: |-
+      dataset="aws_nfw_logs" event.event_type="netflow"
+      | where ipv4_is_private(event.src_ip) and not(ipv4_is_private(event.dest_ip))
+      | summarize out_bytes=sum(event.netflow.bytes) by event.src_ip, event.dest_ip, bin(_time, 1h)
+      | where out_bytes > 500000000
+    mitre:
+      - T1048
+      - T1537
+  - title: Revoked certificate on outbound TLS
+    severity: low
+    signals:
+      - TLS log
+      - event.revocation_check.status=REVOKED
+    why: Workloads talking to servers with revoked certificates may be hitting compromised or impersonated endpoints.
+    kql: |-
+      dataset="aws_nfw_logs" event.revocation_check.status="REVOKED"
+      | summarize count() by event.src_ip, event.sni, event.revocation_check.action
+    mitre:
+      - T1557
+optimizations:
+  - title: Pair unidirectional flows into one record
+    saving: 30–50 %
+    fn: Aggregations
+    how: Netflow logs each direction separately. Aggregate on flow_id over a short window to emit one bidirectional record with bytes_out / bytes_in, packets and duration.
+    expr: "group by event.flow_id within 60s → bytes_out, bytes_in, pkts, start, end"
+  - title: Drop TCP flag and TTL detail
+    saving: 15–25 %
+    fn: Parser → Serialize
+    how: Most SIEM content never uses tcp flags or TTLs. Flatten the JSON, remove event.tcp.*, netflow.min_ttl/max_ttl/age, and the duplicate event_timestamp, then re-serialise.
+    expr: "remove: event.tcp.*, event.netflow.min_ttl, event.netflow.max_ttl, event.netflow.age, event_timestamp"
+  - title: Aggregate trusted service flows to metrics
+    saving: 20–40 %
+    fn: Aggregations
+    how: Flows to AWS service endpoints, NTP and internal DNS resolvers are high-volume and low-value. Roll up to bytes and flows per src/dst/port per minute and keep raw in S3 / Cribl Lake.
+    expr: event.event_type=='netflow' && event.dest_port in (53, 123) 
+  - title: Route alerts and TLS at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: Alert and TLS logs → SIEM. Flow logs → Cribl Lake (or leave in S3 and replay on demand) plus aggregated metrics to the SIEM.
+    expr: event.event_type=='alert' || event.revocation_check → SIEM  |  netflow → Lake + metrics
+references:
+  - title: Logging network traffic from AWS Network Firewall
+    url: https://docs.aws.amazon.com/network-firewall/latest/developerguide/firewall-logging.html
+  - title: Contents of an AWS Network Firewall log
+    url: https://docs.aws.amazon.com/network-firewall/latest/developerguide/firewall-logging-contents.html
+  - title: Sending AWS Network Firewall logs to Amazon S3
+    url: https://docs.aws.amazon.com/network-firewall/latest/developerguide/logging-s3.html
+  - title: Azure Monitor table reference — AWSNetworkFirewallFlow
+    url: https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/awsnetworkfirewallflow
+  - title: NVD — CVE-2024-37151 (Suricata)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-37151
+  - title: NVD — CVE-2023-46604 (Apache ActiveMQ)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-46604
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-vpc-flow
+  - aws-guardduty
+  - suricata
+  - aws-waf
+  - aws-security-lake
+  - pan-ngfw

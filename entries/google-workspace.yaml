@@ -1,0 +1,351 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: google-workspace
+name: Google Workspace
+short: Workspace
+aka:
+  - G Suite
+  - Google Apps
+  - Admin SDK Reports API
+  - Google Workspace Alert Center
+  - Gmail logs in BigQuery
+vendor: Google
+category: saas
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - audit
+  - gmail
+  - google-drive
+  - oauth
+  - json
+  - rest-api
+summary: Google Workspace records sign-ins, admin console changes, Drive sharing, OAuth grants and Gmail activity as JSON activity reports, pulled through the Admin SDK Reports API. Alert Center adds Google-generated security alerts, and Gmail message logs can be exported to BigQuery. It is the core audit source for account takeover, OAuth abuse and data sharing in Google-based organisations.
+sourcetypes:
+  - st: gws_reports_login
+    desc: Login application activity — login_success, login_failure, login_challenge, suspicious_login, 2SV changes
+  - st: gws_reports_admin
+    desc: Admin console activity — user, role, security and domain setting changes
+  - st: gws_activity_reports
+    desc: Generic Reports API activity record for any application (drive, token, saml, groups, chat, meet, rules, mobile)
+  - st: gws_alerts
+    desc: Alert Center API alerts (suspicious login, phishing, leaked password, government-backed attack, DLP)
+  - st: gsuite_drive_json
+    desc: Drive activity (view, download, edit, ACL and visibility changes) as a flattened JSON record
+  - st: gsuite_gmail_bigquery
+    desc: Gmail message log rows exported to BigQuery (message_info — sender, recipients, subject, spam/phishing verdicts)
+  - st: gws:reports:login
+    desc: Splunk Add-on for Google Workspace / Cribl pack name for login reports
+  - st: gws:reports:admin
+    desc: Splunk Add-on for Google Workspace name for admin reports
+  - st: gws:reports:drive
+    desc: Splunk Add-on for Google Workspace name for Drive reports
+  - st: gws:reports:token
+    desc: Splunk Add-on for Google Workspace name for OAuth token reports
+  - st: gws:alerts
+    desc: Splunk Add-on for Google Workspace name for Alert Center alerts
+  - st: WORKSPACE_ACTIVITY
+    desc: Google SecOps (Chronicle) log type for Workspace activity reports
+facts:
+  First released: 2006 (Google Apps for Your Domain); Reports API since 2013
+  Platform: Google Workspace SaaS (Gmail, Drive, Calendar, Meet, Chat, Admin console)
+  Delivery model: Cloud service; audit data pulled over HTTPS REST with a service account and domain-wide delegation
+  Log transport: Admin SDK Reports API (activities.list per application), Alert Center API, BigQuery export, or Google Cloud Logging for some applications
+  Log format: JSON activity resources (kind admin#reports#activity) with an events[].parameters[] name/value array
+  Latency: Minutes for login and admin; up to several hours for Drive and some other applications
+  Retention: 6 months for most activity reports in the Reports API
+  Typical volume: Drive and token events dominate; 20–200 events per user per day
+  Cribl Pack: Google Workspace Rest Collector (cribl-google-workspace-rest-io) in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Workspace tenant
+      desc: All applications write to Google's audit store. A collector uses a Google Cloud service account with domain-wide delegation and the admin.reports.audit.readonly scope, impersonating an admin.
+    - slot: remote
+      title: Users anywhere
+      desc: Users sign in from home, mobile and travel networks. ipAddress on every record is the user's public address.
+    - slot: endpoint
+      title: Browsers and managed devices
+      desc: Chrome, Android and iOS devices reach Workspace directly. Mobile and Chrome management events arrive as separate report applications.
+howItWorks:
+  - title: Activity reports
+    body: Each Workspace application (login, admin, drive, token, saml, groups, gmail, chat, meet, rules, mobile) is a separate report. Every record is an activity resource with id.time, id.applicationName, actor.email, ipAddress and one or more events, each with a type, name and a parameters array of name/value pairs.
+  - title: Reports API collection
+    body: The collector calls activities.list for one application at a time with a startTime/endTime window and pages through nextPageToken. Because some applications publish late, collectors re-read a lag window and must de-duplicate on id.uniqueQualifier plus id.time.
+  - title: Login and challenge events
+    body: The login application records login_success, login_failure (with login_failure_type), login_challenge (with login_challenge_method and status), suspicious_login, gov_attack_warning and 2SV enrol or disable events. is_suspicious and login_type parameters show Google's own risk view.
+  - title: OAuth tokens
+    body: The token application logs every OAuth authorize and revoke, with the client app name, client_id and requested scopes. This is where third-party apps with mail or Drive scopes show up.
+  - title: Alert Center
+    body: A separate API returns alerts Google raises for the tenant (suspicious login, leaked password, phishing reclassification, government-backed attack, device compromise, DLP rule hit), with type, source and a data payload. Low volume, high value.
+  - title: Gmail logs in BigQuery
+    body: Gmail message logs are not in the Reports API in full detail. Workspace Enterprise editions can export them to BigQuery, one row per message event with sender, recipients, subject, SPF/DKIM/DMARC results and spam or phishing verdicts.
+traffic:
+  handles:
+    - Workspace sign-ins and 2-step verification
+    - Admin console configuration changes
+    - Drive file access and sharing
+    - OAuth app authorisation (token)
+    - SAML sign-ins to third-party apps
+    - Gmail message flow (BigQuery export)
+    - Google-raised security alerts
+  flow:
+    - step: User action
+      desc: A user signs in, shares a file or authorises an OAuth app; an admin changes a setting.
+    - step: Authentication
+      desc: Google identity checks password, 2SV and context-aware access; the result is a login event.
+    - step: Application executes
+      desc: Drive, Gmail or the Admin console performs the action and emits an activity event with parameters.
+    - step: Activity report
+      desc: The event is published to the application's report, sometimes hours later.
+    - step: Collector pull
+      desc: Cribl Stream calls activities.list per application with a time window and paginates.
+    - step: Split and forward
+      desc: The items array is split into one event per activity and routed to SIEM or Lake.
+logs:
+  - type: Login activity
+    sourcetype: gws_reports_login
+    format: json
+    share: 10–20 %
+    avg: ~900 B
+    desc: One activity per sign-in event. login_failure carries login_failure_type; suspicious_login and login_challenge carry Google's risk decisions.
+    key:
+      - actor.email
+      - ipAddress
+      - events[0].name
+      - events[0].parameters[0].value
+      - events[0].parameters[1].value
+      - events[0].parameters[2].boolValue
+    noise:
+      - kind
+      - etag
+      - id.customerId
+      - actor.profileId
+      - id.uniqueQualifier
+    sample: '{"kind":"admin#reports#activity","id":{"time":"2026-11-12T09:05:35.119Z","uniqueQualifier":"720229394436","applicationName":"login","customerId":"C00abc123"},"etag":"\"abcDEF123/xyz\"","actor":{"email":"jdoe@example.com","profileId":"114679690119000000001"},"ipAddress":"198.51.100.23","events":[{"type":"login","name":"login_failure","parameters":[{"name":"login_type","value":"google_password"},{"name":"login_failure_type","value":"login_failure_invalid_password"},{"name":"is_suspicious","boolValue":true}]}]}'
+  - type: Drive activity
+    sourcetype: gsuite_drive_json
+    format: json
+    share: 40–60 %
+    avg: ~1.1 KB
+    desc: View, download, edit and ACL events. change_document_visibility to people_with_link or public_on_the_web and change_user_access to an external address are the sharing signals.
+    key:
+      - actor.email
+      - ipAddress
+      - name
+      - parameters.doc_title
+      - parameters.visibility
+      - parameters.old_visibility
+      - parameters.owner
+    noise:
+      - parameters.billable
+      - parameters.primary_event
+      - parameters.doc_id
+      - parameters.originating_app_id
+    sample: '{"type":"acl_change","name":"change_document_visibility","actor":{"email":"jdoe@example.com"},"ipAddress":"198.51.100.23","id":{"time":"2026-11-12T09:22:10.000Z","applicationName":"drive"},"parameters":{"primary_event":true,"billable":true,"visibility_change":"external","old_visibility":"private","visibility":"people_with_link","doc_id":"1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789","doc_type":"spreadsheet","doc_title":"Payroll 2026","owner":"jdoe@example.com","owner_is_shared_drive":false,"originating_app_id":"691301496089"}}'
+  - type: Alert Center alert
+    sourcetype: gws_alerts
+    format: json
+    share: < 1 %
+    avg: ~1.5 KB
+    desc: Google-raised alert with a type such as Suspicious login, User reported phishing, Leaked password or Government attack warning, and a type-specific data payload.
+    key:
+      - type
+      - source
+      - data.email
+      - data.loginDetails[0].ipAddress
+      - startTime
+      - alertId
+    noise:
+      - customerId
+      - etag
+      - data.@type
+      - metadata.updateTime
+    sample: '{"customerId":"C00abc123","alertId":"9f8e7d6c-5b4a-4321-8f0e-1d2c3b4a5f6e","createTime":"2026-11-12T09:30:00.000Z","startTime":"2026-11-12T09:05:35.119Z","type":"Suspicious login","source":"Google identity","data":{"@type":"type.googleapis.com/google.apps.alertcenter.type.SuspiciousActivity","email":"jdoe@example.com","loginDetails":[{"ipAddress":"198.51.100.23","loginTime":"2026-11-12T09:05:35.119Z"}]},"etag":"pqR1sT2u","metadata":{"status":"NOT_STARTED","severity":"HIGH","updateTime":"2026-11-12T09:30:00.000Z"}}'
+  - type: Gmail message log (BigQuery)
+    sourcetype: gsuite_gmail_bigquery
+    format: json
+    share: 20–40 %
+    avg: ~2 KB
+    desc: One row per message event exported to BigQuery. Carries sender, recipients, subject, size and Gmail's spam and phishing classification.
+    key:
+      - source.address
+      - destination[0].address
+      - subject
+      - action_type
+      - is_spam
+      - spam_info.classification_reason
+      - connection_info.client_ip
+    noise:
+      - rfc2822_message_id
+      - payload_size
+      - source.service
+    sample: '{"action_type":10,"rfc2822_message_id":"<CA+abc123def456@mail.example.org>","subject":"Invoice 11111 - payment overdue","payload_size":6733,"source":{"address":"billing@example.org","service":"gmail-for-work","from_header_address":"billing@example.org","from_header_displayname":"Billing"},"destination":[{"address":"jdoe@example.com","service":"gmail-for-work"}],"is_spam":true,"spam_info":{"classification_reason":"phishing","disposition":"quarantine"},"connection_info":{"client_ip":"203.0.113.77","smtp_tls_state":"tls"}}'
+cves:
+  - id: CVE-2024-45409
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: ruby-saml signature-wrapping auth bypass in apps that use Workspace as SAML IdP (protocol CVE, not a Workspace flaw)
+    affected: ruby-saml < 1.12.3 and 1.13.0 – 1.16.x (used by GitLab, many Rails SSO apps)
+    fixed: 1.12.3, 1.17.0
+    detect: A session in the downstream app with no matching Workspace saml login event (application saml) for that user and time. Workspace only logs SAML assertions it issued, so a forged one is visible by its absence.
+    avoid: Patch the service provider library; correlate app logins with Workspace saml events; enforce 2SV.
+  - id: CVE-2025-25291
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: ruby-saml parser-differential authentication bypass for Workspace-backed SAML SSO (protocol CVE)
+    affected: ruby-saml < 1.12.4 and 1.13.0 – 1.17.x
+    fixed: 1.12.4, 1.18.0
+    detect: Same signal — downstream app sign-ins for a Workspace user without a corresponding saml login_success in the Workspace saml report.
+    avoid: Update ruby-saml (and omniauth-saml); monitor the SAML report for the app's entity ID.
+  - id: CVE-2025-6554
+    cvss: 8.1
+    year: 2025
+    kev: true
+    scope: traffic
+    title: Chrome V8 type confusion exploited in the wild — the browser Workspace users and Chrome management rely on
+    affected: Google Chrome before 138.0.7204.96
+    fixed: 138.0.7204.96
+    detect: Chrome browser reports (application chrome) show the version per managed browser; sign-ins and OAuth grants from a device right after a drive-by can indicate stolen sessions.
+    avoid: Enforce Chrome auto-update and minimum version policy from the Admin console; context-aware access on device posture.
+detections:
+  - title: Password spray against Workspace accounts
+    severity: high
+    signals:
+      - events[0].name=login_failure
+      - many distinct actor.email per ipAddress
+      - short window
+    why: Spraying common passwords across the directory is a top initial-access technique for SaaS.
+    kql: |-
+      dataset="gws_reports" id.applicationName="login" events[0].name="login_failure"
+      | summarize fails=count(), users=dcount(actor.email) by ipAddress, bin(_time, 30m)
+      | where users > 10
+    mitre:
+      - T1110.003
+  - title: Suspicious login followed by success
+    severity: high
+    signals:
+      - suspicious_login or is_suspicious=true
+      - login_success from same ipAddress
+    why: Google flagged the attempt, but a later success from the same IP means the account may be taken over.
+    kql: |-
+      dataset="gws_reports" id.applicationName="login"
+      | where events[0].name in ("suspicious_login","login_success")
+      | summarize sus=countif(events[0].name=="suspicious_login"), ok=countif(events[0].name=="login_success") by actor.email, ipAddress, bin(_time, 1h)
+      | where sus > 0 and ok > 0
+    mitre:
+      - T1078.004
+  - title: 2-step verification disabled or admin role granted
+    severity: high
+    signals:
+      - TURN_OFF_2_STEP_VERIFICATION / UNENROLL_USER_FROM_STRONG_AUTH
+      - GRANT_ADMIN_PRIVILEGE / ASSIGN_ROLE
+    why: Weakening MFA or adding admin privilege is how attackers keep control after a takeover.
+    kql: |-
+      dataset="gws_reports" id.applicationName="admin"
+      | where events[0].name in ("TURN_OFF_2_STEP_VERIFICATION","UNENROLL_USER_FROM_STRONG_AUTH","GRANT_ADMIN_PRIVILEGE","ASSIGN_ROLE","AUTHORIZE_API_CLIENT_ACCESS")
+      | summarize count() by actor.email, events[0].name, ipAddress
+    mitre:
+      - T1556.006
+      - T1098.003
+  - title: File made public or shared by link
+    severity: medium
+    signals:
+      - name=change_document_visibility
+      - parameters.visibility=people_with_link or public_on_the_web
+    why: Link sharing removes access control; a burst of it is a data-exfiltration pattern.
+    kql: |-
+      dataset="gws_drive" name="change_document_visibility"
+      | where parameters.visibility in ("people_with_link","public_on_the_web")
+      | summarize files=dcount(parameters.doc_title) by actor.email, bin(_time, 1h)
+      | where files > 10
+    mitre:
+      - T1567
+      - T1530
+  - title: OAuth app authorised with mail or Drive scopes
+    severity: medium
+    signals:
+      - application token, event authorize
+      - scope contains gmail or drive
+      - rare app_name
+    why: Consent phishing grants an attacker's app persistent access to mail and files without a password.
+    kql: |-
+      dataset="gws_reports" id.applicationName="token" events[0].name="authorize"
+      | where events[0].parameters has_any ("mail.google.com","gmail","drive")
+      | summarize users=dcount(actor.email) by events[0].parameters
+      | where users < 3
+    mitre:
+      - T1528
+  - title: Phishing delivered to inbox
+    severity: medium
+    signals:
+      - Gmail BigQuery
+      - spam_info.classification_reason=phishing
+      - disposition not quarantine
+    why: Identifies recipients of phishing that reached the mailbox, for clean-up and user follow-up.
+    kql: |-
+      dataset="gws_gmail" spam_info.classification_reason="phishing"
+      | where spam_info.disposition != "quarantine"
+      | summarize recipients=dcount(destination[0].address) by source.address, subject
+    mitre:
+      - T1566.001
+      - T1566.002
+optimizations:
+  - title: Drop high-volume Drive view events
+    saving: 20–40 %
+    fn: Drop / Sampling
+    how: Drive view and edit events from owners on their own files are the bulk of volume. Keep ACL, visibility and download events in the SIEM; send the rest to Lake.
+    expr: name=='view' || name=='edit'
+  - title: Flatten the parameters array
+    saving: 10–20 %
+    fn: Eval / Code
+    how: Turn events[].parameters[] name/value pairs into top-level fields (login_failure_type, is_suspicious) and drop the original array, so SIEM fields and detections do not depend on array position.
+    expr: Array.isArray(events) && events[0].parameters
+  - title: Remove constant envelope fields
+    saving: 5–15 %
+    fn: Eval
+    how: kind, etag, id.customerId and actor.profileId are identical or useless for detection on every record.
+    expr: "remove: kind, etag, id.customerId, actor.profileId"
+  - title: De-duplicate re-read windows
+    saving: 1–10 %
+    fn: Suppress
+    how: Collectors re-read a lag window to catch late Drive events; suppress on id.uniqueQualifier + id.time.
+    expr: "key: `${id.uniqueQualifier}:${id.time}`  allow 1 / 12h"
+  - title: Route by application
+    saving: SIEM licence
+    fn: Routes
+    how: login, admin, token, saml and alerts → SIEM at full fidelity. Drive and Gmail BigQuery → Lake, with only sharing, download and phishing verdicts to the SIEM.
+    expr: id.applicationName in ('login','admin','token','saml') || alertId
+references:
+  - title: Reports API activities resource
+    url: https://developers.google.com/workspace/admin/reports/reference/rest/v1/activities
+  - title: Login audit activity events
+    url: https://developers.google.com/workspace/admin/reports/v1/appendix/activity/login
+  - title: Admin audit activity events (user settings)
+    url: https://developers.google.com/workspace/admin/reports/v1/appendix/activity/admin-user-settings
+  - title: Alert Center API alerts resource
+    url: https://developers.google.com/workspace/admin/alertcenter/reference/rest/v1beta1/alerts
+  - title: Cribl Google Workspace Rest Collector pack
+    url: https://github.com/criblpacks/cribl-google-workspace-rest-io
+  - title: ruby-saml advisory GHSA-jw9c-mfg7-9rx2 (CVE-2024-45409)
+    url: https://github.com/SAML-Toolkits/ruby-saml/security/advisories/GHSA-jw9c-mfg7-9rx2
+  - title: Chrome stable channel update (CVE-2025-6554)
+    url: https://chromereleases.googleblog.com/2025/06/stable-channel-update-for-desktop_30.html
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - o365
+  - okta
+  - entra-id
+  - gcp-audit
+  - proofpoint

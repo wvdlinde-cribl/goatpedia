@@ -1,0 +1,312 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-vpc-flow
+name: Amazon VPC Flow Logs
+short: VPC Flow
+aka:
+  - AWS VPC Flow Logs
+  - VPC flow logs
+  - Transit Gateway Flow Logs
+vendor: Amazon Web Services
+category: ndr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - netflow
+  - network
+  - s3
+  - cloudwatch
+  - firehose
+  - space-delimited
+  - parquet
+summary: Per-network-interface records of IP traffic in a VPC — 5-tuple, packets, bytes and whether security groups and network ACLs accepted or rejected it — summarised over 1- or 10-minute windows. They are AWS's NetFlow. There is no payload or DNS name, but they are the only record of east-west and egress connections in a VPC, and usually the largest-volume AWS log source.
+sourcetypes:
+  - st: aws_vpc_v2
+    desc: Pack Generator sourcetype for the default (version 2, 14-field) flow log format
+  - st: aws_vpc_v5
+    desc: Pack Generator sourcetype for custom format with all version 3–5 fields (VPC/subnet/instance, pkt-* addresses, AWS service, direction, traffic path)
+  - st: aws:cloudwatchlogs:vpcflow
+    desc: Splunk Add-on for AWS sourcetype for flow logs read from CloudWatch Logs
+  - st: AWSVPCFlow
+    desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
+  - st: AWS_VPC_FLOW
+    desc: Google SecOps (Chronicle) log type (AWS_VPC_FLOW_CSV for CSV)
+facts:
+  First released: June 2015
+  Delivery model: Managed AWS feature, enabled per VPC, subnet, ENI or Transit Gateway
+  Aggregation interval: 10 minutes (default) or 1 minute; Nitro instances ≤ 1 minute
+  Log transport: S3 (text gzip or Parquet, optional hourly partitions), CloudWatch Logs, Kinesis Data Firehose (cross-account)
+  Log format: Space-separated fields; default = version 2 (14 fields); custom formats up to version 8+ (ECS task metadata, reject-reason)
+  Capture filter: ACCEPT, REJECT or ALL
+  Not captured: Traffic to the Amazon DNS resolver, IMDS (169.254.169.254), Amazon Time Sync, DHCP, Windows licence activation, the VPC router reserved IP
+  Typical volume: Millions to billions of records/day for a large organization — often the biggest AWS log cost
+  Cribl Pack: aws-vpcflow-logs, cribl-vpc-flow-for-security-teams (Packs Dispensary); Cribl Search AWS VPC Flow Logs
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+  items:
+    - slot: cloud
+      title: VPC / subnet level
+      desc: Enabled on every VPC in every account, usually by an organization-wide automation (Config rule or Control Tower), delivered to a central log-archive S3 bucket.
+    - slot: edge
+      title: Internet and NAT gateways
+      desc: Flow logs on the ENIs of NAT gateways, load balancers and public instances show inbound scanning and outbound egress. pkt-srcaddr/pkt-dstaddr reveal the real endpoints behind NAT.
+    - slot: internal
+      title: Transit Gateway and east-west
+      desc: Transit Gateway flow logs and ENI logs between application tiers show lateral movement between VPCs, accounts and on-premises networks (Direct Connect / VPN).
+howItWorks:
+  - title: Capture at the ENI
+    body: The hypervisor (Nitro) observes every flow that crosses an elastic network interface, outside the guest OS. An attacker with root on the instance cannot disable or tamper with it. Flows are aggregated by 5-tuple per interface per window.
+  - title: ACCEPT vs REJECT
+    body: "action records the combined verdict of security groups (stateful) and network ACLs (stateless). Because ACLs are stateless, a return packet can be REJECTed even when the request was ACCEPTed. With version 8, reject-reason distinguishes VPC Block Public Access (BPA) and encryption-control (EC) rejections."
+  - title: Versions and custom formats
+    body: "Version 2 is the fixed default. Version 3 adds vpc-id, subnet-id, instance-id, tcp-flags, type and pkt-srcaddr/pkt-dstaddr (true addresses through NAT gateways and load balancers). Version 4 adds region and az-id. Version 5 adds pkt-src/dst-aws-service, flow-direction and traffic-path. Version 7 adds ECS cluster/task fields. The record header line in S3 names the fields actually used — parsers must follow it."
+  - title: Delivery
+    body: S3 delivery batches records into gzip text or Parquet objects every ~5 minutes (AWSLogs/<account>/vpcflowlogs/<region>/YYYY/MM/DD/). Parquet is smaller and faster to query. CloudWatch Logs costs more per GB but allows subscription filters to Firehose/Lambda/Cribl.
+  - title: Limits for detection
+    body: There is no payload, URL or hostname. Some traffic is never logged (Amazon DNS resolver, IMDS, Time Sync, DHCP), so pair it with Route 53 Resolver query logs for DNS and with GuardDuty, which analyses its own copy of flow data.
+traffic:
+  handles:
+    - IPv4 and IPv6 flows per ENI (TCP, UDP, ICMP, other IP protocols)
+    - Security group and network ACL verdicts (ACCEPT / REJECT)
+    - NAT gateway, load balancer, VPC endpoint and Lambda ENIs
+    - Transit Gateway attachments
+    - Ingress / egress direction and egress path (IGW, NAT, TGW, peering, endpoint)
+    - Traffic to AWS service ranges (pkt-*-aws-service)
+  flow:
+    - step: Packet at ENI
+      desc: A packet enters or leaves an elastic network interface.
+    - step: Security group / NACL
+      desc: Stateful security group and stateless network ACL evaluation decide ACCEPT or REJECT.
+    - step: Aggregate
+      desc: Packets and bytes are counted per 5-tuple per ENI for the aggregation interval.
+    - step: Record
+      desc: At the end of the window one record is written with start/end epoch, counts, action and log-status.
+    - step: Publish
+      desc: Records are batched to S3 (text/Parquet), CloudWatch Logs or Firehose.
+    - step: Collect
+      desc: Cribl reads S3 via SQS (or a Firehose/CloudWatch subscription stream), uses the header line for field order, and routes.
+logs:
+  - type: Default flow record (v2)
+    sourcetype: aws_vpc_v2
+    format: text
+    share: Most accounts (default)
+    avg: ~110 B
+    desc: Fourteen space-separated fields. start/end are Unix epoch seconds; log-status NODATA/SKIPDATA records carry dashes instead of the 5-tuple.
+    pattern: ^(?<version>\d+) (?<account_id>\S+) (?<interface_id>\S+) (?<srcaddr>\S+) (?<dstaddr>\S+) (?<srcport>\S+) (?<dstport>\S+) (?<protocol>\S+) (?<packets>\S+) (?<bytes>\S+) (?<start>\d+) (?<end>\d+) (?<action>ACCEPT|REJECT|-) (?<log_status>OK|NODATA|SKIPDATA)$
+    key:
+      - srcaddr
+      - dstaddr
+      - dstport
+      - protocol
+      - bytes
+      - action
+      - interface_id
+    noise:
+      - version
+      - log_status
+      - account_id
+    sample: 2 111122223333 eni-0a1b2c3d4e5f60718 198.51.100.23 10.40.12.7 51544 22 6 3 180 1794474862 1794474922 REJECT OK
+  - type: Extended flow record (v5 custom)
+    sourcetype: aws_vpc_v5
+    format: text
+    share: Security-focused deployments
+    avg: ~260 B
+    desc: All fields through version 5. pkt_srcaddr/pkt_dstaddr show the original endpoint behind a NAT gateway or load balancer; flow_direction and traffic_path (1–8, e.g. 8 = internet gateway) give egress context; pkt_*_aws_service names AWS ranges such as S3 or AMAZON.
+    pattern: ^(?<version>\d+) (?<account_id>\S+) (?<interface_id>\S+) (?<srcaddr>\S+) (?<dstaddr>\S+) (?<srcport>\S+) (?<dstport>\S+) (?<protocol>\S+) (?<packets>\S+) (?<bytes>\S+) (?<start>\d+) (?<end>\d+) (?<action>\S+) (?<log_status>\S+) (?<vpc_id>\S+) (?<subnet_id>\S+) (?<instance_id>\S+) (?<tcp_flags>\S+) (?<type>\S+) (?<pkt_srcaddr>\S+) (?<pkt_dstaddr>\S+) (?<region>\S+) (?<az_id>\S+) (?<sublocation_type>\S+) (?<sublocation_id>\S+) (?<pkt_src_aws_service>\S+) (?<pkt_dst_aws_service>\S+) (?<flow_direction>\S+) (?<traffic_path>\S+)$
+    key:
+      - pkt_srcaddr
+      - pkt_dstaddr
+      - dstport
+      - bytes
+      - action
+      - instance_id
+      - flow_direction
+      - traffic_path
+    noise:
+      - version
+      - log_status
+      - sublocation_type
+      - sublocation_id
+      - type
+      - az_id
+    sample: 5 111122223333 eni-0f1e2d3c4b5a69788 10.40.12.7 203.0.113.66 40122 4444 6 1840 912345 1794474862 1794474922 ACCEPT OK vpc-0123abcd4567ef890 subnet-0a1b2c3d4e5f60718 i-0abc123def4567890 19 IPv4 10.40.12.7 203.0.113.66 us-east-1 use1-az4 - - - - egress 8
+  - type: S3 file header
+    sourcetype: aws_vpc_v5
+    format: text
+    share: 1 line per object
+    avg: ~300 B
+    desc: The first line of every S3 text object lists the field names (custom format) in order. Use it to pick the parser, then drop it.
+    pattern: ^(?<first_field>version) (?<rest>.+)$
+    key:
+      - first_field
+      - rest
+    noise:
+      - rest
+    sample: version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status vpc-id subnet-id instance-id tcp-flags type pkt-srcaddr pkt-dstaddr region az-id sublocation-type sublocation-id pkt-src-aws-service pkt-dst-aws-service flow-direction traffic-path
+cves:
+  - id: CVE-2019-0708
+    cvss: 9.8
+    year: 2019
+    kev: true
+    scope: traffic
+    title: BlueKeep — pre-auth RCE in Windows Remote Desktop Services over TCP 3389
+    affected: Windows XP, Vista, 7, Server 2003, 2008, 2008 R2
+    fixed: May 2019 Microsoft security updates (also published for out-of-support XP/2003)
+    detect: ACCEPTed inbound flows on dstport 3389 from internet addresses to EC2 ENIs (flow_direction=ingress); many short flows from one source across many ENIs = scanning.
+    avoid: Never allow 3389 from 0.0.0.0/0; use SSM Session Manager or a bastion; patch legacy Windows AMIs.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH regreSSHion — unauthenticated RCE race against sshd on TCP 22
+    affected: OpenSSH 8.5p1 – 9.7p1 on glibc Linux (and before 4.4p1)
+    fixed: OpenSSH 9.8p1 (plus distribution backports)
+    detect: Exploitation needs thousands of connection attempts over hours — sustained high counts of short ACCEPTed flows to dstport 22 from one srcaddr.
+    avoid: Patch; close port 22 to the internet; LoginGraceTime 0 mitigation where patching lags.
+  - id: CVE-2023-46604
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Apache ActiveMQ OpenWire RCE over TCP 61616
+    affected: ActiveMQ before 5.15.16, 5.16.x before 5.16.7, 5.17.x before 5.17.6, 5.18.x before 5.18.3
+    fixed: 5.15.16, 5.16.7, 5.17.6, 5.18.3
+    detect: Inbound ACCEPT on dstport 61616 from internet sources, then new outbound flows from the broker to unknown hosts (payload download, miner pool connections).
+    avoid: Patch; restrict 61616 with security groups; alert on any internet ingress to message brokers.
+  - id: CVE-2022-0543
+    cvss: 10
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Redis Lua sandbox escape (Debian/Ubuntu packaging) over TCP 6379
+    affected: Debian and Ubuntu redis packages that load Lua dynamically (Debian-specific packaging issue)
+    detect: Inbound ACCEPT on dstport 6379 from the internet; outbound connections from the Redis host to mining pools or download hosts shortly after.
+    avoid: Update the distribution redis package; never expose 6379; enable Redis AUTH/ACLs and protected-mode.
+detections:
+  - title: Internet exposure of management or data ports
+    severity: high
+    signals:
+      - action=ACCEPT
+      - dstport in 22, 3389, 6379, 9200, 27017, 61616
+      - srcaddr not RFC1918
+    why: An ACCEPTed inbound flow from the internet to an admin or data port means a security group is open — the precondition for the CVEs above.
+    kql: |-
+      dataset="aws_vpc_flow" action="ACCEPT"
+      | where dstport in ("22","3389","6379","9200","27017","61616") and not(ipv4_is_private(srcaddr))
+      | summarize flows=count(), sources=dcount(srcaddr) by dstaddr, dstport, interface_id
+    mitre:
+      - T1190
+      - T1133
+  - title: Large egress to a single external host
+    severity: high
+    signals:
+      - flow_direction=egress
+      - traffic_path=8 (internet gateway) or NAT
+      - sum(bytes) per pkt_dstaddr
+    why: Bulk outbound transfer from an instance to one external IP is the network shape of exfiltration, whether the data comes from S3 via the instance or from a database.
+    kql: |-
+      dataset="aws_vpc_flow" flow_direction="egress" action="ACCEPT"
+      | where not(ipv4_is_private(pkt_dstaddr))
+      | summarize bytes=sum(toint(bytes)) by instance_id, pkt_dstaddr, bin(_time, 1h)
+      | where bytes > 5000000000
+    mitre:
+      - T1048
+      - T1041
+  - title: Outbound connection on a reverse-shell / C2 port
+    severity: medium
+    signals:
+      - flow_direction=egress
+      - dstport in 4444, 1337, 8443 (non-standard)
+      - long-lived low-byte flows
+    why: Reverse shells and C2 beacons favour unusual ports and periodic small flows; servers rarely initiate them.
+    kql: |-
+      dataset="aws_vpc_flow" flow_direction="egress" action="ACCEPT"
+      | where dstport in ("4444","1337","6667","31337") and not(ipv4_is_private(pkt_dstaddr))
+      | summarize flows=count(), bytes=sum(toint(bytes)) by instance_id, pkt_dstaddr, dstport
+    mitre:
+      - T1571
+      - T1071
+  - title: Horizontal port scan from inside the VPC
+    severity: medium
+    signals:
+      - action=REJECT
+      - one srcaddr → many dstaddr/dstport
+    why: An internal instance hitting many closed hosts/ports is the network trace of discovery after a compromise.
+    kql: |-
+      dataset="aws_vpc_flow" action="REJECT"
+      | where ipv4_is_private(srcaddr)
+      | summarize hosts=dcount(dstaddr), ports=dcount(dstport) by srcaddr, bin(_time, 10m)
+      | where hosts > 50 or ports > 100
+    mitre:
+      - T1046
+  - title: Connections to crypto-mining pool ports
+    severity: medium
+    signals:
+      - flow_direction=egress
+      - dstport 3333 / 4444 / 5555 / 14444 (Stratum)
+    why: Mining is the most common monetisation of a compromised cloud workload; Stratum pools commonly listen on these ports.
+    kql: |-
+      dataset="aws_vpc_flow" flow_direction="egress" action="ACCEPT"
+      | where dstport in ("3333","5555","7777","14444","45700")
+      | summarize flows=count() by instance_id, pkt_dstaddr, dstport
+    mitre:
+      - T1496
+optimizations:
+  - title: Drop NODATA / SKIPDATA and header lines
+    saving: 1–5 %
+    fn: Drop
+    how: NODATA records carry no 5-tuple and the S3 header line is metadata; drop both after using the header to choose field order.
+    expr: log_status=='NODATA' || log_status=='SKIPDATA' || version=='version'
+  - title: Aggregate accepted internal flows
+    saving: 50–80 %
+    fn: Aggregations
+    how: "East-west ACCEPT flows between private addresses are rarely searched individually. Roll them up per srcaddr/dstaddr/dstport/protocol per 5 minutes (sum bytes and packets) for the SIEM; send raw to Lake."
+    expr: action=='ACCEPT' && C.Net.isPrivate(srcaddr) && C.Net.isPrivate(dstaddr)
+  - title: Suppress repetitive internet-scanner rejects
+    saving: 10–30 %
+    fn: Suppress
+    how: Internet background noise produces endless REJECTs per scanner. Keep one per srcaddr/dstport per hour with a count.
+    expr: "key: `${srcaddr}:${dstport}`  allow 1 / 3600s  when action=='REJECT' && !C.Net.isPrivate(srcaddr)"
+  - title: Trim fields and use Parquet
+    saving: 20–40 %
+    fn: Parser → Serialize
+    how: Drop version, account_id (constant per object), log_status, sublocation_*, az_id and type; write JSON or Parquet with only the fields detections use. Choose Parquet with hourly partitions for the S3 delivery itself.
+    expr: "remove: version, log_status, sublocation_type, sublocation_id, az_id, type"
+  - title: Enrich with ENI / instance and threat context
+    saving: faster triage
+    fn: Lookup
+    how: Join interface_id/instance_id to an asset lookup (owner, app, environment) and pkt_dstaddr to a threat-intel IP list, so detections can filter by environment and flag known-bad destinations without a search-time join.
+    expr: "lookup eni_inventory.csv on interface_id; lookup ti_ips.csv on pkt_dstaddr"
+references:
+  - title: Logging IP traffic using VPC Flow Logs
+    url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
+  - title: Flow log records (fields and versions)
+    url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html
+  - title: Flow log record examples
+    url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-records-examples.html
+  - title: Flow log limitations (traffic that is not logged)
+    url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-limitations.html
+  - title: Microsoft advisory CVE-2019-0708 (BlueKeep)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-0708
+  - title: Apache ActiveMQ advisory CVE-2023-46604
+    url: https://activemq.apache.org/security-advisories.data/CVE-2023-46604-announcement.txt
+  - title: OpenSSH 9.8 release notes (CVE-2024-6387)
+    url: https://www.openssh.com/txt/release-9.8
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for AWS — Source types
+    url: https://splunk.github.io/splunk-add-on-for-amazon-web-services/DataTypes/
+related:
+  - aws-route53
+  - aws-guardduty
+  - aws-network-firewall
+  - netflow
+  - azure-nsg-flow
+  - gcp-vpc
+  - zeek

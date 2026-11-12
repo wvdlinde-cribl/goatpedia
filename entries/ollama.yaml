@@ -1,0 +1,319 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ollama
+name: Ollama
+short: Ollama
+aka:
+  - ollama serve
+  - Ollama server
+  - Ollama Desktop
+  - Ollama Cloud
+vendor: Ollama
+category: ai
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - ai
+  - llm
+  - local-llm
+  - shadow-ai
+  - gguf
+  - rest-api
+  - gin
+  - text
+summary: "Open-source runtime that downloads and serves open-weight LLMs (Llama, Qwen, Gemma, Mistral, gpt-oss …) on laptops, GPU servers and containers through an HTTP API on port 11434 — with no authentication built in. Its server log records model loads, GPU/CPU offload and memory, runner errors, and a Gin access line per API request. Internet-exposed Ollama servers are a common shadow-AI and compute-theft target."
+sourcetypes:
+  - st: ollama_server
+    desc: Ollama server log (server.log / journald / container stdout) — slog key=value lines plus Gin HTTP access lines
+  - st: ollama:server
+    desc: Splunk TA-ollama sourcetype for file-monitored server logs (Gin access + system lines)
+  - st: ollama:api
+    desc: Splunk TA-ollama sourcetype for API telemetry sent over HEC
+  - st: ollama:prompts
+    desc: Splunk TA-ollama sourcetype for prompt analytics sent over HEC
+facts:
+  First released: "2023"
+  Platform: Go server wrapping llama.cpp / GGML runners; macOS, Linux, Windows, Docker; NVIDIA CUDA, AMD ROCm, Apple Metal, Vulkan
+  Delivery model: Self-hosted open source (MIT); desktop app with auto-update; optional Ollama Cloud models
+  API: HTTP on 127.0.0.1:11434 by default (OLLAMA_HOST to change) — /api/generate, /api/chat, /api/embed, /api/pull, /api/push, /api/create, /api/delete, /api/ps and OpenAI-compatible /v1/*
+  Authentication: None on the local API; CORS limited by OLLAMA_ORIGINS — put a reverse proxy in front for auth/TLS
+  Log location: ~/.ollama/logs/server.log (macOS), journalctl -u ollama (Linux systemd), %LOCALAPPDATA%\Ollama\server.log (Windows), stdout in containers
+  Log format: Go slog text (time= level= source= msg= key=value) plus [GIN] pipe-delimited access lines; OLLAMA_DEBUG=1 adds debug detail
+  Typical volume: One Gin line per request plus a burst of 20–60 lines per model load; prompts are not logged by default
+  Cribl Pack: None found in the Packs Dispensary — use Cribl Edge file / journald collection
+placement:
+  slots:
+    - endpoint
+    - internal
+    - dmz
+  items:
+    - slot: endpoint
+      title: Developer laptops
+      desc: Desktop install bound to localhost. Shadow-AI visibility via Cribl Edge tailing server.log; risks are DNS rebinding, malicious models and the auto-updater.
+    - slot: internal
+      title: Shared GPU server / Kubernetes
+      desc: OLLAMA_HOST=0.0.0.0 to serve a team or RAG apps. Without a proxy, anyone on the network can pull, push, create or delete models.
+    - slot: dmz
+      title: Internet-exposed instance
+      desc: Tens of thousands of Ollama APIs are exposed on 11434 with no auth. They are scanned constantly for free inference (LLMjacking), model theft and the CVE chain via /api/pull and /api/create.
+howItWorks:
+  - title: Server and runners
+    body: ollama serve is a Go HTTP server (Gin). For each loaded model it starts a runner process (llama.cpp / ollama engine) and schedules layers onto GPUs or CPU. The scheduler logs offload decisions (layers.offload, memory.required.*) and keeps models resident for OLLAMA_KEEP_ALIVE (5 min default).
+  - title: Model registry
+    body: /api/pull downloads manifests and blobs (sha256 digests) from registry.ollama.ai or any registry named in the model reference; /api/push uploads to one. Digest and path validation bugs here were the root of the Probllama RCE and later traversal CVEs.
+  - title: Modelfile and GGUF
+    body: /api/create builds a model from a Modelfile (FROM, PARAMETER, TEMPLATE, SYSTEM, ADAPTER) and GGUF blobs, optionally quantizing. Parsing attacker-supplied GGUF is the main crash / memory-leak surface.
+  - title: Inference API
+    body: /api/generate, /api/chat and /api/embed (plus OpenAI-compatible /v1/chat/completions) stream tokens back. Each request produces one [GIN] access line with status, latency, client IP, method and path — but not the prompt.
+  - title: Logging
+    body: "Ollama logs to stderr: slog text records (time, level, source file:line, msg, attributes) and Gin access lines. Desktop installs write rotating server.log / server-N.log; systemd sends to the journal. OLLAMA_DEBUG=1 adds request and scheduling detail."
+traffic:
+  handles:
+    - HTTP REST API on TCP 11434
+    - OpenAI-compatible /v1 API
+    - Model pulls/pushes to OCI-style registries (HTTPS)
+    - GGUF model files and Modelfiles
+    - Prompts, images and embeddings
+    - GPU / CPU compute
+  flow:
+    - step: Request
+      desc: Client, app or agent POSTs to /api/chat (or a scanner hits /api/tags).
+    - step: No auth
+      desc: Request accepted unless a reverse proxy enforces auth; Origin checked for browsers only.
+    - step: Schedule
+      desc: Scheduler loads the model if needed — offload and memory lines logged.
+    - step: Runner
+      desc: Runner process generates tokens on GPU/CPU.
+    - step: Respond
+      desc: Tokens streamed back; Gin access line logged with status, latency and client IP.
+    - step: Model management
+      desc: pull/push/create/delete change the local model store — also logged as Gin lines.
+    - step: Collect
+      desc: Cribl Edge tails server.log or journald and parses both line types.
+logs:
+  - type: API access (Gin)
+    sourcetype: ollama_server
+    format: text
+    share: 40–80 %
+    avg: ~110 B
+    desc: One line per HTTP request. The best (and only default) record of who used the API, which endpoints, and how long inference took.
+    pattern: '^\[GIN\] (?<date>\d{4}/\d{2}/\d{2}) - (?<time>\d{2}:\d{2}:\d{2}) \| (?<status>\d{3}) \|\s+(?<latency>\S+) \|\s+(?<client_ip>\S+) \| (?<method>[A-Z]+)\s+"(?<path>[^"]+)"$'
+    key:
+      - status
+      - latency
+      - client_ip
+      - method
+      - path
+    noise:
+      - date
+      - time
+    sample: '[GIN] 2026/11/12 - 09:14:22 | 200 |  4.218734512s |    203.0.113.77 | POST     "/api/chat"'
+  - type: Server / scheduler event (slog)
+    sourcetype: ollama_server
+    format: kv
+    share: 20–60 %
+    avg: ~250 B (offload lines ~900 B)
+    desc: "Structured server records: listening address, GPU discovery, model load and offload decisions, runner start/stop, errors and warnings."
+    key:
+      - level
+      - msg
+      - source
+      - model
+      - library
+      - layers.offload
+      - memory.required.full
+    noise:
+      - memory.graph.full
+      - memory.graph.partial
+      - memory.weights.repeating
+      - memory.weights.nonrepeating
+    sample: 'time=2026-11-12T09:14:18.031+01:00 level=INFO source=server.go:544 msg=offload model=/root/.ollama/models/blobs/sha256-6a0746a1ec1aef3e7ec53868f220ff6e389f6f8ef87a01d77c96807de94ca2aa library=cuda layers.requested=-1 layers.model=29 layers.offload=29 memory.available="[23.1 GiB]" memory.required.full="5.2 GiB" memory.weights.repeating="3.9 GiB" memory.weights.nonrepeating="308.2 MiB" memory.graph.full="562.0 MiB" memory.graph.partial="1.1 GiB"'
+  - type: Runner error / warning
+    sourcetype: ollama_server
+    format: kv
+    share: < 5 %
+    avg: ~200 B
+    desc: Runner crashes and load failures — the trace left by malformed-GGUF DoS attempts and out-of-memory conditions.
+    key:
+      - level
+      - msg
+      - error
+      - source
+      - model
+    noise:
+      - time
+    sample: 'time=2026-11-12T09:20:41.552+01:00 level=ERROR source=sched.go:489 msg="error loading llama server" model=/root/.ollama/models/blobs/sha256-9c41b2e3a8f7d6c5b4a3928170fedcba9876543210fedcba9876543210fedcba error="llama runner process has terminated: signal: segmentation fault (core dumped)"'
+cves:
+  - id: CVE-2024-37032
+    cvss: 8.8
+    year: 2024
+    kev: false
+    scope: device
+    title: '"Probllama" — digest path traversal in model pull leads to arbitrary file write and RCE'
+    affected: Ollama before 0.1.34
+    fixed: 0.1.34
+    detect: Gin lines POST "/api/pull" from external client_ip values, followed by POST "/api/chat" or "/api/generate" from the same IP and runner errors; a model name pointing at an unknown registry host.
+    avoid: Upgrade; never expose 11434 directly — bind to localhost and front with an authenticating proxy.
+  - id: CVE-2026-7482
+    cvss: 9.1
+    year: 2026
+    kev: false
+    scope: device
+    title: GGUF loader heap out-of-bounds read during quantization — leaks env vars, API keys and other users' conversations, exfiltrated via /api/push
+    affected: Ollama before 0.17.1
+    fixed: 0.17.1
+    detect: POST "/api/blobs/…" and "/api/create" from an external IP, then POST "/api/push" to a registry you don't use — a create→push sequence from one client is rare in normal use.
+    avoid: Upgrade; block /api/create, /api/push and /api/blobs at the reverse proxy for everyone except administrators.
+  - id: CVE-2024-39720
+    cvss: 8.2
+    year: 2024
+    kev: false
+    scope: device
+    title: Malformed 4-byte GGUF + Modelfile FROM crashes the server (SIGSEGV) via CreateModel
+    affected: Ollama before 0.1.46
+    fixed: 0.1.46
+    detect: level=ERROR runner terminations (segmentation fault) shortly after Gin POST "/api/create" lines; repeated restarts in journald.
+    avoid: Upgrade; restrict model creation to trusted users.
+  - id: CVE-2024-28224
+    cvss: 6.6
+    year: 2024
+    kev: false
+    scope: device
+    title: DNS rebinding lets a malicious web page reach the full localhost API (chat, delete models, exhaust resources)
+    affected: Ollama before 0.1.29
+    fixed: 0.1.29
+    detect: Gin lines from 127.0.0.1 hitting /api/delete or /api/pull while the user was browsing; unexpected model deletions.
+    avoid: Upgrade; keep OLLAMA_ORIGINS tight; avoid running the server on shared or browsing machines with sensitive models.
+  - id: CVE-2026-42248
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Ollama for Windows auto-updater skips signature verification — attacker-supplied update executables accepted silently
+    affected: Ollama for Windows 0.12.10 through 0.17.5
+    detect: Not in server.log; EDR / Sysmon process creation of an unsigned Ollama update binary from %LOCALAPPDATA%\Ollama; proxy logs of update downloads from unexpected hosts.
+    avoid: Disable auto-update on managed Windows endpoints and deploy Ollama through software distribution; pin egress for update traffic.
+  - id: CVE-2024-34359
+    cvss: 9.6
+    year: 2024
+    kev: false
+    scope: traffic
+    title: '"Llama Drama" — Jinja2 chat-template SSTI in GGUF metadata (llama-cpp-python), the malicious-model class of risk for GGUF files Ollama users pull'
+    affected: llama-cpp-python 0.2.30 through 0.2.71
+    fixed: 0.2.72
+    detect: Pulls of models from unknown namespaces or registries (Gin POST "/api/pull" followed by new model loads in offload lines); then unexpected child processes on the host.
+    avoid: Only pull models from trusted publishers; mirror approved models internally; scan model files before use.
+detections:
+  - title: Ollama API used from external IPs
+    severity: high
+    signals:
+      - "[GIN] client_ip not RFC1918 / loopback"
+      - path in /api/chat, /api/generate, /v1/chat/completions
+    why: An open Ollama port is free GPU for anyone — LLMjacking and data exposure (MITRE ATLAS AML.T0040 AI Model Inference API Access, AML.T0034 Cost Harvesting).
+    kql: |-
+      dataset="ollama" isnotempty(client_ip)
+      | where not(ipv4_is_in_range(client_ip, "10.0.0.0/8") or ipv4_is_in_range(client_ip, "172.16.0.0/12") or ipv4_is_in_range(client_ip, "192.168.0.0/16") or client_ip=="127.0.0.1")
+      | summarize reqs=count(), paths=make_set(path) by client_ip, bin(_time, 1h)
+    mitre:
+      - T1190
+      - T1496
+  - title: Model management from a non-admin client
+    severity: high
+    signals:
+      - method=POST
+      - path in /api/pull, /api/push, /api/create, /api/delete, /api/blobs
+      - client_ip not in admin list
+    why: Pull/create/push are the attack surface for Probllama, the GGUF memory leak and model exfiltration (ATLAS AML.T0010.003 AI Supply Chain Compromise — Model).
+    kql: |-
+      dataset="ollama" method in ("POST","DELETE") path has_any ("/api/pull","/api/push","/api/create","/api/delete","/api/blobs")
+      | lookup ollama_admin_ips on client_ip
+      | where isempty(admin)
+      | project _time, client_ip, method, path, status
+    mitre:
+      - T1105
+      - T1567
+  - title: Create followed by push (possible memory exfiltration)
+    severity: critical
+    signals:
+      - POST /api/create then POST /api/push from the same client_ip within 10 min
+    why: The CVE-2026-7482 exploitation sequence — build a model from a crafted GGUF, then push the leaked memory to an attacker registry.
+    kql: |-
+      dataset="ollama" method="POST" path in ("/api/create","/api/push")
+      | summarize creates=countif(path=="/api/create"), pushes=countif(path=="/api/push") by client_ip, bin(_time, 10m)
+      | where creates > 0 and pushes > 0
+    mitre:
+      - T1190
+      - T1041
+  - title: Runner crash loop
+    severity: medium
+    signals:
+      - level=ERROR msg="error loading llama server"
+      - segmentation fault / SIGSEGV
+      - several per hour
+    why: Malformed-GGUF DoS bugs and resource exhaustion show up as repeated runner terminations.
+    kql: |-
+      dataset="ollama" level="ERROR"
+      | where msg has "llama server" or error has "segmentation fault"
+      | summarize crashes=count() by host, bin(_time, 1h)
+      | where crashes > 3
+    mitre:
+      - T1499
+  - title: Shadow AI — new Ollama host appears
+    severity: low
+    signals:
+      - first server.log from a host
+      - msg="Listening on" with 0.0.0.0
+    why: Unsanctioned local LLM servers bypass AI usage policy and DLP; binding to 0.0.0.0 exposes them to the network.
+    kql: |-
+      dataset="ollama" msg has "Listening on"
+      | summarize first_seen=min(_time) by host
+      | where first_seen > ago(1d)
+    mitre:
+      - T1133
+optimizations:
+  - title: Drop health-check and listing calls
+    saving: 20–50 %
+    fn: Drop
+    how: Load balancers and UIs poll GET / , /api/tags, /api/ps and /api/version constantly. Drop successful polls (or sample 1 in 100).
+    expr: method=='GET' && ['/','/api/tags','/api/ps','/api/version','/api/show'].includes(path) && status=='200'
+  - title: Summarise offload / memory detail
+    saving: 30–60 % of slog volume
+    fn: Eval
+    how: Each model load prints large offload and memory lines. Keep model, library, layers.offload and memory.required.full; drop the graph and weight breakdowns.
+    expr: "remove: memory.graph.*, memory.weights.*, memory.required.partial, memory.required.kv"
+  - title: Aggregate inference requests to metrics
+    saving: 40–70 %
+    fn: Aggregations
+    how: Roll /api/chat and /api/generate lines up to count, error count and p95 latency per client_ip and path per minute; keep model-management and non-2xx lines raw.
+    expr: path in ['/api/chat','/api/generate','/api/embed','/v1/chat/completions'] && status.startsWith('2')
+  - title: Drop debug output
+    saving: Large when OLLAMA_DEBUG=1
+    fn: Drop
+    how: Debug-level lines and runner tensor dumps are only useful during troubleshooting.
+    expr: level=='DEBUG'
+references:
+  - title: Ollama — Troubleshooting (log locations)
+    url: https://docs.ollama.com/troubleshooting
+  - title: Ollama — FAQ (OLLAMA_HOST, OLLAMA_ORIGINS, exposure)
+    url: https://docs.ollama.com/faq
+  - title: Ollama — API reference
+    url: https://docs.ollama.com/api
+  - title: Wiz — Probllama (CVE-2024-37032)
+    url: https://www.wiz.io/blog/probllama-ollama-vulnerability-cve-2024-37032
+  - title: Oligo — More models, more ProbLLMs (CVE-2024-39719..39722)
+    url: https://oligo.security/blog/more-models-more-probllms
+  - title: Ollama v0.17.1 release (CVE-2026-7482 fix)
+    url: https://github.com/ollama/ollama/releases/tag/v0.17.1
+  - title: CERT Polska — CVE-2026-42248 Ollama for Windows updater
+    url: https://cert.pl/en/posts/2026/04/CVE-2026-42248/
+  - title: MITRE ATLAS
+    url: https://atlas.mitre.org
+  - title: "Splunk Security Content — Data Source: Ollama Server (TA-ollama sourcetypes)"
+    url: https://research.splunk.com/sources/a7761a7c-ecaa-4164-8517-959cabfacaf9/
+related:
+  - openai
+  - mcp
+  - cisco-ai-defense
+  - n8n
+  - linux-syslog

@@ -1,0 +1,313 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: imperva-dam
+name: Imperva Data Security (DAM)
+short: Imperva DAM
+aka:
+  - Imperva SecureSphere Database Activity Monitoring
+  - Imperva Database Firewall
+  - Imperva Data Security Fabric (DSF)
+  - Imperva DAM Gateway / MX
+  - Thales Imperva DAM
+vendor: Imperva (Thales)
+category: db
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - database
+  - dam
+  - audit
+  - sql
+  - cef
+  - syslog
+  - compliance
+  - data-security
+summary: Database activity monitoring and database firewall. DAM gateways see every SQL statement sent to Oracle, SQL Server, Db2, MySQL, PostgreSQL, SAP HANA, Teradata and other databases — from a network tap or bridge, or from agents on the database server. They audit statements against policies and raise security alerts (SQL injection, privileged operations, unusual access). The MX management server forwards audit records, alerts and system events as syslog, usually in CEF, built from configurable placeholders.
+sourcetypes:
+  - st: imperva_dam
+    desc: Imperva SecureSphere / DSF DAM syslog — CEF audit records (query, user, database, rows), security alerts and gateway/MX system events
+  - st: imperva:dam
+    desc: Common custom Splunk sourcetype for Imperva DAM CEF (no Splunkbase add-on exists for DAM)
+facts:
+  Product line: SecureSphere DAM / Database Firewall, now part of Imperva Data Security Fabric (DSF); Thales acquired Imperva in 2023
+  Components: DAM gateways (appliance or VM), Remote Agents on DB servers, MX management server, optional SOM for multiple MXs, DSF Hub and Data Risk Analytics
+  Deployment modes: Sniffing (SPAN/TAP), transparent inline bridge (can block), agent-based (local and encrypted traffic), cloud DB via native audit collection
+  Supported databases: Oracle, Microsoft SQL Server, Db2 (LUW, z/OS, i), MySQL/MariaDB, PostgreSQL, Sybase, Teradata, SAP HANA, MongoDB and others
+  Log transport: Syslog (UDP/TCP, TLS) from MX or gateway per action set; messages built from placeholders (CEF, LEEF, key-value or custom)
+  Log format: CEF:0|Imperva Inc.|SecureSphere|version|… with cs1–cs21 labelled custom strings for audit data
+  Typical volume: Alerts and system events ≈ < 10 EPS; full audit forwarding ≈ 1k–50k+ EPS per gateway (Imperva warns syslog is not meant for full audit volume)
+  Management UI: MX web console (HTTPS 8083)
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: In front of or next to the database tier
+      desc: Gateways sit on a SPAN/TAP or inline bridge in front of database servers in the data center; Remote Agents on the DB host cover local connections (bequeath, shared memory) and encrypted sessions.
+    - slot: internal
+      title: MX management server
+      desc: Central server that holds policies, aggregates audit data from gateways and sends syslog to the SIEM or Cribl.
+    - slot: cloud
+      title: Cloud databases
+      desc: Agents on IaaS database servers, or DSF collecting the native audit of RDS, Azure SQL and others into the same policy and reporting model.
+howItWorks:
+  - title: Traffic capture
+    body: A gateway reassembles database sessions from mirrored or bridged traffic; an agent on the DB server captures local IPC and pre-encryption traffic and sends it to the gateway. Either way the gateway parses the native protocol (TNS, TDS, DRDA, MySQL, PostgreSQL wire).
+  - title: Parsing and profiling
+    body: Each statement becomes an event with source IP, OS user, application (e.g. SSMS, sqlplus), DB user, database/schema, raw and normalised query, bind variables, response size, affected rows and SQL error. A learned profile of normal users, sources and tables feeds anomaly policies.
+  - title: Audit policies
+    body: Audit policies decide what is stored — e.g. all privileged operations, all access to sensitive tables, all logins. Matching events go to the audit trail and can trigger a followed action set (syslog, email, script).
+  - title: Security policies and blocking
+    body: Security policies (SQL injection, protocol violation, unauthorised source application, excessive rows, privileged operation outside hours) raise alerts. In inline or agent-blocking mode the gateway can drop the statement or reset the session.
+  - title: Action sets and placeholders
+    body: Each syslog action set defines a message from placeholders such as ${Event.sourceInfo.sourceIp}, ${Event.struct.user.user} and ${Event.struct.query.parsedQuery}. Field meaning is set by the template, so labels (cs1Label=Policy …) matter more than cs numbers.
+traffic:
+  handles:
+    - Oracle TNS / Net8
+    - Microsoft SQL Server TDS
+    - IBM DRDA (Db2)
+    - MySQL and PostgreSQL wire protocols
+    - Local DB connections via agents (shared memory, IPC, bequeath)
+    - Encrypted sessions seen pre-encryption by the agent
+    - Database logins, DDL, DML, DCL and stored-procedure calls
+  flow:
+    - step: Capture
+      desc: Gateway sees the session from SPAN/TAP or bridge, or the agent forwards it from the DB host.
+    - step: Parse
+      desc: Protocol parsed; login, user, application and SQL statements extracted.
+    - step: Classify
+      desc: Statement matched to databases, schemas and sensitive objects; query normalised (literals → ?).
+    - step: Evaluate
+      desc: Audit policies record the event; security and profile policies test for violations.
+    - step: Act
+      desc: Alert raised; in inline/blocking mode the statement is dropped or the session reset.
+    - step: Forward
+      desc: Followed action set sends a CEF syslog message from the MX or gateway.
+logs:
+  - type: DAM audit record (CEF)
+    sourcetype: imperva_dam
+    format: cef
+    share: 80–95 %
+    avg: ~1.2 KB
+    desc: One message per audited statement from an audit-policy action set. Custom strings carry policy, server group, service, DB user context, source application, database, raw and parsed query, bind variables, SQL error, response size and affected rows — labels come from the template.
+    key:
+      - src
+      - duser
+      - cs6
+      - cs10
+      - cs13
+      - cs16
+      - cs18
+      - cs21
+    noise:
+      - cs5
+      - cs7
+      - cs9
+      - cs14
+      - cs20
+    sample: "2026-11-12T09:14:22.948+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Audit|Audit.DAM|Informative|dst=10.20.30.15 dpt=1433 duser=jdoe src=10.20.4.17 spt=52607 proto=TCP rt=Nov 12 2026 09:14:22 cat=Audit cs1=Sensitive Tables Audit cs1Label=Policy cs2=SQL-PROD cs2Label=ServerGroup cs3=MSSQL-HR cs3Label=ServiceName cs4=Default MsSql Application cs4Label=ApplicationName cs5=6954029700745976148 cs5Label=EventId cs6=Query cs6Label=EventType cs7= cs7Label=UserGroup cs8=True cs8Label=UserAuthenticated cs9= cs9Label=ApplicationUser cs10=Microsoft SQL Server Management Studio cs10Label=SourceApplication cs11=jdoe cs11Label=OSUser cs12=ws-0142 cs12Label=HostName cs13=hr_prod cs13Label=Database cs14=dbo cs14Label=Schema cs15=SELECT emp_id, ssn, salary FROM dbo.employees cs15Label=RawQuery cs16=select emp_id, ssn, salary from dbo.employees cs16Label=ParsedQuery cs17= cs17Label=BindVariables cs18= cs18Label=SQLError cs19=4194304 cs19Label=ResponseSize cs20=812 cs20Label=ResponseTime cs21=48213 cs21Label=AffectedRows"
+  - type: Security alert (CEF)
+    sourcetype: imperva_dam
+    format: cef
+    share: < 5 %
+    avg: ~500 B
+    desc: Alert from a security or custom policy using Imperva's standard CEF template. act is the immediate action (None, Block, Reset); cs5 is the alert description.
+    key:
+      - signature_id
+      - name
+      - severity
+      - act
+      - src
+      - duser
+      - cs1
+      - cs5
+    noise:
+      - cs4
+      - spt
+    sample: "2026-11-12T09:16:03.112+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Signature|SQL Injection|High|act=Block dst=10.20.30.15 dpt=1433 duser=app_hr src=10.20.8.31 spt=49822 proto=TCP rt=Nov 12 2026 09:16:03 cat=Alert cs1=Database SQL Injection Policy cs1Label=Policy cs2=SQL-PROD cs2Label=ServerGroup cs3=MSSQL-HR cs3Label=ServiceName cs4=Default MsSql Application cs4Label=ApplicationName cs5=Tautology in WHERE clause from application account cs5Label=Description"
+  - type: System event (CEF)
+    sourcetype: imperva_dam
+    format: cef
+    share: < 1 %
+    avg: ~250 B
+    desc: Gateway, agent and MX health events — agent disconnected, gateway overload or bypass, policy changes, admin logins.
+    key:
+      - signature_id
+      - name
+      - severity
+      - suser
+      - cat
+    noise:
+      - device_version
+    sample: "2026-11-12T09:40:11.004+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Agent|Agent db-hr-01 disconnected from gateway gw-dc1-02|Major|suser=admin rt=Nov 12 2026 09:40:11 cat=SystemEvent"
+cves:
+  - id: CVE-2018-19646
+    cvss: 9.8
+    year: 2018
+    kev: false
+    scope: device
+    title: SecureSphere PWS Python CGI scripts — unauthenticated OS command injection on the gateway
+    affected: Imperva SecureSphere 13.0.10, 13.1.10, 13.2.10
+    detect: Unexpected HTTP requests to the gateway's PWS service; new processes or outbound connections from gateway appliances; MX system events about gateway restarts.
+    avoid: Upgrade to a fixed SecureSphere/DSF release; keep gateway management interfaces on an isolated management network.
+  - id: CVE-2018-5403
+    cvss: 8.1
+    year: 2018
+    kev: false
+    scope: device
+    title: SecureSphere gateway RCE via crafted requests when basic-auth passwords are known (pre and post first-time login)
+    affected: Imperva SecureSphere gateway v13
+    detect: Logins to the gateway's management interface from non-admin hosts; system events for configuration changes nobody made.
+    avoid: Change default/first-time passwords immediately; restrict gateway management access; apply vendor patches.
+  - id: CVE-2018-5413
+    cvss: 8.8
+    year: 2018
+    kev: false
+    scope: device
+    title: Low-privileged users can add SSH keys to the admin account (privilege escalation)
+    affected: Imperva SecureSphere v11.5, v12.0, v13.0
+    detect: Changes to authorized_keys on MX or gateways; SSH logins as admin from unexpected sources.
+    avoid: Patch; limit local accounts on appliances; monitor appliance SSH logins in the SIEM.
+  - id: CVE-2019-1068
+    cvss: 8.8
+    year: 2019
+    kev: true
+    scope: traffic
+    title: Microsoft SQL Server RCE through a crafted query by an authenticated user (internal function handling)
+    affected: SQL Server 2014 SP2/SP3, 2016 SP1/SP2, 2017 before the July 2019 security update
+    fixed: July 2019 SQL Server security updates (GDR/CU per version)
+    detect: DAM audit of unusual internal or undocumented function calls from application accounts, followed by xp_cmdshell or new logins; SQL errors from the same session.
+    avoid: Patch SQL Server; least-privilege logins; DAM security policy alerting on privileged procedures from non-DBA sources.
+  - id: CVE-2023-34362
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: MOVEit Transfer SQL injection — injected statements reach the SQL Server / MySQL back end
+    affected: MOVEit Transfer before 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    fixed: 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    detect: DAM SQL-injection alerts on the MOVEit service account; audit records with INSERT/UPDATE on user and session tables that the application never issues normally.
+    avoid: Patch MOVEit; DAM blocking policy for the application account; alert on DCL/DDL from application accounts.
+detections:
+  - title: SQL injection or protocol attack alert
+    severity: high
+    signals:
+      - cat=Alert
+      - name SQL Injection / Protocol Violation
+      - act=None means it was not blocked
+    why: The gateway has already recognised an attack against the database; an unblocked high-severity alert from an application account means the app in front is vulnerable.
+    kql: |-
+      dataset="imperva_dam" cat="Alert"
+      | where name has "Injection" or name has "Protocol"
+      | summarize alerts=count(), blocked=countif(act=="Block") by src, duser, cs1, name
+      | where alerts > 0
+    mitre:
+      - T1190
+  - title: Interactive tool used with an application account
+    severity: high
+    signals:
+      - cs10 (SourceApplication) = SSMS, sqlplus, DBeaver, python
+      - duser is a service/application account
+    why: Application credentials should only come from the application server; a human tool using them means the credentials were stolen or shared.
+    kql: |-
+      dataset="imperva_dam" cat="Audit"
+      | where duser startswith "app_" or duser startswith "svc_"
+      | where cs10 matches regex @"(?i)(management studio|sqlplus|dbeaver|toad|python|sqlcmd)"
+      | summarize events=count() by duser, src, cs10, cs13
+    mitre:
+      - T1078
+  - title: Mass read of sensitive data
+    severity: high
+    signals:
+      - cs21 (AffectedRows) very high
+      - cs19 (ResponseSize) in MB
+      - tables with SSN, card or salary columns
+    why: Exfiltration from the database is a few SELECTs that return far more rows than any business screen; DAM is often the only place this is visible.
+    kql: |-
+      dataset="imperva_dam" cat="Audit" cs6="Query"
+      | where toint(cs21) > 10000 or toint(cs19) > 10000000
+      | summarize rows=sum(toint(cs21)), bytes=sum(toint(cs19)) by duser, src, cs13, bin(_time, 1h)
+    mitre:
+      - T1213
+      - T1530
+  - title: Privileged operation or account change
+    severity: medium
+    signals:
+      - GRANT / CREATE LOGIN / ALTER USER / sp_addsrvrolemember
+      - xp_cmdshell enabled
+      - outside a change window
+    why: Backdoor logins, role grants and enabling command execution are the persistence and escalation steps after a database foothold.
+    kql: |-
+      dataset="imperva_dam" cat="Audit"
+      | where cs16 matches regex @"(?i)\b(grant|create (login|user)|alter (login|user)|sp_addsrvrolemember|xp_cmdshell)\b"
+      | project _time, duser, src, cs10, cs13, cs16
+    mitre:
+      - T1098
+      - T1136
+  - title: Failed database logins
+    severity: medium
+    signals:
+      - cs6 Login with cs18 (SQLError) set
+      - many users from one src
+    why: Password spraying against SQL Server and Oracle logins shows up as login errors at the gateway even when native DB auditing is off.
+    kql: |-
+      dataset="imperva_dam" cat="Audit" cs6="Login"
+      | where isnotempty(cs18)
+      | summarize fails=count(), users=dcount(duser) by src, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110
+  - title: Monitoring blind spot — agent disconnected or gateway bypass
+    severity: medium
+    signals:
+      - cat=SystemEvent
+      - agent disconnected / gateway bypass / policy disabled
+    why: An attacker who reaches the DB host can stop the agent; until it reconnects, nothing on that server is audited.
+    kql: |-
+      dataset="imperva_dam" cat="SystemEvent"
+      | where name has "disconnected" or name has "bypass" or name has "disabled"
+      | project _time, signature_id, name, severity, suser
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Drop empty and redundant custom strings
+    saving: 20–35 %
+    fn: Eval
+    how: Templates send every csN and csNLabel even when empty, and both raw and parsed query. Rename used csN fields to their labels, remove the labels, empty fields and the raw query when the parsed one is kept.
+    expr: "Policy = cs1, Database = cs13, ParsedQuery = cs16, AffectedRows = cs21  (then remove cs*Label, empty cs*, cs15)"
+  - title: Aggregate repetitive application queries
+    saving: 60–90 %
+    fn: Aggregations
+    how: Application accounts send the same parameterised statement thousands of times a minute. Aggregate by duser, src, cs13 and cs16 with count and sum(cs21) per minute for those accounts; keep individual events for humans.
+    expr: "count(), sum(cs21) by duser, src, cs13, cs16 every 60s  when duser startsWith 'app_'"
+  - title: Drop bind variables
+    saving: 5–15 %
+    fn: Eval
+    how: Bind variable values (cs17) repeat data the query already shows in parsed form and can carry personal data. Remove or hash them before the SIEM.
+    expr: "cs17 = undefined"
+  - title: Route alerts and privileged activity to the SIEM, bulk audit to Lake
+    saving: SIEM licence
+    fn: Routes
+    how: Alerts, system events, logins, DCL/DDL and anything from interactive tools → SIEM. Routine application DML audit → Cribl Lake for compliance retention and investigations.
+    expr: "cat!='Audit' || /\\b(grant|create|alter|drop)\\b/i.test(cs16) → SIEM | else → Lake"
+references:
+  - title: Imperva — SecureSphere CEF certification guide (placeholders and templates)
+    url: https://www.imperva.com/docs/SB_Imperva_SecureSphere_CEF_guide.pdf
+  - title: Imperva DAM 15.4 user guide — List of Splunk placeholders
+    url: https://docs-cybersec.thalesgroup.com/bundle/v15.4-dam-user-guide/page/59400.htm
+  - title: Imperva — List of standard placeholders
+    url: https://docs-cybersec.thalesgroup.com/bundle/v15.3-waf-management-server-manager-user-guide/page/11274.htm
+  - title: NVD — CVE-2018-19646
+    url: https://nvd.nist.gov/vuln/detail/CVE-2018-19646
+  - title: Microsoft — CVE-2019-1068 SQL Server RCE
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2019-1068
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - imperva-waf
+  - mysql
+  - ibm-db2
+  - aws-rds-audit
+  - sap

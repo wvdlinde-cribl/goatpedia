@@ -1,0 +1,312 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: alibaba-actiontrail
+name: Alibaba Cloud ActionTrail
+short: ActionTrail
+aka:
+  - Aliyun ActionTrail
+  - ActionTrail trails
+  - Alibaba Cloud audit log
+vendor: Alibaba Cloud
+category: cloud
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - alibaba-cloud
+  - aliyun
+  - audit
+  - control-plane
+  - ram
+  - sls
+  - oss
+  - json
+summary: The API and console audit service of Alibaba Cloud — the CloudTrail equivalent. Every management API call, console operation, console sign-in and Alibaba-initiated service event on ECS, RAM, OSS, VPC, RDS, ACK and other services is recorded as a JSON event with the caller identity, AccessKey, source IP and result. Trails deliver the events to Simple Log Service (SLS) or OSS for long-term retention and SIEM collection.
+sourcetypes:
+  - st: alibaba_action_trail
+    desc: Pack Generator sourcetype for ActionTrail events (JSON, from an OSS or SLS trail)
+  - st: ALICLOUD_ACTIONTRAIL
+    desc: Google SecOps (Chronicle) log type (no default parser — custom parser needed)
+facts:
+  Delivery model: Managed Alibaba Cloud service, enabled per account; multi-account trails through Resource Directory
+  Event categories: Management events (ApiCall, ConsoleOperation, ConsoleSignin, ConsoleSignout, AliyunServiceEvent) and optional data events (e.g. OSS object operations)
+  Event history: Last 90 days of management events queryable in the console / LookupEvents API without a trail
+  Log transport: Trail to an SLS Logstore (near real time) and/or an OSS bucket (compressed JSON files)
+  Log format: JSON — one event per record; SLS flattens fields as event.* with __topic__ actiontrail_event
+  Identity types: root-account, ram-user, assumed-role, system, cloudsso-user, saml-user, oidc-user, alibaba-cloud-account
+  Typical volume: 10k – 1M+ events/day per account; read (Describe*) calls dominate
+  Cribl collection: OSS bucket via the S3-compatible API (Cribl S3 source with a custom endpoint) or an SLS consumer; no Dispensary pack found
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: Multi-account trail
+      desc: Created by the Resource Directory management account to cover every member account and region, delivering to a central SLS project and OSS bucket in a log-archive account.
+    - slot: cloud
+      title: Workloads on ECS / ACK
+      desc: Applications use RAM roles or AccessKeys to call Alibaba Cloud APIs; their calls (and any stolen keys) show up as ApiCall events with an SDK userAgent.
+    - slot: remote
+      title: Console users and admins
+      desc: Console logons (ConsoleSignin) and console operations by RAM users, SSO users and the root account, often from outside mainland China for global companies.
+howItWorks:
+  - title: Recording
+    body: ActionTrail records each request to the OpenAPI gateway and console back end — API name (eventName), service (serviceName, eventSource), region (acsRegion), read/write type (eventRW), identity, source IP, user agent, request parameters, response and error.
+  - title: Identity
+    body: userIdentity.type says who acted; principalId and userName identify the RAM user or role session (RoleName:RoleSessionName for assumed-role); accessKeyId is present for SDK/CLI calls; sessionContext shows STS sessions and mfaAuthenticated for console logins.
+  - title: Sensitive actions
+    body: eventAttributes.SensitiveAction = true marks operations Alibaba Cloud considers sensitive (deleting resources, changing security groups, RAM policy changes) — a useful built-in filter for alerting.
+  - title: Source IP semantics
+    body: sourceIpAddress is the client IP for direct calls, a service name (e.g. ecs.aliyuncs.com) when an Alibaba service acts for you, or Internal for calls from inside Alibaba Cloud networks that cannot be tied to your VPC (vpcId is set when they can).
+  - title: Trails and delivery
+    body: A trail selects event types (Read, Write or All) and destinations. SLS delivery is near real time and searchable; OSS delivery writes gzip JSON files by account, region and date for archive and batch collection.
+traffic:
+  handles:
+    - Management API calls on all integrated services (ECS, RAM, OSS, VPC, SLB, RDS, ACK …)
+    - Console operations and console sign-in / sign-out
+    - STS AssumeRole and AccessKey usage
+    - Alibaba-initiated service events
+    - Optional OSS data events
+  flow:
+    - step: Request
+      desc: A user, SDK or service calls an Alibaba Cloud OpenAPI or uses the console.
+    - step: Authenticate
+      desc: The signature (AccessKey / STS token) or console session is verified.
+    - step: Authorise
+      desc: RAM policies, resource policies and control policies decide allow or deny.
+    - step: Execute
+      desc: The service performs the action and returns a result or error code.
+    - step: Event
+      desc: ActionTrail records the event with identity, IP, parameters and result.
+    - step: Deliver
+      desc: Trails deliver to SLS (minutes) and OSS (batched files); Cribl or the SIEM collects from there.
+logs:
+  - type: API call (ApiCall)
+    sourcetype: alibaba_action_trail
+    format: json
+    share: 85–98 %
+    avg: ~1.5 KB
+    desc: One event per OpenAPI call. This example is a RAM user creating an AccessKey for another RAM user via the CLI — a classic persistence step.
+    key:
+      - eventName
+      - serviceName
+      - userIdentity.type
+      - userIdentity.userName
+      - userIdentity.accessKeyId
+      - sourceIpAddress
+      - requestParameters.UserName
+      - eventAttributes.SensitiveAction
+    noise:
+      - eventVersion
+      - eventId
+      - requestId
+      - apiVersion
+      - requestParameters.AcsProduct
+      - requestParameters.ClientPort
+      - eventCategory
+    sample: '{"eventId":"92b33345-0cef-47be-821f-fb9914d3a1b2","eventVersion":1,"eventSource":"ram.aliyuncs.com","eventCategory":"Management","acsRegion":"cn-hangzhou","eventType":"ApiCall","eventRW":"Write","apiVersion":"2015-05-01","serviceName":"Ram","eventName":"CreateAccessKey","eventTime":"2026-11-12T09:14:22Z","requestId":"32B7EB75-62EE-511E-9449-E19EBF67C2ED","sourceIpAddress":"203.0.113.45","userAgent":"AlibabaCloud (linux; amd64) Go/1.22.5 Core/3.0.0 aliyun-cli/v3.0.211","userIdentity":{"type":"ram-user","principalId":"203456789012345678","accountId":"1234567890123456","accessKeyId":"LTAIexampleKEY1234","userName":"jdoe"},"requestParameters":{"UserName":"svc-backup","AcsProduct":"Ram","ClientPort":51544},"responseElements":{"AccessKey":{"AccessKeyId":"LTAIexampleKEY5678","Status":"Active","CreateDate":"2026-11-12T09:14:22Z"}},"eventAttributes":{"SensitiveAction":"true"},"isGlobal":true,"referencedResources":{"ACS::RAM::User":["svc-backup"]}}'
+  - type: Console sign-in (ConsoleSignin)
+    sourcetype: alibaba_action_trail
+    format: json
+    share: < 1 %
+    avg: ~1 KB
+    desc: Console logon attempts by root, RAM and SSO users with success or error, and whether MFA was used. Brute force and root logins show up here.
+    key:
+      - eventType
+      - userIdentity.type
+      - userIdentity.userName
+      - sourceIpAddress
+      - errorMessage
+      - additionalEventData.MFAUsed
+      - additionalEventData.loginAccount
+    noise:
+      - eventVersion
+      - eventId
+      - requestId
+      - additionalEventData.callbackUrl
+    sample: '{"eventId":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","eventVersion":1,"eventSource":"signin.aliyun.com","eventCategory":"Management","acsRegion":"cn-hangzhou","eventType":"ConsoleSignin","eventRW":"Write","serviceName":"AasSub","eventName":"ConsoleSignin","eventTime":"2026-11-12T07:41:09Z","requestId":"7C1E2F3A-4B5D-6E7F-8091-A2B3C4D5E6F7","sourceIpAddress":"198.51.100.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36","userIdentity":{"type":"ram-user","principalId":"203456789012345678","accountId":"1234567890123456","userName":"jdoe"},"additionalEventData":{"loginAccount":"jdoe@example.onaliyun.com","MFAUsed":"false","callbackUrl":"https://home-intl.console.aliyun.com/"},"errorMessage":"The password is incorrect."}'
+  - type: Sensitive action via SLS trail
+    sourcetype: alibaba_action_trail
+    format: json
+    share: 1–5 %
+    avg: ~1.2 KB
+    desc: "The same events as delivered to an SLS Logstore: flattened event.* fields plus __topic__ actiontrail_event and owner_id. This example opens a security group to the internet on SSH."
+    key:
+      - event.eventName
+      - event.userIdentity.userName
+      - event.userIdentity.accessKeyId
+      - event.sourceIpAddress
+      - event.requestParameters.SecurityGroupId
+      - event.requestParameters.SourceCidrIp
+      - event.requestParameters.PortRange
+    noise:
+      - __topic__
+      - event.eventVersion
+      - event.eventId
+      - event.requestId
+      - event.apiVersion
+    sample: '{"__topic__":"actiontrail_event","owner_id":"1234567890123456","event.eventId":"5d6e7f80-91a2-4b3c-8d4e-5f6a7b8c9d0e","event.eventVersion":"1","event.eventSource":"ecs.aliyuncs.com","event.eventType":"ApiCall","event.eventRW":"Write","event.acsRegion":"eu-central-1","event.apiVersion":"2014-05-26","event.serviceName":"Ecs","event.eventName":"AuthorizeSecurityGroup","event.eventTime":"2026-11-12T10:02:44Z","event.requestId":"0A1B2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D","event.sourceIpAddress":"192.0.2.88","event.userAgent":"Terraform/1.9.8 terraform-provider-alicloud/1.231.0","event.userIdentity.type":"assumed-role","event.userIdentity.principalId":"300987654321098765:tf-deploy","event.userIdentity.accountId":"1234567890123456","event.userIdentity.accessKeyId":"STS.EXAMPLEtoken1234","event.userIdentity.userName":"TerraformRole:tf-deploy","event.requestParameters.SecurityGroupId":"sg-gw8example1234","event.requestParameters.IpProtocol":"tcp","event.requestParameters.PortRange":"22/22","event.requestParameters.SourceCidrIp":"0.0.0.0/0","event.requestParameters.Policy":"accept","event.eventAttributes.SensitiveAction":"true"}'
+cves:
+  - id: CVE-2021-29441
+    cvss: 9.8
+    year: 2021
+    kev: false
+    scope: traffic
+    title: Alibaba Nacos authentication bypass via the "Nacos-Server" User-Agent — config stores often hold Alibaba Cloud AccessKeys later used against the APIs ActionTrail records
+    affected: Nacos before 1.4.1 with authentication enabled
+    fixed: 1.4.1
+    detect: AccessKeys belonging to application RAM users suddenly used from a sourceIpAddress outside the workload's VPC (vpcId empty, public IP), calling DescribeInstances, ListBuckets or CreateAccessKey.
+    avoid: Upgrade Nacos and set a non-default nacos.core.auth.server.identity; never store long-term AccessKeys in config — use RAM roles for ECS/ACK; restrict AccessKeys with source-IP conditions.
+  - id: CVE-2022-25845
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: traffic
+    title: Fastjson autoType bypass deserialization RCE — compromised Java apps on Alibaba Cloud steal instance RAM-role credentials (ActionTrail shows their use)
+    affected: com.alibaba:fastjson before 1.2.83
+    fixed: 1.2.83 (or fastjson2 / safeMode)
+    detect: STS credentials of an ECS instance RAM role (userIdentity.type assumed-role, accessKeyId STS.*) used from IPs that are not the instance, or the role calling APIs it never used before (RAM, OSS ListBuckets, ECS RunInstances).
+    avoid: Upgrade or enable safeMode; enforce IMDS hardened mode (token-based metadata access) on ECS; least-privilege instance roles.
+  - id: CVE-2017-18349
+    cvss: 9.8
+    year: 2017
+    kev: false
+    scope: traffic
+    title: Fastjson parseObject remote code execution (JNDI via @type) — the original Fastjson RCE, still exploited against legacy apps
+    affected: Fastjson before 1.2.25
+    fixed: 1.2.25 (current guidance — 1.2.83 or later)
+    detect: Same signals as CVE-2022-25845 — stolen instance-role or AccessKey use in ActionTrail after a web app compromise; correlate with WAF / SLB logs showing @type payloads.
+    avoid: Upgrade; Alibaba Cloud WAF Fastjson rules; egress filtering for LDAP/RMI from application subnets.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — RCE on ECS/ACK Java workloads, followed by use of their RAM credentials visible in ActionTrail
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: Instance-role STS tokens or app AccessKeys calling RAM CreateUser/CreateAccessKey, ECS RunInstances in unused regions, or OSS bucket listings from new sourceIpAddress values.
+    avoid: Patch; least-privilege RAM roles; Security Center vulnerability scanning; IMDS hardened mode.
+detections:
+  - title: ActionTrail logging tampered with
+    severity: critical
+    signals:
+      - serviceName=Actiontrail
+      - eventName in StopLogging / DeleteTrail / UpdateTrail
+    why: Stopping or narrowing the trail is the first defence-evasion step; legitimate changes are rare and come from a known automation role.
+    kql: |-
+      dataset="alibaba_actiontrail" serviceName="Actiontrail"
+      | where eventName in ("StopLogging","DeleteTrail","UpdateTrail")
+      | summarize count() by eventName, userIdentity.userName, sourceIpAddress, acsRegion
+    mitre:
+      - T1562.008
+  - title: Root account activity
+    severity: high
+    signals:
+      - userIdentity.type=root-account
+      - eventType ConsoleSignin or ApiCall
+    why: The root account bypasses RAM policies; daily work should use RAM or SSO identities, so any root sign-in or API call needs review.
+    kql: |-
+      dataset="alibaba_actiontrail" userIdentity.type="root-account"
+      | summarize events=count(), first=min(_time) by eventType, eventName, sourceIpAddress
+    mitre:
+      - T1078.004
+  - title: Console brute force or sign-in without MFA
+    severity: high
+    signals:
+      - eventType=ConsoleSignin
+      - errorMessage burst per sourceIpAddress
+      - additionalEventData.MFAUsed=false on success
+    why: Password spraying against RAM users and successful logins without MFA are the common console initial-access path.
+    kql: |-
+      dataset="alibaba_actiontrail" eventType="ConsoleSignin"
+      | summarize fails=countif(isnotempty(errorMessage)), nomfa=countif(isempty(errorMessage) and additionalEventData.MFAUsed=="false"), users=dcount(userIdentity.userName) by sourceIpAddress, bin(_time, 15m)
+      | where fails > 10 or nomfa > 0
+    mitre:
+      - T1110.003
+      - T1078.004
+  - title: New AccessKey or admin policy for a RAM identity
+    severity: high
+    signals:
+      - serviceName=Ram
+      - eventName in CreateAccessKey / AttachPolicyToUser / AttachPolicyToRole
+      - PolicyName AdministratorAccess or caller differs from target user
+    why: Minting long-term keys for another user, or attaching AdministratorAccess, is persistence and privilege escalation in one call.
+    kql: |-
+      dataset="alibaba_actiontrail" serviceName="Ram"
+      | where eventName in ("CreateAccessKey","CreateLoginProfile","AttachPolicyToUser","AttachPolicyToRole","AttachPolicyToGroup") and isempty(errorCode)
+      | where requestParameters.PolicyName=="AdministratorAccess" or (eventName=="CreateAccessKey" and requestParameters.UserName != userIdentity.userName)
+      | project _time, eventName, userIdentity.userName, requestParameters.UserName, requestParameters.PolicyName, sourceIpAddress
+    mitre:
+      - T1098.001
+      - T1098.003
+  - title: Security group opened to the internet
+    severity: medium
+    signals:
+      - eventName=AuthorizeSecurityGroup
+      - SourceCidrIp 0.0.0.0/0
+      - PortRange 22, 3389 or database ports
+    why: World-open ingress on management or database ports exposes ECS instances directly; attackers also open them for their own access.
+    kql: |-
+      dataset="alibaba_actiontrail" event.eventName="AuthorizeSecurityGroup" event.requestParameters.SourceCidrIp="0.0.0.0/0"
+      | project _time, event.userIdentity.userName, event.sourceIpAddress, event.requestParameters.SecurityGroupId, event.requestParameters.PortRange
+    mitre:
+      - T1562.007
+  - title: Reconnaissance burst with a single AccessKey
+    severity: medium
+    signals:
+      - many distinct Describe*/List* eventName
+      - high errorCode Forbidden.RAM ratio
+      - one userIdentity.accessKeyId
+    why: A leaked key being tested enumerates many services quickly and is denied on most; normal workloads call a small, stable set of APIs.
+    kql: |-
+      dataset="alibaba_actiontrail" eventRW="Read"
+      | summarize apis=dcount(eventName), denied=countif(errorCode startswith "Forbidden"), total=count() by userIdentity.accessKeyId, sourceIpAddress, bin(_time, 10m)
+      | where apis > 30 and denied * 1.0 / total > 0.3
+    mitre:
+      - T1580
+      - T1087.004
+optimizations:
+  - title: Drop service-initiated read calls
+    saving: 30–60 %
+    fn: Drop
+    how: Describe/List/Get calls by Alibaba services (sourceIpAddress = *.aliyuncs.com) and monitoring tools dominate. Keep every write, every error, all RAM/STS/sign-in events and anything marked SensitiveAction.
+    expr: eventRW=='Read' && !errorCode && /aliyuncs\.com$/.test(sourceIpAddress) && !['Ram','Sts','AasSub'].includes(serviceName)
+  - title: Normalise SLS and OSS shapes
+    saving: 5–15 %
+    fn: Eval
+    how: SLS delivers flattened event.* keys; OSS delivers nested JSON. Strip the event. prefix (or unflatten) so one set of detections works for both, and drop __topic__/__source__/owner_id duplicates.
+    expr: "rename: event.* → *; remove: __topic__, __source__, owner_id"
+  - title: Strip low-value fields
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: eventVersion, eventId, requestId, apiVersion, requestParameters.ClientPort/AcsProduct and large responseElements are rarely searched; keep requestParameters (the evidence).
+    expr: "remove: eventVersion, eventId, requestId, apiVersion, requestParameters.ClientPort, requestParameters.AcsProduct; drop empty"
+  - title: Route sensitive and identity events to the SIEM
+    saving: SIEM licence
+    fn: Routes
+    how: SensitiveAction, RAM/STS, ConsoleSignin, ActionTrail changes and all errors to the SIEM at full fidelity; remaining reads and service events to Lake.
+    expr: eventAttributes.SensitiveAction=='true' || ['Ram','Sts','Actiontrail'].includes(serviceName) || eventType=='ConsoleSignin' || errorCode → SIEM | else → Lake
+references:
+  - title: ActionTrail management event structure
+    url: https://www.alibabacloud.com/help/en/actiontrail/user-guide/management-event-structure
+  - title: ActionTrail data event structure
+    url: https://www.alibabacloud.com/help/en/actiontrail/user-guide/data-event-structure
+  - title: ActionTrail operation log fields in Simple Log Service
+    url: https://www.alibabacloud.com/help/en/sls/actiontrail
+  - title: Create a single-account trail
+    url: https://www.alibabacloud.com/help/en/actiontrail/user-guide/create-a-single-account-trail
+  - title: Nacos issue 4593 — authentication bypass (CVE-2021-29441)
+    url: https://github.com/alibaba/nacos/issues/4593
+  - title: Fastjson security update 2022-05-23 (CVE-2022-25845)
+    url: https://github.com/alibaba/fastjson/wiki/security_update_20220523
+  - title: Google SecOps supported log types (ALICLOUD_ACTIONTRAIL)
+    url: https://docs.cloud.google.com/chronicle/docs/ingestion/parser-list/supported-default-parsers
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cloudtrail
+  - azure-activity
+  - gcp-audit
+  - aws-config

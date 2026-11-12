@@ -1,0 +1,346 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-eks-audit
+name: Amazon EKS Control Plane Audit
+short: EKS Audit
+aka:
+  - EKS control plane logging
+  - kube-apiserver audit log
+  - Kubernetes audit (audit.k8s.io/v1)
+  - aws-iam-authenticator log
+vendor: Amazon Web Services
+category: workload
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - kubernetes
+  - aws
+  - eks
+  - audit
+  - cloudwatch
+  - json
+  - rbac
+summary: The Kubernetes API server audit log of an Amazon EKS cluster, plus the EKS-only authenticator log that maps IAM identities to Kubernetes users. Every kubectl, controller and pod call to the API is recorded as a JSON audit.k8s.io event (who, verb, resource, namespace, source IP, allow/deny decision) and delivered to CloudWatch Logs.
+sourcetypes:
+  - st: aws_eks_audit
+    desc: Kubernetes audit events from the kube-apiserver-audit-* log streams
+  - st: aws:cloudwatchlogs
+    desc: Splunk Add-on for AWS generic CloudWatch Logs sourcetype — EKS control plane streams (audit, authenticator, api) often arrive under it
+facts:
+  First released: EKS GA 2018; control plane logging to CloudWatch added 2019
+  Platform: Managed Kubernetes control plane (AWS-operated kube-apiserver)
+  Log types: api, audit, authenticator, controllerManager, scheduler — each enabled separately, all off by default
+  Delivery model: CloudWatch Logs group /aws/eks/<cluster>/cluster, stream kube-apiserver-audit-<id>; best-effort, within minutes
+  Log transport: CloudWatch subscription filter → Kinesis Data Streams / Firehose (base64 + gzip) → Cribl, or CloudWatch export to S3
+  Log format: JSON Lines, one audit.k8s.io/v1 Event per line; audit policy is fixed by EKS (not customer-editable)
+  Typical volume: 10s to 1,000s of events/s per cluster — mostly get/list/watch from controllers, nodes and operators
+  Size limit: CloudWatch entries max 1 MB; larger RequestResponse bodies are truncated or metadata-only
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: EKS control plane
+      desc: The audit log is produced by the AWS-managed API servers, not by anything in your VPC. You only switch it on and collect it from CloudWatch Logs in the same account and region.
+    - slot: remote
+      title: Engineers and CI/CD
+      desc: kubectl users, GitOps controllers (Argo CD, Flux) and pipelines reach the public or private API endpoint. Their IAM identity is mapped to a Kubernetes user by the authenticator or EKS access entries, and every call lands in the audit log with its sourceIPs.
+howItWorks:
+  - title: Authentication via IAM
+    body: kubectl sends a pre-signed STS GetCallerIdentity token. The EKS authenticator (aws-iam-authenticator) validates it and maps the IAM ARN to a Kubernetes username and groups using EKS access entries or the legacy aws-auth ConfigMap. The audit event's user.extra carries arn, canonicalArn, principalId, sessionName and accessKeyId.
+  - title: Authorization
+    body: The request is checked by RBAC (and EKS access policies, webhooks). The decision and reason are recorded as annotations authorization.k8s.io/decision and authorization.k8s.io/reason.
+  - title: Admission
+    body: Mutating and validating admission webhooks (Pod Security Admission, Kyverno, Gatekeeper) can change or reject the object. Webhook decisions can add their own annotations to the audit event.
+  - title: Audit stages and levels
+    body: Each request can produce events at RequestReceived, ResponseStarted, ResponseComplete and Panic. EKS omits RequestReceived. The level (None, Metadata, Request, RequestResponse) is chosen by the EKS audit policy, e.g. Metadata-only for secrets and configmaps, full RequestResponse for aws-auth changes.
+  - title: Delivery
+    body: EKS writes the events to CloudWatch Logs. A subscription filter streams them (base64 + gzip, wrapped in a logEvents array) to Kinesis or Firehose. A collector has to decompress the batch and split it into one event per audit record.
+traffic:
+  handles:
+    - Kubernetes API requests (REST verbs on resources and subresources)
+    - kubectl exec / attach / port-forward (pods/exec, pods/portforward)
+    - RBAC changes (Roles, ClusterRoleBindings)
+    - Secret and ConfigMap access
+    - Admission webhook decisions
+    - IAM → Kubernetes identity mapping (authenticator log)
+    - Service-account token requests (serviceaccounts/token)
+  flow:
+    - step: Client call
+      desc: kubectl, a controller or a pod calls the API endpoint with an IAM token or service-account token.
+    - step: Authenticate
+      desc: The authenticator maps the IAM identity to a username and groups (authenticator log line).
+    - step: Authorize
+      desc: RBAC / access policies return allow or forbid; recorded as authorization.k8s.io annotations.
+    - step: Admission
+      desc: Webhooks mutate or reject; Pod Security checks run.
+    - step: Persist + respond
+      desc: The object is written to etcd and the response code returned.
+    - step: Audit event
+      desc: An audit.k8s.io Event is written at ResponseComplete (or ResponseStarted for watches) and shipped to CloudWatch Logs.
+logs:
+  - type: API audit event — read (Metadata level)
+    sourcetype: aws_eks_audit
+    format: json
+    share: 85–95 %
+    avg: ~1.5 KB
+    desc: Most events are reads. For secrets and configmaps EKS logs only metadata (no body). Who did what is in user.username, user.extra.arn, verb, objectRef and sourceIPs.
+    key:
+      - user.username
+      - user.extra.arn[0]
+      - verb
+      - objectRef.resource
+      - objectRef.namespace
+      - sourceIPs[0]
+      - responseStatus.code
+      - annotations.authorization.k8s.io/decision
+    noise:
+      - auditID
+      - requestReceivedTimestamp
+      - kind
+      - apiVersion
+      - responseStatus.metadata
+      - user.extra.accessKeyId[0]
+    sample: '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"5f0a6a4e-2b1c-4d3e-9f80-1a2b3c4d5e6f","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/payments/secrets?limit=500","verb":"list","user":{"username":"arn:aws:sts::111122223333:assumed-role/DevRole/jdoe","uid":"aws-iam-authenticator:111122223333:AROAEXAMPLEID1234","groups":["system:authenticated"],"extra":{"accessKeyId":["ASIAEXAMPLEKEY12345"],"arn":["arn:aws:sts::111122223333:assumed-role/DevRole/jdoe"],"canonicalArn":["arn:aws:iam::111122223333:role/DevRole"],"principalId":["AROAEXAMPLEID1234"],"sessionName":["jdoe"]}},"sourceIPs":["203.0.113.45"],"userAgent":"kubectl/v1.31.2 (linux/amd64) kubernetes/5864a46","objectRef":{"resource":"secrets","namespace":"payments","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:22.418203Z","stageTimestamp":"2026-11-12T09:14:22.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"EKS Access Policy: allowed by ClusterRoleBinding \"arn:aws:sts::111122223333:assumed-role/DevRole/{{SessionName}}+arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy\" of ClusterRole \"arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy\" to User \"jdoe\""}}'
+  - type: API audit event — write (pods/exec)
+    sourcetype: aws_eks_audit
+    format: json
+    share: 5–15 %
+    avg: ~2–20 KB
+    desc: Creates, updates, patches and deletes. Request-level events include requestObject (the submitted spec); subresources such as exec and portforward show up in objectRef.subresource.
+    key:
+      - user.username
+      - verb
+      - objectRef.resource
+      - objectRef.subresource
+      - objectRef.namespace
+      - objectRef.name
+      - requestURI
+      - responseStatus.code
+    noise:
+      - auditID
+      - requestReceivedTimestamp
+      - responseStatus.metadata
+    sample: '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Request","auditID":"7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d","stage":"ResponseStarted","requestURI":"/api/v1/namespaces/payments/pods/checkout-api-7c9f6d5b8d-q2xkp/exec?command=bash\u0026container=checkout-api\u0026stdin=true\u0026stdout=true\u0026tty=true","verb":"create","user":{"username":"arn:aws:sts::111122223333:assumed-role/DevRole/jdoe","uid":"aws-iam-authenticator:111122223333:AROAEXAMPLEID1234","groups":["system:authenticated"],"extra":{"arn":["arn:aws:sts::111122223333:assumed-role/DevRole/jdoe"],"sessionName":["jdoe"]}},"sourceIPs":["203.0.113.45"],"userAgent":"kubectl/v1.31.2 (linux/amd64) kubernetes/5864a46","objectRef":{"resource":"pods","namespace":"payments","name":"checkout-api-7c9f6d5b8d-q2xkp","apiVersion":"v1","subresource":"exec"},"responseStatus":{"metadata":{},"code":101},"requestReceivedTimestamp":"2026-11-12T09:13:58.112004Z","stageTimestamp":"2026-11-12T09:13:58.145210Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"EKS Access Policy: allowed by ClusterRoleBinding of ClusterRole AmazonEKSClusterAdminPolicy to User jdoe"}}'
+  - type: API audit event — create with request body (privileged pod)
+    sourcetype: aws_eks_audit
+    format: json
+    share: 1–5 %
+    avg: ~3–30 KB
+    desc: Request or RequestResponse level events carry the submitted object in requestObject (and the stored result in responseObject). This is where privileged flags, hostPath mounts, RBAC subjects and webhook configs are visible.
+    key:
+      - user.username
+      - verb
+      - objectRef.resource
+      - objectRef.namespace
+      - requestObject.spec.containers[0].securityContext.privileged
+      - requestObject.spec.hostPID
+      - requestObject.spec.volumes[0].hostPath.path
+      - responseStatus.code
+    noise:
+      - auditID
+      - requestReceivedTimestamp
+      - responseStatus.metadata
+    sample: '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Request","auditID":"9c8b7a6d-5e4f-4321-8a9b-0c1d2e3f4a5b","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/default/pods?fieldManager=kubectl-run","verb":"create","user":{"username":"system:serviceaccount:ci:deployer","uid":"0d9e8f7a-6b5c-4d3e-2f1a-0b9c8d7e6f5a","groups":["system:serviceaccounts","system:serviceaccounts:ci","system:authenticated"]},"sourceIPs":["10.0.12.88"],"userAgent":"kubectl/v1.31.2 (linux/amd64) kubernetes/5864a46","objectRef":{"resource":"pods","namespace":"default","name":"node-debug","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":201},"requestObject":{"kind":"Pod","apiVersion":"v1","metadata":{"name":"node-debug","namespace":"default"},"spec":{"hostPID":true,"hostNetwork":true,"containers":[{"name":"shell","image":"docker.io/library/alpine:3.20","command":["nsenter","-t","1","-m","-u","-i","-n","sh"],"securityContext":{"privileged":true}}],"volumes":[{"name":"host","hostPath":{"path":"/"}}]}},"requestReceivedTimestamp":"2026-11-12T09:20:11.004512Z","stageTimestamp":"2026-11-12T09:20:11.032871Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed by RoleBinding \"deployer-edit/default\" of ClusterRole \"edit\" to ServiceAccount \"deployer/ci\"","pod-security.kubernetes.io/enforce-policy":"privileged:latest"}}'
+  - type: Authenticator
+    sourcetype: aws:cloudwatchlogs
+    format: kv
+    share: 1–5 %
+    avg: ~400 B
+    desc: EKS-only log from aws-iam-authenticator. One line per token review, showing which IAM ARN was mapped to which Kubernetes username and groups, or why access was denied.
+    key:
+      - msg
+      - arn
+      - username
+      - groups
+      - uid
+    noise:
+      - path
+      - method
+      - client
+    sample: time="2026-11-12T09:13:55Z" level=info msg="access granted" arn="arn:aws:iam::111122223333:role/DevRole" client="127.0.0.1:52722" groups="[system:authenticated]" method=POST path=/authenticate uid="aws-iam-authenticator:111122223333:AROAEXAMPLEID1234" username="arn:aws:sts::111122223333:assumed-role/DevRole/jdoe"
+cves:
+  - id: CVE-2018-1002105
+    cvss: 9.8
+    year: 2018
+    kev: false
+    scope: device
+    title: kube-apiserver proxied upgrade request lets a caller send arbitrary requests to backends with the API server's credentials
+    affected: Kubernetes before 1.10.11, 1.11.x before 1.11.5, 1.12.x before 1.12.3 (EKS platform versions of that era)
+    fixed: 1.10.11, 1.11.5, 1.12.3
+    detect: Audit events for pods/exec, pods/attach, pods/portforward or aggregated API (metrics, custom APIs) with responseStatus.code 101 followed by actions that have no matching audit events; anonymous or low-privilege users hitting upgrade endpoints.
+    avoid: Stay on a supported EKS version (AWS patches the control plane); disable anonymous auth; restrict exec/attach/portforward in RBAC.
+  - id: CVE-2022-2385
+    cvss: 8.8
+    year: 2022
+    kev: false
+    scope: device
+    title: aws-iam-authenticator — an allow-listed IAM identity can change its mapped username and escalate privileges
+    affected: aws-iam-authenticator 0.5.2 up to 0.5.8 (as used by EKS and self-managed clusters)
+    fixed: 0.5.9
+    detect: Authenticator log lines where the username does not match the expected template for the ARN; audit events whose user.username contains another identity's name while user.extra.arn shows a different role.
+    avoid: AWS patched EKS; for self-managed clusters upgrade the authenticator; avoid {{SessionName}} in username templates for high-privilege mappings.
+  - id: CVE-2023-5528
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Windows node privilege escalation via in-tree storage plugin (user who can create pods + PVs → admin on node)
+    affected: Kubernetes kubelet 1.8.0 up to 1.25.15, 1.26.0–1.26.10, 1.27.0–1.27.7, 1.28.0–1.28.3 on Windows nodes using in-tree storage plugins
+    fixed: 1.25.16, 1.26.11, 1.27.8, 1.28.4
+    detect: Audit create events for persistentvolumes with spec.local.path containing shell metacharacters, by users who are not storage admins, followed by pod creates on Windows nodes.
+    avoid: Upgrade node versions; use CSI drivers instead of in-tree plugins; restrict who can create PersistentVolumes.
+  - id: CVE-2025-1974
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: IngressNightmare — unauthenticated RCE in the ingress-nginx admission controller, then cluster-wide Secret theft (CNA score)
+    affected: ingress-nginx up to 1.11.4 and 1.12.0 running as an add-on in the cluster
+    fixed: 1.11.5, 1.12.1
+    detect: Audit list/get of secrets across many namespaces by system:serviceaccount:ingress-nginx:ingress-nginx; validating webhook calls with unusual Ingress annotations; new pods or tokens created by that service account.
+    avoid: Upgrade the controller; limit network access to the admission webhook; reduce the controller's RBAC to the namespaces it serves.
+  - id: CVE-2020-8554
+    cvss: 5.0
+    year: 2020
+    kev: false
+    scope: device
+    title: Service externalIPs / LoadBalancer status patch lets a user intercept traffic for any IP (no upstream fix)
+    affected: All Kubernetes versions (design issue; mitigated by admission control)
+    detect: Audit create/update of services with requestObject.spec.externalIPs set, or patches to services/status by users other than the cloud controller.
+    avoid: Deny externalIPs with an admission policy (Kyverno/Gatekeeper or the DenyServiceExternalIPs plugin); restrict services/status patch.
+detections:
+  - title: Secrets enumeration by a human or unusual service account
+    severity: high
+    signals:
+      - objectRef.resource = secrets
+      - verb = list or get
+      - many namespaces / names per identity
+    why: Listing secrets is how attackers harvest tokens and cloud keys after getting cluster access. Controllers read specific secrets; humans listing them across namespaces is rare.
+    kql: |-
+      dataset="eks_audit" objectRef.resource="secrets" verb in ("list","get")
+      | where user.username !startswith "system:"
+      | summarize calls=count(), namespaces=dcount(objectRef.namespace) by user.username, sourceIPs[0], bin(_time, 15m)
+      | where namespaces > 3 or calls > 50
+    mitre:
+      - T1552.007
+      - T1613
+  - title: kubectl exec / attach into a running pod
+    severity: medium
+    signals:
+      - objectRef.subresource = exec or attach
+      - verb = create
+      - responseStatus.code = 101
+    why: Interactive access to production pods bypasses CI/CD and is a common way to run tools inside the cluster.
+    kql: |-
+      dataset="eks_audit" verb="create" objectRef.subresource in ("exec","attach")
+      | summarize n=count() by user.username, objectRef.namespace, objectRef.name, sourceIPs[0]
+    mitre:
+      - T1609
+  - title: Cluster-admin granted (ClusterRoleBinding / access entry change)
+    severity: critical
+    signals:
+      - objectRef.resource = clusterrolebindings
+      - verb = create, update or patch
+      - roleRef = cluster-admin
+    why: Binding cluster-admin to a new user or service account is persistence with full control.
+    kql: |-
+      dataset="eks_audit" objectRef.resource="clusterrolebindings" verb in ("create","update","patch")
+      | where tostring(requestObject) contains "cluster-admin" or tostring(requestObject) contains "AmazonEKSClusterAdminPolicy"
+      | project _time, user.username, objectRef.name, verb, sourceIPs[0]
+    mitre:
+      - T1098.006
+  - title: aws-auth ConfigMap modified
+    severity: high
+    signals:
+      - objectRef.name = aws-auth
+      - objectRef.namespace = kube-system
+      - verb = update or patch
+    why: aws-auth maps IAM roles to Kubernetes groups. Adding a role to system:masters gives that AWS identity full cluster control.
+    kql: |-
+      dataset="eks_audit" objectRef.resource="configmaps" objectRef.name="aws-auth" objectRef.namespace="kube-system"
+      | where verb in ("update","patch","delete")
+      | project _time, user.username, user.extra.arn[0], verb, sourceIPs[0]
+    mitre:
+      - T1098
+  - title: Privileged or host-mounting pod created outside system namespaces
+    severity: high
+    signals:
+      - objectRef.resource = pods
+      - verb = create
+      - requestObject.spec has privileged true, hostPID, hostNetwork or hostPath /
+    why: A privileged pod with the host filesystem mounted is a one-step escape to the node and its IAM role.
+    kql: |-
+      dataset="eks_audit" objectRef.resource="pods" verb="create"
+      | where objectRef.namespace !in ("kube-system","amazon-cloudwatch")
+      | where requestObject.spec.containers[0].securityContext.privileged == true or requestObject.spec.hostPID == true or isnotempty(requestObject.spec.volumes[0].hostPath.path)
+      | project _time, user.username, objectRef.namespace, objectRef.name, sourceIPs[0]
+    mitre:
+      - T1610
+      - T1611
+  - title: Spike in 401/403 or anonymous requests
+    severity: medium
+    signals:
+      - responseStatus.code in 401, 403
+      - user.username = system:anonymous
+      - many distinct resources per source IP
+    why: Probing with a stolen or low-privilege token produces a burst of forbidden calls as the attacker maps what it can do.
+    kql: |-
+      dataset="eks_audit" responseStatus.code in (401, 403)
+      | summarize denied=count(), resources=dcount(objectRef.resource) by user.username, sourceIPs[0], bin(_time, 10m)
+      | where denied > 30 or resources > 10
+    mitre:
+      - T1613
+      - T1078
+optimizations:
+  - title: Drop health and discovery noise
+    saving: 15–30 %
+    fn: Drop
+    how: Leader-election leases, /readyz and /livez probes, and discovery calls (/api, /apis) from controllers are high-volume and nearly never used in investigations.
+    expr: objectRef.resource=='leases' || /^\/(readyz|livez|healthz|api|apis|openapi)/.test(requestURI)
+  - title: Aggregate system get/list/watch
+    saving: 30–50 %
+    fn: Aggregations
+    how: system:node:*, system:serviceaccount:kube-system:* and operator reads are repetitive. Count them per user/verb/resource/minute; keep full events for humans, writes and denies.
+    expr: /^system:/.test(user.username) && ['get','list','watch'].includes(verb) && responseStatus.code < 400
+  - title: Trim duplicated identity and timestamp fields
+    saving: 10–20 %
+    fn: Eval
+    how: user.extra repeats the ARN in arn and canonicalArn, requestReceivedTimestamp is within milliseconds of stageTimestamp, and kind/apiVersion are constant. Remove them and shorten managedFields in requestObject/responseObject.
+    expr: "remove: kind, apiVersion, requestReceivedTimestamp, user.extra.canonicalArn, *.metadata.managedFields"
+  - title: Unpack CloudWatch batches before routing
+    saving: Correctness
+    fn: Parser → Unroll
+    how: Firehose/Kinesis payloads are gzip+base64 CloudWatch envelopes with a logEvents array. Decompress, unroll logEvents, parse message as JSON and set _time from stageTimestamp, so each audit record is one event.
+    expr: "unroll: logEvents → parse message as JSON; _time = stageTimestamp"
+  - title: Route writes and denies to the SIEM
+    saving: SIEM licence
+    fn: Routes
+    how: Writes, exec/attach, RBAC and secret access, and any 401/403 go to the SIEM. Reads by system identities go to Cribl Lake raw for replay.
+    expr: "!['get','list','watch'].includes(verb) || responseStatus.code >= 400 || objectRef.resource=='secrets' → SIEM  |  else → Lake"
+references:
+  - title: Amazon EKS — Send control plane logs to CloudWatch Logs
+    url: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html
+  - title: EKS Best Practices — Auditing and logging (EKS audit policy, sample queries)
+    url: https://docs.aws.amazon.com/eks/latest/best-practices/auditing-and-logging.html
+  - title: Kubernetes — Auditing (stages, levels, backends)
+    url: https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/
+  - title: NVD — CVE-2018-1002105
+    url: https://nvd.nist.gov/vuln/detail/CVE-2018-1002105
+  - title: aws-iam-authenticator issue 472 (CVE-2022-2385)
+    url: https://github.com/kubernetes-sigs/aws-iam-authenticator/issues/472
+  - title: Kubernetes issue 121879 (CVE-2023-5528)
+    url: https://github.com/kubernetes/kubernetes/issues/121879
+  - title: Kubernetes issue 131009 — ingress-nginx CVE-2025-1974
+    url: https://github.com/kubernetes/kubernetes/issues/131009
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cloudtrail
+  - aws-guardduty
+  - falco
+  - cisco-isovalent
+  - gcp-audit

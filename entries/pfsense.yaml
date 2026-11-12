@@ -1,0 +1,349 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: pfsense
+name: pfSense
+short: pfSense
+aka:
+  - pfSense CE
+  - pfSense Plus
+  - pfSense Factory Edition
+  - Netgate firewall
+  - OPNsense (fork, same filterlog format)
+vendor: Netgate
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - open-source
+  - freebsd
+  - pf
+  - filterlog
+  - syslog
+  - openvpn
+  - suricata
+summary: Open-source firewall/router distribution built on FreeBSD and the pf packet filter, sold as pfSense Plus on Netgate appliances and free as pfSense CE. Every logged rule match is a comma-separated filterlog line over syslog; add-on packages (Suricata/Snort, pfBlockerNG, OpenVPN, HAProxy, Squid) each log in their own native format into the same stream.
+sourcetypes:
+  - st: pfsense
+    desc: Pack Generator sourcetype — all pfSense syslog (filterlog, webConfigurator, OpenVPN, packages); also the initial sourcetype the Splunk TA-pfsense re-types from
+  - st: pfsense:filterlog
+    desc: Splunk TA-pfsense — pf rule-match CSV records
+  - st: pfsense:openvpn
+    desc: Splunk TA-pfsense — OpenVPN server and authentication messages
+  - st: pfsense:suricata
+    desc: Splunk TA-pfsense — Suricata package alerts
+  - st: pfsense.log
+    desc: Elastic pfSense integration data stream (logs-pfsense.log)
+facts:
+  First released: 2006 (fork of m0n0wall, project started 2004)
+  OS: FreeBSD-based; pfSense CE 2.8.x (free) and pfSense Plus 25.x/26.x (Netgate appliances, cloud)
+  Form factors: Netgate appliances (Plus), x86 hardware, VMs, AWS and Azure marketplace images
+  Deployment modes: Routed gateway with NAT, transparent bridge, CARP high-availability pairs (pfsync state sync)
+  Log transport: syslogd remote logging, UDP 514 by default; BSD (RFC 3164) or RFC 5424 message format
+  Log format: filterlog = comma-separated fields that vary by IP version and protocol; packages log in their own text formats
+  Local logs: Plain-text, rotated and compressed (bzip2 default) since CE 2.5.0 / Plus 21.02
+  Typical EPS: 10 – 5k; depends almost entirely on which rules have logging enabled
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet gateway
+      desc: The classic deployment for SMB, labs, MSP-managed sites and branch offices. Default block rules log every unsolicited inbound packet, which is most of the volume.
+    - slot: internal
+      title: Inter-VLAN firewall
+      desc: Routes and filters between VLAN interfaces (igb1.12 style) for users, servers, IoT and guests.
+    - slot: remote
+      title: VPN concentrator
+      desc: OpenVPN, IPsec and WireGuard for remote users and site-to-site; the webConfigurator and VPN listeners are the exposed attack surface.
+    - slot: cloud
+      title: Cloud edge appliance
+      desc: pfSense Plus images in AWS / Azure as a low-cost NAT and VPN gateway for a VPC or VNet.
+howItWorks:
+  - title: pf packet filter
+    body: OpenBSD-derived stateful filter in the FreeBSD kernel. Rules are evaluated per interface on inbound traffic, first match wins (quick). Only rules with "Log packets" ticked — plus the default block, bogon and private-network rules — emit filterlog entries.
+  - title: filterlog daemon
+    body: pf writes matching packets to the pflog0 interface; the filterlog daemon decodes each packet header into one CSV line (rule number, tracker id, interface, reason, action, direction, then IP / TCP / UDP / ICMP fields) and hands it to syslogd.
+  - title: Tracker IDs
+    body: Each rule has a unique tracker number stored in config.xml. It is the stable key to map a filterlog line back to the rule description (rule numbers change when the ruleset is reordered).
+  - title: State table and pfsync
+    body: Passed connections create state entries; return traffic matches state and is not logged again. In CARP HA pairs pfsync replicates the state table so failover keeps sessions.
+  - title: Packages
+    body: Suricata or Snort (IDS/IPS inline or legacy blocking), pfBlockerNG (IP and DNS blocklists), HAProxy, Squid, FRR and others are installed from the package manager and log through syslog under their own process names.
+  - title: webConfigurator
+    body: The PHP/nginx management GUI logs logins, failed logins and configuration changes. sshguard watches both GUI and SSH failures and blocks offending addresses.
+traffic:
+  handles:
+    - IPv4 / IPv6 stateful filtering and NAT (pf)
+    - Multi-WAN, policy routing, traffic shaping (ALTQ / limiters)
+    - OpenVPN, IPsec (strongSwan), WireGuard
+    - DHCP, DNS resolver (Unbound), NTP
+    - IDS / IPS via Suricata or Snort packages
+    - IP / DNS blocklists via pfBlockerNG
+    - Captive portal for guest networks
+  flow:
+    - step: Ingress
+      desc: Packet arrives on a physical or VLAN interface; scrub normalises fragments.
+    - step: NAT
+      desc: Port forwards and 1:1 NAT are applied before filtering.
+    - step: State lookup
+      desc: Packets of an existing state pass without rule evaluation (and without logging).
+    - step: Rule evaluation
+      desc: Interface rules first-match; logged rules send the packet header to pflog0.
+    - step: IDS (optional)
+      desc: Suricata / Snort inspect via netmap (inline) or a copy of the traffic.
+    - step: Egress + log
+      desc: Outbound NAT applied, packet forwarded; filterlog writes the CSV line to syslog.
+logs:
+  - type: Filter log (filterlog)
+    sourcetype: pfsense
+    format: text
+    share: 80–95 %
+    avg: ~220 B
+    desc: One line per logged packet (not per session). Fields vary by IP version and protocol — this is the IPv4 TCP layout. Default BSD format carries no hostname; RFC 5424 adds it.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) filterlog\[(?<pid>\d+)\]: (?<rule_number>\d*),(?<sub_rule>[^,]*),(?<anchor>[^,]*),(?<tracker>[^,]*),(?<interface>[^,]*),(?<reason>[^,]*),(?<action>[^,]*),(?<direction>[^,]*),(?<ip_version>4),(?<tos>[^,]*),(?<ecn>[^,]*),(?<ttl>[^,]*),(?<ip_id>[^,]*),(?<offset>[^,]*),(?<ip_flags>[^,]*),(?<protocol_id>[^,]*),(?<protocol>[^,]*),(?<length>[^,]*),(?<src_ip>[^,]*),(?<dst_ip>[^,]*),(?<src_port>[^,]*),(?<dst_port>[^,]*),(?<data_length>[^,]*),(?<tcp_flags>[^,]*),(?<sequence>[^,]*),(?<ack>[^,]*),(?<window>[^,]*),(?<urg>[^,]*),(?<tcp_options>.*)$'
+    key:
+      - tracker
+      - interface
+      - action
+      - direction
+      - src_ip
+      - dst_ip
+      - dst_port
+      - protocol
+    noise:
+      - sub_rule
+      - anchor
+      - tos
+      - ecn
+      - ip_id
+      - offset
+      - sequence
+      - ack
+      - window
+      - urg
+      - tcp_options
+    sample: '<134>Nov 12 09:14:22 filterlog[72237]: 4,,,1000000103,igb0,match,block,in,4,0x0,,239,54321,0,none,6,tcp,40,198.51.100.23,203.0.113.10,49724,3389,0,S,1891286705,,1024,,'
+  - type: webConfigurator login
+    sourcetype: pfsense
+    format: text
+    share: < 1 %
+    avg: ~150 B
+    desc: GUI logins and failures from the PHP front end (php-fpm). Same source for "User logged out" and configuration-change messages.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) php-fpm\[(?<pid>\d+)\]: (?<page>\S+): (?<outcome>webConfigurator authentication error|Successful login) for user ''(?<user>[^'']+)'' from: (?<src_ip>[\d.]+)(?: \((?<auth_source>[^)]+)\))?$'
+    key:
+      - outcome
+      - user
+      - src_ip
+      - auth_source
+    noise:
+      - pid
+      - page
+    sample: "<38>Nov 12 07:58:03 php-fpm[99932]: /index.php: webConfigurator authentication error for user 'admin' from: 198.51.100.77"
+  - type: OpenVPN authentication
+    sourcetype: pfsense:openvpn
+    format: text
+    share: < 1 %
+    avg: ~110 B
+    desc: Result of the user/password check run by the OpenVPN auth script (local database, RADIUS or LDAP).
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) openvpn\[(?<pid>\d+)\]: user ''(?<user>[^'']+)'' (?<outcome>could not authenticate|authenticated)\.?$'
+    key:
+      - user
+      - outcome
+    noise:
+      - pid
+    sample: "<37>Nov 12 07:01:12 openvpn[66026]: user 'jdoe' could not authenticate."
+  - type: Suricata alert
+    sourcetype: pfsense:suricata
+    format: text
+    share: 1–5 %
+    avg: ~230 B
+    desc: Suricata package alert in fast-log style forwarded over syslog (EVE JSON to a file or syslog is the richer alternative).
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) suricata\[(?<pid>\d+)\]: \[(?<gid>\d+):(?<sid>\d+):(?<rev>\d+)\] (?<signature>.+?) \[Classification: (?<classification>[^\]]+)\] \[Priority: (?<priority>\d+)\] \{(?<protocol>\w+)\} (?<src_ip>[\d.]+):(?<src_port>\d+) -> (?<dst_ip>[\d.]+):(?<dst_port>\d+)$'
+    key:
+      - sid
+      - signature
+      - classification
+      - priority
+      - src_ip
+      - dst_ip
+      - dst_port
+    noise:
+      - pid
+      - gid
+      - rev
+    sample: '<190>Nov 12 08:02:41 suricata[87537]: [1:2034647:2] ET EXPLOIT Apache log4j RCE Attempt (tcp ldap) (CVE-2021-44228) [Classification: Attempted Administrator Privilege Gain] [Priority: 1] {TCP} 10.10.5.20:41822 -> 198.51.100.66:1389'
+cves:
+  - id: CVE-2022-31814
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: device
+    title: pfBlockerNG package — unauthenticated root command injection via HTTP Host header
+    affected: pfBlockerNG package through 2.1.4_26 (3.x unaffected) when the DNSBL web server is reachable
+    detect: filterlog passes from untrusted networks to the firewall's DNSBL / web ports; nginx lines with shell metacharacters in the Host header; new processes or outbound connections from the firewall itself.
+    avoid: Move to pfBlockerNG-devel 3.x or remove the legacy package; never expose the DNSBL web server or webConfigurator to WAN.
+  - id: CVE-2021-41282
+    cvss: 8.8
+    year: 2022
+    kev: false
+    scope: device
+    title: diag_routes.php sed data injection — authenticated webshell write (public exploit module)
+    affected: pfSense CE < 2.6.0, pfSense Plus < 22.01
+    fixed: pfSense CE 2.6.0, pfSense Plus 22.01 (pfSense-SA-22_02)
+    detect: Successful webConfigurator login from an unusual src_ip followed by requests to diag_routes.php; new .php files under the web root; firewall-originated connections.
+    avoid: Upgrade; restrict webConfigurator to a management VLAN; use per-user accounts with least privilege instead of a shared admin.
+  - id: CVE-2023-42326
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Authenticated command execution in GIF / GRE interface pages
+    affected: pfSense CE <= 2.7.0, pfSense Plus <= 23.05.1
+    fixed: pfSense CE 2.7.1, pfSense Plus 23.09 (pfSense-SA-23_10)
+    detect: Configuration-change messages for GIF/GRE interfaces by unexpected users; preceded by webConfigurator logins from new addresses.
+    avoid: Upgrade; limit GUI privileges ("WebCfg - Interfaces" pages) to admins; MFA via RADIUS / LDAP.
+  - id: CVE-2023-27253
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Command injection in restore_rrddata() via a crafted config.xml restore
+    affected: pfSense CE 2.7.0 development builds and earlier per NVD (authenticated, backup/restore privilege)
+    detect: "\"Configuration restored\" style change messages followed by unusual outbound connections from the firewall; restores performed from unknown src_ip."
+    avoid: Only restore backups from trusted sources; restrict the Diagnostics → Backup & Restore privilege; stay on current releases.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH "regreSSHion" signal-handler race — pre-auth RCE on SSH servers behind or on the firewall
+    affected: OpenSSH 8.5p1 through 9.7p1 (and before 4.4p1) on glibc Linux servers; FreeBSD issued its own advisory
+    fixed: OpenSSH 9.8p1
+    detect: filterlog passes to tcp/22 from a single src_ip with thousands of connections per hour (the exploit needs ~10k attempts); sshguard block messages.
+    avoid: Patch OpenSSH; do not port-forward SSH from WAN; rate-limit with max-src-conn-rate on the rule; keep sshguard on.
+detections:
+  - title: Inbound scan against the WAN
+    severity: low
+    signals:
+      - action=block
+      - direction=in
+      - many dst_port per src_ip
+    why: Default-block entries from one source spread across many ports are reconnaissance. Useful as context and for enrichment, not as an alert on its own.
+    kql: |-
+      dataset="pfsense_logs" action="block" direction="in"
+      | summarize ports=dcount(dst_port), hits=count() by src_ip, bin(_time, 10m)
+      | where ports > 25
+    mitre:
+      - T1595.001
+      - T1046
+  - title: webConfigurator brute force
+    severity: high
+    signals:
+      - outcome=webConfigurator authentication error
+      - count per src_ip
+      - followed by Successful login
+    why: The GUI is the gateway to every authenticated RCE CVE on pfSense. Repeated failures followed by a success from the same address is the pattern to catch.
+    kql: |-
+      dataset="pfsense_logs" outcome in ("webConfigurator authentication error","Successful login")
+      | summarize fails=countif(outcome!="Successful login"), ok=countif(outcome=="Successful login"), users=dcount(user) by src_ip, bin(_time, 15m)
+      | where fails > 10 or (fails > 3 and ok > 0)
+    mitre:
+      - T1110.001
+      - T1078
+  - title: OpenVPN password spray
+    severity: high
+    signals:
+      - sourcetype=pfsense:openvpn
+      - outcome=could not authenticate
+      - many distinct users
+    why: Spraying VPN accounts is a top initial-access technique; the auth script logs every failure with the username.
+    kql: |-
+      dataset="pfsense_logs" sourcetype="pfsense:openvpn" outcome="could not authenticate"
+      | summarize fails=count(), users=dcount(user) by bin(_time, 10m)
+      | where users > 10
+    mitre:
+      - T1110.003
+      - T1133
+  - title: Allowed traffic to admin ports from WAN
+    severity: high
+    signals:
+      - action=pass
+      - interface = WAN
+      - dst_port in 22 / 443 / 80 on the firewall
+    why: Exposure of the GUI or SSH is the precondition for the device CVEs above. Only possible if someone added a WAN pass rule with logging.
+    kql: |-
+      dataset="pfsense_logs" action="pass" direction="in" interface="igb0"
+      | where dst_port in ("22","80","443","8443")
+      | lookup pfsense_wan_ips on dst_ip
+      | where isnotempty(firewall)
+      | summarize count() by src_ip, dst_ip, dst_port
+    mitre:
+      - T1190
+      - T1133
+  - title: High-priority IDS alert followed by outbound callback
+    severity: critical
+    signals:
+      - sourcetype=pfsense:suricata
+      - priority=1
+      - dst_ip later seen in filterlog pass
+    why: A priority-1 alert (e.g. Log4Shell LDAP callback) where the internal host then talks to the same remote address means the exploit likely worked.
+    kql: |-
+      dataset="pfsense_logs" sourcetype="pfsense:suricata" priority="1"
+      | summarize alerts=count(), sigs=make_set(signature) by src_ip, dst_ip
+      | join kind=inner (dataset="pfsense_logs" action="pass" direction="out" | summarize passes=count() by src_ip, dst_ip) on src_ip, dst_ip
+    mitre:
+      - T1190
+      - T1071
+optimizations:
+  - title: Drop default-block background noise
+    saving: 30–70 %
+    fn: Drop
+    how: Internet background radiation hitting the default block rule is the bulk of filterlog on most WANs. Disable "Default Firewall block rules" logging and add explicit logged block rules only where needed, or drop them in Stream (keep a sampled copy for trends).
+    expr: action=='block' && direction=='in' && tracker=='1000000103'
+  - title: Suppress repeated blocks
+    saving: 10–30 %
+    fn: Suppress
+    how: One line per packet means a single scanner retry storm produces hundreds of identical lines. Keep one per src_ip/dst_ip/dst_port per minute with a count.
+    expr: "key: `${src_ip}:${dst_ip}:${dst_port}`  allow 1 / 60s  when action=='block'"
+  - title: Drop low-value TCP header fields
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Extract the CSV once, keep tracker, interface, action, direction, protocol, IPs, ports and length; drop tos, ecn, ip_id, offset, sequence, ack, window, urg and tcp_options, then serialise as key=value or JSON.
+    expr: "remove: tos, ecn, ip_id, offset, sequence, ack, window, urg, tcp_options, sub_rule, anchor"
+  - title: Enrich tracker id with rule description
+    saving: Analyst time
+    fn: Lookup
+    how: filterlog carries only the tracker number. Export rule descriptions from config.xml to a lookup (tracker → description, interface name) so analysts see "Allow LAN to DNS" instead of 1700000123.
+    expr: "lookup pfsense_rules.csv on tracker → rule_descr, iface_name"
+  - title: Route packages to their own destinations
+    saving: SIEM licence
+    fn: Routes
+    how: Suricata, webConfigurator, OpenVPN and sshguard messages → SIEM. filterlog pass records → Cribl Lake or aggregated metrics; filterlog blocks → suppressed copy to SIEM.
+    expr: "!/filterlog/.test(_raw) → SIEM  |  filterlog → Lake + SIEM(suppressed)"
+references:
+  - title: pfSense raw filter log format
+    url: https://docs.netgate.com/pfsense/en/latest/monitoring/logs/raw-filter-format.html
+  - title: pfSense log settings
+    url: https://docs.netgate.com/pfsense/en/latest/monitoring/logs/settings.html
+  - title: Netgate security advisories
+    url: https://docs.netgate.com/advisories/index.html
+  - title: pfSense-SA-22_02 (CVE-2021-41282)
+    url: https://docs.netgate.com/downloads/pfSense-SA-22_02.webgui.asc
+  - title: pfSense-SA-23_10 (CVE-2023-42326)
+    url: https://docs.netgate.com/downloads/pfSense-SA-23_10.webgui.asc
+  - title: NVD — CVE-2022-31814 (pfBlockerNG)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2022-31814
+  - title: TA-pfsense Splunk add-on (sourcetypes)
+    url: https://github.com/barakat-abweh/TA-pfsense
+related:
+  - sophos-xg
+  - suricata
+  - snort
+  - unifi
+  - fortigate
+  - linux-syslog

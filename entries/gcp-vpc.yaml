@@ -1,0 +1,316 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gcp-vpc
+name: Google Cloud VPC Flow & Firewall Logs
+short: GCP VPC
+aka:
+  - VPC Flow Logs
+  - Firewall Rules Logging
+  - Cloud NGFW firewall policy logs
+  - compute.googleapis.com/vpc_flows
+  - compute.googleapis.com/firewall
+vendor: Google Cloud
+category: ndr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - gcp
+  - flow
+  - firewall
+  - cloud-network
+  - json
+  - pubsub
+summary: Google Cloud's two network logs. VPC Flow Logs sample packets at VM NICs, serverless egress, VPN tunnels and Interconnect attachments and write one aggregated record per 5-tuple per interval, annotated with VM, VPC, GKE and geo metadata. Firewall Rules Logging writes one connection record each time a logged VPC firewall or firewall policy rule allows or denies a TCP/UDP connection. Both arrive as Cloud Logging LogEntry JSON and are exported through a sink to Pub/Sub, Cloud Storage or BigQuery.
+sourcetypes:
+  - st: gcp_vpc_flow
+    desc: VPC Flow Logs entries (compute.googleapis.com/vpc_flows) — sampled 5-tuple, bytes, packets, RTT, reporter, VM/VPC/GKE/geo metadata
+  - st: gcp_firewall
+    desc: Firewall Rules Logging connection records (compute.googleapis.com/firewall) — 5-tuple, disposition, rule reference, priority, direction
+  - st: google:gcp:pubsub:message
+    desc: Splunk Add-on for Google Cloud Platform — Cloud Logging entries pulled from a Pub/Sub subscription
+  - st: GCP_FIREWALL
+    desc: Google SecOps (Chronicle) ingestion label for the Google Cloud Firewall parser
+facts:
+  First released: VPC Flow Logs 2018; firewall logging later extended to hierarchical and network firewall policies (Cloud NGFW)
+  Delivery: Cloud Logging (_Default bucket, 30-day default retention) → log sink to Pub/Sub, Cloud Storage or BigQuery
+  Log format: "Cloud Logging LogEntry JSON; the record is in jsonPayload, the subnet or VM in resource.labels"
+  Sampling: Primary sampling is dynamic and cannot be changed; secondary sampling defaults to 50 % (Compute Engine API) or 100 % (Network Management API)
+  Aggregation interval: 5 s (default), 30 s, 1, 5, 10 or 15 minutes
+  Firewall logging: TCP and UDP only; allowed connections logged once, denied 5-tuples repeated every 5 s while packets arrive; rate-limited by machine type
+  Typical volume: VPC flows are one of the largest GCP log sources — GBs per day for a busy subnet at 5 s and 100 % sampling
+  Cribl: Google Cloud Pub/Sub source (or Google Cloud Storage collector); no VPC Flow Pack verified in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+    - remote
+  items:
+    - slot: cloud
+      title: Subnet / VPC / organisation scope
+      desc: Flow logs are enabled per subnet, per VPC network or for the whole organisation; every VM, GKE node and serverless Direct VPC egress in scope reports flows.
+    - slot: edge
+      title: Internet-facing firewall rules
+      desc: Logged ingress allow and deny rules on public VMs and load balancer backends show who reaches exposed services and what is blocked.
+    - slot: internal
+      title: East-west and GKE
+      desc: Flows between VMs, GKE nodes and (with intranode visibility) pods on the same node show lateral movement inside the VPC.
+    - slot: remote
+      title: Hybrid gateways
+      desc: VLAN attachments for Cloud Interconnect and Cloud VPN tunnels report flows to and from on-premises and other clouds (reporter SRC_GATEWAY / DEST_GATEWAY).
+howItWorks:
+  - title: Sampling
+    body: The host samples packets at a dynamic primary rate that rises with flow volume, so small or short flows can be missed. Optional TCP connection logging captures every outbound SYN and every SYN-ACK to an inbound connection, up to 100 per vCPU per second.
+  - title: Aggregation and estimation
+    body: Sampled packets for one 5-tuple are aggregated per interval into one record. bytes_sent and packets_sent are estimates corrected for sampling, not exact counters.
+  - title: Reporter and direction
+    body: A flow between two VMs in scope is reported twice, once by each side (reporter SRC and DEST). Egress is sampled before egress firewall rules, ingress after ingress rules, so denied inbound traffic only appears in drop records or firewall logs.
+  - title: Metadata annotations
+    body: Records are enriched with src/dest instance, VPC, GKE pod/service, geographic location, load balancer, NAT and Private Service Connect details. Metadata is approximate and can be turned off or trimmed to cut volume.
+  - title: Firewall connection records
+    body: For each rule with logging enabled, a connection record is written when the rule allows or denies a TCP/UDP connection. rule_details.reference names the rule (network:<vpc>/firewall:<rule> or the firewall policy), with action, priority, direction and source ranges.
+  - title: Export
+    body: Both logs land in Cloud Logging. An aggregated sink at folder or organisation level with a filter on log_id("compute.googleapis.com/vpc_flows") or log_id("compute.googleapis.com/firewall") routes them to Pub/Sub for Cribl or a SIEM.
+traffic:
+  handles:
+    - IPv4 and IPv6 flows for TCP, UDP, ICMP, ESP, GRE (and RDMA egress)
+    - Estimated bytes and packets per interval; TCP RTT
+    - VM, VPC, subnet, GKE pod/service and geographic annotations
+    - Cloud NAT, load balancer and Private Service Connect context
+    - Dropped traffic with a drop reason (firewall deny, no route, NAT out of ports …)
+    - Firewall rule allow/deny decisions with rule name, priority and direction
+    - Hybrid flows over Cloud VPN and Interconnect
+  flow:
+    - step: Packet
+      desc: A VM, serverless endpoint or gateway in a logged subnet sends or receives packets.
+    - step: Firewall
+      desc: VPC firewall rules and firewall policies are evaluated; logged rules emit a connection record.
+    - step: Sample and aggregate
+      desc: Packets are sampled and aggregated per 5-tuple over the aggregation interval, then secondary-sampled and annotated.
+    - step: Write to Cloud Logging
+      desc: Entries are written to the project of the reporting VPC (the host project for Shared VPC).
+    - step: Sink
+      desc: A log sink with a log_id filter publishes the entries to a Pub/Sub topic.
+    - step: Collect
+      desc: Cribl's Google Cloud Pub/Sub source pulls the subscription, parses jsonPayload and routes to the SIEM or Lake.
+logs:
+  - type: VPC flow record
+    sourcetype: gcp_vpc_flow
+    format: json
+    share: 85–95 %
+    avg: ~1.2 KB (with full metadata)
+    desc: One aggregated, sampled flow from one reporter. int64 values such as bytes_sent arrive as strings in the LogEntry JSON. dest_location is set when the far end is on the internet.
+    key:
+      - jsonPayload.connection.src_ip
+      - jsonPayload.connection.dest_ip
+      - jsonPayload.connection.dest_port
+      - jsonPayload.connection.protocol
+      - jsonPayload.reporter
+      - jsonPayload.bytes_sent
+      - jsonPayload.src_instance.vm_name
+      - jsonPayload.dest_location.country
+    noise:
+      - insertId
+      - receiveTimestamp
+      - jsonPayload.rtt_msec
+      - jsonPayload.src_vpc.project_id
+      - resource.labels.subnetwork_id
+    sample: '{"insertId":"1x2y3z4a5b6c7d","jsonPayload":{"connection":{"src_ip":"10.128.0.12","src_port":40512,"dest_ip":"203.0.113.50","dest_port":443,"protocol":6},"reporter":"SRC","bytes_sent":"48213","packets_sent":"62","rtt_msec":"18","start_time":"2026-11-12T10:15:02.118Z","end_time":"2026-11-12T10:15:06.904Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-a","vm_name":"web-01"},"src_vpc":{"project_id":"example-prod","vpc_name":"prod-vpc","subnetwork_name":"web-subnet","subnetwork_region":"us-central1"},"dest_location":{"continent":"America","country":"usa","region":"Virginia"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-a","subnetwork_name":"web-subnet","subnetwork_id":"1234567890123456789"}},"timestamp":"2026-11-12T10:15:08.512Z","receiveTimestamp":"2026-11-12T10:15:21.077Z"}'
+  - type: Firewall connection record
+    sourcetype: gcp_firewall
+    format: json
+    share: 5–30 % (depends on logged rules)
+    avg: ~900 B
+    desc: Written when a logged rule allows or denies a connection. rule_details.reference names the VPC firewall rule; remote_location is filled for internet peers.
+    key:
+      - jsonPayload.connection.src_ip
+      - jsonPayload.connection.dest_ip
+      - jsonPayload.connection.dest_port
+      - jsonPayload.disposition
+      - jsonPayload.rule_details.reference
+      - jsonPayload.rule_details.direction
+      - jsonPayload.instance.vm_name
+      - jsonPayload.remote_location.country
+    noise:
+      - insertId
+      - receiveTimestamp
+      - jsonPayload.rule_details.ip_port_info[0].ip_protocol
+      - resource.labels.subnetwork_id
+    sample: '{"insertId":"9k8j7h6g5f","jsonPayload":{"connection":{"src_ip":"198.51.100.14","src_port":51822,"dest_ip":"10.128.0.21","dest_port":22,"protocol":6},"disposition":"ALLOWED","rule_details":{"reference":"network:prod-vpc/firewall:allow-ssh-any","priority":1000,"action":"ALLOW","direction":"INGRESS","ip_port_info":[{"ip_protocol":"TCP","port_range":["22"]}],"source_range":["0.0.0.0/0"]},"instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-b","vm_name":"bastion-01"},"vpc":{"project_id":"example-prod","vpc_name":"prod-vpc","subnetwork_name":"mgmt-subnet"},"remote_location":{"continent":"Europe","country":"nld","region":"North Holland"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Ffirewall","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-b","subnetwork_name":"mgmt-subnet","subnetwork_id":"9876543210987654321"}},"timestamp":"2026-11-12T10:20:44.301Z","receiveTimestamp":"2026-11-12T10:20:49.880Z"}'
+  - type: VPC flow drop record
+    sourcetype: gcp_vpc_flow
+    format: json
+    share: 1–10 %
+    avg: ~900 B
+    desc: Separate record for dropped traffic. disposition is DROPPED, drop_reason says why (FIREWALL_DENY, NO_MATCHING_ROUTE, NAT_OUT_OF_PORTS, SPOOFED_SOURCE …) and bytes/packets_dropped replace the sent counters.
+    key:
+      - jsonPayload.connection.src_ip
+      - jsonPayload.connection.dest_ip
+      - jsonPayload.connection.dest_port
+      - jsonPayload.disposition
+      - jsonPayload.drop_reason
+      - jsonPayload.packets_dropped
+      - jsonPayload.src_instance.vm_name
+    noise:
+      - insertId
+      - jsonPayload.throughput_inclusion
+      - resource.labels.subnetwork_id
+    sample: '{"insertId":"4q5w6e7r8t","jsonPayload":{"connection":{"src_ip":"10.128.0.33","src_port":49120,"dest_ip":"192.0.2.66","dest_port":4444,"protocol":6},"reporter":"SRC","disposition":"DROPPED","drop_reason":"FIREWALL_DENY","bytes_dropped":"360","packets_dropped":"6","throughput_inclusion":"EXCLUDED","start_time":"2026-11-12T10:31:10.004Z","end_time":"2026-11-12T10:31:14.700Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-c","vm_name":"batch-07"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-c","subnetwork_name":"batch-subnet","subnetwork_id":"1122334455667788990"}},"timestamp":"2026-11-12T10:31:16.010Z"}'
+cves:
+  - id: CVE-2020-8903
+    cvss: 7.8
+    year: 2020
+    kev: false
+    scope: device
+    title: guest-oslogin privilege escalation — adm group reads the DHCP XID, spoofs metadata.google.internal and grants itself admin
+    affected: Google guest-oslogin 20190304 up to (not including) 20200507
+    fixed: 20200507 (images created after 2020-05-07)
+    detect: VPC flows from the VM to a non-169.254.169.254 address on port 80 that it treats as the metadata server; on the host, /etc/hosts changes and new sudoers entries (Cloud Audit / OS logs).
+    avoid: Update images and the guest environment; remove adm from the OS Login group list in /etc/security/group.conf; grant roles/compute.osLogin sparingly.
+  - id: CVE-2020-8933
+    cvss: 7.8
+    year: 2020
+    kev: false
+    scope: device
+    title: guest-oslogin privilege escalation via lxd group membership — mount the host filesystem and edit sudoers
+    affected: Google guest-oslogin 20190304 up to (not including) 20200507
+    fixed: 20200507 (images created after 2020-05-07)
+    detect: Not visible in flow logs. Host logs showing lxc container creation by an OS Login user; sudoers modified.
+    avoid: Update images; remove lxd from the OS Login group list; use OS Login 2FA and least-privilege roles.
+  - id: CVE-2023-46604
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Apache ActiveMQ OpenWire deserialization RCE — mass-exploited on cloud VMs for ransomware and miners
+    affected: Apache ActiveMQ before 5.15.16, 5.16.0–5.16.6, 5.17.0–5.17.5, 5.18.0–5.18.2
+    fixed: 5.15.16, 5.16.7, 5.17.6, 5.18.3
+    detect: Firewall/flow records allowing internet sources to TCP 61616; then outbound flows from the broker VM to new external hosts on port 80/443 (XML config fetch) or mining ports.
+    avoid: Upgrade brokers and clients; never expose 61616 to 0.0.0.0/0 in firewall rules.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: regreSSHion — unauthenticated race-condition RCE in OpenSSH sshd (CNA score)
+    affected: OpenSSH before 4.4p1 and 8.5p1 through 9.7p1 on glibc Linux
+    fixed: 9.8p1
+    detect: Firewall records ALLOWED for TCP 22 from many internet sources; very high flow counts of short SSH sessions to one VM (exploitation needs thousands of attempts).
+    avoid: Patch OpenSSH; restrict 22 to IAP TCP forwarding (35.235.240.0/20) or a bastion; set LoginGraceTime 0 as a stopgap.
+detections:
+  - title: Firewall rule allowing SSH/RDP from anywhere is being used
+    severity: high
+    signals:
+      - gcp_firewall disposition ALLOWED
+      - rule_details.source_range contains 0.0.0.0/0
+      - dest_port 22 or 3389 from public sources
+    why: Open management rules are the most common GCP network misconfiguration and the entry point for brute force and SSH exploits.
+    kql: |-
+      dataset="gcp_network" sourcetype="gcp_firewall"
+      | where jsonPayload.disposition == "ALLOWED" and jsonPayload.connection.dest_port in (22, 3389) and not(ipv4_is_private(jsonPayload.connection.src_ip))
+      | summarize conns=count(), sources=dcount(jsonPayload.connection.src_ip) by jsonPayload.rule_details.reference, jsonPayload.instance.vm_name
+    mitre:
+      - T1133
+      - T1110
+  - title: Egress denied to a C2 or mining port
+    severity: high
+    signals:
+      - gcp_vpc_flow disposition DROPPED, drop_reason FIREWALL_DENY
+      - dest_port 4444, 3333, 5555, 14444
+      - external destination
+    why: A compromised VM trying to reach a C2 or mining pool shows up as denied egress even when the firewall did its job.
+    kql: |-
+      dataset="gcp_network" sourcetype="gcp_vpc_flow"
+      | where jsonPayload.disposition == "DROPPED" and jsonPayload.drop_reason == "FIREWALL_DENY" and jsonPayload.connection.dest_port in (4444, 3333, 5555, 14444)
+      | summarize attempts=count() by jsonPayload.src_instance.vm_name, jsonPayload.connection.dest_ip, jsonPayload.connection.dest_port
+    mitre:
+      - T1571
+      - T1496
+  - title: Large egress from a VM to the internet
+    severity: high
+    signals:
+      - reporter SRC, dest_location present
+      - sum of bytes_sent above baseline
+      - new destination country or ASN
+    why: Exfiltration from cloud workloads goes straight out of the NIC. Flow estimates are enough to spot gigabytes leaving to an unusual place.
+    kql: |-
+      dataset="gcp_network" sourcetype="gcp_vpc_flow"
+      | where jsonPayload.reporter == "SRC" and isnotempty(jsonPayload.dest_location.country)
+      | summarize sent=sum(toint(jsonPayload.bytes_sent)) by jsonPayload.src_instance.vm_name, jsonPayload.connection.dest_ip, jsonPayload.dest_location.country, bin(_time, 1h)
+      | where sent > 1073741824
+    mitre:
+      - T1048
+      - T1537
+  - title: Internal scan from one VM
+    severity: medium
+    signals:
+      - one source VM
+      - many internal destination IPs or ports in a short window
+    why: After initial access, attackers enumerate the VPC. Many distinct destinations from one VM is a strong signal in otherwise stable cloud traffic.
+    kql: |-
+      dataset="gcp_network" sourcetype="gcp_vpc_flow"
+      | where ipv4_is_private(jsonPayload.connection.dest_ip)
+      | summarize targets=dcount(jsonPayload.connection.dest_ip), ports=dcount(jsonPayload.connection.dest_port) by jsonPayload.src_instance.vm_name, bin(_time, 10m)
+      | where targets > 50 or ports > 100
+    mitre:
+      - T1046
+  - title: ActiveMQ or other risky service reachable from the internet
+    severity: critical
+    signals:
+      - gcp_firewall ALLOWED ingress
+      - dest_port 61616, 8161, 9200, 6379, 27017
+      - public source
+    why: Brokers and data stores exposed by a broad firewall rule are exploited within hours (CVE-2023-46604 and many others).
+    kql: |-
+      dataset="gcp_network" sourcetype="gcp_firewall"
+      | where jsonPayload.disposition == "ALLOWED" and jsonPayload.rule_details.direction == "INGRESS" and jsonPayload.connection.dest_port in (61616, 8161, 9200, 6379, 27017) and not(ipv4_is_private(jsonPayload.connection.src_ip))
+      | summarize conns=count() by jsonPayload.instance.vm_name, jsonPayload.connection.dest_port, jsonPayload.rule_details.reference
+    mitre:
+      - T1190
+optimizations:
+  - title: Trim metadata at the source, then in Cribl
+    saving: 30–50 %
+    fn: Eval
+    how: Configure flow logs with custom metadata (keep src/dest instance and location, drop GKE/PSC/LB if unused). In Cribl, remove insertId, receiveTimestamp, resource.labels.subnetwork_id and repeated project_id fields.
+    expr: "remove: insertId, receiveTimestamp, resource.labels.subnetwork_id, jsonPayload.src_vpc.project_id, jsonPayload.dest_vpc.project_id"
+  - title: Keep one side of internal flows
+    saving: 20–45 %
+    fn: Drop
+    how: A flow between two logged VMs is reported by both. Keep only reporter SRC for internal-to-internal traffic.
+    expr: jsonPayload.reporter == 'DEST' && jsonPayload.src_instance && jsonPayload.dest_instance
+  - title: Aggregate flows for the SIEM
+    saving: 50–80 %
+    fn: Aggregations
+    how: Roll records up per VM, destination, port and protocol per 5 minutes, summing bytes_sent and packets_sent. Send full records to Cribl Lake or GCS for investigations.
+    expr: "group by: jsonPayload.src_instance.vm_name, jsonPayload.connection.dest_ip, jsonPayload.connection.dest_port; sum(bytes_sent)"
+  - title: Lift jsonPayload and cast counters
+    saving: n/a (usability)
+    fn: Eval
+    how: Flatten jsonPayload.connection to src_ip/dest_ip/dest_port and cast the string int64 counters to numbers so dashboards and CIM/ASIM mappings work.
+    expr: "bytes_sent = Number(jsonPayload.bytes_sent); src_ip = jsonPayload.connection.src_ip; dest_ip = jsonPayload.connection.dest_ip"
+references:
+  - title: Google Cloud — VPC Flow Logs overview
+    url: https://cloud.google.com/vpc/docs/flow-logs
+  - title: Google Cloud — About VPC Flow Logs records (field reference)
+    url: https://cloud.google.com/vpc/docs/about-flow-logs-records
+  - title: Google Cloud — Firewall policy rules logging overview
+    url: https://docs.cloud.google.com/firewall/docs/firewall-rules-logging
+  - title: Google SecOps — Collect Google Cloud Firewall logs (GCP_FIREWALL)
+    url: https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/gcp-firewall
+  - title: Google SecOps — Collect Google Cloud VPC Flow Logs
+    url: https://docs.cloud.google.com/chronicle/docs/ingestion/default-parsers/gcp-vpc-flow
+  - title: Google Cloud security bulletins (GCP-2020-008, guest-oslogin)
+    url: https://cloud.google.com/support/bulletins
+  - title: NVD — CVE-2023-46604 (Apache ActiveMQ)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2023-46604
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Google Cloud — VPC release notes (VPC Flow Logs GA June 28, 2018)
+    url: https://docs.cloud.google.com/vpc/docs/release-notes
+related:
+  - gcp-audit
+  - aws-vpc-flow
+  - azure-nsg-flow
+  - netflow
+  - zeek

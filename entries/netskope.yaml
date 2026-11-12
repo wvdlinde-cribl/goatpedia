@@ -1,0 +1,352 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: netskope
+name: Netskope One (SSE / CASB)
+short: Netskope
+aka:
+  - Netskope One
+  - Netskope Intelligent SSE
+  - Netskope CASB
+  - Netskope Next Gen SWG
+  - Netskope Private Access (NPA)
+  - Netskope Client
+vendor: Netskope
+category: swg
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - casb
+  - swg
+  - sse
+  - dlp
+  - ztna
+  - saas
+  - json
+  - rest-api
+summary: Security service edge platform built around a cloud proxy that decodes SaaS and web traffic down to the app instance and activity (upload, share, login, delete). Inline CASB, secure web gateway, DLP, threat protection, cloud firewall and private access (NPA) share one policy engine, plus API-based scanning of sanctioned SaaS. Logs are rich JSON events and alerts pulled over the REST API v2 iterator, or web transactions streamed as CSV/W3C to object storage.
+sourcetypes:
+  - st: netskope_event_json
+    desc: Events from the REST API v2 dataexport endpoints — page, application, network, audit, infrastructure, incident, endpoint
+  - st: netskope_alert_json
+    desc: Alerts from the REST API v2 dataexport endpoints — DLP, malware, malsite, policy, UBA, compromised credential, CTEP, watchlist, quarantine, remediation, security assessment
+  - st: NetskopeAlerts_CL
+    desc: Microsoft Sentinel table populated by the Netskope v2 (REST API CCP) connector
+  - st: NetskopeEventsDLP_CL
+    desc: Microsoft Sentinel table for Netskope DLP incident events
+  - st: NetskopeWebTransactions_CL
+    desc: Microsoft Sentinel table for Log Streaming web transactions
+facts:
+  First released: 2013 (CASB); platform rebranded Netskope One in 2023
+  Delivery model: SaaS on Netskope's NewEdge private security cloud
+  Traffic steering: Netskope Client (tunnel), GRE / IPsec, explicit proxy / PAC, reverse proxy, API connectors for SaaS
+  Policy engines: Inline CASB, Next Gen SWG, DLP, Threat Protection / sandbox, Cloud Firewall, NPA (ZTNA), RBI
+  Log transport: REST API v2 dataexport iterator (pull, ≤10,000 records per page); Log Streaming to S3 / GCS / Azure Blob; Cloud Exchange Log Shipper (syslog CEF)
+  Log format: JSON (API events/alerts); CSV or W3C extended (web transactions)
+  Event types: page, application, network, audit, infrastructure, incident, endpoint, client status
+  Typical volume: Page + web transactions dominate; alerts are a small fraction
+  Cribl Pack: Netskope Events and Alerts (cc-netskope-events-and-alerts, Packs Dispensary)
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+    - edge
+  items:
+    - slot: cloud
+      title: NewEdge POPs
+      desc: The proxy, DLP and threat engines run in Netskope's data centers. API-mode CASB also scans sanctioned SaaS (M365, Google Workspace, Box) at rest.
+    - slot: remote
+      title: Roaming users
+      desc: Netskope Client steers web and SaaS traffic (and private-app traffic for NPA) to the nearest POP wherever the user is.
+    - slot: endpoint
+      title: Netskope Client
+      desc: Agent on Windows, macOS, Linux and mobile. Enrolls the user/device, enforces steering and endpoint DLP — and is where the product's CVEs live.
+    - slot: edge
+      title: Branch tunnels
+      desc: GRE/IPsec from the branch firewall or SD-WAN sends office traffic to Netskope without an agent; access_method becomes GRE or IPSec.
+howItWorks:
+  - title: Cloud proxy with app decoding
+    body: Traffic is decrypted at the POP and parsed by app-specific connectors that understand thousands of SaaS and web apps. Instead of "POST to a URL" Netskope records app, instance (corporate vs personal tenant), activity (Upload, Share, Login Attempt, Delete) and object — the fields that make application events and alerts precise.
+  - title: Cloud Confidence Index
+    body: Every app carries a CCI score and level (ccl = poor / low / medium / high / excellent) from Netskope's risk rating of the vendor. Policies commonly coach or block uploads to apps with ccl low or poor, and the fields travel in every event.
+  - title: DLP
+    body: Content inspection with predefined and custom profiles, fingerprinting, exact data match and ML classifiers runs on uploads, posts and API-scanned files. A match raises a DLP alert carrying profile, rule, severity, file metadata and an incident id for forensics.
+  - title: Threat Protection
+    body: Downloads and cloud-stored files are scanned by AV engines, ML, and a sandbox; hits raise malware alerts. Malsite alerts flag visits to known malicious or phishing domains, CTEP alerts flag IPS-style signatures on cloud firewall traffic.
+  - title: User behaviour analytics
+    body: UBA models per-user activity (bulk downloads, unusual locations, rare apps) and emits UBA alerts with a user confidence index, while compromised-credential alerts flag corporate accounts seen in breach data.
+  - title: Getting the logs out
+    body: The REST API v2 iterator endpoints track a consumer-owned index per endpoint; you request operation=next and honour the wait_time in the response. Log Streaming pushes web transactions (fields chosen per stream) to object storage. Running two consumers on the same index loses data.
+traffic:
+  handles:
+    - HTTP / HTTPS web traffic (TLS decryption)
+    - SaaS apps decoded to instance and activity
+    - Cloud storage uploads, downloads and shares (inline + API)
+    - Non-web TCP/UDP via Cloud Firewall
+    - Private apps via NPA (ZTNA)
+    - Email in sanctioned SaaS (API DLP)
+  flow:
+    - step: Steer
+      desc: Netskope Client, GRE/IPsec or proxy sends the request to the nearest NewEdge POP.
+    - step: Identify
+      desc: User from client enrollment / SAML; device classification and posture attached.
+    - step: Decrypt & decode
+      desc: TLS decrypted unless bypassed; app connector identifies app, instance and activity.
+    - step: Inspect
+      desc: Real-time policy, DLP, threat protection and CCI checks.
+    - step: Enforce
+      desc: Allow, block, coach (user justification) or isolate.
+    - step: Log
+      desc: Page / application event written; alerts raised for DLP, malware and policy hits; available via API and Log Streaming.
+logs:
+  - type: Application event
+    sourcetype: netskope_event_json
+    format: json
+    share: 30–50 %
+    avg: ~2.5 KB
+    desc: One record per decoded app activity (login, upload, share, edit, delete) with app, instance, activity, object, policy, action, user, device and geo. The CASB core log.
+    key:
+      - user
+      - app
+      - instance_id
+      - activity
+      - action
+      - object
+      - policy
+      - srcip
+    noise:
+      - src_latitude
+      - src_longitude
+      - dst_latitude
+      - dst_longitude
+      - src_zipcode
+      - dst_zipcode
+      - src_timezone
+      - dst_timezone
+    sample: '{"_id":"9b2f4c7e1a0d3e5f6a7b8c9d","type":"nspolicy","timestamp":1794474862,"access_method":"Client","user":"jdoe@example.com","userip":"10.20.30.44","srcip":"203.0.113.45","dstip":"198.51.100.120","app":"Google Drive","appcategory":"Cloud Storage","instance_id":"personal","activity":"Upload","action":"block","policy":"Block uploads to personal storage","object":"customer_list_2026.xlsx","object_type":"File","file_size":4823011,"file_type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","cci":71,"ccl":"high","device":"Windows Device","os":"Windows 11","browser":"Chrome","hostname":"LT-JDOE-01","site":"Google Drive","url":"drive.google.com/upload","src_country":"NL","src_location":"Amsterdam","src_latitude":52.37,"src_longitude":4.89,"src_zipcode":"1012","src_timezone":"Europe/Amsterdam","dst_country":"US","dst_latitude":37.42,"dst_longitude":-122.08,"dst_zipcode":"94043","dst_timezone":"America/Los_Angeles","organization_unit":"","count":1}'
+  - type: Page event
+    sourcetype: netskope_event_json
+    format: json
+    share: 40–60 %
+    avg: ~1.5 KB
+    desc: Web page / connection records (type=connection) with domain, category, bytes and whether traffic was bypassed. High volume, lower value per record.
+    key:
+      - user
+      - domain
+      - category
+      - dstip
+      - bypass_traffic
+    noise:
+      - other_categories[0]
+      - other_categories[1]
+      - dst_latitude
+      - dst_longitude
+      - src_latitude
+      - src_longitude
+      - dst_zipcode
+    sample: '{"_id":"4ec61988f060fab4eaece27d","type":"connection","timestamp":1794474870,"access_method":"Client","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.33","dstport":443,"domain":"cdn.example.net","page":"cdn.example.net","site":"example","category":"Content Delivery","other_categories":["Content Delivery","Technology"],"bypass_traffic":"no","bypass_reason":"","ssl_decrypt_policy":"yes","client_bytes":1834,"server_bytes":92311,"netskope_pop":"NL-AMS1","dst_country":"US","dst_latitude":39.04,"dst_longitude":-77.49,"dst_zipcode":"20147","src_latitude":52.37,"src_longitude":4.89,"count":1}'
+  - type: DLP alert
+    sourcetype: netskope_alert_json
+    format: json
+    share: < 2 %
+    avg: ~3 KB
+    desc: Raised when a DLP profile matches content in an upload, post, email or API-scanned file. Profile, rule, severity, file hash and incident id. Highest-value Netskope record — never sample.
+    key:
+      - user
+      - alert_name
+      - app
+      - activity
+      - action
+      - dlp_profile
+      - dlp_rule_severity
+      - object
+    noise:
+      - acked
+      - dlp_is_unique_count
+      - dlp_parent_id
+      - suppression_key
+    sample: '{"_id":"7860a4881fb78b560a46a254","type":"nspolicy","alert":"yes","alert_type":"DLP","alert_name":"[DLP] Financial Data - Alert and Block","timestamp":1794474875,"access_method":"Client","acked":"false","action":"block","activity":"Upload","app":"WeTransfer","appcategory":"Cloud Storage","ccl":"low","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.88","dlp_profile":"DLP-PCI","dlp_rule":"Credit Card Numbers","dlp_rule_count":214,"dlp_rule_severity":"High","dlp_incident_id":3348811920471,"dlp_is_unique_count":"true","dlp_parent_id":0,"object":"cards_export.csv","file_size":120334,"sha256":"5f2b0a9c1e7d3b4a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e","policy":"DLP Block PCI to unsanctioned","hostname":"LT-JDOE-01","suppression_key":""}'
+  - type: Malware alert
+    sourcetype: netskope_alert_json
+    format: json
+    share: < 1 %
+    avg: ~2.5 KB
+    desc: AV, ML or sandbox detection on a downloaded or cloud-stored file, with malware name, type, severity, detection engine and file hashes.
+    key:
+      - user
+      - malware_name
+      - malware_severity
+      - detection_engine
+      - action
+      - app
+      - sha256
+    noise:
+      - acked
+      - tss_mode
+      - scan_type
+    sample: '{"_id":"3a1d5e7f9b2c4d6e8f0a1b2c","type":"nspolicy","alert":"yes","alert_type":"Malware","alert_name":"Threat Protection - Default","timestamp":1794475020,"access_method":"Client","acked":"false","action":"block","activity":"Download","app":"Microsoft OneDrive for Business","instance_id":"example.sharepoint.com","user":"jdoe@example.com","srcip":"203.0.113.45","object":"Invoice_8841.zip","malware_name":"Gen:Variant.Downloader.Agent","malware_type":"Trojan","malware_severity":"High","detection_engine":"Sandbox","scan_type":"Real-time Scan","sha256":"0d9c8b7a6f5e4d3c2b1a09f8e7d6c5b4a3928170f6e5d4c3b2a1908f7e6d5c4b","tss_mode":"inline","url":"example-my.sharepoint.com/personal/jdoe/Invoice_8841.zip"}'
+cves:
+  - id: CVE-2024-7401
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: Netskope Client enrollment bypass — static OrgKey lets anyone with the key enroll a client as any user
+    affected: Tenants without Secure Enrollment enforced (not tied to a client version)
+    fixed: Enable Secure Enrollment and enforce enrollment tokens (default for new tenants from release 123.0.0)
+    detect: Client enrollment / client status events for a user from a device, hostname or country never seen before; the same user enrolled on several devices in a short time; activity for users who are on leave or disabled.
+    avoid: Enforce Secure Enrollment tokens; use IdP enrollment with MFA; enable device classification and block unclassified devices.
+  - id: CVE-2023-2270
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Netskope Client for Windows local privilege escalation — SYSTEM service unzips config to a relative path
+    affected: Netskope Client for Windows v99 and earlier
+    fixed: v100 and later
+    detect: Client status / endpoint events showing client versions ≤ 99; on the host, EDR sees files written by a standard user into the client's protected directories.
+    avoid: Upgrade the client; follow Netskope client hardening (tamper protection, password-protected uninstall).
+  - id: CVE-2025-0309
+    cvss: 6.0
+    year: 2025
+    kev: false
+    scope: device
+    title: Netskope Client local privilege escalation by forcing enrollment to a rogue server
+    affected: Netskope Client R128 and earlier
+    fixed: R129 and later
+    detect: Endpoint/proxy logs showing the client contacting enrollment paths (/v1/externalhost?service=enrollment, /v2/checkupdate) on hosts outside *.goskope.com; a new trusted root CA installed on the device.
+    avoid: Upgrade to R129+; restrict client connections to goskope.com; monitor for unexpected root CA installation and MSI installs by the Netskope service.
+  - id: CVE-2025-24054
+    cvss: 5.4
+    year: 2025
+    kev: true
+    scope: traffic
+    title: Windows NTLM hash disclosure via .library-ms files — delivered through web and cloud-storage downloads
+    affected: Windows 10, 11 and Server releases before the March 2025 updates
+    fixed: Microsoft March 2025 security updates
+    detect: Application / page events downloading ZIP or .library-ms objects from file-sharing apps, followed by network events with outbound SMB (dstport 445) to an internet IP from the same user.
+    avoid: Patch Windows; block .library-ms downloads by file type; block outbound SMB in Cloud Firewall policy.
+  - id: CVE-2024-38213
+    cvss: 6.5
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Windows Mark-of-the-Web bypass ("Copy2Pwn") via WebDAV — malware delivery that Netskope's SWG inspects
+    affected: Windows 10, 11 and Server releases before the June 2024 updates
+    fixed: Microsoft June 2024 security updates (disclosed August 2024)
+    detect: Page events with WebDAV access to uncategorized or newly registered domains, followed by malware alerts or executable downloads for the same user.
+    avoid: Patch Windows; block WebDAV to uncategorized destinations; keep Threat Protection set to block with sandboxing for executables and archives.
+detections:
+  - title: Upload of sensitive data to a personal or low-CCI app instance
+    severity: high
+    signals:
+      - alert_type=DLP
+      - activity=Upload
+      - instance personal or ccl low/poor
+    why: The classic exfiltration path — corporate data copied to a personal Drive/Dropbox or a throwaway file-transfer site.
+    kql: |-
+      dataset="netskope_logs" alert_type="DLP" activity="Upload"
+      | where ccl in ("low","poor") or instance_id == "personal"
+      | summarize alerts=count(), files=dcount(object), profiles=make_set(dlp_profile) by user, app, bin(_time, 1h)
+    mitre:
+      - T1567.002
+      - T1048
+  - title: Bulk download from corporate SaaS followed by upload elsewhere
+    severity: high
+    signals:
+      - activity=Download count high on a corporate instance
+      - activity=Upload to another app within 1h
+    why: Departing-employee and insider exfiltration look like this; UBA may alert too, but correlating the two activities makes it actionable.
+    kql: |-
+      dataset="netskope_logs" type="nspolicy" activity in ("Download","Upload")
+      | summarize downloads=countif(activity == "Download"), uploads=countif(activity == "Upload"), apps=make_set(app) by user, bin(_time, 1h)
+      | where downloads > 200 and uploads > 20
+    mitre:
+      - T1530
+      - T1567.002
+  - title: Malware allowed or only alerted
+    severity: high
+    signals:
+      - alert_type=Malware
+      - action=alert or allow
+    why: A detection that did not block means the file reached the endpoint. Pivot to EDR on the hostname and hash.
+    kql: |-
+      dataset="netskope_logs" alert_type="Malware"
+      | where action != "block"
+      | summarize count() by user, malware_name, malware_severity, sha256, app
+    mitre:
+      - T1204.002
+      - T1105
+  - title: One user active from many devices or countries
+    severity: medium
+    signals:
+      - application events
+      - hostname count per user > 3 in 24h
+      - more than one src_country
+    why: Enrollment abuse (CVE-2024-7401 class) or a stolen session gives an outsider a policy-trusted identity in the tenant. New devices and countries per user should be rare.
+    kql: |-
+      dataset="netskope_logs" type="nspolicy"
+      | summarize devices=dcount(hostname), countries=dcount(src_country), list=make_set(src_country) by user, bin(_time, 24h)
+      | where devices > 3 or countries > 1
+    mitre:
+      - T1078
+      - T1098
+  - title: Traffic bypassing inspection
+    severity: low
+    signals:
+      - type=connection
+      - bypass_traffic=yes
+    why: Steering exceptions and certificate-pinned apps are legitimate, but new bypassed domains are blind spots and sometimes deliberate evasion.
+    kql: |-
+      dataset="netskope_logs" type="connection" bypass_traffic="yes"
+      | summarize users=dcount(user), bytes=sum(server_bytes) by domain, bypass_reason
+      | sort by users desc
+    mitre:
+      - T1090
+optimizations:
+  - title: Strip geo, empty and default-value fields
+    saving: 40–60 %
+    fn: Parser → Serialize
+    how: API events carry dozens of geo fields (lat/long/zip/timezone for both ends) and many empty strings, zeros and empty lists. Remove them and keep src_country/dst_country. This is what the Netskope Pack's reduction does.
+    expr: "remove: *_latitude, *_longitude, *_zipcode, *_timezone, *_region; drop '', 0, [] values"
+  - title: Route page events to Lake
+    saving: 30–50 % SIEM licence
+    fn: Routes
+    how: Page / connection events are high-volume web history. Send them to Cribl Lake and keep application events, alerts, audit and network events in the SIEM.
+    expr: type=='connection' → Lake ; alert=='yes' || type!='connection' → SIEM
+  - title: Aggregate allowed CDN and telemetry page events
+    saving: 10–20 %
+    fn: Aggregations
+    how: Content-delivery, software-update and analytics domains generate repetitive page events. Roll up bytes and counts per user, domain and category per 5 minutes.
+    expr: type=='connection' && ['Content Delivery','Software Updates','Web Analytics'].includes(category)
+  - title: Suppress duplicate alerts
+    saving: 5–10 %
+    fn: Suppress
+    how: The same DLP or policy alert can fire for every retry of the same upload. Keep one per user, policy and object per 10 minutes.
+    expr: "key: `${user}:${policy}:${object}`  allow 1 / 600s  when alert=='yes'"
+references:
+  - title: Netskope — Using the REST API v2 dataexport iterator endpoints
+    url: https://docs.netskope.com/en/using-the-rest-api-v2-dataexport-iterator-endpoints
+  - title: Netskope — Transaction Events Fields Reference (Log Streaming)
+    url: https://docs.netskope.com/en/transaction-events-fields-reference
+  - title: Netskope Data Schema (event and alert field definitions)
+    url: https://github.com/netskopeoss/Data-Schema
+  - title: NSKPSA-2024-001 — Netskope Client enrollment bypass (CVE-2024-7401)
+    url: https://www.netskope.com/resources/netskope-resources/netskope-security-advisory-nskpsa-2024-001
+  - title: NSKPSA-2023-001 — Netskope Client local privilege escalation (CVE-2023-2270)
+    url: https://www.netskope.com/resources/netskope-resources/netskope-security-advisory-nskpsa-2023-001
+  - title: NSKPSA-2025-002 — Netskope Client local privilege escalation (CVE-2025-0309)
+    url: https://www.netskope.com/resources/netskope-resources/netskope-security-advisory-nskpsa-2025-002
+  - title: Cribl Packs Dispensary — Netskope Events and Alerts
+    url: https://packs.cribl.io/packs/cc-netskope-events-and-alerts
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - zscaler-zia
+  - zscaler-zpa
+  - cloudflare-zero-trust
+  - umbrella
+  - o365
+  - google-workspace
+  - okta

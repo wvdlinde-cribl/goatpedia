@@ -1,0 +1,294 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-i
+name: IBM i (AS/400) Audit Journal
+short: IBM i
+aka:
+  - AS/400
+  - iSeries
+  - System i
+  - OS/400
+  - i5/OS
+  - QAUDJRN
+vendor: IBM
+category: mainframe
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - power
+  - audit
+  - journal
+  - qaudjrn
+  - syslog
+  - privileged-access
+  - erp
+summary: IBM's integrated OS and Db2 database for Power servers (the AS/400 lineage). Security events go to the QAUDJRN audit journal as two-letter entry types — PW invalid password, AF authority failure, CP profile change, SV system value change, ZC/ZR object access — and are forwarded to a SIEM as syslog by IBM i services or third-party agents. It runs ERP, banking and logistics back ends, so few events matter a lot.
+sourcetypes:
+  - st: ibm_os400_syslog
+    desc: QAUDJRN and QHST entries forwarded as syslog — OS400 release, CCSID, then key:value pairs
+facts:
+  First released: 1988 (AS/400, OS/400); renamed IBM i in 2008
+  OS: IBM i 7.4, 7.5, 7.6 (Technology Refreshes); Db2 for i built in
+  Platform: IBM Power servers (Power10 / Power11) and Power Virtual Server
+  Deployment modes: LPAR on PowerVM, often with PASE (AIX runtime) and Db2 Mirror
+  Audit controls: QAUDCTL, QAUDLVL / QAUDLVL2 system values, per-user CHGUSRAUD, per-object CHGOBJAUD
+  Log transport: syslog (UDP/TCP/TLS) via IBM i services or agents such as Precisely Assure, Powertech SIEM Agent, Raz-Lee iSecurity
+  Log format: Journal entries (binary), exported as syslog key:value, CEF/LEEF or JSON depending on the forwarder
+  Typical volume: 1–100 EPS per partition; *OBJAUD / ZR read auditing multiplies it
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: Core business back end
+      desc: IBM i partitions running ERP (JD Edwards, Infor), banking or warehouse applications, reached by 5250 terminal emulation, ODBC/JDBC, FTP and DDM from the internal network.
+    - slot: internal
+      title: Integration servers
+      desc: Host servers (QZDASOINIT database, QZRCSRVS remote command, DDM/DRDA on 446/447, FTP, SSH in PASE) that partner and middleware systems call. These are where remote exploitation lands (CVE-2023-30990).
+    - slot: cloud
+      title: Power Virtual Server / hosted IBM i
+      desc: IBM i in IBM Cloud or a managed-service provider, forwarding syslog over a VPN to the SOC collector.
+howItWorks:
+  - title: The audit journal
+    body: QAUDJRN in library QSYS is a normal IBM i journal. When QAUDCTL includes *AUDLVL, the OS writes an entry with journal code T and a two-letter entry type for every action listed in QAUDLVL/QAUDLVL2 (e.g. *AUTFAIL → AF, *SECURITY → CP/SV/CA, *CMD → CD, *PGMADP → AP).
+  - title: Entry types
+    body: "PW = invalid password or user id; AF = authority failure (violation type A not authorised, P program, J job description …); CP = user profile created/changed; SV = system value changed; CA = authority changed; ZC/ZR = object change/read; DO = delete; SK = socket connection; CD = command string; JS = job actions; PS = profile swap."
+  - title: Object and user auditing
+    body: CHGOBJAUD marks objects (payroll files, QSECOFR-owned programs) for *CHANGE or *ALL auditing; CHGUSRAUD marks users (e.g. every *ALLOBJ profile) for command and object auditing. Without these, ZC/ZR and CD entries are not written.
+  - title: Getting entries out
+    body: IBM i stores entries in binary journal receivers. SQL services (SYSTOOLS.AUDIT_JOURNAL_* table functions), CPYAUDJRNE or a forwarding agent read new entries, convert from EBCDIC (the CCSID in the header) and send them as syslog with an OS400 release prefix.
+  - title: Exit programs
+    body: Network exit points (QIBM_QZDA_INIT, QIBM_QTMF_SERVER_REQ, DDM) let security products log or block ODBC, FTP and remote command requests. They add context the audit journal lacks — but did not stop the DDM bug in CVE-2023-30990.
+traffic:
+  handles:
+    - 5250 sign-on (Telnet / TLS 992)
+    - ODBC/JDBC database host server
+    - DDM / DRDA (446, 447)
+    - FTP and SFTP/SSH (PASE OpenSSH)
+    - Remote command (QZRCSRVS) and IFS (NetServer SMB)
+    - User profile and authority administration
+    - Program adoption and profile swaps
+  flow:
+    - step: Request
+      desc: User or job signs on, runs a command or opens an object.
+    - step: Authority check
+      desc: OS checks user, group, adopted and *PUBLIC authority.
+    - step: Journal entry
+      desc: If audited, a T-code entry (PW, AF, ZC …) is written to QAUDJRN.
+    - step: Receiver
+      desc: Entry stored in the current journal receiver (binary, EBCDIC).
+    - step: Export
+      desc: SQL service or agent reads new entries and converts the CCSID.
+    - step: Syslog
+      desc: One message per entry sent to the collector / Cribl Stream.
+logs:
+  - type: Invalid sign-on (PW)
+    sourcetype: ibm_os400_syslog
+    format: text
+    share: 5–20 %
+    avg: ~350 B
+    desc: PW entry — invalid password (P) or user id (U) on sign-on, host server or FTP. Carries the job, the user tried and the remote address.
+    pattern: '^<(?<priority>\d+)>(?<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}) (?<host>\S+) (?<app>[^\[\s:]+)\[(?<pid>\d+)\]: (?<platform>OS400) (?<os_release>\S+) CCSID=(?<ccsid>\d+) (?<payload>.*?\bentry_type:(?<entry_type>\w{2})\b.*?\buser:(?<user>\S+).*?\bremote_addr:(?<remote_addr>\S+).*)$'
+    key:
+      - entry_type
+      - user
+      - remote_addr
+      - host
+      - payload
+    noise:
+      - priority
+      - pid
+      - ccsid
+      - platform
+    sample: '<134>2026/11/12 08:02:41 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:PW violation_type:P job:QZDASOINIT/QUSER/482211 user:QSECOFR program:QZDASOINIT remote_addr:198.51.100.23 remote_port:51544 interface:*DATABASE'
+  - type: Authority failure (AF)
+    sourcetype: ibm_os400_syslog
+    format: text
+    share: 10–40 %
+    avg: ~400 B
+    desc: AF entry — a user tried to use an object or command without authority. Violation type A = not authorised to object, C = object validation, J = job description, P = adopted program …
+    pattern: '^<(?<priority>\d+)>(?<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}) (?<host>\S+) (?<app>[^\[\s:]+)\[(?<pid>\d+)\]: (?<platform>OS400) (?<os_release>\S+) CCSID=(?<ccsid>\d+) (?<payload>.*?\bentry_type:(?<entry_type>\w{2})\b.*?\buser:(?<user>\S+).*?\bobject:(?<object>\S+).*)$'
+    key:
+      - entry_type
+      - user
+      - object
+      - payload
+    noise:
+      - priority
+      - pid
+      - ccsid
+    sample: '<132>2026/11/12 08:14:09 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:AF violation_type:A job:QPADEV0012/JDOE/482390 user:JDOE object:PAYLIB/PAYMAST object_type:*FILE remote_addr:10.20.30.44'
+  - type: Profile / system value change (CP, SV)
+    sourcetype: ibm_os400_syslog
+    format: text
+    share: < 1 %
+    avg: ~450 B
+    desc: CP (user profile created/changed/restored, incl. special authorities) and SV (system value changed, e.g. QAUDCTL, QSECURITY, QPWDLVL). Rare and high value.
+    pattern: '^<(?<priority>\d+)>(?<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}) (?<host>\S+) (?<app>[^\[\s:]+)\[(?<pid>\d+)\]: (?<platform>OS400) (?<os_release>\S+) CCSID=(?<ccsid>\d+) (?<payload>.*?\bentry_type:(?<entry_type>\w{2})\b.*?\buser:(?<user>\S+).*)$'
+    key:
+      - entry_type
+      - user
+      - payload
+    sample: '<133>2026/11/12 09:31:55 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:CP action:CHG job:QPADEV0007/SECADM1/482701 user:SECADM1 target_profile:BATCHSVC command:CHGUSRPRF special_authority:*ALLOBJ,*SECADM'
+cves:
+  - id: CVE-2023-30990
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: DDM architecture flaw lets an unauthenticated remote attacker run CL commands as QUSER
+    affected: IBM i 7.2, 7.3, 7.4, 7.5
+    fixed: 5770-SS1 PTFs SI83472 (7.5), SI83473 (7.4), SI83474 (7.3), SI84090 (7.2)
+    detect: DDM server jobs (QRWTSRVR) running commands with no matching successful sign-on; PW entries for the DDM interface followed by CD/JS/CO entries under QUSER; SK socket entries on 446/447 from unexpected hosts.
+    avoid: Apply the PTFs; restrict DDM/DRDA ports to known application servers; end the DDM server (ENDTCPSVR *DDM) where unused.
+  - id: CVE-2025-36367
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: IBM i SQL services authorization check flaw — privilege escalation to another profile / root
+    affected: IBM i 7.2, 7.3, 7.4, 7.5, 7.6
+    fixed: 5770-SS1 PTFs incl. SJ07552 (7.6), SJ07553 (7.5), SJ07554 (7.4), SJ07555 (7.3), SJ07556 (7.2) plus companions listed in the bulletin
+    detect: CD/JS entries where a low-privilege user runs QSYS2 SQL services and later actions appear under a powerful profile; PS (profile swap) entries without a business reason.
+    avoid: Apply PTFs; limit *USE on QSYS2 services via function usage (WRKFCNUSG); audit *ALLOBJ users with CHGUSRAUD.
+  - id: CVE-2024-55898
+    cvss: 8.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Unqualified library call lets a user who can compile or restore a program run code with admin privilege
+    affected: IBM i 7.2, 7.3, 7.4, 7.5
+    fixed: 5770-SS1 PTF set beginning SJ03650 (7.5) and SJ03651 (7.4); full list in the bulletin
+    detect: CO/OR entries for *PGM objects created or restored into libraries high in a user's library list (QTEMP, user libs before QSYS); AP entries for adopted authority from unexpected programs.
+    avoid: Apply PTFs; remove *USE on CRTxxxPGM / RSTOBJ from general users; keep QSYSLIBL/QUSRLIBL tight.
+  - id: CVE-2025-33103
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: TCP/IP Connectivity Utilities for i privilege escalation to root
+    affected: IBM i 7.2, 7.3, 7.4, 7.5, 7.6 (5770-TC1)
+    fixed: 5770-TC1 PTFs SJ05513 (7.6), SJ05494 (7.5), SJ05505 (7.4), SJ05514 (7.3), SJ05525 (7.2)
+    detect: Command-line (QSH/PASE) users whose later CD or ZC entries run under QSECOFR or uid 0; CP entries granting special authorities right after.
+    avoid: Apply PTFs; restrict command-line access (LMTCPB *YES) for non-admins.
+  - id: CVE-2023-48795
+    cvss: 5.9
+    year: 2023
+    kev: false
+    scope: traffic
+    title: SSH "Terrapin" prefix-truncation attack — SSH/SFTP sessions to OpenSSH for IBM i
+    affected: IBM i 7.2–7.5 OpenSSH (5733-SC1)
+    fixed: 5733-SC1 PTFs SI86102 (7.5), SI86119 (7.2, 7.3, 7.4)
+    detect: Hard to see in logs; inventory sshd versions and negotiated chacha20-poly1305 / *-etm ciphers from network sensors in front of the partition.
+    avoid: Apply the PTF; disable chacha20-poly1305 and EtM MACs until patched; restrict SSH to jump hosts.
+detections:
+  - title: Sign-on brute force / password spray
+    severity: high
+    signals:
+      - entry_type=PW
+      - many users or attempts from one remote_addr
+      - QSECOFR or other *ALLOBJ profiles targeted
+    why: Host servers (ODBC, FTP, DDM) accept passwords without MFA. QSECOFR guesses and sprays across many profiles precede data theft.
+    kql: |-
+      dataset="ibmi_logs" entry_type="PW"
+      | summarize fails=count(), users=dcount(user) by remote_addr, host, bin(_time, 10m)
+      | where fails > 15 or users > 5
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: Authority failures on sensitive objects
+    severity: medium
+    signals:
+      - entry_type=AF
+      - object in payroll / finance libraries
+      - many distinct objects per user
+    why: A burst of AF entries across many objects is a user or compromised profile browsing for data it should not reach.
+    kql: |-
+      dataset="ibmi_logs" entry_type="AF"
+      | summarize fails=count(), objects=dcount(object) by user, host, bin(_time, 15m)
+      | where objects > 20
+    mitre:
+      - T1083
+      - T1078
+  - title: Special authority granted (*ALLOBJ / *SECADM)
+    severity: critical
+    signals:
+      - entry_type=CP
+      - special_authority contains *ALLOBJ or *SECADM
+    why: "*ALLOBJ gives access to every object on the system; granting it outside a change ticket is the classic IBM i persistence step."
+    kql: |-
+      dataset="ibmi_logs" entry_type="CP"
+      | where payload has_any ("*ALLOBJ","*SECADM","*AUDIT")
+      | summarize count() by user, host, payload
+    mitre:
+      - T1098
+  - title: Audit controls weakened
+    severity: high
+    signals:
+      - entry_type=SV
+      - system value QAUDCTL, QAUDLVL, QSECURITY or QPWDLVL changed
+    why: Turning off *AUDLVL or lowering QSECURITY removes the evidence and the protection at the same time.
+    kql: |-
+      dataset="ibmi_logs" entry_type="SV"
+      | where payload has_any ("QAUDCTL","QAUDLVL","QSECURITY","QPWDLVL","QMAXSIGN")
+      | summarize count() by user, host, payload
+    mitre:
+      - T1562
+  - title: Remote commands through DDM or host servers
+    severity: high
+    signals:
+      - CD entries from QUSER / QRWTSRVR / QZRCSRVS jobs
+      - no successful sign-on for that remote address
+    why: Matches CVE-2023-30990 exploitation and abuse of remote command servers to run CL as a service profile.
+    kql: |-
+      dataset="ibmi_logs" entry_type="CD"
+      | where payload has_any ("QRWTSRVR","QZRCSRVS") or user == "QUSER"
+      | summarize cmds=count() by user, host, payload
+    mitre:
+      - T1190
+      - T1059
+optimizations:
+  - title: Drop read-only object access by batch profiles
+    saving: 20–50 %
+    fn: Drop
+    how: ZR (object read) entries from nightly batch and backup profiles dominate volume when *OBJAUD is on. Keep ZR only for interactive and remote users.
+    expr: entry_type=='ZR' && ['QSYSOPR','BACKUPSVC','BATCHSVC'].includes(user)
+  - title: Suppress repeated authority failures
+    saving: 5–20 %
+    fn: Suppress
+    how: A misconfigured job can write the same AF entry thousands of times. Keep one per user/object per 10 minutes with a count.
+    expr: "key: `${user}:${object}`  allow 1 / 600s  when entry_type=='AF'"
+  - title: Parse key:value payload and drop header noise
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: Split the key:value pairs after CCSID into fields, drop priority, pid, ccsid and the constant platform string, and send JSON.
+    expr: "kvp(payload, pair=':' delim=' '); remove: priority, pid, ccsid, platform"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: PW, AF, CP, SV, CA, PS, CD → SIEM. ZC/ZR, JS and spooled-file entries → Cribl Lake for audits and investigations.
+    expr: "['PW','AF','CP','SV','CA','PS','CD'].includes(entry_type) → SIEM  |  else → Lake"
+references:
+  - title: IBM i Audit Journal (QAUDJRN) entry types
+    url: https://www.ibm.com/docs/en/i/7.4.0?topic=entries-audit-journal-qaudjrn-entry-types
+  - title: IBM i SQL audit journal services (by release)
+    url: https://www.ibm.com/support/pages/audit-journal
+  - title: Copy Audit Journal Entries (CPYAUDJRNE)
+    url: https://www.ibm.com/docs/en/i/7.5.0?topic=c-copy-audit-journal-entries
+  - title: "Security Bulletin: IBM i DDM (CVE-2023-30990)"
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm-i-vulnerable-attacker-executing-cl-commands-due-exploitation-ddm-architecture-cve-2023-30990
+  - title: Silent Signal — technical details of CVE-2023-30990
+    url: https://blog.silentsignal.eu/2023/07/03/ibm-i-ddm-vulnerability-cve-2023-30990
+  - title: "Security Bulletin: IBM i SQL services privilege escalation (CVE-2025-36367)"
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm-i-affected-privilege-escalation-ibm-i-sql-services-cve-2025-36367
+  - title: "Security Bulletin: IBM i unqualified library call (CVE-2024-55898)"
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm-i-vulnerable-user-gaining-elevated-privileges-due-unqualified-library-call-cve-2024-55898
+  - title: "Security Bulletin: OpenSSH for IBM i (CVE-2023-48795)"
+    url: https://www.ibm.com/support/pages/security-bulletin-openssh-ibm-i-vulnerable-machine-middle-attack-due-flaw-ssh-transport-protocol-cve-2023-48795
+related:
+  - ibm-aix
+  - ibm-zos
+  - ibm-db2
+  - sap

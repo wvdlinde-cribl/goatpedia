@@ -1,0 +1,354 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: active-directory
+name: Microsoft Active Directory
+short: AD DS
+aka:
+  - Active Directory Domain Services
+  - AD DS
+  - Domain Controller
+  - Kerberos KDC
+  - admon
+vendor: Microsoft
+category: idp
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - windows
+  - kerberos
+  - ntlm
+  - ldap
+  - domain controller
+  - xml
+  - "4769"
+  - "5136"
+summary: The on-premises directory and authentication authority for Windows networks. Domain controllers run the Kerberos KDC, NTLM, LDAP and replication, and record ticket requests, logons, account and group changes and directory-object modifications in their Security log — the place where Kerberoasting, DCSync, privilege escalation and Zerologon-style attacks become visible.
+sourcetypes:
+  - st: activedirectory
+    desc: Splunk ActiveDirectory (admon) sourcetype — directory object snapshots and changes; also used for DC Security events
+  - st: XmlWinEventLog:Security
+    desc: Domain controller Security log in XML (Kerberos 4768/4769/4771, account 47xx, DS changes 5136/4662)
+  - st: WinEventLog:Directory-Service
+    desc: Directory Service event log (LDAP diagnostics, 2889 unsigned LDAP binds, 1644 expensive queries)
+  - st: MSAD:NT6:Netlogon
+    desc: Splunk Add-on for Microsoft AD — netlogon.log (secure-channel and NTLM pass-through)
+facts:
+  First released: 2000 (Windows 2000 Server)
+  Platform: Windows Server domain controllers (2016 / 2019 / 2022 / 2025), domain/forest functional levels
+  Deployment: One or more forests → domains → sites, multi-master replication between DCs; RODCs at branches
+  Protocols: Kerberos v5, NTLM, LDAP/LDAPS, MS-DRSR replication, MS-NRPC (Netlogon), SMB (SYSVOL/GPO)
+  Log transport: Windows Event Forwarding (WEF/WEC), Splunk UF, Cribl Edge, Azure Monitor Agent, NXLog / Winlogbeat
+  Log format: Windows event XML (or classic rendered text); admon object snapshots
+  Typical EPS: 200 – 5,000+ per DC (4624/4634/4768/4769 dominate)
+  Cribl Pack: Cribl Splunk Forwarder Windows XML Events to JSON (Packs Dispensary)
+placement:
+  slots:
+    - internal
+    - cloud
+    - dmz
+  items:
+    - slot: internal
+      title: Domain controllers (Tier 0)
+      desc: DCs sit in the core data center and every site. Every user and computer logon, Kerberos ticket and GPO fetch talks to them — the single most valuable target and log source on-prem.
+    - slot: cloud
+      title: DCs in IaaS and hybrid sync
+      desc: DCs extended into Azure/AWS VPCs, plus Entra Connect / Cloud Sync servers that replicate identities to Entra ID. Treated as Tier 0 wherever they run.
+    - slot: dmz
+      title: RODC / perimeter forests
+      desc: Read-only DCs at branch or DMZ sites, or a separate resource forest for perimeter servers with a one-way trust.
+howItWorks:
+  - title: Kerberos KDC
+    body: A user authenticates to the KDC and gets a ticket-granting ticket (AS exchange, event 4768). Each service access requests a service ticket (TGS exchange, 4769) encrypted with the service account's key. Pre-auth failures are 4771. Ticket encryption type (0x17 = RC4, 0x12 = AES256) is logged — RC4 requests for service accounts are the Kerberoasting tell.
+  - title: NTLM and Netlogon
+    body: NTLM challenge/response is validated by the DC via Netlogon (MS-NRPC) and logged as 4776 on the DC and 4624 (AuthenticationPackageName=NTLM) on the target. Netlogon secure-channel events 5827–5829 record vulnerable (Zerologon) connections.
+  - title: LDAP directory and schema
+    body: Objects (users, groups, computers, GPOs, OUs) live in a replicated LDAP database (ntds.dit). With 'Audit Directory Service Changes' enabled, every attribute modification is event 5136 with old/new value; 'Directory Service Access' (4662) records reads of protected properties like replication rights.
+  - title: Replication (DRSR)
+    body: DCs replicate changes with MS-DRSR (DsGetNCChanges). Any account holding the 'Replicating Directory Changes (All)' extended rights can pull password hashes — DCSync — which shows as 4662 with those right GUIDs from a non-DC account.
+  - title: Account and group management
+    body: User/computer creation (4720/4741), password resets (4724), enable/disable, group membership changes (4728/4732/4756) and sAMAccountName changes (4781) are logged on the DC that processed them — collect from ALL DCs, not one.
+  - title: Group Policy and SYSVOL
+    body: GPOs are AD objects plus files in SYSVOL replicated by DFS-R. Clients pull them over SMB; GPO edits appear as 5136 on groupPolicyContainer objects (versionNumber, gPCMachineExtensionNames).
+traffic:
+  handles:
+    - Kerberos v5 (88/tcp+udp) — AS, TGS, S4U, PKINIT
+    - NTLMv1 / NTLMv2 via Netlogon
+    - LDAP (389) / LDAPS (636) / Global Catalog (3268/3269)
+    - MS-DRSR replication over RPC
+    - MS-NRPC Netlogon secure channel
+    - SMB (SYSVOL, NETLOGON shares)
+    - DNS (AD-integrated zones)
+    - AD CS certificate enrollment (when a CA is in the forest)
+  flow:
+    - step: Client request
+      desc: User logs on or a service is accessed; client locates a DC via DNS SRV records.
+    - step: Authenticate
+      desc: Kerberos AS-REQ (TGT) or NTLM challenge/response validated by the DC.
+    - step: Service ticket
+      desc: TGS-REQ for each service SPN; ticket encrypted with the service account key.
+    - step: Authorise
+      desc: Group SIDs in the PAC/token decide access on the target server.
+    - step: Directory change
+      desc: Admin tools / LDAP writes modify objects; change replicated to all DCs.
+    - step: Audit record
+      desc: DC writes 4768/4769/4776/47xx/5136 to its Security log, forwarded via WEF or an agent.
+logs:
+  - type: Kerberos service ticket (4769)
+    sourcetype: XmlWinEventLog:Security
+    format: xml
+    share: 30–50 %
+    avg: ~1.6 KB
+    desc: One event per TGS request on a DC. ServiceName is the SPN account, TicketEncryptionType the cipher (0x17 RC4 vs 0x12 AES256), IpAddress the requesting client. The bulk of DC volume after logon events.
+    key:
+      - EventID
+      - TargetUserName
+      - ServiceName
+      - TicketEncryptionType
+      - IpAddress
+      - Status
+      - Computer
+    noise:
+      - Provider.Guid
+      - Version
+      - Opcode
+      - Keywords
+      - Execution.ThreadID
+      - LogonGuid
+      - TransmittedServices
+      - IpPort
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4769</EventID><Version>0</Version><Level>0</Level><Task>14337</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T09:31:05.442133700Z'/><EventRecordID>88123456</EventRecordID><Correlation/><Execution ProcessID='668' ThreadID='2140'/><Channel>Security</Channel><Computer>DC01.corp.example.com</Computer><Security/></System><EventData><Data Name='TargetUserName'>jdoe@CORP.EXAMPLE.COM</Data><Data Name='TargetDomainName'>CORP.EXAMPLE.COM</Data><Data Name='ServiceName'>svc-sql</Data><Data Name='ServiceSid'>S-1-5-21-1111111111-2222222222-3333333333-1107</Data><Data Name='TicketOptions'>0x40810000</Data><Data Name='TicketEncryptionType'>0x17</Data><Data Name='IpAddress'>::ffff:10.20.30.44</Data><Data Name='IpPort'>51544</Data><Data Name='Status'>0x0</Data><Data Name='LogonGuid'>{6b2c1d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e}</Data><Data Name='TransmittedServices'>-</Data></EventData></Event>"
+  - type: Directory service change (5136)
+    sourcetype: XmlWinEventLog:Security
+    format: xml
+    share: 1–5 %
+    avg: ~1.8 KB
+    desc: Attribute-level change to an AD object (requires 'Audit Directory Service Changes' and a SACL). Shows who changed which attribute on which DN, with the new value — e.g. RBCD (msDS-AllowedToActOnBehalfOfOtherIdentity), servicePrincipalName, GPO edits, adminCount.
+    key:
+      - EventID
+      - SubjectUserName
+      - ObjectDN
+      - ObjectClass
+      - AttributeLDAPDisplayName
+      - AttributeValue
+      - OperationType
+    noise:
+      - Provider.Guid
+      - Version
+      - Opcode
+      - Keywords
+      - OpCorrelationID
+      - AppCorrelationID
+      - AttributeSyntaxOID
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>5136</EventID><Version>0</Version><Level>0</Level><Task>14081</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T10:02:17.118274300Z'/><EventRecordID>88130021</EventRecordID><Correlation/><Execution ProcessID='668' ThreadID='3312'/><Channel>Security</Channel><Computer>DC01.corp.example.com</Computer><Security/></System><EventData><Data Name='OpCorrelationID'>{0d1e2f3a-4b5c-6d7e-8f90-a1b2c3d4e5f6}</Data><Data Name='AppCorrelationID'>-</Data><Data Name='SubjectUserSid'>S-1-5-21-1111111111-2222222222-3333333333-1190</Data><Data Name='SubjectUserName'>jdoe</Data><Data Name='SubjectDomainName'>CORP</Data><Data Name='SubjectLogonId'>0x2a7f31c</Data><Data Name='DSName'>corp.example.com</Data><Data Name='DSType'>%%14676</Data><Data Name='ObjectDN'>CN=FS01,OU=Servers,DC=corp,DC=example,DC=com</Data><Data Name='ObjectGUID'>{9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d}</Data><Data Name='ObjectClass'>computer</Data><Data Name='AttributeLDAPDisplayName'>msDS-AllowedToActOnBehalfOfOtherIdentity</Data><Data Name='AttributeSyntaxOID'>2.5.5.15</Data><Data Name='AttributeValue'>O:BAD:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;S-1-5-21-1111111111-2222222222-3333333333-1203)</Data><Data Name='OperationType'>%%14674</Data></EventData></Event>"
+  - type: AD object monitoring (admon)
+    sourcetype: activedirectory
+    format: text
+    share: < 1 %
+    avg: ~2 KB
+    desc: Splunk admon snapshots of directory objects on change (Update / Delete / Sync). Multi-line key=value blocks grouped by Names, Object Details, Event Details. Good for inventory and memberOf tracking even where 5136 auditing is not configured.
+    pattern: '^(?<timestamp>\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}\.\d{3})\s+dcName=(?<dcName>\S+)\s+admonEventType=(?<admonEventType>\w+)\s+Names:\s+objectCategory=(?<objectCategory>\S+)\s+name=(?<name>\S+)[\s\S]*?distinguishedName=(?<distinguishedName>\S+)[\s\S]*?sAMAccountName=(?<sAMAccountName>\S+)[\s\S]*?objectSid=(?<objectSid>\S+)[\s\S]*?memberOf=(?<memberOf>[^\n]+)[\s\S]*?objectClass=(?<objectClass>\S+)[\s\S]*?uSNChanged=(?<uSNChanged>\d+)[\s\S]*$'
+    key:
+      - admonEventType
+      - sAMAccountName
+      - distinguishedName
+      - memberOf
+      - dcName
+      - objectClass
+    noise:
+      - uSNChanged
+      - objectCategory
+    sample: |-
+      11/12/2026 10:04:51.207
+      dcName=DC01.corp.example.com
+      admonEventType=Update
+      Names:
+          objectCategory=CN=Person,CN=Schema,CN=Configuration,DC=corp,DC=example,DC=com
+          name=svc-backup
+          displayName=svc-backup
+          distinguishedName=CN=svc-backup,OU=Service Accounts,DC=corp,DC=example,DC=com
+      Object Details:
+          sAMAccountName=svc-backup
+          sAMAccountType=805306368
+          objectSid=S-1-5-21-1111111111-2222222222-3333333333-1205
+          memberOf=CN=Domain Admins,CN=Users,DC=corp,DC=example,DC=com
+          userAccountControl=66048
+          whenChanged=10:04.51 am, Thu 11/12/2026
+          objectClass=top|person|organizationalPerson|user
+      Event Details:
+          uSNChanged=4419021
+          instanceType=4
+cves:
+  - id: CVE-2020-1472
+    cvss: 5.5
+    year: 2020
+    kev: true
+    scope: device
+    title: Zerologon — Netlogon (MS-NRPC) cryptographic flaw lets an unauthenticated attacker reset the DC machine password
+    affected: All supported Windows Server versions acting as domain controllers before the August 2020 updates
+    fixed: August 2020 security updates (enforcement mode from February 2021 updates)
+    detect: "4742 'computer account changed' for a DC account with SubjectUserName ANONYMOUS LOGON / password last set changed; System log Netlogon 5827–5829 vulnerable secure-channel events; followed by DCSync (4662) from an unusual host."
+    avoid: Patch all DCs; keep enforcement mode on (FullSecureChannelProtection); alert on 5829.
+  - id: CVE-2021-42287
+    cvss: 7.5
+    year: 2021
+    kev: true
+    scope: device
+    title: noPac / sAMAccountName spoofing — KDC PAC confusion (chained with CVE-2021-42278) gives domain admin from any user
+    affected: Windows Server domain controllers before the November 2021 updates
+    fixed: November 2021 security updates (KB5008380 hardening, enforced July 2022)
+    detect: 4741 computer account created by a normal user (MachineAccountQuota), then 4781 sAMAccountName changed to a DC name without the trailing $, then 4768/4769 for that name, then the name reverted.
+    avoid: Patch; set ms-DS-MachineAccountQuota to 0; alert on 4781 where the new name matches a DC.
+  - id: CVE-2022-26923
+    cvss: 8.8
+    year: 2022
+    kev: true
+    scope: device
+    title: Certifried — AD CS machine-certificate dNSHostName spoofing leads to domain-controller impersonation
+    affected: Domain controllers and AD CS before the May 2022 updates (forests with an Enterprise CA)
+    fixed: May 2022 security updates (KB5014754 strong certificate mapping, full enforcement 2025)
+    detect: 5136 change of dNSHostName on a computer object to a DC's FQDN (with servicePrincipalName removed), followed by a certificate request (4886/4887 on the CA) and PKINIT 4768 with CertIssuerName set for the DC account.
+    avoid: Patch; enforce strong certificate mapping; MachineAccountQuota 0; monitor dNSHostName changes.
+  - id: CVE-2021-36942
+    cvss: 7.5
+    year: 2021
+    kev: true
+    scope: traffic
+    title: PetitPotam — LSA (MS-EFSRPC) coercion forces a DC to authenticate to an attacker, relayed to AD CS web enrollment
+    affected: Windows Server domain controllers before the August 2021 updates
+    fixed: August 2021 security updates (plus disable NTLM / enable EPA on AD CS HTTP endpoints)
+    detect: 4624 on the AD CS server with the DC machine account logging on via NTLM from a non-DC IP; 5145 access to the lsarpc / efsrpc pipe from workstations on the DC.
+    avoid: Patch; disable NTLM on DCs and AD CS; require EPA + HTTPS on certsrv; block inbound EFSRPC.
+  - id: CVE-2024-49112
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: LDAP client integer overflow — crafted CLDAP referral responses trigger RCE in LSASS (LDAPNightmare)
+    affected: Windows and Windows Server (including DCs) before the December 2024 updates
+    fixed: December 2024 security updates
+    detect: DCs making outbound DNS lookups / CLDAP (389/udp) connections to internet hosts; LSASS crash (Application 1000 / System 1074 unexpected restart) on a DC.
+    avoid: Patch; block outbound LDAP/CLDAP and unsolicited RPC from DCs to the internet.
+detections:
+  - title: Kerberoasting (RC4 service tickets)
+    severity: high
+    signals:
+      - EventID=4769
+      - TicketEncryptionType=0x17
+      - ServiceName not ending in $ and not krbtgt
+      - many distinct ServiceName per client
+    why: Attackers request RC4 service tickets for SPN accounts and crack them offline. In an AES-only estate RC4 requests are rare; one client asking for many SPNs is a strong signal.
+    kql: |-
+      dataset="ad_logs" EventID="4769" TicketEncryptionType="0x17" Status="0x0"
+      | where not(ServiceName endswith "$") and ServiceName != "krbtgt"
+      | summarize spns=dcount(ServiceName), n=count() by IpAddress, TargetUserName, bin(_time, 30m)
+      | where spns >= 3
+    mitre:
+      - T1558.003
+  - title: AS-REP roasting (no pre-auth)
+    severity: medium
+    signals:
+      - EventID=4768
+      - PreAuthType=0
+      - Status=0x0
+    why: Accounts with "Do not require Kerberos preauthentication" leak a crackable AS-REP to anyone. Successful TGTs without pre-auth should be near zero.
+    kql: |-
+      dataset="ad_logs" EventID="4768" PreAuthType="0" Status="0x0"
+      | summarize n=count() by TargetUserName, IpAddress
+    mitre:
+      - T1558.004
+  - title: DCSync from a non-DC account
+    severity: critical
+    signals:
+      - EventID=4662
+      - Properties contain 1131f6aa-9c07-11d1-f79f-00c04fc2dcd2 or 1131f6ad-9c07-11d1-f79f-00c04fc2dcd2
+      - SubjectUserName is not a DC machine account
+    why: Replication rights pull every password hash including krbtgt. Only DCs (and Entra Connect's sync account) should ever do this.
+    kql: |-
+      dataset="ad_logs" EventID="4662"
+      | where Properties has_any ("1131f6aa-9c07-11d1-f79f-00c04fc2dcd2","1131f6ad-9c07-11d1-f79f-00c04fc2dcd2")
+      | where not(SubjectUserName endswith "$")
+      | summarize n=count() by SubjectUserName, Computer
+    mitre:
+      - T1003.006
+  - title: Privileged group membership change
+    severity: high
+    signals:
+      - EventID in 4728, 4732, 4756
+      - TargetUserName in Domain Admins / Enterprise Admins / Administrators / Schema Admins
+    why: Adding an account to a Tier-0 group is the classic persistence step and should map to a change ticket.
+    kql: |-
+      dataset="ad_logs" EventID in ("4728","4732","4756")
+      | where TargetUserName in ("Domain Admins","Enterprise Admins","Administrators","Schema Admins","Account Operators","Backup Operators")
+      | project _time, Computer, SubjectUserName, MemberName, TargetUserName
+    mitre:
+      - T1098.007
+  - title: Resource-based constrained delegation written
+    severity: high
+    signals:
+      - EventID=5136
+      - AttributeLDAPDisplayName=msDS-AllowedToActOnBehalfOfOtherIdentity
+    why: Writing RBCD on a computer lets the principal in the descriptor impersonate any user to that computer (S4U2Proxy) — a common privilege-escalation path from a compromised machine or relayed NTLM.
+    kql: |-
+      dataset="ad_logs" EventID="5136" AttributeLDAPDisplayName="msDS-AllowedToActOnBehalfOfOtherIdentity"
+      | project _time, SubjectUserName, ObjectDN, AttributeValue, OperationType
+    mitre:
+      - T1134.001
+      - T1484.001
+  - title: Machine account renamed to a DC name (noPac)
+    severity: critical
+    signals:
+      - EventID=4781
+      - NewTargetUserName equals a DC name without $
+    why: The core step of CVE-2021-42278/42287 exploitation; legitimate renames of computer accounts to DC names do not happen.
+    kql: |-
+      dataset="ad_logs" EventID="4781"
+      | lookup dc_hosts on NewTargetUserName
+      | where isnotempty(dc_host) or not(NewTargetUserName endswith "$")
+      | project _time, SubjectUserName, OldTargetUserName, NewTargetUserName
+    mitre:
+      - T1068
+      - T1078.002
+optimizations:
+  - title: Drop machine-account and krbtgt ticket noise
+    saving: 20–40 %
+    fn: Drop
+    how: Most 4769s are computer accounts renewing tickets to themselves or krbtgt TGS renewals with AES. Drop 4769 where ServiceName ends with $ AND TicketEncryptionType is 0x12 AND Status is 0x0 — keep every RC4 and every failure.
+    expr: EventID=='4769' && ServiceName.endsWith('$') && TicketEncryptionType=='0x12' && Status=='0x0'
+  - title: Strip XML boilerplate
+    saving: 30–50 %
+    fn: Parser → Serialize
+    how: Parse EventData to fields and drop the static System block (Provider Guid, Version, Opcode, Keywords, ThreadID, Correlation) and placeholder values ('-', '0x0' LogonGuid). Serialize to JSON or KV. The Cribl XML Events to JSON pack does this.
+    expr: "remove: Provider.Guid, Version, Opcode, Keywords, Execution.ThreadID, LogonGuid, TransmittedServices when '-'"
+  - title: Suppress repetitive 4662 object reads
+    saving: 5–20 %
+    fn: Suppress
+    how: With Directory Service Access auditing on, monitoring tools generate floods of identical 4662s. Keep one per SubjectUserName/ObjectName/AccessMask per 5 minutes — but never suppress the replication-right GUIDs.
+    expr: "key: `${SubjectUserName}:${ObjectName}:${AccessMask}`  allow 1 / 300s  when EventID=='4662' && !/1131f6a[ad]/.test(Properties)"
+  - title: Route by event class
+    saving: SIEM licence
+    fn: Routes
+    how: Account/group management (47xx), 4662 replication, 5136, 4768/4769 RC4 or failures, Netlogon 5827–5829 → SIEM. Bulk successful AES ticket traffic → Lake, replayed during an investigation.
+    expr: "EventID in ('4720','4724','4728','4732','4756','4781','5136','4662') || TicketEncryptionType=='0x17' → SIEM"
+references:
+  - title: Microsoft — Event 4769 A Kerberos service ticket was requested
+    url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4769
+  - title: NVD — CVE-2020-1472 (Zerologon)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2020-1472
+  - title: NVD — CVE-2021-42287 (noPac)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-42287
+  - title: NVD — CVE-2022-26923 (Certifried)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2022-26923
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK T1558.003 Kerberoasting
+    url: https://attack.mitre.org/techniques/T1558/003/
+  - title: Cribl Splunk Forwarder Windows XML Events to JSON pack
+    url: https://github.com/criblpacks/cribl-splunk-forwarder-windows-xml-events-to-json
+related:
+  - win-security
+  - entra-id
+  - ms-dns-dhcp
+  - windows-powershell
+  - sysmon
+  - mde

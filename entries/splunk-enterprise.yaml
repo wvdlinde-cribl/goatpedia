@@ -1,0 +1,323 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: splunk-enterprise
+name: Splunk Enterprise (internal logs)
+short: Splunk
+aka:
+  - Splunk Enterprise
+  - Splunk Cloud Platform
+  - Splunk Universal Forwarder
+  - Splunk Enterprise Security
+vendor: Splunk (Cisco)
+category: pipeline
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - siem
+  - internal-logs
+  - audit
+  - splunkd
+  - web-access
+  - forwarder
+summary: Splunk's own logs about the Splunk deployment, as opposed to the data it indexes. Splunk Web access (splunkd_ui_access), REST API access (splunkd_access), the audit trail (_audit) and splunkd.log go to the _internal and _audit indexes on every search head, indexer and forwarder. They show who searched what, who changed roles or apps, and whether data stopped flowing. Splunk is also a high-value target that holds credentials and every security log.
+sourcetypes:
+  - st: splunkd_ui_access
+    desc: Splunk Web access log (splunkd_ui_access.log, index _internal) — Apache-style line per UI request with client IP, user, URI, status, bytes, user agent, session and duration
+  - st: splunkd_access
+    desc: splunkd REST API access log (splunkd_access.log, port 8089) — one line per management API call
+  - st: audittrail
+    desc: Splunk audit trail (index _audit) — Audit:[timestamp=…, user=…, action=…, info=…] records for searches, logins and REST/config changes
+  - st: splunkd
+    desc: splunkd.log — process log with level, component and thread (TcpInputProc, TcpOutputProc, ExecProcessor, …)
+facts:
+  First released: 2004 (Splunk 1.0); Cisco acquisition completed 2024
+  Current versions: 10.4, 10.2, 10.0 and 9.4 (supported lines in 2026)
+  Components: Search heads, indexers (clustered), heavy and universal forwarders, deployment server, cluster manager, license manager
+  Ports: "Splunk Web 8000; management/REST 8089; forwarding (S2S) 9997; HEC 8088; KV store 8191"
+  Log location: "$SPLUNK_HOME/var/log/splunk/ (splunkd.log, splunkd_access.log, splunkd_ui_access.log, audit.log) → indexes _internal and _audit"
+  Log format: "Apache-style access logs; Audit:[key=value, …] audit trail; splunkd.log TIMESTAMP LEVEL COMPONENT [thread] - message"
+  Typical EPS: _internal 50–5,000 per indexer (metrics.log dominates); _audit 1–100 per search head
+placement:
+  slots:
+    - internal
+    - cloud
+    - endpoint
+  items:
+    - slot: internal
+      title: Search heads and indexers
+      desc: SOC SIEM tier on-prem. Search heads expose Splunk Web (8000) and REST (8089) to analysts; indexers receive S2S on 9997.
+    - slot: cloud
+      title: Splunk Cloud Platform
+      desc: Splunk-managed stacks; customers see _internal/_audit for their own stack but cannot patch it, and some advisories (e.g. the PostgreSQL sidecar) don't apply.
+    - slot: endpoint
+      title: Universal / heavy forwarders
+      desc: Agents on servers and collectors that read files and Windows event logs and forward over S2S. Each one has its own splunkd and management port.
+howItWorks:
+  - title: splunkd and Splunk Web
+    body: splunkd is the core daemon (indexing, search, REST on 8089). Splunk Web is the UI on 8000 and proxies to splunkd through /en-US/splunkd/__raw/. Each tier logs its own access log, so one UI action can appear in both splunkd_ui_access and splunkd_access.
+  - title: Internal indexes
+    body: Every instance forwards its own logs (splunkd.log, metrics.log, the access logs) to _internal and its audit trail to _audit. A forwarder that goes quiet in _internal is a host you have lost visibility on.
+  - title: Audit trail
+    body: _audit records searches (action=search with the SPL and search_id), login attempts, REST-driven edits (info=granted REST /…) and changes to users, roles, apps and saved searches. It is the main source for insider and compromised-admin detection.
+  - title: Apps, lookups and scripts
+    body: Apps can ship scripted inputs, custom search commands and external lookups that run Python or shell on the server. Most Splunk RCE advisories (XSLT, external lookups, splunk_archiver) abuse these extension points with a low-privileged account.
+  - title: Forwarding and queues
+    body: Forwarders send over S2S (TCP 9997, optionally TLS) to indexers. When the indexing pipeline backs up, splunkd.log logs blocked queues and TcpInputProc can stop listening, so data silently queues or drops at the source.
+traffic:
+  handles:
+    - Splunk Web HTTPS (8000)
+    - splunkd REST API HTTPS (8089)
+    - Splunk-to-Splunk forwarding (9997, TLS optional)
+    - HTTP Event Collector (8088)
+    - Syslog / TCP / UDP inputs
+    - Indexer and search-head clustering replication
+    - KV store (MongoDB, 8191)
+  flow:
+    - step: Collect
+      desc: Forwarders read files, event logs and scripts; HEC and network inputs receive pushed data.
+    - step: Forward
+      desc: S2S over 9997 to the indexer tier, load-balanced and with indexer acknowledgement.
+    - step: Index
+      desc: Parsing, typing and indexing pipelines write events to buckets; queues buffer bursts.
+    - step: Search
+      desc: Users and scheduled searches run SPL through Splunk Web or REST; jobs are logged to _audit.
+    - step: Administer
+      desc: App installs, role and user edits and config changes via UI/REST land in _audit and the access logs.
+    - step: Monitor
+      desc: splunkd.log and metrics.log in _internal report queue health, forwarder connections and errors.
+logs:
+  - type: Splunk Web access (splunkd_ui_access)
+    sourcetype: splunkd_ui_access
+    format: text
+    share: 20–40 % of security-relevant internal logs
+    avg: ~350 B
+    desc: Apache-style line per Splunk Web request. User is - before login. The trailing fields are a session hash and the response time.
+    pattern: '^(?<clientip>\S+) \S+ (?<user>\S+) \[(?<timestamp>[^\]]+)\] "(?<method>\S+) (?<uri>\S+) (?<protocol>[^"]+)" (?<status>\d{3}) (?<bytes>\d+|-) "(?<referer>[^"]*)" "(?<useragent>[^"]*)" - (?<session>\S+) (?<spent>\d+)ms$'
+    key:
+      - clientip
+      - user
+      - method
+      - uri
+      - status
+      - useragent
+    noise:
+      - protocol
+      - referer
+      - session
+      - spent
+    sample: '203.0.113.45 - jdoe [12/Nov/2026:09:14:07.512 +0000] "GET /en-US/splunkd/__raw/servicesNS/jdoe/search/search/jobs/1794471247.1234/results?output_mode=json HTTP/1.1" 200 1543 "https://splunk.example.com/en-US/app/search/search" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" - 5f3c8a1b2c7f0d8e9a6b3c2d1e0f9a8b 12ms'
+  - type: Audit trail (_audit)
+    sourcetype: audittrail
+    format: text
+    share: 10–30 %
+    avg: ~300 B
+    desc: Audit record for a search, login or REST/config action. info is granted, failed, completed or canceled, and REST-driven changes add the endpoint path after info.
+    pattern: '^Audit:\[timestamp=(?<timestamp>[^,]+), user=(?<user>[^,]+), action=(?<action>[^,]+), info=(?<info>\w+)(?: REST: (?<rest_path>[^\]\s]+))?(?:, (?<details>[^\]]*))?\](?:\[(?<event_hash>[^\]]*)\])?$'
+    key:
+      - user
+      - action
+      - info
+      - rest_path
+    noise:
+      - event_hash
+    sample: 'Audit:[timestamp=11-12-2026 09:15:03.561, user=jdoe, action=search, info=granted REST: /search/jobs/1794471303.1234/control][n/a]'
+  - type: REST API access (splunkd_access)
+    sourcetype: splunkd_access
+    format: text
+    share: 20–40 %
+    avg: ~250 B
+    desc: Apache-style line per call to the management port. Scripts, apps and attackers with a token show up here, often without a matching Splunk Web request.
+    pattern: '^(?<clientip>\S+) \S+ (?<user>\S+) \[(?<timestamp>[^\]]+)\] "(?<method>\S+) (?<uri>\S+) (?<protocol>[^"]+)" (?<status>\d{3}) (?<bytes>\d+|-) (?:"(?<referer>[^"]*)" "(?<useragent>[^"]*)" )?- (?:(?<session>\S+) )?(?<spent>\d+)ms$'
+    key:
+      - clientip
+      - user
+      - method
+      - uri
+      - status
+      - useragent
+    noise:
+      - protocol
+      - referer
+      - spent
+    sample: '198.51.100.23 - svc_automation [12/Nov/2026:09:16:11.204 +0000] "POST /services/authorization/roles/power HTTP/1.1" 200 2876 "-" "python-requests/2.32.3" - 9ms'
+  - type: splunkd.log
+    sourcetype: splunkd
+    format: text
+    share: 30–60 % of _internal (excluding metrics.log)
+    avg: ~200 B
+    desc: Process log for every Splunk instance. log_level is INFO/WARN/ERROR, component names the subsystem and thread is the thread name; forwarding, queue and scripted-input problems show here first.
+    pattern: '^(?<timestamp>\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{4}) (?<log_level>[A-Z]+)\s+(?<component>\S+) \[(?<thread>[^\]]+)\] - (?<message>.*)$'
+    key:
+      - log_level
+      - component
+      - message
+    noise:
+      - thread
+    sample: '11-12-2026 09:16:20.417 +0000 WARN  TcpOutputProc [4120 TcpOutEloop] - Cooked connection to ip=10.0.5.21:9997 timed out'
+cves:
+  - id: CVE-2026-20253
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Unauthenticated file creation/truncation through the PostgreSQL sidecar endpoint
+    affected: Splunk Enterprise 10.0.0–10.0.6 and 10.2.0–10.2.3 (9.4 and earlier, 10.4 and Splunk Cloud not affected)
+    fixed: 10.0.7, 10.2.4, 10.4.0
+    detect: Unexpected new or zero-length files under $SPLUNK_HOME (app bin/, default/, local/); splunkd.log errors from the postgres sidecar; network connections to the sidecar from outside the host.
+    avoid: Upgrade; or set [postgres] disabled = true in server.conf (breaks Edge Processor, OpAmp, SPL2 pipelines); keep 8089 and sidecar ports off untrusted networks.
+  - id: CVE-2023-46214
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: RCE through user-supplied XSLT in search job results
+    affected: Splunk Enterprise 9.0.0–9.0.6 and 9.1.0–9.1.1; Splunk Cloud below 9.1.2308
+    fixed: 9.0.7, 9.1.2
+    detect: splunkd_ui_access uri containing NO_BINARY_CHECK=1 with input.path=*.xsl, or dispatch …xsl (Splunk research detection "Splunk RCE via User XSLT").
+    avoid: Upgrade; or set enableSearchJobXslt = false in web.conf.
+  - id: CVE-2024-36985
+    cvss: 8.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Low-privileged RCE via an external lookup through splunk_archiver copybuckets.py
+    affected: Splunk Enterprise 9.0.0–9.0.9, 9.1.0–9.1.4, 9.2.0–9.2.1
+    fixed: 9.0.10, 9.1.5, 9.2.2
+    detect: _audit searches by non-admin users invoking lookups from the splunk_archiver app (copybuckets); splunkd.log ExecProcessor/script errors referencing erp_launcher or sudobash.
+    avoid: Upgrade; or disable the splunk_archiver app.
+  - id: CVE-2024-36991
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: Unauthenticated path traversal on /modules/messaging/ (Windows only)
+    affected: Splunk Enterprise on Windows 9.0.0–9.0.9, 9.1.0–9.1.4, 9.2.0–9.2.1
+    fixed: 9.0.10, 9.1.5, 9.2.2
+    detect: splunkd_ui_access uri under /modules/messaging/ containing drive letters (C:) or ../ sequences, from unauthenticated users (user=-).
+    avoid: Upgrade; turn off Splunk Web where it is not needed (forwarders, indexers).
+  - id: CVE-2025-20371
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Unauthenticated blind SSRF performing REST calls as a privileged user
+    affected: Splunk Enterprise 9.2.0–9.2.7, 9.3.0–9.3.5, 9.4.0–9.4.3, 10.0.0; requires enableSplunkWebClientNetloc = true
+    fixed: 9.2.8, 9.3.6, 9.4.4, 10.0.1
+    detect: splunkd_access REST calls by an admin that have no preceding Splunk Web activity for that user, especially to user/role or app endpoints.
+    avoid: Upgrade; set enableSplunkWebClientNetloc = false in web.conf.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell JNDI lookup strings inside indexed events (web, VPN, app logs)
+    affected: Java applications using Log4j 2.0-beta9 to 2.14.1 whose logs or requests Splunk indexes
+    detect: "Search indexed web and proxy data for ${jndi: and obfuscated variants (${${lower:j}ndi:) in URIs, user agents and headers."
+    avoid: Patch the Java applications; alert on the strings at ingest or in the pipeline before indexing.
+detections:
+  - title: XSLT injection in Splunk Web (CVE-2023-46214)
+    severity: critical
+    signals:
+      - uri contains NO_BINARY_CHECK=1 and input.path=…xsl
+      - uri contains dispatch and .xsl
+      - status 200
+    why: Splunk's own research detection for user-supplied XSLT RCE. Normal UI traffic never uploads stylesheets.
+    kql: |-
+      dataset="splunk_internal" sourcetype="splunkd_ui_access"
+      | where (uri has "NO_BINARY_CHECK=1" and uri has ".xsl") or (uri has "dispatch" and uri has ".xsl")
+      | summarize hits=count(), uris=make_set(uri, 10) by clientip, user, useragent, status
+    mitre:
+      - T1190
+      - T1210
+  - title: Path traversal on /modules/messaging/
+    severity: high
+    signals:
+      - uri startswith /en-US/modules/messaging/
+      - "uri contains C: or ../"
+    why: The CVE-2024-36991 exploit reads arbitrary files (e.g. etc/passwd) from Windows Splunk Web without logging in.
+    kql: |-
+      dataset="splunk_internal" sourcetype="splunkd_ui_access" uri has "/modules/messaging/"
+      | where uri has "C:" or uri has "..%2f" or uri has "../"
+      | summarize hits=count(), uris=make_set(uri, 10) by clientip, status
+    mitre:
+      - T1190
+      - T1083
+  - title: Brute-force or spray against Splunk logins
+    severity: medium
+    signals:
+      - audittrail action=login attempt, info=failed
+      - many users or many failures from one IP
+    why: Splunk accounts give access to every indexed log and often to stored credentials in apps. Failed-login bursts precede takeover.
+    kql: |-
+      dataset="splunk_internal" sourcetype="audittrail" action="login attempt" info="failed"
+      | extract "clientip=(?<src>[^,\]]+)" from details
+      | summarize fails=count(), users=dcount(user) by src, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110
+  - title: Role, user or app changes via REST
+    severity: high
+    signals:
+      - splunkd_access POST/DELETE to /services/authorization/roles, /services/authentication/users or /services/apps/local
+      - caller not an approved admin or automation account
+    why: Granting admin_all_objects or installing an app with scripted inputs is how attackers turn a Splunk account into code execution and persistence.
+    kql: |-
+      dataset="splunk_internal" sourcetype="splunkd_access" method in ("POST","DELETE")
+      | where uri has "/authorization/roles" or uri has "/authentication/users" or uri has "/apps/local" or uri has "/apps/appinstall"
+      | summarize calls=count(), uris=make_set(uri, 10) by user, clientip, useragent, status
+    mitre:
+      - T1098
+      - T1136.001
+      - T1505
+  - title: Forwarder or indexer stopped sending
+    severity: medium
+    signals:
+      - splunkd log_level=WARN/ERROR in TcpOutputProc / TcpInputProc
+      - message contains blocked, timed out or Stopping all listening ports
+    why: Losing a forwarder or a blocked indexing queue silently removes security data. Attackers also stop the forwarder on hosts they control.
+    kql: |-
+      dataset="splunk_internal" sourcetype="splunkd" log_level in ("WARN","ERROR") component in ("TcpOutputProc","TcpInputProc")
+      | summarize errors=count(), msgs=make_set(message, 5) by host, component, bin(_time, 15m)
+    mitre:
+      - T1562.006
+      - T1489
+optimizations:
+  - title: Drop static assets from splunkd_ui_access
+    saving: 40–70 % of UI access
+    fn: Drop
+    how: Requests for /static/, fonts, images and JS bundles are page loads. Keep everything else, plus any 4xx/5xx.
+    expr: status<400 && /\/static\/|\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(uri)
+  - title: Drop routine splunkd_access polling
+    saving: 30–60 % of REST access
+    fn: Drop
+    how: Search-job status polls and server/info calls from the UI and deployment clients repeat every few seconds. Keep writes, auth endpoints and errors.
+    expr: method=='GET' && status<400 && /\/services\/(server\/info|search\/jobs\/[^/]+$|messages|broker\/phonehome)/.test(uri)
+  - title: Filter splunkd.log to WARN and above
+    saving: 50–80 % of splunkd
+    fn: Drop
+    how: INFO lines (metrics flushes, bucket rolls) rarely matter outside Splunk itself. Keep WARN/ERROR/FATAL and auth or license messages.
+    expr: log_level=='INFO' && !/auth|license|TcpInput|TcpOutput/i.test(component + ' ' + message)
+  - title: Route by consumer
+    saving: SIEM licence
+    fn: Routes
+    how: Send _audit and filtered access logs to the SOC SIEM; send full _internal (incl. metrics.log) to Cribl Lake or the platform team's monitoring.
+    expr: "sourcetype=='audittrail' || sourcetype=='splunkd_access' → SIEM  |  else → Lake"
+references:
+  - title: Splunk advisory SVD-2026-0603 (CVE-2026-20253)
+    url: https://advisory.splunk.com/advisories/SVD-2026-0603
+  - title: Splunk advisory SVD-2023-1104 (CVE-2023-46214)
+    url: https://advisory.splunk.com/advisories/SVD-2023-1104
+  - title: Splunk advisory SVD-2024-0705 (CVE-2024-36985)
+    url: https://advisory.splunk.com/advisories/SVD-2024-0705
+  - title: Splunk advisory SVD-2024-0711 (CVE-2024-36991)
+    url: https://advisory.splunk.com/advisories/SVD-2024-0711
+  - title: Splunk advisory SVD-2025-1006 (CVE-2025-20371)
+    url: https://advisory.splunk.com/advisories/SVD-2025-1006
+  - title: Splunk Security Content — Splunk RCE via User XSLT
+    url: https://research.splunk.com/application/6cb7e011-55fb-48e3-a98d-164fa854e37e/
+related:
+  - cribl
+  - splunk-stream
+  - exabeam
+  - log4j

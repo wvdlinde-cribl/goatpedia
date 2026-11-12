@@ -1,0 +1,330 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: vmware-esxi
+name: VMware ESXi & vCenter
+short: ESXi
+aka:
+  - vSphere
+  - ESXi
+  - vCenter Server
+  - VCSA
+  - VMware Cloud Foundation
+vendor: Broadcom (VMware)
+category: os
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - hypervisor
+  - virtualization
+  - syslog
+  - ransomware
+  - vcenter
+  - esxi-shell
+summary: The bare-metal hypervisor (ESXi) and its management server (vCenter) behind most on-prem data centers. ESXi's vmsyslogd sends hostd, vpxa, shell, auth, vobd and vmkernel logs as syslog. Ransomware crews (Akira, Black Basta, Scattered Spider) now go straight for ESXi to encrypt every VM at once, and the hypervisor has no EDR — so its logs are often the only evidence.
+sourcetypes:
+  - st: vmw_syslog
+    desc: ESXi / vCenter syslog as received from vmsyslogd (all subloggers in one stream)
+  - st: vmw-syslog
+    desc: Splunk Add-on for VMware ESXi Logs input sourcetype; the add-on rewrites it to vmware:esxlog:<program> at index time
+  - st: vmware:esxlog:Hostd
+    desc: Host agent log — VM tasks, API/vSphere Client sessions, login failures
+  - st: vmware:esxlog:shell
+    desc: ESXi Shell / SSH command history
+facts:
+  First released: 2001 (ESX Server); ESXi 2007; vCenter 2003 (VirtualCenter)
+  OS: ESXi 8.0 U3 / 9.0, vCenter Server Appliance 8.0 / 9.0 (Photon OS)
+  Form factors: Bare-metal installs on x86 / Arm servers; VCSA virtual appliance; VMware Cloud Foundation
+  Deployment modes: Standalone host, vCenter-managed cluster (HA/DRS/vSAN), lockdown mode
+  Log transport: vmsyslogd → UDP/TCP 514 or TLS 1514 (Syslog.global.logHost), RFC 3164 default, RFC 5424 optional
+  Log format: Text — ESXi 8 adds severity and program[pid] to every line (ABNF-defined)
+  Typical volume: 5–50 EPS per host; vCenter 50–500 EPS; spikes during vMotion/backup windows
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: Data-center virtualization
+      desc: ESXi clusters host the domain controllers, databases and file servers. Management (vmk0, port 443/902/22) should live on an isolated management VLAN reachable only from jump hosts.
+    - slot: internal
+      title: vCenter management plane
+      desc: vCenter controls every host in its inventory; owning vCenter (CVE-2023-34048) or an SSO admin means owning all VMs. Often joined to Active Directory.
+    - slot: cloud
+      title: Hosted VMware (VCF / VMC / AVS / GCVE)
+      desc: VMware Cloud Foundation stacks in a hyperscaler or MSP. Hosts forward syslog to the provider or a customer collector over a private link.
+howItWorks:
+  - title: Hypervisor and VMX
+    body: The VMkernel schedules VMs; each VM runs in a user-world VMX process. Guest-to-host escapes (CVE-2025-22224 VMCI, CVE-2025-22225) start inside a VM and land in the VMX, then the kernel — the path from one compromised guest to every VM on the host.
+  - title: hostd, vpxa and the API
+    body: hostd is the host agent behind the vSphere API, Host Client and esxcli; vpxa relays vCenter's commands. hostd.log records sessions, rejected passwords and every task (power off, snapshot delete, datastore browse) with an opID that links back to vCenter.
+  - title: Shell, SSH and vobd
+    body: ESXi Shell and SSH are disabled by default. When enabled, shell.log records every command ("[root]" + the esxcli line) and vobd.log records VMkernel observations such as vob.user.ssh.session.opened. Attackers enable SSH, then run esxcli / vim-cmd to list and kill VMs before encrypting /vmfs/volumes.
+  - title: Active Directory integration
+    body: Hosts joined to AD grant full admin to the "ESX Admins" group by default. Recreating that group in AD (CVE-2024-37085) or adding a user to it gives domain attackers root on every joined host.
+  - title: vmsyslogd forwarding
+    body: All subloggers go to Syslog.global.logHost (tcp://, udp://, ssl://), RFC 3164 by default. Forwarding single files is unsupported, so filtering happens downstream. ESXi 8 standardised the line format — severity code (In(14), Er(163)), program[pid], then the message.
+  - title: vCenter events
+    body: vCenter keeps its own event and task database (UserLoginSessionEvent, VmPoweredOffEvent, permission changes) and writes vpxd / SSO logs on the VCSA, forwarded with the appliance's syslog settings.
+traffic:
+  handles:
+    - vSphere API / Host Client (HTTPS 443)
+    - vCenter-to-host management (vpxa, 902)
+    - SSH and ESXi Shell (22, DCUI)
+    - VM console (MKS) and vMotion
+    - Datastore access (VMFS, NFS, iSCSI, vSAN)
+    - OpenSLP (427) — disabled by default since 7.0U2c
+  flow:
+    - step: Admin action
+      desc: User or script calls vCenter, Host Client, SSH or esxcli.
+    - step: Authentication
+      desc: Local account, AD (ESX Admins) or vCenter SSO token.
+    - step: Authorization
+      desc: Role/permission check on the inventory object; lockdown mode may refuse.
+    - step: Task
+      desc: hostd executes (power off, delete snapshot, enable SSH …).
+    - step: Log
+      desc: hostd/shell/vobd write a line with opID and user.
+    - step: Forward
+      desc: vmsyslogd sends to the collector / Cribl Stream.
+logs:
+  - type: ESXi Shell command
+    sourcetype: vmware:esxlog:shell
+    format: text
+    share: < 5 %
+    avg: ~150 B
+    desc: Every command typed in the ESXi Shell or over SSH, prefixed with the user. The single best ransomware signal — VM enumeration, process kill, firewall and syslog changes.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2}T[\d:.]+Z) (?<host>\S+) (?:(?<severity>[A-Z][a-z]\(\d+\)) )?(?<program>[\w.-]+)\[(?<pid>\d+)\]: +(?:\[(?<user>[^\]]+)\]: )?(?<message>.*)$'
+    key:
+      - host
+      - user
+      - message
+    noise:
+      - severity
+      - pid
+    sample: '2026-11-12T02:14:22.508Z esx01.example.com In(14) shell[2104471]: [root]: esxcli vm process list'
+  - type: SSH session (vobd)
+    sourcetype: vmw_syslog
+    format: text
+    share: < 1 %
+    avg: ~200 B
+    desc: VMkernel observation (VOB) events — SSH session opened/closed, login failures, storage and HA alerts.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2}T[\d:.]+Z) (?<host>\S+) (?:(?<severity>[A-Z][a-z]\(\d+\)) )?(?<program>[\w.-]+)\[(?<pid>\d+)\]: +(?<message>.*?\[(?<vob>vob\.[\w.]+)\].*)$'
+    key:
+      - host
+      - vob
+      - message
+    noise:
+      - severity
+      - pid
+    sample: "2026-11-12T02:13:58.737Z esx01.example.com In(14) vobd[2097521]:  [UserLevelCorrelator] 1012726884193us: [vob.user.ssh.session.opened] SSH session was opened for 'root@198.51.100.23'."
+  - type: Host agent (hostd)
+    sourcetype: vmware:esxlog:Hostd
+    format: text
+    share: 30–60 %
+    avg: ~300 B
+    desc: hostd events — rejected passwords, session logins, tasks such as power off, snapshot removal and host configuration changes, tagged with opID.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2}T[\d:.]+Z) (?<host>\S+) (?:(?<severity>[A-Z][a-z]\(\d+\)) )?(?<program>[\w.-]+)\[(?<pid>\d+)\]: +\[(?<originator>Originator@\d+) sub=(?<sub>[\w.-]+)(?: opID=(?<opid>[^\]\s]+))?[^\]]*\] (?<message>.*)$'
+    key:
+      - host
+      - sub
+      - opid
+      - message
+    noise:
+      - originator
+      - pid
+      - severity
+    sample: '2026-11-12T02:12:40.073Z esx01.example.com In(166) Hostd[2098450]: [Originator@6876 sub=Vimsvc.ha-eventmgr opID=esxui-7c1a-90d2] Event 4120 : Cannot login root@198.51.100.23'
+  - type: Syslog (vmw_syslog, relay header)
+    sourcetype: vmw_syslog
+    format: text
+    share: varies
+    avg: ~180 B
+    desc: Lines received through a syslog relay carry the relay timestamp and sender IP in front of the ESXi line (ESXi 7.0 format, no severity).
+    pattern: '^(?<relay_time>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (?<relay_host>\S+) (?<timestamp>\d{4}-\d{2}-\d{2}T[\d:.]+Z) (?<host>\S+) (?<program>[\w.-]+)\[(?<pid>\d+)\]: +(?:\[(?<user>[^\]]+)\]: )?(?<message>.*)$'
+    key:
+      - host
+      - program
+      - user
+      - message
+    noise:
+      - relay_time
+      - relay_host
+      - pid
+    sample: 'Nov 12 02:15:03 10.10.0.21 2026-11-12T02:15:01.506Z esx01.example.com shell[2104471]: [root]: esxcli system syslog config set --loghost='''''
+cves:
+  - id: CVE-2025-22224
+    cvss: 8.2
+    year: 2025
+    kev: true
+    scope: device
+    title: VMCI TOCTOU out-of-bounds write — VM escape to the host VMX process
+    affected: ESXi 7.0, 8.0; Workstation 17.x; VCF 4.5.x / 5.x
+    fixed: ESXi80U3d-24585383, ESXi80U2d-24585300, ESXi70U3s-24585291
+    detect: VMX crashes or unexpected vmx child processes in vmkernel/hostd logs; new SSH sessions or shell commands on a host right after a guest was compromised; exploited in the wild as a chain with 22225/22226.
+    avoid: Patch hosts; treat local admin inside any VM as a path to the host; segment management networks.
+  - id: CVE-2025-22225
+    cvss: 8.2
+    year: 2025
+    kev: true
+    scope: device
+    title: Arbitrary kernel write from the VMX process — sandbox escape (chained with 22224)
+    affected: ESXi 7.0, 8.0; VCF 4.5.x / 5.x
+    fixed: ESXi80U3d-24585383, ESXi80U2d-24585300, ESXi70U3s-24585291
+    detect: Same chain signals as CVE-2025-22224; kernel warnings in vmkwarning.log; unsigned VIBs or new user worlds afterwards.
+    avoid: Patch; enforce Secure Boot and execInstalledOnly so dropped binaries cannot run.
+  - id: CVE-2024-37085
+    cvss: 7.2
+    year: 2024
+    kev: true
+    scope: device
+    title: Active Directory "ESX Admins" group authentication bypass — full admin on AD-joined hosts
+    affected: ESXi 7.0 and 8.0 before 8.0 U3 joined to Active Directory; VCF 4.x / 5.x
+    fixed: ESXi80U3-24022510 (8.0); no patch for 7.0 — workaround only
+    detect: hostd logins by AD users who were never granted host permissions; AD event 4727/4728 creating or adding to "ESX Admins" shortly before; used by Akira and Black Basta.
+    avoid: Set Config.HostAgent.plugins.hostsvc.esxAdminsGroupAutoAdd=false, clear esxAdminsGroup, remove the group's Admin permission; prefer vCenter-only management.
+  - id: CVE-2021-21974
+    cvss: 8.8
+    year: 2021
+    kev: false
+    scope: device
+    title: OpenSLP heap overflow — remote code execution over port 427 (ESXiArgs ransomware wave, 2023)
+    affected: ESXi 7.0 before ESXi70U1c-17325551, 6.7 before ESXi670-202102401-SG, 6.5 before ESXi650-202102101-SG
+    fixed: ESXi70U1c-17325551, ESXi670-202102401-SG, ESXi650-202102101-SG
+    detect: Inbound connections to 427/tcp,udp; slpd crashes in syslog.log; .args / .vmdk encryption artefacts and a replaced index.html ransom note.
+    avoid: Disable the SLP service (esxcli system slp set --enable=false); never expose management to the internet; patch.
+  - id: CVE-2023-34048
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: device
+    title: vCenter Server DCERPC out-of-bounds write — unauthenticated remote code execution
+    affected: vCenter Server 7.0, 8.0 (and EOL 6.5/6.7); VCF 3.x–5.x
+    fixed: vCenter 8.0U2, 8.0U1d, 7.0U3o (patches also for 6.7U3, 6.5U3)
+    detect: vmdird / vpxd crashes and core dumps on the VCSA; DCERPC (2012, 2014, 2020) traffic to vCenter from non-admin networks; new local accounts on the appliance. Exploited by UNC3886.
+    avoid: Patch; restrict vCenter network ports to management subnets — no in-product workaround.
+  - id: CVE-2023-20867
+    cvss: 3.9
+    year: 2023
+    kev: true
+    scope: traffic
+    title: VMware Tools host-to-guest authentication bypass — guest operations from a compromised host (UNC3886)
+    affected: VMware Tools 10.3.0 to before 12.2.5
+    fixed: VMware Tools 12.2.5
+    detect: hostd tasks GuestOperationsManager / StartProgramInGuest / InitiateFileTransferToGuest without matching guest credentials; vmtoolsd child processes inside VMs.
+    avoid: Upgrade VMware Tools; disable guest operations where not needed; protect the host first.
+detections:
+  - title: ESXi Shell / SSH enabled and used
+    severity: high
+    signals:
+      - vob.user.ssh.session.opened
+      - shell commands by root
+      - outside change windows
+    why: SSH is off by default. Ransomware operators enable it to run esxcli and the encryptor; legitimate use is rare and ticketed.
+    kql: |-
+      dataset="esxi_logs"
+      | where vob == "vob.user.ssh.session.opened" or (program == "shell" and isnotempty(user))
+      | summarize events=count(), cmds=make_set(message, 20) by host, user, bin(_time, 15m)
+    mitre:
+      - T1021.004
+      - T1059.004
+  - title: VM enumeration and mass kill before encryption
+    severity: critical
+    signals:
+      - esxcli vm process list / kill
+      - vim-cmd vmsvc/getallvms, vmsvc/power.off
+      - many VMs powered off in minutes
+    why: The ESXi ransomware playbook lists VMs, kills their processes to release locks, then encrypts the .vmdk files.
+    kql: |-
+      dataset="esxi_logs" program="shell"
+      | where message has_any ("vm process kill","vm process list","vmsvc/getallvms","vmsvc/power.off","/vmfs/volumes")
+      | summarize cmds=count(), sample=make_set(message, 10) by host, user, bin(_time, 10m)
+      | where cmds >= 3
+    mitre:
+      - T1486
+      - T1489
+  - title: Logging or security settings tampered
+    severity: high
+    signals:
+      - esxcli system syslog config set
+      - esxcli network firewall set --enabled false
+      - execInstalledOnly disabled
+    why: Attackers blind the SOC (blank loghost) and allow unsigned binaries before deploying the encryptor.
+    kql: |-
+      dataset="esxi_logs" program="shell"
+      | where message has_any ("syslog config set","network firewall set","execInstalledOnly","auditrecords local")
+      | project _time, host, user, message
+    mitre:
+      - T1562.001
+      - T1562.003
+  - title: Host login brute force
+    severity: medium
+    signals:
+      - hostd "Cannot login" / "Rejected password"
+      - many failures per source IP
+    why: Password guessing against root on the Host Client or API precedes takeover; lockout is often disabled.
+    kql: |-
+      dataset="esxi_logs" sub="Vimsvc.ha-eventmgr"
+      | where message has "Cannot login" or message has "Rejected password"
+      | extract "(?:login|from) \\S*@?(?<src_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)" from message
+      | summarize fails=count() by host, src_ip, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110.001
+  - title: AD "ESX Admins" abuse (CVE-2024-37085)
+    severity: high
+    signals:
+      - hostd login by a domain user
+      - user not in the host permission list
+      - recent AD group change on ESX Admins
+    why: Domain attackers recreate the group to get root on every AD-joined host without touching ESXi credentials.
+    kql: |-
+      dataset="esxi_logs" sourcetype="vmware:esxlog:Hostd"
+      | where message has "Accepted password for user" and message has "\\"
+      | summarize logins=count() by host, message
+    mitre:
+      - T1078.002
+      - T1098
+optimizations:
+  - title: Drop debug / verbose hostd and vpxa lines
+    saving: 30–60 %
+    fn: Drop
+    how: hostd and vpxa at info/verbose log property collector updates and heartbeats. Keep Wa/Er/Cr and the subsystems that matter (Vimsvc, ha-eventmgr, Solo.Vmsvc).
+    expr: "['Hostd','vpxa'].includes(program) && /^(Db|Vb)\\(/.test(severity || '')"
+  - title: Drop vmkernel storage path noise
+    saving: 10–30 %
+    fn: Drop
+    how: vmkernel NMP/SCSI sense messages and vsan health chatter repeat thousands of times per hour during storage events. Keep them in Lake, not the SIEM.
+    expr: program=='vmkernel' && /NMP|ScsiDeviceIO|vsan/.test(message)
+  - title: Suppress repeated rejected logins
+    saving: 5–15 %
+    fn: Suppress
+    how: Scanners hammer root on 443. Keep one failure per host/message per minute with a count.
+    expr: "key: `${host}:${message}`  allow 1 / 60s  when /Cannot login|Rejected password/.test(message)"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: shell, vobd, auth and hostd security events → SIEM; vmkernel, vsan, vmkwarning performance lines → Cribl Lake for troubleshooting.
+    expr: "['shell','vobd','sshd'].includes(program) || /login|Rejected|Permission/.test(message) → SIEM  |  else → Lake"
+references:
+  - title: ESXi log file formats introduced in vSphere 8.0
+    url: https://knowledge.broadcom.com/external/article/421596/esxi-log-file-formats-introduced-from-vs.html
+  - title: Configuring syslog on ESXi
+    url: https://knowledge.broadcom.com/external/article/318939/configuring-syslog-on-esxi.html
+  - title: VMSA-2025-0004 (CVE-2025-22224, -22225, -22226)
+    url: https://support.broadcom.com/web/ecx/support-content-notification/-/external/content/SecurityAdvisories/0/25390
+  - title: VMSA-2023-0023 (CVE-2023-34048)
+    url: https://support.broadcom.com/web/ecx/support-content-notification/-/external/content/SecurityAdvisories/0/23677
+  - title: NVD — CVE-2024-37085 (ESX Admins)
+    url: https://nvd.nist.gov/vuln/detail/cve-2024-37085
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Splunk Add-on for VMware ESXi Logs — Source types
+    url: https://docs.splunk.com/Documentation/AddOns/released/VMWesxilogs/SourceTypes
+  - title: Splunk Add-on for VMware ESXi Logs — Install and configure
+    url: https://docs.splunk.com/Documentation/AddOns/released/VMWesxilogs/Install
+related:
+  - vmware-nsx
+  - active-directory
+  - linux-syslog
+  - netapp-ontap

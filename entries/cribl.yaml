@@ -1,0 +1,325 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cribl
+name: Cribl Stream & Edge
+short: Cribl
+aka:
+  - Cribl LogStream
+  - Cribl Stream
+  - Cribl Edge
+  - Cribl.Cloud
+vendor: Cribl
+category: pipeline
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - telemetry-pipeline
+  - observability
+  - internal-logs
+  - audit
+  - metrics
+  - supply-chain
+summary: Telemetry pipeline that receives, reshapes, routes and replays logs, metrics and traces between sources and SIEM, observability and storage tools. Stream runs as a Leader plus Worker Groups, and Edge runs as an agent on hosts in Fleets. Both write JSON internal logs (cribl.log, access.log, audit.log) and internal metrics. A compromised pipeline can silently drop or rewrite every security log behind it, so its own audit trail matters.
+sourcetypes:
+  - st: cribl_internal_logs
+    desc: "Cribl's own JSON logs from $CRIBL_HOME/log/: cribl.log process telemetry, access.log API calls, audit.log config actions, ui-access.log and notifications.log; also the built-in Cribl Search dataset of the same name"
+  - st: cribl_metrics
+    desc: "Cribl internal metrics (cribl.logstream.* gauges and counters with _metric, _value, _metric_type and host/group/cribl_wp dimensions), as emitted by the CriblMetrics source"
+facts:
+  First released: 2018 (Cribl LogStream 1.0); renamed Cribl Stream in 2022; Edge since 2022
+  Runtime: Node.js; single-instance or distributed (Leader + Worker Groups / Edge Fleets); Cribl.Cloud hosted Leader with cloud or hybrid Workers
+  Current version: 4.18.x
+  Management: Web UI and REST API on 9000; Leader ↔ Worker over 4200 (TLS)
+  Log transport: "Files under $CRIBL_HOME/log/ (5 MB × 5 rotation); CriblLogs and CriblMetrics internal sources route them like any other data; Cribl.Cloud exposes cribl_internal_logs, cribl_logs and cribl_metrics datasets"
+  Log format: One JSON object per line (time, cid, channel, level, message …); metrics as _metric/_value events
+  Typical EPS: cribl.log 1–50 per process; metrics 100–2,000 per Worker Process per 10 s flush; audit.log < 1
+placement:
+  slots:
+    - internal
+    - cloud
+    - endpoint
+    - edge
+  items:
+    - slot: internal
+      title: Stream Worker Groups
+      desc: Central pipeline tier between collectors (syslog, HEC, agents) and SIEM/lake. It sees every log in flight and holds destination credentials.
+    - slot: cloud
+      title: Cribl.Cloud Leader and Workers
+      desc: SaaS-hosted Leader and cloud Workers; hybrid Workers on-prem connect out to the Leader.
+    - slot: endpoint
+      title: Cribl Edge
+      desc: Agent on Linux, Windows and Kubernetes hosts that collects files, journald, Windows events and metrics, managed in Fleets.
+    - slot: edge
+      title: Syslog / DMZ collectors
+      desc: Workers that listen for syslog, HTTP and TCP JSON from firewalls and appliances at the network edge.
+howItWorks:
+  - title: Leader, Workers and Fleets
+    body: The Leader holds config in a Git repo and deploys it to Worker Groups (Stream) or Fleets (Edge). Each node runs an API process plus N Worker Processes that do the data work. Commit and deploy actions show up in audit.log.
+  - title: Sources, Routes, Pipelines, Destinations
+    body: Sources receive or collect data, Routes filter it to Pipelines (ordered Functions such as Eval, Drop, Parser and Aggregations), and Destinations send it out. Packs bundle reusable routes and pipelines.
+  - title: Internal logs
+    body: cribl.log records process telemetry and errors per channel (input:<id>, output:<id>, server, auth …), access.log records every API request with src IP, user, status and requestId, and audit.log records create/update/delete/commit/deploy with the object type and id.
+  - title: Internal metrics
+    body: Every Worker Process emits cribl.logstream.* counters and gauges (events and bytes in/out per source and destination, PQ size, backpressure, CPU, memory). The CriblMetrics source turns them into metric events tagged with host, group and cribl_wp.
+  - title: Persistent queues and replay
+    body: Sources and Destinations can buffer to disk when a downstream blocks. Cribl Lake and object-store destinations allow replay of raw data later. Backpressure and dropped-event counters are the signal that security data is not arriving.
+  - title: Trust boundary
+    body: Pipeline editors can run JavaScript expressions and import Packs from Git. Recent CVEs abuse exactly those features, so editor rights on a Worker Group are close to code execution on it.
+traffic:
+  handles:
+    - Syslog UDP/TCP/TLS
+    - Splunk HEC and Splunk-to-Splunk
+    - HTTP/S, TCP JSON, Cribl HTTP/TCP (node to node)
+    - Kafka, Kinesis, Event Hubs, Pub/Sub
+    - S3 / Blob / GCS collectors and REST API collectors
+    - OpenTelemetry, Prometheus, Datadog Agent, Elastic
+    - Leader ↔ Worker control channel (4200)
+  flow:
+    - step: Receive
+      desc: Source accepts or collects events and applies event breakers.
+    - step: Route
+      desc: Route filter expressions pick the pipeline per event.
+    - step: Transform
+      desc: Pipeline functions parse, enrich, mask, drop or aggregate.
+    - step: Queue
+      desc: Destination batches events; on backpressure they go to a persistent queue or are blocked or dropped per setting.
+    - step: Deliver
+      desc: Destination sends to SIEM, lake, observability or storage and reports success or failure in metrics and cribl.log.
+    - step: Audit
+      desc: Config changes via UI/API are logged in access.log and audit.log, then committed and deployed to Workers.
+logs:
+  - type: Process log (cribl.log)
+    sourcetype: cribl_internal_logs
+    format: json
+    share: 50–80 % of internal logs
+    avg: ~350 B
+    desc: Telemetry and errors from the API and Worker Processes. channel names the component (input:<id>, output:<id>, server, auth), level is info/warn/error/debug, and cid is the process (api, w0, w1 …).
+    key:
+      - channel
+      - level
+      - message
+      - error.message
+      - host
+    noise:
+      - cid
+      - source
+    sample: '{"time":"2026-11-12T08:14:22.118Z","cid":"w0","channel":"output:siem_hec","level":"error","message":"failed to send events","error":{"message":"connect ECONNREFUSED 10.0.5.20:8088"},"host":"worker-01.example.com","source":"/opt/cribl/log/worker/0/cribl.log"}'
+  - type: API access log (access.log)
+    sourcetype: cribl_internal_logs
+    format: json
+    share: 10–30 %
+    avg: ~400 B
+    desc: One event per REST API request handled by the Leader or a service, with client IP, user, method, URL, status, response time and the requestId that links to audit.log.
+    key:
+      - src
+      - user
+      - method
+      - url
+      - status
+      - http_user_agent
+    noise:
+      - message
+      - response_time
+      - requestId
+    sample: '{"time":"2026-11-12T08:15:03.561Z","src":"198.51.100.23","user":"jdoe","method":"PATCH","url":"/api/v1/m/prod/pipelines/main","route":"/pipelines/:id","group":"prod","status":200,"message":"PATCH /api/v1/m/prod/pipelines/main","response_time":42,"requestId":"b0f2b1e0-7a1e-4a4a-9a6f-7b2f2b9d5c31","http_user_agent":"product-ui"}'
+  - type: Config audit (audit.log)
+    sourcetype: cribl_internal_logs
+    format: json
+    share: < 5 %
+    avg: ~200 B
+    desc: Actions on configuration objects — create, update, patch, delete, commit, deploy — with the object type (pipelines, routes, outputs, packs, ai-settings …), id, user and optional group or pack.
+    key:
+      - action
+      - type
+      - id
+      - user
+      - group
+      - outcome
+    noise:
+      - requestId
+      - principal
+    sample: '{"time":"2026-11-12T08:15:03.560Z","action":"update","type":"pipelines","user":"jdoe","principal":"jdoe","id":"main","group":"prod","outcome":"success","requestId":"b0f2b1e0-7a1e-4a4a-9a6f-7b2f2b9d5c31"}'
+  - type: Internal metric
+    sourcetype: cribl_metrics
+    format: json
+    share: high (metrics pipeline)
+    avg: ~300 B
+    desc: One metric value per event with its type and dimensions — host, group, Worker Process (cribl_wp) and, for I/O metrics, the input or output id.
+    key:
+      - _metric
+      - _value
+      - host
+      - group
+      - output
+    noise:
+      - _metric_type
+      - event_source
+      - event_host
+      - earliest
+      - latest
+    sample: '{"_metric":"cribl.logstream.total.dropped_events","_value":926,"_metric_type":"counter","output":"siem_hec","group":"prod","host":"worker-01.example.com","event_source":"cribl","event_host":"worker-01.example.com","cribl_wp":"w0","earliest":1794471260000,"latest":1794471270000,"_time":1794471270.2}'
+cves:
+  - id: CVE-2026-56747
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Code injection in the JSON-Pointer-to-accessor compiler — server-side JavaScript by an editor
+    affected: Cribl Stream before 4.18.2 (authenticated user with edit privileges)
+    fixed: 4.18.2
+    detect: audit.log updates of database connections or pack configuration by unexpected users; cribl.log errors or child processes around accessor compilation.
+    avoid: Upgrade to 4.18.2+; limit Editor/Admin on Worker Groups; review who can create database connections and packs.
+  - id: CVE-2026-56748
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Symlink in a Git-imported Pack leads to code execution during preview
+    affected: Cribl Stream before 4.18.2 (Pack import + pipeline preview permissions)
+    fixed: 4.18.2
+    detect: "audit.log type=packs create/update from a Git URL followed by preview calls (access.log /preview) by the same user."
+    avoid: Upgrade (4.18.2 blocks symlinks in Packs); allow Pack import only from vetted repositories.
+  - id: CVE-2026-45391
+    cvss: 7.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Local command injection in Cribl Edge for Linux
+    affected: Cribl Edge for Linux 3.2.0 through 4.17.0
+    fixed: 4.17.1
+    detect: Unexpected child processes of the cribl user on Edge hosts (EDR / auditd); new files under $CRIBL_HOME owned by non-service users.
+    avoid: Upgrade Edge to 4.17.1+; restrict local shell access on hosts running Edge.
+  - id: CVE-2026-45393
+    cvss: 7.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Cribl Edge for Windows privilege escalation via exposed JWT signing secret
+    affected: Cribl Edge for Windows before 4.17.1
+    fixed: 4.17.1
+    detect: access.log admin API calls from 127.0.0.1 by a user that never logged in interactively; Edge spawning processes as SYSTEM.
+    avoid: Upgrade to 4.17.1+, re-check ACLs on the install directory and rotate the instance secret after upgrading.
+  - id: CVE-2019-11076
+    cvss: 9.8
+    year: 2019
+    kev: false
+    scope: device
+    title: Unauthenticated remote command execution in Cribl UI
+    affected: Cribl UI 1.5.0
+    detect: access.log requests with no user to script or command endpoints; unexpected processes spawned by the cribl service.
+    avoid: Historical — any supported 4.x release is unaffected; never expose port 9000 to the internet.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell JNDI strings carried in the logs Cribl routes to Java-based SIEMs and tools
+    affected: Downstream Log4j 2.0-beta9 to 2.14.1 consumers (Cribl itself is Node.js and not affected)
+    detect: "A pipeline Eval/Regex Filter flagging ${jndi: and obfuscated ${${lower:j}ndi: patterns in _raw before delivery."
+    avoid: Patch downstream Java consumers; optionally mask or tag JNDI strings in a pre-processing pipeline.
+detections:
+  - title: Security destination dropping or failing
+    severity: high
+    signals:
+      - cribl.logstream.total.dropped_events rising for a SIEM output
+      - cribl.log level=error on channel output:<siem>
+    why: An attacker or misconfiguration that breaks the SIEM output blinds detection everywhere downstream. Dropped events are the earliest sign.
+    kql: |-
+      dataset="cribl_internal_logs" level="error" channel startswith "output:"
+      | summarize errors=count(), msgs=make_set(message, 5) by host, channel, bin(_time, 10m)
+      | where errors > 20
+    mitre:
+      - T1562.006
+  - title: Route or pipeline change that drops data
+    severity: high
+    signals:
+      - audit.log action in update, patch, delete
+      - type in routes, pipelines, outputs
+      - outside a change window or by a new user
+    why: Editing a route filter or adding a Drop function is a quiet way to suppress specific security logs without stopping the service.
+    kql: |-
+      dataset="cribl_internal_logs" action in ("update","patch","delete","create") type in ("routes","pipelines","outputs","inputs","packs")
+      | summarize changes=count(), objects=make_set(id, 20) by user, type, group, bin(_time, 1h)
+    mitre:
+      - T1562.001
+      - T1565.001
+  - title: API calls from an unexpected source
+    severity: medium
+    signals:
+      - access.log src outside admin networks
+      - write methods (POST/PATCH/PUT/DELETE)
+      - status 200
+    why: Admin API access from new IPs or by API credentials outside automation hosts points to stolen tokens or credentials.
+    kql: |-
+      dataset="cribl_internal_logs" method in ("POST","PATCH","PUT","DELETE") status < 400
+      | lookup admin_networks on src
+      | where isempty(admin_net) and src != "127.0.0.1"
+      | summarize calls=count(), urls=make_set(url, 10) by user, src, http_user_agent
+    mitre:
+      - T1078
+      - T1133
+  - title: Repeated authentication failures
+    severity: medium
+    signals:
+      - access.log url contains /auth/login
+      - status 401 or 403
+    why: Brute force against the Leader UI or API precedes takeover of the pipeline that controls all security data.
+    kql: |-
+      dataset="cribl_internal_logs" url has "/auth/login" status in (401, 403)
+      | summarize fails=count() by src, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110
+  - title: Pack import or new destination
+    severity: medium
+    signals:
+      - audit.log type=packs action=create
+      - type=outputs action=create
+    why: A new Pack can carry code paths (CVE-2026-56748), and a new destination can exfiltrate a copy of every event.
+    kql: |-
+      dataset="cribl_internal_logs" action="create" type in ("packs","outputs")
+      | project _time, user, type, id, group, pack
+    mitre:
+      - T1195.002
+      - T1048
+optimizations:
+  - title: Drop debug and routine info chatter
+    saving: 30–60 % of cribl.log
+    fn: Drop
+    how: Keep warn and error plus auth, audit and deploy messages. Drop debug/silly levels and periodic _raw stats lines unless troubleshooting.
+    expr: level=='debug' || level=='silly' || (level=='info' && message=='_raw stats')
+  - title: Exclude health checks from access.log
+    saving: 40–80 % of access.log
+    fn: Drop
+    how: Health probes and the UI's own polling (GET /health, /system/status, /notifications) dominate volume. Keep every write method and every 4xx/5xx.
+    expr: method=='GET' && status<400 && /\/(health|system\/status|notifications|system\/messages)/.test(url)
+  - title: Roll up metrics before the SIEM
+    saving: 70–95 % of metrics
+    fn: Aggregations
+    how: Send only dropped events, backpressure, PQ size and per-output error metrics to the SIEM, aggregated to 1-minute values. Keep full metrics in the monitoring tool or Lake.
+    expr: /dropped_events|blocked|pq_|\.err/.test(_metric)
+  - title: Strip internal underscore fields
+    saving: 10–25 %
+    fn: Eval (remove)
+    how: Remove __-prefixed and constant envelope fields (__criblMetrics, __inputId, source, event_source) before sending to non-Cribl tools.
+    expr: "remove: __*, event_source, event_host, earliest, latest"
+references:
+  - title: Cribl Docs — Internal Logs
+    url: https://docs.cribl.io/stream/internal-logs/
+  - title: Cribl Docs — audit.log
+    url: https://docs.cribl.io/stream/audit-log/
+  - title: Cribl Docs — access.log
+    url: https://docs.cribl.io/stream/access-log/
+  - title: Cribl Stream 4.18.2 release notes (CVE-2026-56747, CVE-2026-56748)
+    url: https://docs.cribl.io/stream/release-notes/release-v4182/
+  - title: Cribl Edge 4.17.1 release notes (security fixes)
+    url: https://docs.cribl.io/edge/release-notes/release-v4171
+  - title: Cribl Docs — Service Accounts (admin and system users)
+    url: https://docs.cribl.io/stream/4.14/service-accounts/
+related:
+  - splunk-enterprise
+  - exabeam
+  - splunk-stream
+  - linux-syslog
+  - log4j

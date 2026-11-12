@@ -1,0 +1,371 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-rds-audit
+name: Amazon RDS Database Audit
+short: RDS Audit
+aka:
+  - Amazon RDS for MySQL / MariaDB audit plugin
+  - Aurora MySQL Advanced Auditing
+  - RDS for PostgreSQL pgAudit
+  - Aurora PostgreSQL pgAudit
+  - RDS database logs in CloudWatch
+vendor: Amazon Web Services
+category: db
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - rds
+  - aurora
+  - database
+  - audit
+  - mysql
+  - postgresql
+  - pgaudit
+  - cloudwatch
+summary: Database-engine audit trails from Amazon RDS and Aurora. MySQL and MariaDB use the MariaDB Audit Plugin (RDS option group) or Aurora's Advanced Auditing and write CSV; PostgreSQL uses the pgAudit extension and writes AUDIT lines into the engine log. All are published to CloudWatch Logs (/aws/rds/instance/…/audit, …/postgresql), which is the usual collection point. Complements CloudTrail, which only sees the RDS control plane — not who logged in to the database or what they queried.
+sourcetypes:
+  - st: aws_rds_audit_mysql
+    desc: RDS/Aurora MySQL and MariaDB audit plugin CSV (timestamp, serverhost, username, host, connectionid, queryid, operation, database, object, retcode)
+  - st: aws_rds_audit_postgresql
+    desc: 'RDS/Aurora PostgreSQL engine log lines with the default %t:%r:%u@%d:[%p]: prefix, including pgAudit AUDIT records and authentication failures'
+  - st: aws:cloudwatchlogs
+    desc: Splunk Add-on for AWS — generic CloudWatch Logs input used for RDS log groups
+facts:
+  Engines: RDS for MySQL, MariaDB and PostgreSQL; Aurora MySQL and Aurora PostgreSQL
+  MySQL/MariaDB mechanism: MARIADB_AUDIT_PLUGIN option in an option group (RDS); server_audit_* cluster parameters (Aurora Advanced Auditing)
+  PostgreSQL mechanism: pgaudit extension via shared_preload_libraries + pgaudit.log parameter
+  Log transport: Engine log files on the instance → CloudWatch Logs export → subscription filter (Firehose/Kinesis/Lambda) or S3; download-db-log-file-portion API
+  Log format: CSV (MySQL family); text with log_line_prefix, or csvlog/jsonlog on PostgreSQL 15+
+  Local retention: PostgreSQL logs 1–7 days (rds.log_retention_period, default 3 days); audit files rotate by size
+  Typical volume: CONNECT-only ≈ <1 EPS; CONNECT+QUERY can exceed 1k EPS per busy instance (the rdsadmin health check alone logs every second)
+  Alternative: Database Activity Streams (Kinesis, KMS-encrypted JSON) for Aurora and RDS Oracle/SQL Server
+placement:
+  slots:
+    - cloud
+    - internal
+  items:
+    - slot: cloud
+      title: Private subnets in a VPC
+      desc: RDS instances and Aurora clusters sit in DB subnet groups behind security groups. The audit trail is generated inside the managed instance; you never see the host, only the logs AWS exports.
+    - slot: cloud
+      title: CloudWatch Logs → Cribl
+      desc: Log groups per instance/cluster and log type. A subscription filter to Firehose or Kinesis, or an S3 export, delivers them to Cribl Stream; each record arrives wrapped in a CloudWatch envelope with logGroup, logStream and logEvents.
+    - slot: internal
+      title: Hybrid application tiers
+      desc: On-prem apps reaching RDS over Direct Connect or VPN show up with their private source addresses in the host field — useful to separate app traffic from DBA access.
+howItWorks:
+  - title: Managed engine, customer-configured audit
+    body: AWS runs the database host; you control auditing through option groups and parameter groups. Turning audit on, changing what is logged or removing the plugin is an RDS API call — which CloudTrail records (ModifyOptionGroup, ModifyDBParameterGroup, ModifyDBInstance).
+  - title: MariaDB Audit Plugin (RDS MySQL / MariaDB)
+    body: SERVER_AUDIT_EVENTS chooses CONNECT, QUERY, QUERY_DDL, QUERY_DML, QUERY_DML_NO_SELECT and QUERY_DCL. CONNECT is always logged for all users. Query text is capped by SERVER_AUDIT_QUERY_LOG_LIMIT (default 1024). RDS MySQL appends a connection_type column (TCP/IP, SSL/TLS, Socket …).
+  - title: Aurora MySQL Advanced Auditing
+    body: Enabled with server_audit_logging=ON plus server_audit_events (CONNECT, QUERY, QUERY_DCL, QUERY_DDL, QUERY_DML, TABLE). The timestamp is Unix epoch in microseconds, and each instance writes four rotating 100 MB files.
+  - title: pgAudit (RDS / Aurora PostgreSQL)
+    body: "Session audit classes (READ, WRITE, FUNCTION, ROLE, DDL, MISC, MISC_SET) set with pgaudit.log, per database or per role; object audit via pgaudit.role. Each record is a LOG line — AUDIT: type,statement_id,substatement_id,class,command,object_type,object_name,statement,parameter — written after the standard log_line_prefix."
+  - title: Authentication and connection logging
+    body: PostgreSQL logs failed passwords as FATAL lines (and successful ones with log_connections=1). MySQL-family failures are FAILED_CONNECT audit rows with the MySQL error number in retcode. IAM database authentication still lands here as a normal user login.
+  - title: Export path
+    body: Enable log exports (EnableCloudwatchLogsExports = audit, error, general, slowquery, postgresql). CloudWatch adds ingestion time and stream names; a subscription filter or Firehose streams batches as gzip JSON, which Cribl unpacks into one event per logEvent.
+traffic:
+  handles:
+    - MySQL protocol (3306) and PostgreSQL protocol (5432)
+    - TLS client connections, IAM database authentication
+    - SQL DDL, DML, DCL, roles and grants
+    - Stored procedures, PL/pgSQL and PL/Perl functions
+    - Data export to S3 (SELECT INTO OUTFILE S3, aws_s3.query_export_to_s3)
+    - Log export to CloudWatch Logs
+  flow:
+    - step: Connect
+      desc: Client connects to the RDS endpoint in the VPC; security group permits the source.
+    - step: Authenticate
+      desc: Password or IAM token checked; CONNECT / FAILED_CONNECT or FATAL line written.
+    - step: Statement
+      desc: Query parsed; audit plugin or pgAudit classifies it (DDL, DML, DCL, ROLE, READ, WRITE).
+    - step: Audit record
+      desc: CSV row or AUDIT log line written to the instance's local audit/engine log.
+    - step: Export
+      desc: RDS ships new lines to the CloudWatch log group for that instance and log type.
+    - step: Subscribe
+      desc: Subscription filter / Firehose / S3 export delivers batched records to Cribl Stream.
+logs:
+  - type: RDS MySQL audit (MariaDB plugin)
+    sourcetype: aws_rds_audit_mysql
+    format: csv
+    share: 50–80 %
+    avg: ~170 B
+    desc: One CSV row per connect, disconnect, failed connect or query. retcode is the MySQL error number (1045 = access denied); connection_type shows whether TLS was used. Queries are single-quoted in object.
+    fields:
+      - timestamp
+      - serverhost
+      - username
+      - host
+      - connectionid
+      - queryid
+      - operation
+      - database
+      - object
+      - retcode
+      - connection_type
+    key:
+      - timestamp
+      - username
+      - host
+      - operation
+      - object
+      - retcode
+      - connection_type
+    noise:
+      - serverhost
+      - queryid
+    sample: "20261112 09:14:22,payments-db-1,admin,203.0.113.45,7781,0,FAILED_CONNECT,,,1045,TCP/IP"
+  - type: Aurora MySQL Advanced Auditing
+    sourcetype: aws_rds_audit_mysql
+    format: csv
+    share: 50–80 % (Aurora clusters)
+    avg: ~180 B
+    desc: Same column order without connection_type; timestamp is Unix epoch with microsecond precision. TABLE events add one READ/WRITE row per table touched by a query id.
+    fields:
+      - timestamp
+      - serverhost
+      - username
+      - host
+      - connectionid
+      - queryid
+      - operation
+      - database
+      - object
+      - retcode
+    key:
+      - timestamp
+      - username
+      - host
+      - operation
+      - database
+      - object
+      - retcode
+    noise:
+      - serverhost
+      - queryid
+    sample: "1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183452,QUERY,payments,'GRANT ALL ON payments.* TO svc_export',0"
+  - type: pgAudit session record
+    sourcetype: aws_rds_audit_postgresql
+    format: text
+    share: 20–60 %
+    avg: ~250 B
+    desc: PostgreSQL LOG line with the RDS default prefix (time, remote host(port), user@database, pid) followed by the pgAudit record. class and command make DCL/DDL easy to isolate.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \w+):(?<remote_host>[^:]*):(?<user>[^@:]*)@(?<database>[^:]*):\[(?<pid>\d+)\]:(?<log_level>\w+):\s+AUDIT: (?<audit_type>\w+),(?<statement_id>\d+),(?<substatement_id>\d+),(?<class>\w+),(?<command>[^,]*),(?<object_type>[^,]*),(?<object_name>[^,]*),(?<statement>.*),(?<parameter>[^,]*)$'
+    key:
+      - timestamp
+      - remote_host
+      - user
+      - database
+      - class
+      - command
+      - statement
+    noise:
+      - statement_id
+      - substatement_id
+      - parameter
+    sample: "2026-11-12 09:20:11 UTC:10.20.4.17(51544):app_admin@payments:[22817]:LOG:  AUDIT: SESSION,4,1,ROLE,GRANT,,,GRANT rds_superuser TO report_ro,<not logged>"
+  - type: PostgreSQL authentication failure
+    sourcetype: aws_rds_audit_postgresql
+    format: text
+    share: < 5 %
+    avg: ~140 B
+    desc: FATAL line written for every failed password; the remote host carries the client port. Pairs with log_connections / log_disconnections lines for session tracking.
+    pattern: '^(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \w+):(?<remote_host>[^:]*):(?<user>[^@:]*)@(?<database>[^:]*):\[(?<pid>\d+)\]:(?<log_level>\w+):\s+(?<message>password authentication failed for user "(?<auth_user>[^"]*)")$'
+    key:
+      - timestamp
+      - remote_host
+      - auth_user
+      - database
+      - log_level
+    noise:
+      - pid
+    sample: '2026-11-12 09:18:40 UTC:203.0.113.45(40112):postgres@postgres:[22790]:FATAL:  password authentication failed for user "postgres"'
+cves:
+  - id: CVE-2023-2454
+    cvss: 7.2
+    year: 2023
+    kev: false
+    scope: device
+    title: PostgreSQL CREATE SCHEMA … schema_element defeats search_path protection — code execution as bootstrap superuser
+    affected: PostgreSQL 11–15 before 11.20, 12.15, 13.11, 14.8, 15.3 (RDS/Aurora PostgreSQL minor versions of that era)
+    fixed: 11.20, 12.15, 13.11, 14.8, 15.3
+    detect: pgAudit DDL records with command CREATE SCHEMA containing embedded CREATE FUNCTION/TABLE elements from a database owner, followed by unexpected ROLE changes.
+    avoid: Upgrade the RDS minor version (enable auto minor version upgrade); limit CREATE on databases to owners you trust.
+  - id: CVE-2024-10979
+    cvss: 8.8
+    year: 2024
+    kev: false
+    scope: device
+    title: PostgreSQL PL/Perl lets an unprivileged user change process environment variables (e.g. PATH) — arbitrary code execution
+    affected: PostgreSQL before 17.1, 16.5, 15.9, 14.14, 13.17, 12.21 with plperl installed
+    fixed: 17.1, 16.5, 15.9, 14.14, 13.17, 12.21
+    detect: pgAudit FUNCTION/DDL records for CREATE EXTENSION plperl or CREATE FUNCTION … LANGUAGE plperl by non-admin roles; %ENV assignments in function bodies.
+    avoid: Upgrade; do not install plperl unless needed; restrict CREATE FUNCTION on untrusted languages.
+  - id: CVE-2024-7348
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: PostgreSQL pg_dump TOCTOU race — object creator runs SQL as the (often superuser) dumping account
+    affected: PostgreSQL before 16.4, 15.8, 14.13, 13.16, 12.20
+    fixed: 16.4, 15.8, 14.13, 13.16, 12.20
+    detect: DDL records replacing a relation with a view or foreign table during a known backup/pg_dump window by a non-admin role.
+    avoid: Upgrade engine and client tools; run pg_dump with a role that is not rds_superuser where possible.
+  - id: CVE-2023-21912
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: device
+    title: MySQL Server unauthenticated network DoS (Security Privileges) — affects RDS MySQL engine versions
+    affected: MySQL 5.7.41 and prior, 8.0.30 and prior
+    fixed: MySQL 8.0.31 (April 2023 CPU)
+    detect: Burst of FAILED_CONNECT rows from one host followed by an instance restart event (RDS-EVENT-0006) and a gap in audit rows.
+    avoid: Keep RDS MySQL on a current minor version; never make DB instances publicly accessible.
+  - id: CVE-2025-1094
+    cvss: 8.1
+    year: 2025
+    kev: false
+    scope: traffic
+    title: PostgreSQL libpq quoting functions allow SQL injection into psql (client-side, used in the BeyondTrust intrusion chain)
+    affected: libpq / psql before 17.3, 16.7, 15.11, 14.16, 13.19
+    fixed: 17.3, 16.7, 15.11, 14.16, 13.19
+    detect: pgAudit records from an application role containing psql meta-commands (\!) or unexpected multi-statement queries with invalid-encoding bytes.
+    avoid: Patch client libraries and tools that build psql input; parameterised queries; least-privilege application roles.
+detections:
+  - title: Brute force against an RDS endpoint
+    severity: high
+    signals:
+      - operation=FAILED_CONNECT (MySQL)
+      - FATAL password authentication failed (PostgreSQL)
+      - many attempts from one host
+    why: A publicly accessible RDS instance or a compromised host in the VPC spraying credentials. The admin master user is the usual target.
+    kql: |-
+      dataset="rds_audit" operation="FAILED_CONNECT"
+      | summarize fails=count(), users=dcount(username) by host, serverhost, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: Privilege escalation inside the database
+    severity: high
+    signals:
+      - GRANT rds_superuser / GRANT ALL ON *.*
+      - CREATE ROLE / ALTER ROLE / CREATE USER
+      - from an application or reporting account
+    why: Application roles should never issue DCL. Granting rds_superuser or ALL ON *.* creates a durable backdoor that survives credential rotation of the original account.
+    kql: |-
+      dataset="rds_audit" (class="ROLE" or operation="QUERY")
+      | where statement matches regex @"(?i)\b(GRANT|CREATE\s+(ROLE|USER)|ALTER\s+(ROLE|USER))\b" or object matches regex @"(?i)\b(GRANT|CREATE\s+USER|ALTER\s+USER)\b"
+      | project _time, coalesce(user, username), coalesce(remote_host, host), coalesce(statement, object)
+    mitre:
+      - T1098
+      - T1136
+  - title: Data export to S3 from the database
+    severity: high
+    signals:
+      - SELECT … INTO OUTFILE S3 (Aurora MySQL)
+      - aws_s3.query_export_to_s3 (PostgreSQL)
+      - destination bucket not in an allow-list
+    why: Built-in S3 export moves whole tables out in one statement, bypassing the application and any network DLP. A bucket in another account is exfiltration.
+    kql: |-
+      dataset="rds_audit"
+      | where coalesce(statement, object) matches regex @"(?i)(INTO\s+OUTFILE\s+S3|query_export_to_s3|LOAD\s+DATA\s+FROM\s+S3)"
+      | project _time, coalesce(user, username), coalesce(remote_host, host), coalesce(statement, object)
+    mitre:
+      - T1537
+      - T1567.002
+  - title: Untrusted language or extension created (code execution path)
+    severity: medium
+    signals:
+      - class=DDL
+      - CREATE EXTENSION plperl / plpython / dblink
+      - CREATE FUNCTION … LANGUAGE plperl
+    why: Untrusted procedural languages and network extensions are the route to OS-level code execution (CVE-2024-10979) or lateral movement from inside the database.
+    kql: |-
+      dataset="rds_audit" class="DDL"
+      | where statement matches regex @"(?i)(CREATE\s+EXTENSION\s+(plperl|plpython|dblink|postgres_fdw)|LANGUAGE\s+plperl)"
+      | project _time, user, remote_host, database, statement
+    mitre:
+      - T1059
+      - T1505.001
+  - title: Database access from outside the application subnets
+    severity: medium
+    signals:
+      - operation=CONNECT or LOG connection authorized
+      - host / remote_host not in app CIDRs or bastion list
+    why: Direct human logins from laptops or unexpected subnets bypass the application's controls; often the first sign of stolen master credentials.
+    kql: |-
+      dataset="rds_audit" operation="CONNECT"
+      | lookup rds_allowed_sources on host
+      | where isempty(source_role)
+      | summarize logins=count() by username, host, serverhost
+    mitre:
+      - T1078.004
+  - title: Audit plugin removed or logging reduced (control plane)
+    severity: high
+    signals:
+      - CloudTrail ModifyOptionGroup removing MARIADB_AUDIT_PLUGIN
+      - ModifyDBParameterGroup on server_audit_logging / pgaudit.log
+      - DisableCloudwatchLogsExports
+    why: RDS does not let you switch the plugin off from SQL, so an attacker must change it through the API. That change is the strongest defence-evasion signal for managed databases.
+    kql: |-
+      dataset="cloudtrail" eventSource="rds.amazonaws.com"
+      | where eventName in ("ModifyOptionGroup","ModifyDBParameterGroup","ModifyDBClusterParameterGroup","ModifyDBInstance","ModifyDBCluster")
+      | where tostring(requestParameters) matches regex @"(?i)(MARIADB_AUDIT_PLUGIN|server_audit|pgaudit|DisableLogTypes)"
+      | project _time, userIdentity.arn, eventName, sourceIPAddress
+    mitre:
+      - T1562.008
+optimizations:
+  - title: Exclude the rdsadmin health check
+    saving: 30–70 %
+    fn: Drop
+    how: rdsadmin queries the instance every second. Add it to SERVER_AUDIT_EXCL_USERS at source, or drop it in Stream (CONNECT is still logged for all users).
+    expr: username=='rdsadmin' && operation!='FAILED_CONNECT'
+  - title: Unwrap the CloudWatch envelope
+    saving: 20–40 %
+    fn: Parser → Serialize
+    how: Firehose/subscription batches carry messageType, owner, logGroup, logStream and subscriptionFilters for every batch. Unroll logEvents, keep logGroup → serverhost/log type, and drop the rest before parsing the CSV or pgAudit line.
+    expr: unroll logEvents → _raw = logEvents.message; remove messageType, owner, subscriptionFilters
+  - title: Audit DDL/DCL and connections; sample read DML
+    saving: 40–80 %
+    fn: Drop / Sampling
+    how: Prefer QUERY_DDL,QUERY_DCL,CONNECT (MySQL) or pgaudit.log='ddl,role' plus per-table object audit. In Stream, sample READ/SELECT from application roles and keep everything from humans.
+    expr: (class=='READ' || /^'?SELECT/i.test(object)) && username.startsWith('app_')
+  - title: Suppress brute-force floods
+    saving: 5–20 %
+    fn: Suppress
+    how: Keep one FAILED_CONNECT / password failure per host+user per minute with a count, so a spray doesn't dominate SIEM ingest.
+    expr: "key: `${host}:${username}`  allow 1 / 60s  when operation=='FAILED_CONNECT'"
+  - title: Route by statement class
+    saving: SIEM licence
+    fn: Routes
+    how: Failed logins, DCL, DDL and S3 export statements → SIEM. Full query audit → Cribl Lake / S3 for compliance retention (PCI, SOX) and replay.
+    expr: operation!='QUERY' || class in ('ROLE','DDL') → SIEM | else → Lake
+references:
+  - title: MariaDB Audit Plugin support for RDS for MySQL
+    url: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.MySQL.Options.AuditPlugin.html
+  - title: Advanced Auditing with Aurora MySQL
+    url: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html
+  - title: Using pgAudit with RDS for PostgreSQL
+    url: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.PostgreSQL.CommonDBATasks.pgaudit.html
+  - title: RDS for PostgreSQL logging parameters (log_line_prefix)
+    url: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.overview.parameter-groups.html
+  - title: Publishing database logs to CloudWatch Logs
+    url: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Procedural.UploadtoCloudWatch.html
+  - title: pgAudit project (log format)
+    url: https://github.com/pgaudit/pgaudit
+  - title: PostgreSQL security advisory — CVE-2024-10979
+    url: https://www.postgresql.org/support/security/CVE-2024-10979/
+  - title: PostgreSQL security advisory — CVE-2025-1094
+    url: https://www.postgresql.org/support/security/CVE-2025-1094/
+related:
+  - mysql
+  - cloudtrail
+  - aws-security-hub
+  - aws-guardduty
+  - imperva-dam

@@ -37,6 +37,76 @@ sourcetypes:
     desc: Dedicated GlobalProtect log type (PAN-OS 9.1+)
   - st: pan:userid
     desc: IP-to-user mapping events
+  - st: palo_alto_system
+    desc: Pack Generator canonical name for PAN-OS SYSTEM logs (CSV, any framing)
+  - st: palo_alto_threat
+    desc: Pack Generator canonical name for PAN-OS THREAT logs (IPS, AV, URL, WildFire)
+  - st: palo_alto_traffic
+    desc: Pack Generator canonical name for PAN-OS TRAFFIC session logs
+  - st: pan_authentication_csv
+    desc: AUTHENTICATION log (admin/user auth events), bare CSV
+  - st: pan_authentication_syslog
+    desc: AUTHENTICATION log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_authentication_syslog_nopri
+    desc: AUTHENTICATION log, CSV behind a syslog header without <PRI>
+  - st: pan_config_csv
+    desc: CONFIG log (admin configuration changes), bare CSV
+  - st: pan_config_syslog
+    desc: CONFIG log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_config_syslog_nopri
+    desc: CONFIG log, CSV behind a syslog header without <PRI>
+  - st: pan_correlation_csv
+    desc: CORRELATION log (correlated-event / compromised-host verdicts), bare CSV
+  - st: pan_correlation_syslog
+    desc: CORRELATION log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_correlation_syslog_nopri
+    desc: CORRELATION log, CSV behind a syslog header without <PRI>
+  - st: pan_custom_v2
+    desc: Custom log format configured as JSON (one object per event)
+  - st: pan_globalprotect_csv
+    desc: GLOBALPROTECT log (portal/gateway connect, auth, HIP stages), bare CSV
+  - st: pan_globalprotect_syslog
+    desc: GLOBALPROTECT log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_globalprotect_syslog_nopri
+    desc: GLOBALPROTECT log, CSV behind a syslog header without <PRI>
+  - st: pan_hipmatch_csv
+    desc: HIPMATCH log (GlobalProtect host-information-profile matches), bare CSV
+  - st: pan_hipmatch_syslog
+    desc: HIPMATCH log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_hipmatch_syslog_nopri
+    desc: HIPMATCH log, CSV behind a syslog header without <PRI>
+  - st: pan_iptag_csv
+    desc: IPTAG log (dynamic IP-to-tag registrations), bare CSV
+  - st: pan_iptag_syslog
+    desc: IPTAG log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_iptag_syslog_nopri
+    desc: IPTAG log, CSV behind a syslog header without <PRI>
+  - st: pan_system_csv
+    desc: SYSTEM log (device, HA, GlobalProtect, update events), bare CSV
+  - st: pan_system_syslog
+    desc: SYSTEM log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_system_syslog_nopri
+    desc: SYSTEM log, CSV behind a syslog header without <PRI>
+  - st: pan_threat_csv
+    desc: THREAT log (IPS, AV, spyware, URL, WildFire, file verdicts), bare CSV
+  - st: pan_threat_syslog
+    desc: THREAT log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_threat_syslog_nopri
+    desc: THREAT log, CSV behind a syslog header without <PRI>
+  - st: pan_traffic_csv
+    desc: TRAFFIC log (session start/end), bare CSV
+  - st: pan_traffic_fixed_time
+    desc: TRAFFIC log CSV where the event time is taken from a fixed column position
+  - st: pan_traffic_syslog
+    desc: TRAFFIC log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_traffic_syslog_nopri
+    desc: TRAFFIC log, CSV behind a syslog header without <PRI>
+  - st: pan_tunnel_csv
+    desc: TUNNEL log (GRE/IPsec/GTP tunnel-inspection sessions), bare CSV
+  - st: pan_tunnel_syslog
+    desc: TUNNEL log, CSV behind an RFC 3164 header with <PRI>
+  - st: pan_tunnel_syslog_nopri
+    desc: TUNNEL log, CSV behind a syslog header without <PRI>
 facts:
   First released: 2007 (PA-4000)
   OS: PAN-OS (current trains 10.2 / 11.1 / 11.2)
@@ -275,9 +345,9 @@ cves:
     affected: PAN-OS 10.2, 11.0, 11.1 with GlobalProtect gateway or portal
     fixed: 10.2.9-h1, 11.0.4-h1, 11.1.2-h3 (and later hotfixes)
     detect: "THREAT logs with threat_id 95187 / 95189 / 95191. On-box: gpsvc.log lines matching \"failed to unmarshal session(../\". Unusual outbound from the firewall itself."
-    avoid: Patch; enable Threat Prevention with the above IDs set to reset on the GP interface; restrict GP portal exposure; enable device telemetry off.
+    avoid: Patch; enable Threat Prevention with the above IDs set to reset on the GP interface (vulnerability protection must be applied to that interface); restrict GP portal exposure. Disabling device telemetry is NOT a mitigation (PAN withdrew that advice).
   - id: CVE-2024-0012
-    cvss: 9.3
+    cvss: 9.8
     year: 2024
     kev: true
     scope: device
@@ -287,13 +357,13 @@ cves:
     detect: TRAFFIC to the management IP from untrust or unknown sources; CONFIG logs from unexpected admins; new admin accounts.
     avoid: Never expose the management interface; permit only a jump-host allow-list; patch.
   - id: CVE-2025-0108
-    cvss: 8.8
+    cvss: 9.1
     year: 2025
     kev: true
     scope: device
     title: Management web interface authentication bypass (path confusion)
-    affected: PAN-OS 10.1, 10.2, 11.1, 11.2
-    fixed: 10.1.14-h9, 10.2.13-h3, 11.1.6-h1, 11.2.4-h4
+    affected: PAN-OS 10.1, 10.2, 11.0 (EoL — no fix), 11.1, 11.2
+    fixed: 10.1.14-h9, 10.2.13-h3, 11.1.6-h1, 11.2.4-h4 / 11.2.5 (plus listed hotfixes for 10.2.7–10.2.12, 11.1.2, 11.1.4)
     detect: Same signals as CVE-2024-0012; web requests to /unauth/ paths in mgmt access logs.
     avoid: Restrict mgmt interface; patch.
   - id: CVE-2020-2021
@@ -302,7 +372,7 @@ cves:
     kev: true
     scope: device
     title: SAML authentication bypass when IdP certificate validation is disabled
-    affected: PAN-OS 8.1, 9.0, 9.1 with SAML auth
+    affected: PAN-OS 8.0 (EoL — no fix), 8.1, 9.0, 9.1 with SAML auth and IdP certificate validation disabled
     fixed: 8.1.15, 9.0.9, 9.1.3
     detect: SYSTEM/GlobalProtect auth success from new geos without matching IdP sign-in event.
     avoid: Enable "Validate Identity Provider Certificate"; patch.
@@ -312,10 +382,9 @@ cves:
     kev: true
     scope: traffic
     title: HTTP/2 "Rapid Reset" DoS — affects HTTP/2 traffic the firewall protects
-    affected: Any HTTP/2 server behind the firewall
-    fixed: Server-side patches; PAN Threat ID 40152 for detection
+    affected: Any HTTP/2 server behind the firewall (PAN-OS itself is not affected)
     detect: Burst of very short HTTP/2 sessions per src_ip with low bytes and session_end_reason=tcp-rst-from-client.
-    avoid: Enable the threat signature; rate-limit with DoS Protection profiles.
+    avoid: Patch the HTTP/2 servers; with HTTP/2 inspection enabled, Threat ID 40152 (content 8765) blocks the attack; rate-limit with DoS Protection profiles.
 detections:
   - title: GlobalProtect exploitation (CVE-2024-3400)
     severity: critical
@@ -328,6 +397,8 @@ detections:
       dataset="pan_logs" type="THREAT"
       | where threat_id has_any ("95187","95189","95191")
       | summarize hits=count(), first=min(_time) by src_ip, dst_ip, action
+    mitre:
+      - T1190
   - title: GlobalProtect brute force / password spray
     severity: high
     signals:
@@ -340,6 +411,9 @@ detections:
       | extract "Login from: (?<login_ip>[^,]+), User name: (?<user>[^,]+)" from description
       | summarize fails=count(), users=dcount(user) by login_ip, bin(_time, 10m)
       | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
   - title: Management interface reachable from untrust
     severity: high
     signals:
@@ -352,6 +426,9 @@ detections:
       | lookup pan_mgmt_ips on dst_ip
       | where isnotempty(mgmt_host)
       | summarize count() by src_ip, dst_ip, app
+    mitre:
+      - T1190
+      - T1133
   - title: Critical threat allowed (prevention gap)
     severity: medium
     signals:
@@ -362,6 +439,9 @@ detections:
     kql: |-
       dataset="pan_logs" type="THREAT" severity="critical" action="alert"
       | summarize count() by rule, threat_id
+    mitre:
+      - T1190
+      - T1210
   - title: Non-standard app on 443 (tunnelling)
     severity: medium
     signals:
@@ -372,6 +452,10 @@ detections:
       dataset="pan_logs" type="TRAFFIC" dst_port=443
       | where app in ("unknown-tcp","ssh","tor","openvpn")
       | summarize bytes=sum(bytes) by src_ip, dst_ip, app
+    mitre:
+      - T1572
+      - T1571
+      - T1090.003
 optimizations:
   - title: Drop session-start records
     saving: 10–20 %
@@ -398,6 +482,19 @@ optimizations:
     fn: Routes
     how: THREAT, SYSTEM, CONFIG, GLOBALPROTECT → SIEM at full fidelity. TRAFFIC → Cribl Lake raw + SIEM optimised. Replay from Lake during incidents.
     expr: type!='TRAFFIC' → SIEM  |  type=='TRAFFIC' → Lake + SIEM(optimised)
+references:
+  - title: PAN-OS syslog field descriptions
+    url: https://docs.paloaltonetworks.com/pan-os/11-1/pan-os-admin/monitoring/use-syslog-for-monitoring/syslog-field-descriptions
+  - title: Palo Alto Networks security advisories
+    url: https://security.paloaltonetworks.com/
+  - title: CVE-2024-3400 advisory
+    url: https://security.paloaltonetworks.com/CVE-2024-3400
+  - title: CVE-2024-0012 advisory
+    url: https://security.paloaltonetworks.com/CVE-2024-0012
+  - title: CVE-2025-0108 advisory
+    url: https://security.paloaltonetworks.com/CVE-2025-0108
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 related:
   - fortigate
   - cisco-asa

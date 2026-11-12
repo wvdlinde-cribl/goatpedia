@@ -1,0 +1,352 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-security-lake
+name: Amazon Security Lake
+short: Security Lake
+aka:
+  - AWS Security Lake
+  - ASL
+  - OCSF data lake
+vendor: Amazon Web Services
+category: cloud
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - ocsf
+  - parquet
+  - data-lake
+  - s3
+  - sqs
+  - cloudtrail
+  - vpc-flow
+  - route53
+summary: A managed security data lake that collects CloudTrail, VPC Flow Logs, Route 53 resolver queries, Security Hub findings, EKS audit and WAF logs (plus custom third-party sources), converts them to the Open Cybersecurity Schema Framework (OCSF) and stores them as Parquet in an S3 bucket in your account. SIEMs and pipelines such as Cribl read it as subscribers (S3 + SQS) or query it with Athena; Cribl Stream can also write OCSF Parquet into it as a custom source.
+sourcetypes:
+  - st: aws_asl
+    desc: Pack Generator sourcetype for Security Lake OCSF records (Parquet rows read as JSON)
+  - st: aws:asl
+    desc: Splunk Add-on for AWS sourcetype for Security Lake subscriber data (SQS-based S3 input)
+facts:
+  First released: Preview Nov 2022, generally available May 2023
+  Delivery model: Managed AWS service, enabled per Region; rolls up into a delegated-administrator account in AWS Organizations
+  Native sources: CloudTrail management + S3/Lambda data events, VPC Flow Logs, Route 53 Resolver query logs, Security Hub findings, EKS audit logs, AWS WAFv2 logs
+  Schema: "OCSF — source version 1 = OCSF 1.0.0-rc.2, source version 2 = OCSF 1.1.0"
+  Storage format: Apache Parquet in an S3 bucket per Region, partitioned by Region, account and day, catalogued in AWS Glue / Lake Formation
+  Consumption: "Subscribers — data access (S3 objects + SQS notifications) or query access (Athena / Lake Formation shares)"
+  Custom sources: Third-party data must already be OCSF Parquet (one custom source per OCSF event class)
+  Typical volume: Mirrors its sources — VPC Flow and data events usually 80 %+ of rows
+  Cribl integration: Amazon Security Lake Destination (writes OCSF Parquet); OCSF Post Processor Pack in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - internal
+  items:
+    - slot: cloud
+      title: Delegated administrator / log-archive account
+      desc: Security Lake is enabled from the Organizations delegated admin; each contributing Region writes to an aws-security-data-lake-<region>-<id> bucket, often rolled up into one rollup Region.
+    - slot: cloud
+      title: Subscriber (SIEM / Cribl)
+      desc: A data-access subscriber gets an IAM role and an SQS queue; Cribl's S3 source reads new Parquet objects as notifications arrive, then routes OCSF to a SIEM, Lake or another store.
+    - slot: internal
+      title: Custom source producers
+      desc: On-prem firewalls, EDR or identity logs are normalised to OCSF (e.g. in Cribl Stream) and written as Parquet into the custom-source prefix through the Security Lake Destination.
+howItWorks:
+  - title: Collection from native AWS sources
+    body: Security Lake turns on collection for the selected sources itself; you do not need your own trail or flow-log configuration for it. Records are pulled from the service, converted and written per account and Region roughly every few minutes (CloudTrail) up to hourly batches for high-volume sources.
+  - title: OCSF normalisation
+    body: "Every record is mapped to an OCSF event class: API Activity (6003), Authentication (3002) or Account Change (3001) for CloudTrail; Network Activity (4001) for VPC Flow; DNS Activity (4003) for Route 53; HTTP Activity (4002) for WAF; Detection/Compliance/Vulnerability Finding for Security Hub. class_uid, activity_id and type_uid (class_uid × 100 + activity_id) tell you what a row is."
+  - title: Parquet storage and the Glue catalog
+    body: Rows are stored as Parquet in S3 with a Glue table per source and source version. Parquet is columnar and compressed, which is why Athena queries are cheap and why readers must decode Parquet (not newline JSON) before parsing.
+  - title: Subscribers
+    body: A data-access subscriber receives an IAM role with an external ID and an SQS queue (or HTTPS endpoint) that announces each new object. A query-access subscriber gets Lake Formation shared tables. Both are created through the securitylake API and are recorded in CloudTrail.
+  - title: Custom sources
+    body: Third-party data is registered as a custom source for a single OCSF class. Producers write Parquet that matches that class's schema into the source's S3 prefix; Security Lake does not convert it. Wrong-class or non-Parquet data is unreadable for subscribers.
+  - title: Retention and Regions
+    body: Retention and storage-class transitions are S3 lifecycle rules set in Security Lake. Contributing Regions can replicate into a rollup Region so a subscriber reads one place.
+traffic:
+  handles:
+    - AWS API activity (CloudTrail management and data events)
+    - VPC network flows (4001 Network Activity)
+    - Route 53 Resolver DNS queries (4003 DNS Activity)
+    - AWS WAF HTTP requests (4002 HTTP Activity)
+    - EKS control-plane audit events
+    - Security Hub findings (Detection / Compliance / Vulnerability Finding)
+    - Third-party OCSF custom sources (Parquet)
+  flow:
+    - step: Source event
+      desc: An API call, flow, DNS query, WAF request or finding occurs in an account and Region.
+    - step: Collection
+      desc: Security Lake gathers the native source records for enabled accounts and Regions.
+    - step: OCSF mapping
+      desc: Each record is converted to an OCSF class with class_uid, activity_id, type_uid and severity_id.
+    - step: Parquet write
+      desc: Rows are batched into Parquet objects in the Regional S3 bucket and partitioned by account and day.
+    - step: Notification
+      desc: An object-created notification goes to each data-access subscriber's SQS queue.
+    - step: Subscriber read
+      desc: Cribl or the SIEM assumes the subscriber role, reads the object and decodes Parquet.
+    - step: Route and store
+      desc: The subscriber filters, reduces and routes the OCSF rows to SIEM, Lake or archive.
+logs:
+  - type: API Activity (CloudTrail)
+    sourcetype: aws_asl
+    format: json
+    share: 10–40 %
+    avg: ~1.4 KB
+    desc: "OCSF class 6003 converted from CloudTrail management and data events. api.operation is the CloudTrail eventName, actor.user is the userIdentity, src_endpoint.ip the sourceIPAddress. Authentication (3002) and Account Change (3001) rows come from the same source."
+    key:
+      - class_uid
+      - api.operation
+      - api.service.name
+      - actor.user.uid
+      - actor.user.credential_uid
+      - src_endpoint.ip
+      - status
+      - accountid
+    noise:
+      - metadata.product.version
+      - metadata.profiles[0]
+      - metadata.uid
+      - api.request.uid
+      - category_name
+      - class_name
+      - type_name
+      - severity
+    sample: '{"metadata":{"product":{"version":"1.09","name":"CloudTrail","vendor_name":"AWS","feature":{"name":"Management"}},"uid":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","profiles":["cloud","datetime"],"version":"1.1.0"},"time":1762938862000,"cloud":{"region":"us-east-1","provider":"AWS"},"api":{"response":{"data":"{\"accessKey\":{\"userName\":\"svc-backup\",\"status\":\"Active\"}}"},"operation":"CreateAccessKey","version":null,"service":{"name":"iam.amazonaws.com"},"request":{"data":"{\"userName\":\"svc-backup\"}","uid":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b"}},"actor":{"user":{"type":"AssumedRole","name":"jdoe","uid":"arn:aws:sts::111122223333:assumed-role/AdminRole/jdoe","account":{"uid":"111122223333"},"credential_uid":"ASIAEXAMPLEKEY12345"},"session":{"created_time":1762937702000,"mfa":true,"issuer":"arn:aws:iam::111122223333:role/AdminRole"}},"http_request":{"user_agent":"aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0"},"src_endpoint":{"ip":"203.0.113.45"},"class_name":"API Activity","class_uid":6003,"category_name":"Application Activity","category_uid":6,"severity_id":1,"severity":"Informational","status":"Success","status_id":1,"activity_name":"Create","activity_id":1,"type_uid":600301,"type_name":"API Activity: Create","accountid":"111122223333","region":"us-east-1","asl_version":"2.0"}'
+  - type: Network Activity (VPC Flow Logs)
+    sourcetype: aws_asl
+    format: json
+    share: 40–80 %
+    avg: ~0.9 KB
+    desc: OCSF class 4001 from VPC Flow Logs. One row per flow-log record (aggregated over the capture window), with endpoints, interface, VPC, bytes, packets and whether the security group / NACL accepted or rejected it.
+    key:
+      - src_endpoint.ip
+      - dst_endpoint.ip
+      - dst_endpoint.port
+      - connection_info.protocol_num
+      - traffic.bytes
+      - action
+      - src_endpoint.vpc_uid
+    noise:
+      - metadata.product.version
+      - metadata.profiles[0]
+      - category_name
+      - class_name
+      - type_name
+      - severity
+      - src_endpoint.interface_uid
+    sample: '{"metadata":{"product":{"version":"5","name":"Amazon VPC","vendor_name":"AWS","feature":{"name":"Flowlogs"}},"profiles":["cloud","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","zone":"eu-west-1a","provider":"AWS"},"src_endpoint":{"port":51544,"svc_name":"-","ip":"10.20.30.44","intermediate_ips":null,"interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"dst_endpoint":{"port":22,"svc_name":"-","ip":"198.51.100.23","interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"connection_info":{"protocol_num":6,"tcp_flags":2,"direction":"Outbound","direction_id":2,"boundary_id":1,"boundary":"Same VPC"},"traffic":{"packets":3,"bytes":180},"time":1762938840000,"start_time":1762938780000,"end_time":1762938840000,"status_code":"OK","severity_id":1,"severity":"Informational","class_name":"Network Activity","class_uid":4001,"category_name":"Network Activity","category_uid":4,"activity_name":"Traffic","activity_id":6,"action":"Denied","action_id":2,"disposition":"Blocked","disposition_id":2,"type_uid":400106,"type_name":"Network Activity: Traffic","accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+  - type: DNS Activity (Route 53 Resolver)
+    sourcetype: aws_asl
+    format: json
+    share: 5–30 %
+    avg: ~0.8 KB
+    desc: OCSF class 4003 from Route 53 Resolver query logs — every DNS query an instance in the VPC made, with the answer and rcode. The best source for DNS C2 and data-exfil detection inside AWS.
+    key:
+      - query.hostname
+      - query.type
+      - rcode
+      - answers[0].rdata
+      - src_endpoint.ip
+      - src_endpoint.instance_uid
+      - firewall_rule.uid
+    noise:
+      - metadata.product.version
+      - metadata.profiles[0]
+      - category_name
+      - class_name
+      - type_name
+      - severity
+    sample: '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"a3f9c2e1b7d4.example.org.","type":"TXT","class":"IN"},"rcode":"NoError","answers":[{"type":"TXT","rdata":"\"dGVzdA==\"","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+  - type: Detection Finding (Security Hub)
+    sourcetype: aws:asl
+    format: json
+    share: < 1 %
+    avg: ~3 KB
+    desc: OCSF class 2004 converted from Security Hub (GuardDuty, Inspector, Macie and partner findings in ASFF). Low volume, highest value per row — never sample.
+    key:
+      - finding_info.title
+      - finding_info.types[0]
+      - severity
+      - metadata.product.name
+      - resources[0].uid
+      - status
+      - accountid
+    noise:
+      - metadata.profiles[0]
+      - category_name
+      - class_name
+      - type_name
+      - finding_info.src_url
+    sample: '{"metadata":{"product":{"name":"GuardDuty","vendor_name":"Amazon","feature":{"name":"GuardDuty"},"uid":"arn:aws:securityhub:us-east-1::product/aws/guardduty"},"profiles":["cloud","datetime"],"version":"1.1.0"},"time":1762939203000,"cloud":{"account":{"uid":"111122223333"},"region":"us-east-1","provider":"AWS"},"finding_info":{"uid":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/0ac4f1example","title":"Credentials for instance role used from an external IP address.","types":["TTPs/Initial Access/UnauthorizedAccess:IAMUser-InstanceCredentialExfiltration.OutsideAWS"],"created_time":1762939140000,"src_url":"https://console.aws.amazon.com/guardduty/home?region=us-east-1"},"resources":[{"type":"AwsIamAccessKey","uid":"ASIAEXAMPLEKEY12345","cloud_partition":"aws","region":"us-east-1"}],"severity_id":4,"severity":"High","status":"New","status_id":1,"class_name":"Detection Finding","class_uid":2004,"category_name":"Findings","category_uid":2,"activity_id":1,"activity_name":"Create","type_uid":200401,"type_name":"Detection Finding: Create","accountid":"111122223333","region":"us-east-1","asl_version":"2.0"}'
+cves:
+  - id: CVE-2025-30065
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: Apache Parquet (parquet-avro) schema parsing RCE — affects tools that read the Parquet files Security Lake stores
+    affected: Apache Parquet Java parquet-avro module 1.15.0 and earlier (in custom subscriber readers, Spark/EMR or Glue jobs)
+    fixed: 1.15.1
+    detect: Security Lake itself does not log the parse. Watch API Activity rows for PutObject into the custom-source prefixes by principals that are not your registered producers, and process/network anomalies on the hosts that read the lake.
+    avoid: Upgrade parquet-avro in every reader; restrict s3:PutObject on custom-source prefixes to the producer role; only consume objects announced through the subscriber SQS queue.
+  - id: CVE-2024-28056
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Amplify CLI left IAM role trust policies open to AssumeRoleWithWebIdentity — the takeover appears in the CloudTrail API Activity Security Lake normalises
+    affected: Amplify CLI before 12.10.1 / Amplify Studio projects where the Authentication component was removed
+    fixed: Amplify CLI 12.10.1
+    detect: class_uid 6003 rows with api.operation AssumeRoleWithWebIdentity on amplify-* roles from an unexpected actor, followed by API calls from that session from unfamiliar src_endpoint.ip values.
+    avoid: Upgrade Amplify CLI; review Amplify auth/unauth role trust policies for missing aud/amr conditions; IAM Access Analyzer.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — exploitation of EC2/EKS workloads, visible across the WAF, DNS and flow data Security Lake holds
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: "HTTP Activity (WAF) rows with ${jndi: in URL or user agent; DNS Activity queries to unusual subdomains from the targeted instance; Network Activity outbound to LDAP/RMI ports (389, 1389, 1099) from web tiers."
+    avoid: Patch; WAF managed rule Log4JRCE; egress filtering from workloads; IMDSv2 to stop credential theft afterwards.
+  - id: CVE-2023-34362
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: MOVEit Transfer SQL injection (Cl0p mass exfiltration) — the exfiltration shows up in Network Activity for cloud-hosted MOVEit
+    affected: MOVEit Transfer before 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    fixed: 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5, 2023.0.1
+    detect: Network Activity with large traffic.bytes outbound from the MOVEit instance to new external dst_endpoint.ip values; WAF HTTP Activity to /moveitisapi/moveitisapi.dll and /guestaccess.aspx.
+    avoid: Patch; never expose MOVEit directly; WAF in front; alert on outbound volume baselines.
+detections:
+  - title: Security Lake or its subscribers tampered with
+    severity: critical
+    signals:
+      - class_uid=6003
+      - api.service.name=securitylake.amazonaws.com
+      - api.operation in DeleteDataLake / DeleteAwsLogSource / DeleteSubscriber / UpdateDataLake
+    why: Removing a source or the lake blinds every downstream consumer; a change by anyone other than the platform IaC role is suspect.
+    kql: |-
+      dataset="aws_security_lake" class_uid=6003 api.service.name="securitylake.amazonaws.com"
+      | where api.operation in ("DeleteDataLake","DeleteAwsLogSource","DeleteCustomLogSource","DeleteSubscriber","UpdateDataLake","UpdateSubscriber")
+      | summarize count() by api.operation, actor.user.uid, src_endpoint.ip, accountid
+    mitre:
+      - T1562.008
+  - title: New Security Lake subscriber (possible bulk data copy)
+    severity: high
+    signals:
+      - api.operation=CreateSubscriber
+      - subscriber in an unknown external account
+    why: A data-access subscriber can read every log in the lake. An unexpected subscriber is a quiet way to move a whole organisation's telemetry to another account.
+    kql: |-
+      dataset="aws_security_lake" class_uid=6003 api.service.name="securitylake.amazonaws.com" api.operation="CreateSubscriber"
+      | project _time, actor.user.uid, src_endpoint.ip, api.request.data, accountid
+    mitre:
+      - T1537
+  - title: Access key or login profile created
+    severity: high
+    signals:
+      - class_uid=6003
+      - api.operation=CreateAccessKey / CreateLoginProfile
+      - status=Success
+    why: Same persistence step as in raw CloudTrail, but searchable across every account in the organisation in one OCSF table.
+    kql: |-
+      dataset="aws_security_lake" class_uid=6003
+      | where api.operation in ("CreateAccessKey","CreateLoginProfile","UpdateLoginProfile") and status="Success"
+      | summarize count() by actor.user.uid, api.request.data, src_endpoint.ip, accountid
+    mitre:
+      - T1098.001
+  - title: Port scan or blocked SSH/RDP fan-out from an instance
+    severity: medium
+    signals:
+      - class_uid=4001
+      - action=Denied
+      - many distinct dst_endpoint.ip or ports per source
+    why: A compromised instance scanning laterally or outward produces many rejected flows to many destinations in a short time.
+    kql: |-
+      dataset="aws_security_lake" class_uid=4001 action="Denied"
+      | summarize dsts=dcount(dst_endpoint.ip), ports=dcount(dst_endpoint.port), flows=count() by src_endpoint.ip, src_endpoint.instance_uid, bin(_time, 10m)
+      | where dsts > 50 or ports > 100
+    mitre:
+      - T1046
+  - title: DNS tunnelling pattern from an instance
+    severity: medium
+    signals:
+      - class_uid=4003
+      - query.type=TXT or NULL
+      - long random labels, many distinct subdomains per parent
+    why: Route 53 Resolver sees every lookup from the VPC; high-entropy subdomains of one parent domain at volume indicate DNS C2 or exfiltration.
+    kql: |-
+      dataset="aws_security_lake" class_uid=4003
+      | extend parent=extract("([^.]+\\.[^.]+)\\.$", 1, query.hostname)
+      | summarize subs=dcount(query.hostname), txt=countif(query.type=="TXT") by src_endpoint.instance_uid, parent, bin(_time, 1h)
+      | where subs > 200 or txt > 100
+    mitre:
+      - T1071.004
+      - T1048.003
+  - title: High-severity findings by account
+    severity: high
+    signals:
+      - class_uid=2004
+      - severity_id >= 4
+    why: Concentrates GuardDuty, Inspector and partner findings in one place; credential-exfiltration findings tie back to API Activity by access key.
+    kql: |-
+      dataset="aws_security_lake" class_uid=2004 severity_id>=4
+      | summarize findings=count() by finding_info.title, metadata.product.name, accountid, resources[0].uid
+    mitre:
+      - T1078.004
+optimizations:
+  - title: Route by OCSF class
+    saving: SIEM licence
+    fn: Routes
+    how: Findings (2004), Authentication (3002), Account Change (3001) and write API Activity go to the SIEM at full fidelity; Network Activity and DNS Activity go to Cribl Lake or stay in Security Lake for Athena and replay.
+    expr: class_uid in (2004,3001,3002) || (class_uid==6003 && activity_id!=2) → SIEM | else → Lake
+  - title: Aggregate accepted internal flows
+    saving: 40–70 % of 4001
+    fn: Aggregations
+    how: Roll accepted east-west flows up to bytes, packets and flow count per src/dst/port per 5 minutes; keep every rejected flow and every flow that crosses the VPC boundary as raw.
+    expr: class_uid==4001 && action=='Allowed' && connection_info.boundary_id==1
+  - title: Drop read-only API Activity from AWS services
+    saving: 20–50 % of 6003
+    fn: Drop
+    how: Describe/List/Get calls by AWS service principals (Config, Trusted Advisor, scanners) dominate API Activity. Keep errors and IAM/STS/sign-in calls.
+    expr: class_uid==6003 && activity_id==2 && status=='Success' && /^(Describe|List|Get)/.test(api.operation) && !/iam|sts|signin/.test(api.service.name)
+  - title: Strip OCSF descriptors and raw payloads
+    saving: 15–30 %
+    fn: Parser → Serialize
+    how: class_name, category_name, type_name, activity_name and severity are lookups of their *_uid / *_id numbers; unmapped and raw_data repeat the source record. Remove them before the SIEM and restore names with a lookup at search time.
+    expr: "remove: class_name, category_name, type_name, activity_name, severity, metadata.profiles, raw_data, unmapped"
+  - title: Sample successful DNS responses for common domains
+    saving: 30–60 % of 4003
+    fn: Sampling
+    how: Lookups of AWS service endpoints and your own zones are repetitive. Sample 10:1 when rcode is NoError and the domain is on an allow-list; keep NXDOMAIN, TXT and rare domains in full.
+    expr: class_uid==4003 && rcode=='NoError' && /\.(amazonaws\.com|example\.com)\.$/.test(query.hostname)
+references:
+  - title: What is Amazon Security Lake?
+    url: https://docs.aws.amazon.com/security-lake/latest/userguide/what-is-security-lake.html
+  - title: Open Cybersecurity Schema Framework (OCSF) in Security Lake
+    url: https://docs.aws.amazon.com/security-lake/latest/userguide/open-cybersecurity-schema-framework.html
+  - title: Subscriber management in Security Lake
+    url: https://docs.aws.amazon.com/security-lake/latest/userguide/subscriber-management.html
+  - title: Collecting data from custom sources in Security Lake
+    url: https://docs.aws.amazon.com/security-lake/latest/userguide/custom-sources.html
+  - title: OCSF schema browser
+    url: https://schema.ocsf.io/
+  - title: Cribl Stream — Amazon Security Lake integration
+    url: https://docs.cribl.io/stream/4.1/usecase-security-lake/
+  - title: NVD — CVE-2025-30065 (Apache Parquet parquet-avro)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-30065
+  - title: AWS security bulletin AWS-2024-003 (CVE-2024-28056)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2024-003/
+related:
+  - cloudtrail
+  - aws-vpc-flow
+  - aws-route53
+  - aws-security-hub
+  - aws-guardduty
+  - aws-waf
+  - aws-eks-audit

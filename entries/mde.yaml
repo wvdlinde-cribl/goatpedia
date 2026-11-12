@@ -2,14 +2,358 @@
 id: mde
 name: Microsoft Defender for Endpoint
 short: MDE
+aka:
+  - Defender for Endpoint
+  - Microsoft Defender ATP
+  - Windows Defender ATP
+  - Microsoft Defender XDR (endpoint)
+  - Microsoft Defender Antivirus
 vendor: Microsoft
 category: edr
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - edr
+  - xdr
+  - antivirus
   - event hub
   - advanced hunting
+  - streaming api
   - json
+  - windows
+summary: Microsoft's EDR, built into Windows 10/11 and Server (sensor "Sense" + Defender Antivirus) and available for macOS, Linux and mobile. Telemetry lands in the Defender XDR Advanced Hunting tables (DeviceProcessEvents, DeviceNetworkEvents …); outside Microsoft it is exported through the Streaming API to Azure Event Hubs or Storage, while alerts and incidents come from the Defender REST/Graph APIs.
 sourcetypes:
   - st: ms:defender:advancedhunting
-summary: EDR integrated with Windows; Advanced Hunting tables streamed to Event Hub.
+    desc: Advanced Hunting events (any Device* table) collected by the Splunk Microsoft Defender add-on
+  - st: ms_defender_atp_alerts
+    desc: Defender for Endpoint alerts from the /api/alerts REST endpoint (ms:defender:atp:alerts)
+  - st: ms365_defender_incident_alerts
+    desc: Defender XDR incident + correlated alerts from the incidents API (ms365:defender:incident:alerts)
+  - st: mscs_azure_eventhub_defender_advancedhunting
+    desc: Streaming API records read from Azure Event Hub (mscs:azure:eventhub:defender:advancedhunting)
+  - st: windows_defender
+    desc: Microsoft-Windows-Windows Defender/Operational event log (Defender Antivirus 1116/1117/5001 …)
+  - st: ms:defender:atp:alerts
+    desc: Splunk add-on name for MDE alerts
+  - st: mscs:azure:eventhub:defender:advancedhunting
+    desc: Splunk Microsoft Cloud Services add-on name for Defender Event Hub data
+  - st: DeviceProcessEvents
+    desc: Microsoft Sentinel / Defender XDR table name (also DeviceNetworkEvents, DeviceFileEvents …)
+facts:
+  First released: 2016 (Windows Defender ATP); renamed Defender for Endpoint 2020
+  Platform: Windows 10/11, Windows Server 2012 R2+, macOS, Linux, iOS, Android
+  Delivery model: SaaS (Defender XDR portal) + built-in Windows sensor (Sense) / agent on macOS & Linux
+  Licensing: Plan 1 (prevention), Plan 2 (EDR + Advanced Hunting), Defender for Business
+  Telemetry export: Streaming API → Azure Event Hubs or Azure Storage; Sentinel Defender XDR connector
+  Alert export: Defender for Endpoint /api/alerts, Graph security API (alerts_v2, incidents)
+  Log format: JSON (Event Hub "records" array, one Advanced Hunting row per record); Windows Event Log XML for Defender AV
+  Retention: 30 days in Advanced Hunting (longer only via Sentinel / export)
+  Typical volume: 5–50 MB per device per day across Device* tables (DeviceNetworkEvents and DeviceEvents largest)
+  Cribl Pack: Microsoft Defender for Endpoint (Event Hub) pack, Packs Dispensary (2026)
+placement:
+  slots:
+    - endpoint
+    - cloud
+    - internal
+  items:
+    - slot: endpoint
+      title: Built into Windows
+      desc: The Sense service and Defender Antivirus ship with Windows; onboarding just enables them. On macOS/Linux a separate agent (mdatp) is installed. Devices report over HTTPS to the regional Defender cloud.
+    - slot: cloud
+      title: Defender XDR cloud and Advanced Hunting
+      desc: Detection, investigation and the Advanced Hunting tables live in Microsoft's cloud. Everything leaves via the Streaming API to an Azure Event Hub or Storage account that a collector (Cribl Stream Azure Event Hubs Source, Splunk add-on) reads.
+    - slot: internal
+      title: Servers and domain controllers
+      desc: Defender for Servers (via Defender for Cloud) onboards Windows and Linux servers; Defender for Identity sensors on DCs feed the Identity* tables of the same XDR.
+howItWorks:
+  - title: Sensor (Sense) and Defender Antivirus
+    body: Sense collects process, network, file, registry, logon and image-load events from kernel callbacks and ETW. Defender Antivirus scans files, scripts (AMSI) and memory and enforces Attack Surface Reduction (ASR) rules; its verdicts are both local event-log entries and DeviceEvents rows.
+  - title: Advanced Hunting schema
+    body: "Telemetry is normalised into tables: DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents, DeviceRegistryEvents, DeviceLogonEvents, DeviceImageLoadEvents, DeviceEvents (ASR, exploit protection, AMSI and other ActionTypes), DeviceInfo, plus AlertInfo/AlertEvidence. Every row has Timestamp, DeviceId, DeviceName, ActionType and InitiatingProcess* columns for the actor process."
+  - title: Detection and automated investigation
+    body: Cloud analytics and behaviour rules raise alerts (category, MITRE techniques, severity, evidence) and group them into incidents across endpoint, identity, email and cloud apps. Automated investigation and response (AIR) can remediate, isolate the device or collect an investigation package.
+  - title: Streaming API → Event Hubs
+    body: "Selected tables are pushed to an Event Hub (one hub for all, or one per table) or a Storage account. Each Event Hub message is {\"records\":[…]}; each record has time, tenantId, category = \"AdvancedHunting-<Table>\" and properties = the row. The collector must unroll records and take _time from the row, otherwise a batch shares one timestamp."
+  - title: Alerts and incidents APIs
+    body: Alerts come from the MDE /api/alerts endpoint or Microsoft Graph security alerts_v2 / incidents (OAuth2 app registration). They are low volume and carry evidence arrays (process, file, IP, URL, user) and mitreTechniques.
+  - title: Device groups and tenant scope
+    body: Every streamed row is decorated with MachineGroup (device group), which lets a pipeline route or tag per business unit. Streaming covers only columns that are generally available in the portal.
+traffic:
+  handles:
+    - Process creation with full command line and parent chain
+    - Outbound/inbound network connections per process (+ some HTTP/DNS/SSL inspection)
+    - File create/modify/delete, executable drops
+    - Registry changes and persistence
+    - Logons (interactive, RDP, network) and token elevation
+    - AMSI / script content, ASR rule hits, exploit protection
+    - Antivirus detections and remediation actions
+  flow:
+    - step: Event on device
+      desc: Sense / Defender AV observe a process, connection, file or registry action.
+    - step: Local verdict
+      desc: AV, ASR rules and network protection can block immediately and write the event log.
+    - step: Cloud ingest
+      desc: Telemetry is sent over TLS to the regional Defender cloud and written to Advanced Hunting tables.
+    - step: Analytics
+      desc: Cloud models and custom detections raise alerts and correlate them into incidents.
+    - step: Stream out
+      desc: Streaming API pushes selected tables to Event Hubs/Storage; alerts are pulled via REST/Graph.
+    - step: Collect
+      desc: Collector reads Event Hub, unrolls records, fixes _time, trims empty columns, routes to SIEM and lake.
+logs:
+  - type: DeviceProcessEvents (Streaming API)
+    sourcetype: mscs_azure_eventhub_defender_advancedhunting
+    format: json
+    share: 15–30 %
+    avg: ~3 KB
+    desc: One record per process creation, after unrolling the Event Hub records array. The richest table for hunting — command line, hashes, account and the initiating (parent) process.
+    key:
+      - category
+      - properties.DeviceName
+      - properties.ActionType
+      - properties.FileName
+      - properties.ProcessCommandLine
+      - properties.AccountName
+      - properties.InitiatingProcessFileName
+      - properties.SHA1
+    noise:
+      - operationName
+      - properties.ProcessVersionInfoCompanyName
+      - properties.ProcessVersionInfoProductName
+      - properties.ProcessVersionInfoProductVersion
+      - properties.ProcessVersionInfoInternalFileName
+      - properties.ProcessVersionInfoFileDescription
+      - properties.AppGuardContainerId
+      - properties.InitiatingProcessVersionInfoCompanyName
+    sample: '{"time":"2026-11-12T09:14:22.4123456Z","tenantId":"00000000-1111-2222-3333-444444444444","operationName":"Publish","category":"AdvancedHunting-DeviceProcessEvents","properties":{"Timestamp":"2026-11-12T09:14:20.1100000Z","DeviceId":"8f2b1c0d9e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c","DeviceName":"ws-fin-042.corp.example.com","ActionType":"ProcessCreated","FileName":"powershell.exe","FolderPath":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","SHA1":"6cbce4a295c163791b60fc23d285e6d84f28ee4c","SHA256":null,"MD5":"7353f60b1739074eb17c5f4dddefe239","FileSize":455680,"ProcessVersionInfoCompanyName":"Microsoft Corporation","ProcessVersionInfoProductName":"Microsoft® Windows® Operating System","ProcessVersionInfoProductVersion":"10.0.22621.1","ProcessVersionInfoInternalFileName":"POWERSHELL","ProcessVersionInfoOriginalFileName":"PowerShell.EXE.MUI","ProcessVersionInfoFileDescription":"Windows PowerShell","ProcessId":7412,"ProcessCommandLine":"powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=","ProcessIntegrityLevel":"Medium","ProcessTokenElevation":"TokenElevationTypeLimited","ProcessCreationTime":"2026-11-12T09:14:20.1000000Z","AccountDomain":"corp","AccountName":"jdoe","AccountSid":"S-1-5-21-1004336348-1177238915-682003330-1104","AccountUpn":"jdoe@example.com","LogonId":2669499,"InitiatingProcessFileName":"WINWORD.EXE","InitiatingProcessFolderPath":"c:\\program files\\microsoft office\\root\\office16\\winword.exe","InitiatingProcessCommandLine":"\"WINWORD.EXE\" /n \"C:\\Users\\jdoe\\Downloads\\invoice.docm\"","InitiatingProcessId":6120,"InitiatingProcessParentFileName":"explorer.exe","InitiatingProcessAccountName":"jdoe","InitiatingProcessSHA1":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678","InitiatingProcessVersionInfoCompanyName":"Microsoft Corporation","InitiatingProcessSignatureStatus":"Valid","AppGuardContainerId":"","ReportId":18342,"MachineGroup":"Finance Workstations"}}'
+  - type: DeviceNetworkEvents (Streaming API)
+    sourcetype: ms:defender:advancedhunting
+    format: json
+    share: 30–50 %
+    avg: ~2.5 KB
+    desc: Network connections, listening sockets and inspected protocol events per process. Usually the largest table — and the one to reduce first.
+    key:
+      - category
+      - properties.DeviceName
+      - properties.ActionType
+      - properties.RemoteIP
+      - properties.RemotePort
+      - properties.RemoteUrl
+      - properties.InitiatingProcessFileName
+    noise:
+      - operationName
+      - properties.AppGuardContainerId
+      - properties.InitiatingProcessVersionInfoCompanyName
+      - properties.InitiatingProcessVersionInfoProductName
+      - properties.InitiatingProcessVersionInfoFileDescription
+      - properties.LocalIPType
+      - properties.RemoteIPType
+    sample: '{"time":"2026-11-12T09:14:25.0021000Z","tenantId":"00000000-1111-2222-3333-444444444444","operationName":"Publish","category":"AdvancedHunting-DeviceNetworkEvents","properties":{"Timestamp":"2026-11-12T09:14:23.8810000Z","DeviceId":"8f2b1c0d9e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c","DeviceName":"ws-fin-042.corp.example.com","ActionType":"ConnectionSuccess","RemoteIP":"198.51.100.77","RemotePort":443,"RemoteUrl":"cdn.update-check.example.org","LocalIP":"10.20.30.44","LocalPort":51544,"Protocol":"Tcp","LocalIPType":"Private","RemoteIPType":"Public","InitiatingProcessFileName":"powershell.exe","InitiatingProcessFolderPath":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","InitiatingProcessCommandLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","InitiatingProcessId":7412,"InitiatingProcessAccountName":"jdoe","InitiatingProcessSHA1":"6cbce4a295c163791b60fc23d285e6d84f28ee4c","InitiatingProcessVersionInfoCompanyName":"Microsoft Corporation","InitiatingProcessVersionInfoProductName":"Microsoft® Windows® Operating System","InitiatingProcessVersionInfoFileDescription":"Windows PowerShell","AppGuardContainerId":"","ReportId":18355,"AdditionalFields":null,"MachineGroup":"Finance Workstations"}}'
+  - type: Alert (MDE alerts API)
+    sourcetype: ms_defender_atp_alerts
+    format: json
+    share: < 1 %
+    avg: ~4 KB
+    desc: A Defender alert with severity, category, MITRE techniques, the device, users and an evidence array. Low volume — always forward in full.
+    key:
+      - title
+      - severity
+      - category
+      - computerDnsName
+      - mitreTechniques[0]
+      - relatedUser.userName
+      - status
+    noise:
+      - investigationId
+      - assignedTo
+      - classification
+      - determination
+      - rbacGroupName
+    sample: '{"id":"da638001130101730338_582949328","incidentId":989,"investigationId":null,"assignedTo":null,"severity":"High","status":"New","classification":null,"determination":null,"investigationState":"Running","detectionSource":"WindowsDefenderAtp","category":"Execution","title":"Suspicious PowerShell command line","description":"A process launched PowerShell with an obfuscated, encoded command line from an Office document.","alertCreationTime":"2026-11-12T09:15:02.3245808Z","firstEventTime":"2026-11-12T09:14:20.1100000Z","lastEventTime":"2026-11-12T09:14:25.0021000Z","machineId":"8f2b1c0d9e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c","computerDnsName":"ws-fin-042.corp.example.com","rbacGroupName":"Finance Workstations","aadTenantId":"00000000-1111-2222-3333-444444444444","mitreTechniques":["T1059.001","T1027"],"relatedUser":{"userName":"jdoe","domainName":"CORP"},"evidence":[{"entityType":"Process","fileName":"powershell.exe","processCommandLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","parentProcessFileName":"WINWORD.EXE","sha1":"6cbce4a295c163791b60fc23d285e6d84f28ee4c"},{"entityType":"Ip","ipAddress":"198.51.100.77"}]}'
+  - type: Defender Antivirus detection (event 1116)
+    sourcetype: windows_defender
+    format: xml
+    share: < 1 %
+    avg: ~2.5 KB
+    desc: Microsoft-Windows-Windows Defender/Operational event 1116 (malware detected), followed by 1117 (action taken). Also 5001/5010/5012 when real-time protection or scanning is turned off — a tampering signal.
+    key:
+      - EventID
+      - Computer
+      - Threat Name
+      - Severity Name
+      - Path
+      - Process Name
+      - Detection User
+    noise:
+      - Product Version
+      - Origin ID
+      - Type ID
+      - Execution ID
+      - Pre Execution Status
+    sample: <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Windows Defender" Guid="{11cd958a-c507-4ef3-b3f2-5fd9dfbd2c78}"/><EventID>1116</EventID><Version>0</Version><Level>3</Level><Task>0</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:14:19.8812345Z"/><EventRecordID>48211</EventRecordID><Execution ProcessID="3920" ThreadID="5104"/><Channel>Microsoft-Windows-Windows Defender/Operational</Channel><Computer>ws-fin-042.corp.example.com</Computer><Security UserID="S-1-5-18"/></System><EventData><Data Name="Product Name">Microsoft Defender Antivirus</Data><Data Name="Product Version">4.18.26040.7</Data><Data Name="Detection ID">{8C1E6F0A-2B3D-4E5F-9A0B-1C2D3E4F5A6B}</Data><Data Name="Detection Time">2026-11-12T09:14:19.870Z</Data><Data Name="Threat ID">2147735503</Data><Data Name="Threat Name">TrojanDownloader:O97M/Donoff</Data><Data Name="Severity ID">5</Data><Data Name="Severity Name">Severe</Data><Data Name="Category ID">34</Data><Data Name="Category Name">Trojan Downloader</Data><Data Name="Path">file:_C:\Users\jdoe\Downloads\invoice.docm</Data><Data Name="Origin ID">4</Data><Data Name="Origin Name">Internet</Data><Data Name="Execution ID">1</Data><Data Name="Execution Name">Suspended</Data><Data Name="Type ID">0</Data><Data Name="Type Name">Concrete</Data><Data Name="Pre Execution Status">0</Data><Data Name="Action ID">9</Data><Data Name="Action Name">Not Applicable</Data><Data Name="Error Code">0x00000000</Data><Data Name="Detection User">CORP\jdoe</Data><Data Name="Process Name">C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE</Data></EventData></Event>
+cves:
+  - id: CVE-2026-33825
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Microsoft Defender Antimalware Platform local privilege escalation (insufficient access-control granularity) — used in ransomware campaigns (CNA score)
+    affected: Microsoft Defender Antimalware Platform before 4.18.26030.3011
+    fixed: Antimalware Platform 4.18.26030.3011 (delivered via Defender platform updates)
+    detect: "DeviceInfo / Defender AV 'Product Version' (event 1116/2000) below 4.18.26030.3011. Hunt for a standard user process spawning a SYSTEM-integrity child shortly after touching Defender's ProgramData folders (DeviceProcessEvents ProcessIntegrityLevel=System with a Medium-integrity initiator)."
+    avoid: Let platform updates auto-install (do not pin platform versions); enable tamper protection; alert on platform version drift.
+  - id: CVE-2026-41091
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Microsoft Malware Protection Engine link-following local privilege escalation (CNA score)
+    affected: Microsoft Malware Protection Engine before 1.1.26040.8
+    fixed: Engine 1.1.26040.8 (security intelligence / engine update)
+    detect: Engine version in Defender Operational event 2000/2002 below 1.1.26040.8; DeviceFileEvents creating junctions or symbolic links in temp / quarantine paths immediately before a scan.
+    avoid: Ensure engine updates flow (WSUS/Intune/MECM rings not stalled); monitor engine version per device.
+  - id: CVE-2026-45498
+    cvss: 7.5
+    year: 2026
+    kev: true
+    scope: device
+    title: Microsoft Defender Antimalware Platform denial of service (NVD 7.5; Microsoft scores 4.0)
+    affected: Microsoft Defender Antimalware Platform before 4.18.26040.7
+    fixed: Antimalware Platform 4.18.26040.7
+    detect: Defender Operational 5001 / 5010 / 5012 (real-time protection or scanning disabled) or the MsMpEng service stopping, followed by a gap in DeviceEvents for the device.
+    avoid: Update the platform; tamper protection on; alert on any device whose Device* streams go quiet while it is online.
+  - id: CVE-2021-1647
+    cvss: 7.8
+    year: 2021
+    kev: true
+    scope: device
+    title: Microsoft Defender (Malware Protection Engine) remote code execution — exploited as a zero-day in January 2021
+    affected: Windows Defender, Microsoft Security Essentials, System Center Endpoint Protection with a Malware Protection Engine before the January 2021 update
+    detect: Engine version below the January 2021 release; MsMpEng.exe spawning child processes or crashing (Application Error for MsMpEng) after scanning a downloaded file.
+    avoid: Verify engine auto-updates; isolate devices whose engine is stale.
+  - id: CVE-2024-21412
+    cvss: 8.1
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Windows Internet Shortcut (.url) SmartScreen / Mark-of-the-Web bypass — used by Water Hydra / DarkGate to deliver payloads (CNA score)
+    affected: Windows 10, 11 and Server 2019/2022 before the February 2024 update
+    fixed: Microsoft February 2024 security updates
+    detect: DeviceFileEvents creating .url files in Downloads/Temp followed by DeviceProcessEvents from explorer.exe launching content from a WebDAV/SMB path (\\host@SSL\…); DeviceNetworkEvents to external WebDAV on 443/80.
+    avoid: Patch; keep SmartScreen and ASR rule "Block executable content from email client and webmail" on; block outbound WebDAV.
+detections:
+  - title: Office application spawning a script interpreter
+    severity: high
+    signals:
+      - category=AdvancedHunting-DeviceProcessEvents
+      - InitiatingProcessFileName in WINWORD/EXCEL/OUTLOOK
+      - FileName in powershell/cmd/wscript/mshta
+    why: Macro- or exploit-driven initial access. Also the behaviour that ASR rule "Block all Office applications from creating child processes" stops — if you see it, the rule is in audit mode or excluded.
+    kql: |-
+      dataset="mde_logs" category="AdvancedHunting-DeviceProcessEvents"
+      | where properties.InitiatingProcessFileName in~ ("WINWORD.EXE","EXCEL.EXE","POWERPNT.EXE","OUTLOOK.EXE")
+      | where properties.FileName in~ ("powershell.exe","pwsh.exe","cmd.exe","wscript.exe","cscript.exe","mshta.exe","rundll32.exe")
+      | summarize count(), cmds=make_set(properties.ProcessCommandLine, 5) by properties.DeviceName, properties.AccountName, properties.InitiatingProcessFileName
+    mitre:
+      - T1566.001
+      - T1204.002
+      - T1059.001
+  - title: Encoded PowerShell followed by an outbound connection
+    severity: high
+    signals:
+      - DeviceProcessEvents ProcessCommandLine has -enc
+      - DeviceNetworkEvents from powershell.exe to a public IP
+    why: Download cradles decode a payload and immediately call out; the pair is far more specific than either signal alone.
+    kql: |-
+      dataset="mde_logs" category="AdvancedHunting-DeviceNetworkEvents"
+      | where properties.InitiatingProcessFileName in~ ("powershell.exe","pwsh.exe") and properties.RemoteIPType == "Public"
+      | where properties.InitiatingProcessCommandLine matches regex @"(?i)\s-(e|en|enc|encodedcommand)\s"
+      | summarize conns=count(), urls=make_set(properties.RemoteUrl, 10) by properties.DeviceName, properties.RemoteIP
+    mitre:
+      - T1059.001
+      - T1027.010
+      - T1105
+  - title: Defender Antivirus turned off or tampered with
+    severity: critical
+    signals:
+      - windows_defender EventID 5001 / 5010 / 5012
+      - Set-MpPreference -DisableRealtimeMonitoring in a command line
+    why: Disabling AV is a standard pre-ransomware step, and the 2026 Defender CVEs aim at the same outcome. Should be near zero with tamper protection on.
+    kql: |-
+      dataset="windows_defender" EventID in ("5001","5010","5012")
+      | summarize count(), first=min(_time) by Computer, EventID
+    mitre:
+      - T1562.001
+  - title: Malware detected but not remediated
+    severity: high
+    signals:
+      - EventID=1116 without a matching 1117 success
+      - Action Name = Not Applicable / Allow
+    why: A detection that was only reported (exclusion, audit mode or failed remediation) leaves the payload on disk.
+    kql: |-
+      dataset="windows_defender" EventID in ("1116","1117")
+      | summarize events=make_set(EventID), action=any(["Action Name"]) by Computer, ["Threat Name"], Path
+      | where not(set_has_element(events, "1117")) or action in ("Not Applicable","Allow")
+    mitre:
+      - T1204.002
+  - title: High-severity alert on a device with credential-access techniques
+    severity: critical
+    signals:
+      - ms_defender_atp_alerts severity=High
+      - mitreTechniques contains T1003
+    why: LSASS dumping or SAM access precedes lateral movement with harvested credentials; prioritise isolating the device.
+    kql: |-
+      dataset="mde_alerts" severity in ("High","Critical")
+      | where mitreTechniques has "T1003" or category == "CredentialAccess"
+      | summarize count(), titles=make_set(title) by computerDnsName, relatedUser.userName, status
+    mitre:
+      - T1003.001
+      - T1078
+optimizations:
+  - title: Unroll Event Hub records and fix _time
+    saving: Correctness (prevents bad timestamps and oversized events)
+    fn: Unroll + Eval
+    how: Each Event Hub message is a records[] batch. Unroll it, set _time from properties.Timestamp (or record time), and drop the original records array — otherwise the SIEM sees one huge event per batch with a single timestamp.
+    expr: "unroll records → __r; _time = Date.parse(__r.properties.Timestamp)/1000; remove: records"
+  - title: Drop null, empty and version-info columns
+    saving: 30–50 %
+    fn: Eval (remove fields)
+    how: Advanced Hunting rows serialise every column, mostly null. Remove nulls/empty strings plus *VersionInfo*, AppGuardContainerId and duplicate hash columns (SHA256 is usually null; MD5 redundant with SHA1).
+    expr: "remove: properties.*VersionInfo*, properties.AppGuardContainerId, operationName; drop null/empty"
+  - title: Reduce DeviceNetworkEvents
+    saving: 20–40 %
+    fn: Drop + Aggregations
+    how: ListeningConnectionCreated and connections from well-known update/telemetry processes to Microsoft ranges are rarely searched. Drop them or aggregate per device/process/remote IP per minute; keep ConnectionSuccess to public IPs raw.
+    expr: category=='AdvancedHunting-DeviceNetworkEvents' && (properties.ActionType=='ListeningConnectionCreated' || properties.RemoteIPType!='Public')
+  - title: Route by table
+    saving: SIEM licence
+    fn: Routes
+    how: Alerts, incidents, DeviceEvents (ASR/AV/tamper), DeviceLogonEvents and DeviceProcessEvents → SIEM. DeviceNetworkEvents, DeviceFileEvents, DeviceImageLoadEvents → Cribl Lake raw + SIEM optimised. Advanced Hunting keeps only 30 days; the lake is your long-term copy.
+    expr: "category in (AlertInfo, AlertEvidence, DeviceEvents, DeviceProcessEvents) → SIEM  |  else → Lake + SIEM(optimised)"
+references:
+  - title: Microsoft Learn — Stream Microsoft Defender XDR events to Azure Event Hubs
+    url: https://learn.microsoft.com/en-us/defender-xdr/streaming-api-event-hub
+  - title: Microsoft Learn — Event types supported in the streaming API
+    url: https://learn.microsoft.com/en-us/defender-xdr/supported-event-types
+  - title: Microsoft Learn — DeviceProcessEvents table
+    url: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceprocessevents-table
+  - title: Microsoft Learn — Microsoft Defender Antivirus event IDs (1116, 1117, 5001 …)
+    url: https://learn.microsoft.com/en-us/defender-endpoint/troubleshoot-microsoft-defender-antivirus
+  - title: Cribl blog — Microsoft Defender Endpoint logs and Cribl Stream
+    url: https://cribl.io/blog/microsoft-defender-endpoint-logs-and-cribl-stream/
+  - title: MSRC — CVE-2026-33825
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-33825
+  - title: MSRC — CVE-2026-41091
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-41091
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - crowdstrike
+  - sentinelone
+  - sysmon
+  - win-security
+  - windows-powershell
+  - entra-id
+  - o365

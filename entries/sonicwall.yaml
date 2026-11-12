@@ -1,0 +1,355 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sonicwall
+name: SonicWall Firewall
+short: SonicWall
+vendor: SonicWall
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+aka:
+  - SonicOS
+  - TZ / NSa / NSsp / NSv
+  - Dell SonicWALL
+  - SonicWall Gen7 / Gen8
+tags:
+  - firewall
+  - ssl-vpn
+  - ips
+  - utm
+  - kv
+  - syslog
+summary: SonicOS next-generation firewall (TZ, NSa, NSsp hardware and NSv virtual) with RFDPI inspection, IPS, Gateway Anti-Virus, Capture ATP, content filtering and SSL-VPN / IPsec, popular with SMB and MSPs. It sends space-separated key=value syslog keyed by a numeric message ID (m=) and category (c=). Its internet-facing SSL-VPN has been a favourite ransomware entry point (Akira, Fog) since 2024.
+sourcetypes:
+  - st: sonicwall_firewall
+    desc: SonicWall SonicOS syslog (Default or Enhanced key=value format) — connections, threats, VPN and admin events (Pack Generator name)
+  - st: dell:sonicwall
+    desc: Splunk Add-on for SonicWall Firewall sourcetype
+  - st: SONIC_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+  - st: CommonSecurityLog
+    desc: Microsoft Sentinel table when SonicOS sends the ArcSight (CEF) syslog format
+facts:
+  OS: SonicOS 7.x (Gen7), 8.x (Gen8); Gen6 6.5.x end of support
+  Form factors: TZ (desktop), NSa (mid-range), NSsp (high-end), NSv (VMware/Hyper-V/AWS/Azure)
+  Management: Web UI, CLI, Network Security Manager (NSM, cloud or on-prem), Capture Client
+  Log path: Firewall → up to several syslog servers, each with an event profile
+  Log transport: Syslog UDP 514 by default; TCP and TLS on SonicOS 7+
+  Log format: Default (key=value), Enhanced (selectable fields), WebTrends, ArcSight (CEF)
+  Event key: m= message ID + c= category bitmask + pri= priority
+  Typical EPS: 100 – 10k (SMB/MSP scale; connection logs dominate)
+  Ownership: Francisco Partners (since 2016, previously Dell 2012–2016)
+  Cribl Pack: Sonicwall Firewall Pack (cc-SonicWall-Firewall, community, Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - remote
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: SMB / branch internet edge
+      desc: TZ and NSa boxes as the only firewall of small and mid-size sites, often run by an MSP, with WAN management and SSL-VPN frequently exposed — the exposure that CVE-2024-40766 and CVE-2024-53704 exploited.
+    - slot: remote
+      title: SSL-VPN (NetExtender / Mobile Connect)
+      desc: The built-in SSL-VPN terminates on the firewall's WAN interface (default port 4433), authenticating against local users, LDAP, RADIUS or SAML.
+    - slot: internal
+      title: Zone segmentation
+      desc: NSa/NSsp between LAN, DMZ, WLAN and SSLVPN zones with access rules per zone pair.
+    - slot: cloud
+      title: NSv
+      desc: Virtual firewalls in AWS/Azure or on-prem hypervisors for VPN hubs and cloud egress.
+howItWorks:
+  - title: RFDPI single-pass engine
+    body: Reassembly-Free Deep Packet Inspection scans streams without buffering whole files; App Control, IPS, Gateway Anti-Virus and Anti-Spyware share the same pass, and Capture ATP sends unknown files to the cloud sandbox.
+  - title: Zones and access rules
+    body: Interfaces (X0, X1, …) belong to zones (LAN, WAN, DMZ, SSLVPN, VPN); access rules are evaluated per zone pair, and the policy mode on Gen7+ can be unified (security + decryption + NAT).
+  - title: Message IDs drive everything
+    body: Every log carries m= (event ID, e.g. 537 Connection Closed, 98 Connection Opened, 30 admin login denied) and c= (category bitmask). Parsers and SIEM content key off m=, so dropping or keeping events is a simple ID allowlist.
+  - title: Default vs Enhanced syslog
+    body: Default format is fixed key=value; Enhanced lets you choose fields (zones, NAT, user, rule, app). src/dst use the compound form ip:port:interface, and the configured Syslog ID appears as id= on every line.
+  - title: SSL-VPN and authentication
+    body: SSL-VPN users log in through the virtual office portal or NetExtender; authentication can be local, LDAP, RADIUS, TACACS+ or SAML. Gen6 local accounts migrated from LDAP were a key weakness in the 2024 Akira campaign.
+traffic:
+  handles:
+    - IPv4/IPv6 stateful firewalling and NAT
+    - Application control (App Control / App Rules)
+    - IPS, Gateway Anti-Virus, Anti-Spyware
+    - Capture ATP sandboxing
+    - Content filtering (CFS) and DNS filtering
+    - SSL-VPN (NetExtender) and IPsec (IKEv1/IKEv2)
+    - TLS/SSL decryption (DPI-SSL)
+  flow:
+    - step: Ingress
+      desc: Packet arrives on an interface in a zone.
+    - step: Access rule
+      desc: Zone-pair rule match; drops log as TCP/UDP packet dropped, accepts open a connection (m=98).
+    - step: NAT
+      desc: NAT policy applied (natSrc / natDst).
+    - step: DPI-SSL
+      desc: Optional decryption.
+    - step: RFDPI services
+      desc: App Control, IPS, GAV, Anti-Spyware and Capture ATP inspect the stream; hits log with ipscat / sid or GAV fields.
+    - step: Egress + close
+      desc: Forwarded; on close, m=537 Connection Closed with sent / rcvd bytes.
+logs:
+  - type: Connection Closed (m=537)
+    sourcetype: sonicwall_firewall
+    format: kv
+    share: 60–80 %
+    avg: ~450 B
+    desc: Per-connection record with zones, NAT, user, rule, application and bytes in each direction. src and dst use ip:port:interface.
+    key:
+      - m
+      - src
+      - dst
+      - srcZone
+      - dstZone
+      - proto
+      - rule
+      - rcvd
+    noise:
+      - header
+      - sn
+      - n
+      - srcMac
+      - dstMac
+      - dpi
+      - fw_action
+    sample: |-
+      <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=1024 m=537 msg="Connection Closed" srcMac=00:00:5e:00:53:02 src=10.20.30.44:51544:X0 srcZone=LAN natSrc=203.0.113.1:23011 dstMac=00:00:5e:00:53:01 dst=198.51.100.80:443:X1 dstZone=WAN natDst=198.51.100.80:443 usr="jdoe" proto=tcp/https sent=2311 rcvd=18842 spkt=14 rpkt=19 cdur=6120 rule="LAN->WAN Allow Web" app=49177 appName='General HTTPS' n=112742081 dpi=1 fw_action="NA"
+  - type: SSL-VPN user login (m=1080)
+    sourcetype: sonicwall_firewall
+    format: kv
+    share: < 1 %
+    avg: ~300 B
+    desc: Remote user logins on the SSLVPN zone with user name, source IP and (on Enhanced) the authentication method. The source for VPN anomaly detection.
+    key:
+      - m
+      - msg
+      - usr
+      - src
+      - dst
+      - dstZone
+    noise:
+      - header
+      - sn
+      - n
+      - pri
+    sample: |-
+      <134>id=firewall sn=0017C5000001 time="2026-11-12 02:41:19 UTC" fw=203.0.113.1 pri=6 c=16 m=1080 msg="SSL VPN zone remote user login allowed" usr="jdoe" src=198.51.100.23:51022:X1 dst=203.0.113.1:4433:X1 dstZone=WAN proto=tcp/4433 n=88123 note="Login via LDAP"
+  - type: IPS Prevention Alert (m=609)
+    sourcetype: sonicwall_firewall
+    format: kv
+    share: 1–5 %
+    avg: ~400 B
+    desc: Intrusion prevention hits with signature ID, IPS category and priority; m=608 is the detect-only variant.
+    key:
+      - m
+      - msg
+      - sid
+      - ipscat
+      - ipspri
+      - src
+      - dst
+    noise:
+      - header
+      - sn
+      - n
+      - c
+    sample: |-
+      <129>id=firewall sn=0017C5000001 time="2026-11-12 09:20:44 UTC" fw=203.0.113.1 pri=1 c=32 m=609 msg="IPS Prevention Alert: WEB-ATTACKS Directory Traversal Attack 1" sid=1291 ipscat=WEB-ATTACKS ipspri=1 src=198.51.100.23:43218:X1 dst=192.0.2.40:443:X2 srcZone=WAN dstZone=DMZ proto=tcp/https n=4411 fw_action="drop"
+  - type: Administrator login denied (m=30)
+    sourcetype: sonicwall_firewall
+    format: kv
+    share: < 1 %
+    avg: ~250 B
+    desc: Failed admin logins to the management interface — brute force against HTTPS/SSH management.
+    key:
+      - m
+      - msg
+      - usr
+      - src
+      - dst
+    noise:
+      - header
+      - sn
+      - n
+    sample: |-
+      <129>id=firewall sn=0017C5000001 time="2026-11-12 03:02:55 UTC" fw=203.0.113.1 pri=1 c=32 m=30 msg="Administrator login denied due to bad credentials" usr="admin" src=198.51.100.23:36701:X1 dst=203.0.113.1:443:X1 n=7
+cves:
+  - id: CVE-2024-40766
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: device
+    title: SonicOS management / SSL-VPN improper access control — exploited by Akira and Fog ransomware affiliates
+    affected: Gen5 SOHO 5.9.2.14-12o and older; Gen6 6.5.4.14-109n and older; Gen7 7.0.1-5035 and older
+    fixed: Gen5 5.9.2.14-13o; Gen6 6.5.4.15-116n (6.5.2.8-2n for SM9800, NSsp 12400/12800); Gen7 any build higher than 7.0.1-5035 (SNWLID-2024-0015)
+    detect: SSL-VPN logins (m=1080) for local accounts from VPS/hosting IPs or new countries, logins at unusual hours followed by internal scanning and SMB/RDP from the SSLVPN zone; admin logins to WAN management.
+    avoid: Patch, reset all local-account passwords (especially Gen6 accounts migrated to Gen7), enforce MFA on SSL-VPN, and restrict WAN management and SSL-VPN to trusted sources.
+  - id: CVE-2024-53704
+    cvss: 9.8
+    year: 2025
+    kev: true
+    scope: device
+    title: SSL-VPN authentication bypass — hijack active SSL-VPN sessions without credentials
+    affected: Gen7 and NSv 7.1.1-7058 and older and 7.1.2-7019; TZ80 8.0.0-8035
+    fixed: 7.1.3-7015 and higher (Gen7); 7.0.1-5165 and higher (7.0.x / NSv); 8.0.0-8037 and higher (TZ80) (SNWLID-2025-0003)
+    detect: SSL-VPN events where the same user's session is reused from a different source IP — SonicWall's advisory names the log message "User <name> Reuse SSLVPN session for the N time(s)" as the sign of the public PoC.
+    avoid: Upgrade; if not possible, disable SSL-VPN or restrict it to trusted sources.
+  - id: CVE-2026-19868
+    cvss: 7.5
+    year: 2026
+    kev: true
+    scope: device
+    title: SSL-VPN SAML enforcement bypass — users with LDAP/RADIUS/TACACS+ credentials skip SAML and its MFA
+    affected: Gen7 7.3.3-7015 and older; Gen8 8.2.2-8015 and older — only when SAML is enabled for SSL-VPN logins
+    fixed: Gen7 7.3.4-7013 and higher; Gen8 8.2.3-8015 and higher (SNWLID-2026-0014)
+    detect: SSL-VPN logins (m=1080) whose note names LDAP/RADIUS/TACACS+ instead of SAML, and VPN sessions with no matching sign-in at the identity provider.
+    avoid: Upgrade; until then disable or delete unused LDAP, RADIUS and TACACS+ servers on the firewall (vendor workaround).
+  - id: CVE-2022-22274
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: device
+    title: Unauthenticated stack overflow in the HTTP(S) management / SSL-VPN web service — DoS or RCE
+    affected: Gen7 SonicOS 7.0.1-5050 and earlier; NSsp 15700 7.0.1-R579 and earlier; NSv 6.5.4.4-44v-21-1452 and earlier
+    fixed: Gen7 7.0.1-5051 and higher (other platforms per SNWLID-2022-0003)
+    detect: Firewall reboots or web-management restarts after HTTP requests from the internet; sessions from untrusted IPs to the WAN management or SSL-VPN port.
+    avoid: Patch; remove WAN management, restrict SSL-VPN to trusted sources.
+  - id: CVE-2020-5135
+    cvss: 9.8
+    year: 2020
+    kev: true
+    scope: device
+    title: SSL-VPN / HTTP stack buffer overflow via a custom protocol handler — DoS and potential RCE
+    affected: SonicOS 6.5.4.6-79n and earlier, 6.5.1.11-4n and earlier, 6.0.5.3-93o and earlier, SonicOSv 6.5.4.4-44v-21-794 and earlier, 7.0.0.0-1
+    fixed: 6.5.4.7-83n, 6.5.1.12-1n, 6.0.5.3-94o, SonicOSv 6.5.4.v-21s-987, Gen7 7.0.0.0-2 and later (SNWLID-2020-0010)
+    detect: Unexpected reboots/crash dumps on Gen6 units with SSL-VPN exposed; malformed HTTP requests to the SSL-VPN port.
+    avoid: Patch or replace end-of-support Gen6 hardware; restrict the SSL-VPN portal.
+  - id: CVE-2024-3596
+    cvss: 9.0
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Blast-RADIUS — forging Access-Accept responses on the RADIUS traffic between the firewall and its RADIUS server
+    affected: RADIUS/UDP clients and servers without Message-Authenticator enforcement (SSL-VPN and admin auth via RADIUS)
+    detect: SSL-VPN logins (m=1080) via RADIUS for users who have no matching accept in the RADIUS server's own logs; RADIUS traffic crossing untrusted networks.
+    avoid: Require Message-Authenticator on server and firewall, carry RADIUS over IPsec or move to RADIUS/TLS, or use SAML with the fixed firmware.
+detections:
+  - title: SSL-VPN login from hosting / new country
+    severity: high
+    signals:
+      - m=1080
+      - src IP in a hosting ASN or new geo
+      - first login for usr from that source
+    why: Akira and Fog campaigns (CVE-2024-40766) logged in with valid local SSL-VPN accounts from VPS providers, often outside business hours.
+    kql: |-
+      dataset="sonicwall" m="1080"
+      | extend src_ip=extract("^([^:]+)", 1, src)
+      | lookup hosting_asn_ranges on src_ip
+      | where isnotempty(asn_org) or hourofday(_time) between (0 .. 5)
+      | summarize logins=count(), ips=make_set(src_ip) by usr
+    mitre:
+      - T1078
+      - T1133
+  - title: Admin login brute force
+    severity: high
+    signals:
+      - m=30
+      - many failures per src
+    why: Management exposed on WAN is targeted for credential guessing and precedes exploitation of CVE-2022-22274-class bugs.
+    kql: |-
+      dataset="sonicwall" m="30"
+      | extend src_ip=extract("^([^:]+)", 1, src)
+      | summarize fails=count(), users=dcount(usr) by src_ip, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110.001
+  - title: SSL-VPN user scanning internal hosts
+    severity: high
+    signals:
+      - srcZone=SSLVPN
+      - many dst ports / hosts in a short window
+    why: After VPN access, ransomware operators immediately scan for SMB, RDP and backup servers.
+    kql: |-
+      dataset="sonicwall" m="537" srcZone="SSLVPN"
+      | extend dst_ip=extract("^([^:]+)", 1, dst), dst_port=extract("^[^:]+:(\\d+)", 1, dst)
+      | summarize hosts=dcount(dst_ip), ports=dcount(dst_port) by usr, bin(_time, 15m)
+      | where hosts > 30 or ports > 20
+    mitre:
+      - T1046
+      - T1021.002
+  - title: IPS high-priority attacks against DMZ
+    severity: medium
+    signals:
+      - m in 608 / 609
+      - ipspri=1
+      - dstZone=DMZ
+    why: Priority-1 signatures hitting published servers show active targeting; m=608 (detect only) is a prevention gap.
+    kql: |-
+      dataset="sonicwall" m in ("608","609") ipspri="1"
+      | summarize hits=count() by ipscat, msg, src, dst, m
+    mitre:
+      - T1190
+  - title: Large upload from LAN to WAN
+    severity: medium
+    signals:
+      - m=537
+      - dstZone=WAN
+      - sent very high
+    why: Exfiltration before encryption (double extortion) shows as large sent byte counts to a single external IP.
+    kql: |-
+      dataset="sonicwall" m="537" dstZone="WAN"
+      | extend dst_ip=extract("^([^:]+)", 1, dst)
+      | summarize up=sum(toint(sent)) by usr, dst_ip, bin(_time, 1h)
+      | where up > 1000000000
+    mitre:
+      - T1048
+optimizations:
+  - title: Drop Connection Opened (m=98)
+    saving: 25–40 %
+    fn: Drop
+    how: Connection Closed (m=537) carries the same 5-tuple plus bytes and duration; drop m=98 unless you need session start times.
+    expr: m=='98'
+  - title: Drop broadcast and NTP noise
+    saving: 5–15 %
+    fn: Drop
+    how: Broadcast packet dropped (m=46), NTP status (m=1230, 1232, 1107) and unhandled IPv6 multicast (m=1233) have no detection value.
+    expr: "['46','1107','1230','1232','1233'].includes(m)"
+  - title: Strip MACs, sequence and constant fields
+    saving: 15–25 %
+    fn: Eval
+    how: Remove srcMac, dstMac, n, sn, dpi, fw_action="NA" and the id= header before the SIEM; keep sn as a lookup to device name instead.
+    expr: "remove: srcMac, dstMac, n, dpi, fw_action (when 'NA')"
+  - title: Aggregate WAN drops
+    saving: 10–30 %
+    fn: Aggregations
+    how: Internet scanning drops (TCP/UDP packet dropped, m=36/37/38) become 1-minute counts per source/destination port; raw to Lake.
+    expr: "count() by src, dst, proto  window 60s  where ['36','37','38'].includes(m)"
+references:
+  - title: SonicOS/X 7.0.1 Log Events Reference Guide (message IDs and syslog tags)
+    url: https://www.sonicwall.com/techdocs/pdf/SonicOS-X_7.0.1_LogEvents_ReferenceGuide.pdf
+  - title: SNWLID-2024-0015 — SonicOS improper access control (CVE-2024-40766)
+    url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2024-0015
+  - title: SNWLID-2025-0003 — SonicOS SSL-VPN authentication bypass (CVE-2024-53704)
+    url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2025-0003
+  - title: SNWLID-2026-0014 — SonicOS multiple vulnerabilities (CVE-2026-19868)
+    url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2026-0014
+  - title: SNWLID-2022-0003 — SonicOS stack-based buffer overflow (CVE-2022-22274)
+    url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2022-0003
+  - title: SNWLID-2020-0010 — SonicOS buffer overflow (CVE-2020-5135)
+    url: https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2020-0010
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Cribl Packs Dispensary — Sonicwall Firewall Pack (cc-SonicWall-Firewall)
+    url: https://packs.cribl.io/packs/cc-SonicWall-Firewall
+related:
+  - fortigate
+  - pan-ngfw
+  - checkpoint
+  - sophos-xg
+  - juniper-srx
+  - cisco-asa

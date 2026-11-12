@@ -1,0 +1,329 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: wordpress
+name: WordPress Activity Log
+short: WordPress
+aka:
+  - WP Activity Log
+  - WP Security Audit Log (WSAL)
+  - Melapress WP Activity Log
+  - wp_wsal_occurrences
+vendor: WordPress (Automattic)
+category: web
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - web
+  - cms
+  - php
+  - audit
+  - plugins
+  - json
+  - syslog
+summary: Audit trail of a WordPress site written by an activity-log plugin — most often Melapress WP Activity Log (formerly WP Security Audit Log). Every event has a 4-digit event ID (1000 login, 1002 failed login, 4000 user created, 4002 role changed, 5000 plugin installed, 2046/2051 theme/plugin file edited…) with user, role, client IP, session, object and event type. WordPress core itself logs none of this, so the plugin is the only record of who logged in and who changed users, plugins and settings — the trail you need after a core or plugin RCE.
+sourcetypes:
+  - st: wordpress_activity_log
+    desc: WP Activity Log events — wp_wsal_occurrences rows collected as JSON (database or export), or mirrored lines in a log file / syslog
+facts:
+  First released: WP Security Audit Log 2013 (renamed WP Activity Log, now by Melapress)
+  Delivery model: WordPress plugin (free + premium); WordPress itself is self-hosted PHP or managed hosting
+  Storage: WordPress database tables wp_wsal_occurrences + wp_wsal_metadata, or an external database
+  Event catalogue: 4-digit event IDs with severity (Critical, High, Medium, Low, Informational), object and event type
+  Log transport: Premium mirroring to a log file, syslog (UDP/TCP/TLS), AWS CloudWatch, Loggly, Papertrail or Slack; or read the database with a SQL collector
+  Log format: Database row (JSON when collected); mirrored lines are [time] identifier.severity:message{metadata JSON}
+  Typical volume: 1k – 1M events/day per site; post edits, logins and WooCommerce events dominate
+  Cribl integration: Cribl Stream syslog, file or database collector (no dedicated Dispensary pack found)
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: WordPress web servers
+      desc: PHP + web server (Apache, nginx, LiteSpeed) with the WP Activity Log plugin, often behind a WAF or CDN. Core, plugins and themes run here — so does the plugin that writes the audit trail.
+    - slot: internal
+      title: Database
+      desc: MySQL / MariaDB holding wp_wsal_occurrences. An attacker with admin or SQL access can delete rows, so mirror off the box in real time.
+    - slot: cloud
+      title: Managed hosting / panel
+      desc: Many sites run on shared hosting with cPanel/WHM or a managed WordPress platform; the panel can change files and users without WordPress logging it.
+    - slot: internal
+      title: Collector
+      desc: Syslog listener or file tail (mirroring) or a database collector polling wp_wsal_occurrences; forwards to SIEM. Web-server access logs complete the picture.
+howItWorks:
+  - title: Hooks into WordPress actions
+    body: The plugin attaches to core and plugin hooks (wp_login, wp_login_failed, user_register, set_user_role, activated_plugin, upgrader_process_complete, theme/plugin editor saves, option updates) and writes one event per change with the current user, role, IP and session.
+  - title: Event IDs, severity, object, event type
+    body: Each event has a fixed 4-digit ID (e.g. 1000 successful login, 1002 failed login, 1003 failed login for a non-existent user, 4000/4001 user created, 4002 role changed, 4004 password changed, 4025 application password added/removed, 5000 plugin installed, 5001 activated, 5005 theme installed, 2046/2051 file edited in theme/plugin editor, 6001 anyone-can-register changed, 6002 default role changed, 6004 WordPress updated). Object (User, Plugin, Post, System setting) and event type (Login, Installed, Activated, Modified) are filterable.
+  - title: Storage
+    body: Rows go to wp_wsal_occurrences (id, site_id, alert_id, created_on as Unix time, client_ip, severity, object, event_type, user_agent, user_roles, username, user_id, session_id, post_status, post_type, post_id); extra per-event values to wp_wsal_metadata.
+  - title: Mirroring
+    body: The premium Integrations feature mirrors each event in real time through the Action Scheduler queue (or directly) as "[timestamp] [identifier].[severity]:[message]{event_metadata_json}" — the identifier tells sites apart in a central log. The wsal_event_data_before_mirror filter can strip metadata such as ClientIP and UserAgent per connection.
+  - title: Blind spots
+    body: Nothing is logged for changes made outside WordPress (FTP/SSH file writes, direct SQL, hosting panel), for unauthenticated exploit requests that do not change state, or after an attacker disables the plugin (event 5002 is the last word). Pair with web-server access logs and file-integrity monitoring.
+traffic:
+  handles:
+    - Login (wp-login.php, XML-RPC, REST application passwords)
+    - User creation, role and password changes
+    - Plugin and theme install, activate, update, editor changes
+    - Posts, pages, media uploads and comments
+    - Site settings (registration, default role, permalinks)
+    - WordPress core updates
+    - WooCommerce products, orders and settings
+  flow:
+    - step: Request
+      desc: Browser, bot or API client hits wp-login.php, xmlrpc.php, /wp-json/… or wp-admin.
+    - step: WordPress action
+      desc: Core or a plugin performs the change and fires its hook (wp_login, user_register, activated_plugin…).
+    - step: Plugin records
+      desc: WP Activity Log builds the event (ID, severity, user, role, IP, session, object, type, message).
+    - step: Store
+      desc: Row written to wp_wsal_occurrences (+ metadata), or an external database.
+    - step: Mirror
+      desc: Copy sent to log file / syslog / CloudWatch / Loggly / Papertrail with the site identifier.
+    - step: Collect
+      desc: Cribl receives the mirrored line or polls the table and forwards it to SIEM / lake.
+logs:
+  - type: Activity event (database row)
+    sourcetype: wordpress_activity_log
+    format: json
+    share: 70–95 %
+    avg: ~0.5 KB
+    desc: One wp_wsal_occurrences row as JSON, with the rendered message added by the collector. alert_id is the event ID; created_on is Unix time in seconds with fractions. This example is a failed login (1002) against an existing admin account.
+    key:
+      - alert_id
+      - created_on
+      - username
+      - user_roles
+      - client_ip
+      - object
+      - event_type
+      - severity
+    noise:
+      - id
+      - site_id
+      - post_status
+      - post_type
+      - post_id
+      - session_id
+    sample: '{"id":184522,"site_id":1,"alert_id":1002,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"medium","object":"user","event_type":"failed-login","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"administrator","username":"jdoe","user_id":2,"session_id":"","post_status":"","post_type":"","post_id":0,"message":"1 failed login(s)."}'
+  - type: Plugin installed / activated (database row)
+    sourcetype: wordpress_activity_log
+    format: json
+    share: < 1 %
+    avg: ~0.6 KB
+    desc: Event 5000 (installed a plugin, Critical) or 5001 (activated, High). The most valuable post-exploitation signal — web shells are usually dropped as a plugin or via the plugin editor (2051).
+    key:
+      - alert_id
+      - username
+      - user_roles
+      - client_ip
+      - session_id
+      - message
+    noise:
+      - id
+      - site_id
+      - post_status
+      - post_type
+      - post_id
+    sample: '{"id":184610,"site_id":1,"alert_id":5000,"created_on":1762937011.204,"client_ip":"198.51.100.23","severity":"critical","object":"plugin","event_type":"installed","user_agent":"python-requests/2.32.3","user_roles":"administrator","username":"wp-maint","user_id":7,"session_id":"3f9a1c2b7d4e5f60a1b2c3d4e5f6a7b8","post_status":"","post_type":"","post_id":0,"message":"Installed the plugin site-helper version 1.0.0."}'
+  - type: Mirrored line (log file / syslog)
+    sourcetype: wordpress_activity_log
+    format: text
+    share: alternative transport
+    avg: ~0.7 KB
+    desc: Same event as written by the premium mirroring to a log file or syslog — timestamp, mirror identifier, severity, message, then a JSON object of event metadata. ClientIP and UserAgent are documented metadata keys; the other metadata key names here are representative and vary per event.
+    pattern: '^\[(?<timestamp>[^\]]+)\] (?<identifier>[^.\s]+)\.(?<severity>\w+):(?<message>[^{]*)(?<metadata>\{.*\})$'
+    key:
+      - timestamp
+      - severity
+      - message
+      - metadata
+    noise:
+      - identifier
+    sample: '[2026-11-12T09:14:05.204118+00:00] shop-example.Critical:Changed the role of user editor1 from editor to administrator.{"EventID":4002,"ClientIP":"198.51.100.23","UserAgent":"Mozilla/5.0","Username":"wp-maint","CurrentUserRoles":["administrator"],"CurrentUserID":7,"Object":"user","EventType":"modified","TargetUsername":"editor1","OldRole":"editor","NewRole":"administrator"}'
+cves:
+  - id: CVE-2026-63030
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: device
+    title: WordPress core REST API batch-route confusion — chained with the author__not_in SQL injection (CVE-2026-60137) for unauthenticated SQLi and RCE
+    affected: WordPress 6.9.0 – 6.9.4 and 7.0.0 – 7.0.1
+    fixed: 6.9.5, 7.0.2
+    detect: Web logs — POST /wp-json/batch/v1 (or ?rest_route=/batch/v1) from unknown IPs; activity log — new administrator (4000/4001/4002), plugin install (5000) or option changes (6001/6002) with no preceding successful login (1000) for that user and IP.
+    avoid: Update core (auto-updates on); block or rate-limit the batch endpoint at the WAF until patched; mirror the activity log off-host.
+  - id: CVE-2026-60137
+    cvss: 5.9
+    year: 2026
+    kev: true
+    scope: device
+    title: WordPress core WP_Query author__not_in SQL injection when a plugin or theme passes untrusted input (exploited together with CVE-2026-63030)
+    affected: WordPress 6.8.0 – 6.8.5, 6.9.0 – 6.9.4, 7.0.0 – 7.0.1
+    fixed: 6.8.6, 6.9.5, 7.0.2
+    detect: SQL error or UNION/SLEEP payloads in author__not_in / author_exclude request parameters in web logs; unexpected admin accounts (4000) or password changes (4004) afterwards.
+    avoid: Update core; review plugins that pass request parameters straight into WP_Query.
+  - id: CVE-2026-87902
+    cvss: 8.1
+    year: 2026
+    kev: true
+    scope: device
+    title: WordPress core unauthenticated path traversal in page-template resolution (get_page_template) — local PHP include, conditional RCE
+    affected: WordPress 4.7 – 7.1.1 (all branches before the 22 September 2026 backports)
+    fixed: 7.1.2 (backported, e.g. 7.0.6, 6.9.9, 6.8.10 … 4.7.37)
+    detect: Requests with ../ or encoded traversal in template / page-template parameters; PHP errors including files outside wp-content/themes; activity log — file or plugin changes (2046/2051/5000) with no admin login.
+    avoid: Update core; deny execution of PHP in upload directories; WAF rules for traversal.
+  - id: CVE-2026-119977
+    cvss: 8.1
+    year: 2026
+    kev: true
+    scope: device
+    title: WordPress core upgrade TOCTOU — predictable web-accessible staging paths during full-package core upgrades allow unauthenticated code execution
+    affected: WordPress 4.7 – 7.1.3
+    fixed: 7.1.4
+    detect: Requests to wp-content/upgrade/ paths in web logs around an "Updated WordPress" event (6004); new PHP files or admin users right after a core update.
+    avoid: Update to 7.1.4; block web access to wp-content/upgrade/ at the web server.
+  - id: CVE-2020-25213
+    cvss: 9.8
+    year: 2020
+    kev: true
+    scope: device
+    title: WP File Manager plugin — unauthenticated PHP upload via the bundled elFinder connector (mass-exploited plugin, not WordPress core)
+    affected: wp-file-manager plugin before 6.9
+    fixed: "6.9"
+    detect: POST to /wp-content/plugins/wp-file-manager/lib/php/connector.minimal.php in web logs; new .php files in lib/files/; activity log — no event for the upload itself, so look for follow-on admin/user and plugin events.
+    avoid: Remove or update the plugin; inventory plugins via 5000/5001 events; block direct access to plugin lib/ paths.
+  - id: CVE-2026-41940
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: traffic
+    title: cPanel & WHM and WP Squared (WP2) authentication bypass in the login flow — hosting control panel that manages WordPress sites (not WordPress core)
+    affected: cPanel & WHM 11.40 and later before the 28 April 2026 security update; WP Squared before 11.136.1.7
+    fixed: cPanel & WHM 11.136.0.5 (and per-branch builds such as 11.134.0.20, 11.132.0.29, 11.130.0.19), WP Squared 11.136.1.7
+    detect: Panel logins from new IPs; WordPress admin creation, plugin installs or file edits with no matching WordPress login (1000) — changes made from the panel bypass WordPress authentication.
+    avoid: Apply the cPanel/WP2 security update; restrict WHM/cPanel ports to admin IPs; require 2FA on the panel.
+detections:
+  - title: Brute force or credential stuffing against wp-login / XML-RPC
+    severity: medium
+    signals:
+      - alert_id in 1002 / 1003
+      - many failures per client_ip or many usernames per IP
+    why: WordPress logins are attacked constantly; a burst against real usernames (1002) followed by a success (1000) from the same IP is an account takeover.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (1002, 1003)
+      | summarize fails=count(), users=dcount(username) by client_ip, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.001
+      - T1110.004
+  - title: New administrator or privilege change
+    severity: high
+    signals:
+      - alert_id in 4000 / 4001 / 4002
+      - user_roles or message contains administrator
+    why: The first thing most WordPress exploits (SQLi, auth bypass, RCE) do is create or promote an admin account for persistence.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (4000, 4001, 4002) and message has "administrator"
+      | project _time, alert_id, username, client_ip, user_agent, message
+    mitre:
+      - T1136.001
+      - T1098
+  - title: Plugin or theme installed, or code edited in wp-admin
+    severity: high
+    signals:
+      - alert_id in 5000 / 5005 / 2046 / 2051
+      - non-browser user_agent or new client_ip
+    why: Web shells arrive as an uploaded plugin/theme or via the built-in editors. Outside a change window these should be rare.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (5000, 5005, 2046, 2051)
+      | summarize count() by username, client_ip, user_agent, alert_id, message
+    mitre:
+      - T1505.003
+      - T1190
+  - title: Security settings weakened
+    severity: high
+    signals:
+      - alert_id 6001 (anyone can register) / 6002 (default role) / 4025 (application password)
+    why: Opening registration with a privileged default role, or adding an application password, gives an attacker a durable way back in.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (6001, 6002, 4025)
+      | project _time, alert_id, username, client_ip, message
+    mitre:
+      - T1098.001
+      - T1556
+  - title: Admin change without a preceding login (exploit or panel access)
+    severity: critical
+    signals:
+      - alert_id 4000/4002/5000 by a user with no 1000 event from that client_ip in the prior 24h
+    why: A change attributed to a user who never logged in from that IP points to an exploited core/plugin bug, a stolen session cookie or changes made from the hosting panel.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (1000, 4000, 4001, 4002, 5000, 5001)
+      | summarize logins=countif(alert_id == 1000), changes=countif(alert_id != 1000) by username, client_ip, bin(_time, 24h)
+      | where changes > 0 and logins == 0
+    mitre:
+      - T1190
+      - T1078
+  - title: Activity log plugin deactivated
+    severity: high
+    signals:
+      - alert_id 5002 / 5003 and message mentions WP Activity Log
+    why: Turning the audit plugin off is classic defence evasion — it is the last event you will see from that site.
+    kql: |-
+      dataset="wordpress_logs"
+      | where alert_id in (5002, 5003) and message has "Activity Log"
+      | project _time, username, client_ip, message
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Drop empty post columns on non-post events
+    saving: 10–20 %
+    fn: Eval
+    how: Login, user and plugin events carry empty post_status, post_type, post_id = 0 and empty session_id; site_id is 1 on single sites.
+    expr: "remove: post_status, post_type, post_id, site_id  when post_id==0"
+  - title: Sample routine content and WooCommerce events
+    saving: 30–60 %
+    fn: Sampling
+    how: Opened-in-editor (2100, 9072, 9154) and routine post modifications are high-volume and low-value on busy editorial or shop sites; keep 1 in 10, always keep Critical/High.
+    expr: "[2100,9072,9154,2065].includes(alert_id) && !['critical','high'].includes(severity)  → sample 10:1"
+  - title: Suppress repeated failed logins per IP
+    saving: 20–50 % during attacks
+    fn: Suppress
+    how: Brute-force bursts produce thousands of identical 1002/1003 events. Keep one per client_ip + username per 5 minutes with a count.
+    expr: "key: `${client_ip}:${username}:${alert_id}`  allow 1 / 300s  when [1002,1003].includes(alert_id)"
+  - title: Parse the mirrored metadata JSON
+    saving: search time
+    fn: Parser
+    how: For mirrored lines, extract the metadata object to top-level fields (EventID, ClientIP, Username) so the same detections run on both transports.
+    expr: "metadata → JSON parse → alert_id=EventID, client_ip=ClientIP, username=Username"
+references:
+  - title: WP Activity Log — plugin database documentation (Melapress)
+    url: https://melapress.com/support/kb/wp-activity-log-plugin-database-documentation/
+  - title: Activity log mirroring technical documentation & overview (Melapress)
+    url: https://melapress.com/support/kb/wp-activity-log-mirroring-activity-log-documentation/
+  - title: List of WP Activity Log event IDs (Melapress)
+    url: https://melapress.com/support/kb/wp-activity-log-list-event-ids/
+  - title: WordPress 7.0.2 Release (CVE-2026-63030, CVE-2026-60137)
+    url: https://wordpress.org/news/2026/07/wordpress-7-0-2-release/
+  - title: WordPress 7.1.2 Release (CVE-2026-87902)
+    url: https://wordpress.org/news/2026/09/wordpress-7-1-2-release/
+  - title: WordPress 7.1.4 security release
+    url: https://wordpress.org/news/2026/10/wordpress-7-1-4/
+  - title: GHSA-7hp8-65ch-5whp — page-template path traversal advisory
+    url: https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-7hp8-65ch-5whp
+  - title: VulnCheck — cPanel and WHM authentication bypass via login flow (CVE-2026-41940)
+    url: https://www.vulncheck.com/advisories/cpanel-and-whm-authentication-bypass-via-login-flow
+related:
+  - apache-httpd
+  - nginx
+  - iis
+  - mysql
+  - cloudflare-waf
+  - imperva-waf

@@ -2,16 +2,400 @@
 id: win-security
 name: Windows Security Event Log
 short: WinSec
+aka:
+  - Windows Event Log
+  - Security log
+  - WinEventLog
+  - XmlWinEventLog
+  - System / Application log
+  - DNS Client log
 vendor: Microsoft
 category: os
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - windows
   - "4624"
   - "4688"
   - wef
   - xml
+  - audit policy
+  - event log
+summary: The Windows audit trail. The Security log records logons (4624/4625), privilege use, process creation (4688), account and group changes, policy changes and log clearing according to the Advanced Audit Policy; the System, Application and DNS Client logs add service installs, crashes and name resolution. Collected as XML or classic text via WEF, agents or Cribl Edge, it is the largest endpoint log source in most SIEMs.
 sourcetypes:
   - st: XmlWinEventLog:Security
+    desc: Security log rendered as Windows event XML (Splunk UF renderXml=true, WEF)
   - st: WinEventLog:Security
-summary: Authentication, process and policy events from Windows hosts (4624, 4688, 4720…).
+    desc: Security log in classic key=value text with a rendered Message
+  - st: windows_security
+    desc: Windows Security events (generic Pack Generator name)
+  - st: microsoft_windows_eventlog_classic
+    desc: Any Windows event log channel in classic rendered format
+  - st: windows_system
+    desc: System log — service control manager, kernel, driver and time events
+  - st: windows_application
+    desc: Application log — application errors/crashes, MSI installs, vendor agents
+  - st: windows_dns_client
+    desc: Microsoft-Windows-DNS-Client/Operational — per-process DNS queries (3006/3008/3020)
+  - st: WinEventLog:System
+    desc: Splunk classic System log
+  - st: WinEventLog:Application
+    desc: Splunk classic Application log
+  - st: SecurityEvent
+    desc: Microsoft Sentinel table for Windows Security events (AMA / DCR)
+  - st: WINEVTLOG
+    desc: Google SecOps (Chronicle) log type for Windows event logs
+facts:
+  First released: 1993 (Windows NT 3.1 Event Log); XML-based Windows Event Log since Vista / Server 2008
+  OS: Windows 10 / 11, Windows Server 2016 – 2025
+  Configuration: Advanced Audit Policy (auditpol / GPO) per subcategory, plus SACLs for object access
+  Log transport: Windows Event Forwarding (WEF → WEC), Splunk UF, Cribl Edge, Azure Monitor Agent, NXLog, Winlogbeat
+  Log format: Windows event XML or classic rendered text (KV + Message)
+  Typical volume: Workstations 5–50 EPS, member servers 20–200, DCs and busy file servers 1,000+
+  Event size: XML ~1.5–3 KB; classic with Message ~2–4 KB
+  Cribl Pack: Cribl Splunk Forwarder Windows Classic / XML Events to JSON (Packs Dispensary)
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+    - dmz
+  items:
+    - slot: endpoint
+      title: Workstations and laptops
+      desc: Every Windows client writes Security, System, Application and DNS Client logs locally. Forwarded via WEF subscriptions or an agent (UF, Cribl Edge, AMA) — the main source for process, logon and lateral-movement evidence.
+    - slot: internal
+      title: Servers and collectors
+      desc: Member servers (file, SQL, RDS, Exchange) produce logon and object-access volume; WEC servers aggregate forwarded events for the whole estate.
+    - slot: cloud
+      title: IaaS Windows VMs
+      desc: Windows VMs in Azure/AWS/GCP ship the same logs through AMA (to SecurityEvent / WindowsEvent tables) or a Stream/Edge agent.
+    - slot: dmz
+      title: Exposed hosts
+      desc: Internet-facing RDP, IIS and jump hosts — the place where 4625 brute force and BlueKeep-style RDP exploitation show up first.
+howItWorks:
+  - title: Event Log service and channels
+    body: The Windows Event Log service (wevtsvc) writes each channel (Security, System, Application, plus hundreds of Operational channels such as Microsoft-Windows-DNS-Client/Operational) to .evtx files. Every event has a provider, EventID, level, task, keywords, a System block and EventData name/value pairs.
+  - title: Security auditing
+    body: Only the LSA (Local Security Authority) writes to the Security log. What gets written is controlled by the Advanced Audit Policy subcategories (Logon, Process Creation, Security Group Management, Audit Policy Change …) and by SACLs on files, registry keys and AD objects. Defaults are thin — 4688 command lines need 'Include command line in process creation events'.
+  - title: Logon events
+    body: 4624 (success) and 4625 (failure) carry LogonType (2 interactive, 3 network, 4 batch, 5 service, 7 unlock, 9 new credentials, 10 RemoteInteractive/RDP, 11 cached), the account, source IpAddress/WorkstationName, AuthenticationPackageName (Kerberos/NTLM) and the logon process. 4672 marks a privileged logon, 4634/4647 logoff.
+  - title: Classic vs XML rendering
+    body: Agents either render the event to classic text (LogName=, EventCode=, ... and a long human-readable Message) or forward the raw XML. XML is smaller, language-independent and has machine-readable field names; classic Message text is localised and largely boilerplate.
+  - title: System, Application and DNS Client
+    body: System logs Service Control Manager events (7045 service installed, 7036 state change), Event Log 104 (log cleared), unexpected shutdowns and driver loads. Application holds app crashes (1000/1001), MSI installs (11707) and agent errors. DNS Client Operational (disabled by default) logs every query a process makes (3006 started, 3008 completed with results).
+  - title: Collection
+    body: WEF uses WinRM (HTTP 5985 / HTTPS 5986) with source- or collector-initiated subscriptions and XPath filters to pull events to a WEC server; agents read channels via the EvtSubscribe API. Cribl Edge's Windows Event Logs source and Cribl Stream's WEF source receive the XML directly.
+traffic:
+  handles:
+    - Interactive, network, RDP and service logons (Kerberos, NTLM, Negotiate)
+    - Process creation and termination
+    - Local and domain account / group management
+    - Audit policy and security option changes
+    - Object access (files, registry, shares) via SACLs
+    - Windows Filtering Platform connection events (5156/5157)
+    - Service installation and driver load (System log)
+    - Per-process DNS resolution (DNS Client log)
+  flow:
+    - step: Action
+      desc: User logs on, a process starts, a service is installed or a DNS name is resolved.
+    - step: Policy check
+      desc: The audit policy subcategory (or SACL) decides whether the action is audited.
+    - step: Event written
+      desc: LSA or the provider writes the event to its channel (.evtx) with EventData fields.
+    - step: Render / subscribe
+      desc: An agent or WEF subscription reads it via EvtSubscribe, as XML or rendered classic text.
+    - step: Forward
+      desc: Events travel over WinRM (WEF), the agent protocol (S2S/HTTP) or directly to Cribl Edge/Stream.
+    - step: Parse
+      desc: Cribl parses EventData into fields, strips boilerplate and routes to SIEM and Lake.
+logs:
+  - type: Logon (4624 / 4625)
+    sourcetype: XmlWinEventLog:Security
+    format: xml
+    share: 40–60 %
+    avg: ~2 KB
+    desc: Successful and failed logons. LogonType, AuthenticationPackageName and IpAddress tell you how and from where; failed logons (4625) add Status/SubStatus (0xC000006A bad password, 0xC0000064 no such user, 0xC0000234 locked).
+    key:
+      - EventID
+      - TargetUserName
+      - TargetDomainName
+      - LogonType
+      - IpAddress
+      - WorkstationName
+      - AuthenticationPackageName
+      - Computer
+    noise:
+      - Provider.Guid
+      - Version
+      - Opcode
+      - Keywords
+      - Execution.ThreadID
+      - LogonGuid
+      - TransmittedServices
+      - LmPackageName
+      - KeyLength
+      - ImpersonationLevel
+      - RestrictedAdminMode
+      - VirtualAccount
+      - TargetLinkedLogonId
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4624</EventID><Version>2</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T09:12:44.601938200Z'/><EventRecordID>4410187</EventRecordID><Correlation ActivityID='{d1e2f3a4-b5c6-4d7e-8f90-a1b2c3d4e5f6}'/><Execution ProcessID='716' ThreadID='4012'/><Channel>Security</Channel><Computer>WS042.corp.example.com</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-5-21-1111111111-2222222222-3333333333-1190</Data><Data Name='TargetUserName'>jdoe</Data><Data Name='TargetDomainName'>CORP</Data><Data Name='TargetLogonId'>0x2a7f31c</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>WS117</Data><Data Name='LogonGuid'>{00000000-0000-0000-0000-000000000000}</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>NTLM V2</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>10.20.30.117</Data><Data Name='IpPort'>0</Data><Data Name='ImpersonationLevel'>%%1833</Data><Data Name='RestrictedAdminMode'>-</Data><Data Name='TargetOutboundUserName'>-</Data><Data Name='TargetOutboundDomainName'>-</Data><Data Name='VirtualAccount'>%%1843</Data><Data Name='TargetLinkedLogonId'>0x0</Data><Data Name='ElevatedToken'>%%1842</Data></EventData></Event>"
+  - type: Process creation (4688, classic)
+    sourcetype: WinEventLog:Security
+    format: kv
+    share: 10–25 %
+    avg: ~2.5 KB
+    desc: A new process was created — new and parent (creator) process names and, if enabled, the full command line, inside the rendered Message. Classic text as many forwarders send it; most of the bytes are Message boilerplate.
+    key:
+      - EventCode
+      - ComputerName
+      - TaskCategory
+      - Keywords
+      - Message
+    noise:
+      - header
+      - EventType
+      - SourceName
+      - Type
+      - RecordNumber
+      - OpCode
+    sample: '11/12/2026 09:14:22 AM LogName=Security EventCode=4688 EventType=0 ComputerName=WS042.corp.example.com SourceName=Microsoft Windows security auditing. Type=Information RecordNumber=4410221 Keywords=Audit Success TaskCategory=Process Creation OpCode=Info Message=A new process has been created. Creator Subject: Security ID: S-1-5-21-1111111111-2222222222-3333333333-1190 Account Name: jdoe Account Domain: CORP Logon ID: 0x2A7F31C Target Subject: Security ID: S-1-0-0 Account Name: - Account Domain: - Logon ID: 0x0 Process Information: New Process ID: 0x1f40 New Process Name: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe Token Elevation Type: %%1938 Mandatory Label: Mandatory Label\Medium Mandatory Level Creator Process ID: 0x1a2c Creator Process Name: C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE Process Command Line: powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA'
+  - type: Service installed (System 7045)
+    sourcetype: windows_system
+    format: xml
+    share: < 1 %
+    avg: ~1.2 KB
+    desc: Service Control Manager records every new service with its ImagePath, start type and account. Rare on a stable host; PsExec, Cobalt Strike and ransomware deployers all create services.
+    key:
+      - EventID
+      - ServiceName
+      - ImagePath
+      - StartType
+      - AccountName
+      - Computer
+    noise:
+      - Provider.Guid
+      - Provider.EventSourceName
+      - Version
+      - Opcode
+      - Keywords
+      - Execution.ThreadID
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Service Control Manager' Guid='{555908d1-a6d7-4695-8e1e-26931d2012f4}' EventSourceName='Service Control Manager'/><EventID Qualifiers='16384'>7045</EventID><Version>0</Version><Level>4</Level><Task>0</Task><Opcode>0</Opcode><Keywords>0x8080000000000000</Keywords><TimeCreated SystemTime='2026-11-12T09:20:03.551822100Z'/><EventRecordID>91822</EventRecordID><Correlation/><Execution ProcessID='812' ThreadID='5560'/><Channel>System</Channel><Computer>FS01.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='ServiceName'>PSEXESVC</Data><Data Name='ImagePath'>%SystemRoot%\\PSEXESVC.exe</Data><Data Name='ServiceType'>user mode service</Data><Data Name='StartType'>demand start</Data><Data Name='AccountName'>LocalSystem</Data></EventData></Event>"
+  - type: DNS query (DNS Client 3008)
+    sourcetype: windows_dns_client
+    format: xml
+    share: 10–30 % (when enabled)
+    avg: ~1.3 KB
+    desc: Microsoft-Windows-DNS-Client/Operational query-completed event — the name, type, status and answers, attributed to the calling process (Execution ProcessID). Disabled by default; very chatty but the only host-side DNS record without Sysmon.
+    key:
+      - EventID
+      - QueryName
+      - QueryType
+      - QueryStatus
+      - QueryResults
+      - Execution.ProcessID
+      - Computer
+    noise:
+      - Provider.Guid
+      - Version
+      - Opcode
+      - Keywords
+      - QueryOptions
+      - Security.UserID
+    sample: "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-DNS-Client' Guid='{1c95126e-7eea-49a9-a3fe-a378b03ddb4d}'/><EventID>3008</EventID><Version>0</Version><Level>4</Level><Task>0</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime='2026-11-12T09:14:23.004417600Z'/><EventRecordID>220981</EventRecordID><Correlation/><Execution ProcessID='8000' ThreadID='6120'/><Channel>Microsoft-Windows-DNS-Client/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='QueryName'>cdn-update.example.org</Data><Data Name='QueryType'>1</Data><Data Name='QueryOptions'>140737488355328</Data><Data Name='QueryStatus'>0</Data><Data Name='QueryResults'>::ffff:203.0.113.99;</Data></EventData></Event>"
+cves:
+  - id: CVE-2026-85880
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Windows ALPC heap-based buffer overflow — local elevation of privilege, exploited in the wild
+    affected: Windows 10, Windows 11 and Windows Server before the September 2026 security updates
+    fixed: September 2026 cumulative updates (e.g. Windows 10 21H2 build 19044.7725, 1809 build 17763.9245)
+    detect: 4688 where a process running as a standard user spawns a child running as SYSTEM (Token Elevation / Mandatory Label changes to System), followed by 7045 service installs or 4720 account creation from that host.
+    avoid: Patch; enable process-creation auditing with command line; alert on unexpected SYSTEM children of user processes.
+  - id: CVE-2025-29824
+    cvss: 7.8
+    year: 2025
+    kev: true
+    scope: device
+    title: Common Log File System (CLFS) driver use-after-free — SYSTEM privilege escalation used by ransomware operators
+    affected: Windows 10, Windows 11 and Windows Server before the April 2025 security updates
+    fixed: April 2025 cumulative updates (e.g. Windows 10 1809 build 17763.7136)
+    detect: 4688 of dllhost.exe / certutil / procdump launched against lsass shortly after a user process; creation of .blf files in unusual paths (object access); ransomware precursors such as vssadmin delete shadows.
+    avoid: Patch promptly; Credential Guard / LSA protection; restrict local admin.
+  - id: CVE-2021-36934
+    cvss: 7.8
+    year: 2021
+    kev: true
+    scope: device
+    title: HiveNightmare / SeriousSAM — overly permissive ACLs on SAM, SYSTEM and SECURITY hives readable via shadow copies
+    affected: Windows 10 1809 and later, Windows 11 early builds
+    fixed: August 2021 security updates — plus deleting existing Volume Shadow Copies, which keep the old ACLs
+    detect: 4663 / 4656 object access to \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy*\Windows\System32\config\SAM by a non-SYSTEM process (needs a SACL); 4688 of tools reading shadow-copy paths.
+    avoid: Patch, run icacls fix, delete old shadow copies, audit SAM access.
+  - id: CVE-2021-34527
+    cvss: 8.8
+    year: 2021
+    kev: true
+    scope: device
+    title: PrintNightmare — Print Spooler RCE / LPE via RpcAddPrinterDriverEx
+    affected: All Windows versions with the Print Spooler service running (including DCs) before the July 2021 out-of-band update
+    fixed: July 2021 out-of-band update (KB5004945 and equivalents) plus RestrictDriverInstallationToAdministrators=1
+    detect: PrintService/Admin 808 / 316 driver-install events, spoolsv.exe spawning cmd/powershell/rundll32 (4688), new DLLs under C:\Windows\System32\spool\drivers.
+    avoid: Patch; disable the Print Spooler on DCs and servers that don't print; Point and Print restrictions.
+  - id: CVE-2019-0708
+    cvss: 9.8
+    year: 2019
+    kev: true
+    scope: traffic
+    title: BlueKeep — pre-authentication RCE in Remote Desktop Services (RDP traffic to the host)
+    affected: Windows 7, Windows Server 2008 / 2008 R2 (and XP / 2003) with RDP enabled
+    fixed: May 2019 security updates (including out-of-support OS patches)
+    detect: Bursts of RDP connections without a following 4624 LogonType 10; termdd / TermService crashes and unexpected reboots in the System log on exposed hosts.
+    avoid: Patch or retire legacy OS; enable Network Level Authentication; never expose 3389 to the internet.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: EternalBlue — SMBv1 RCE used by WannaCry and NotPetya (SMB traffic to the host)
+    affected: Windows Vista through Windows 10 1607 / Server 2016 with SMBv1 enabled
+    fixed: MS17-010 (March 2017 security update)
+    detect: 4624 LogonType 3 with ANONYMOUS LOGON from many hosts, 7045 services with random names, and SMB fan-out (5156 to 445 from one host to many).
+    avoid: Patch; disable SMBv1; block 445 between workstations.
+detections:
+  - title: Password spray / brute force against Windows hosts
+    severity: high
+    signals:
+      - EventID=4625
+      - many distinct TargetUserName per IpAddress
+      - LogonType 3 or 10
+    why: Spray across many accounts (or brute force one account over RDP) precedes valid-account access. Exposed RDP hosts and VPN-adjacent servers see this first.
+    kql: |-
+      dataset="windows_logs" EventID="4625"
+      | summarize fails=count(), users=dcount(TargetUserName) by IpAddress, Computer, LogonType, bin(_time, 15m)
+      | where users > 10 or fails > 50
+    mitre:
+      - T1110.003
+      - T1110.001
+  - title: Pass-the-hash style NTLM network logon
+    severity: high
+    signals:
+      - EventID=4624
+      - LogonType=3
+      - AuthenticationPackageName=NTLM
+      - KeyLength=0
+      - admin account to many hosts
+    why: Tools like Mimikatz and Impacket authenticate with an NT hash over NTLM; an admin account making NTLM network logons to many machines in a short time is lateral movement.
+    kql: |-
+      dataset="windows_logs" EventID="4624" LogonType="3" AuthenticationPackageName="NTLM" KeyLength="0"
+      | where TargetUserName != "ANONYMOUS LOGON" and not(TargetUserName endswith "$")
+      | summarize hosts=dcount(Computer) by TargetUserName, IpAddress, bin(_time, 30m)
+      | where hosts >= 5
+    mitre:
+      - T1550.002
+  - title: Office application spawning a shell
+    severity: high
+    signals:
+      - EventCode=4688
+      - Creator Process Name = WINWORD/EXCEL/OUTLOOK/POWERPNT
+      - New Process Name = powershell/cmd/wscript/mshta/rundll32
+    why: Malicious macros and document exploits drop to a script interpreter. Office rarely needs to launch shells.
+    kql: |-
+      dataset="windows_logs" EventCode="4688"
+      | extract "New Process Name: (?<new_proc>\S+).*Creator Process Name: (?<parent>\S+)" from Message
+      | where parent matches regex "(?i)(winword|excel|outlook|powerpnt)\.exe$" and new_proc matches regex "(?i)(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32)\.exe$"
+      | project _time, ComputerName, parent, new_proc, Message
+    mitre:
+      - T1566.001
+      - T1059.001
+  - title: Suspicious service installed (PsExec / Cobalt Strike style)
+    severity: high
+    signals:
+      - EventID=7045
+      - ImagePath contains cmd /c, powershell, %COMSPEC%, \\ADMIN$, or a random service name
+    why: Remote service creation is how PsExec, Impacket smbexec and many C2 frameworks execute on a remote host, and how ransomware is pushed estate-wide.
+    kql: |-
+      dataset="windows_logs" EventID="7045"
+      | where ImagePath matches regex "(?i)(cmd(\.exe)? /c|powershell|%comspec%|\\\\admin\$|psexesvc|\\\\temp\\\\)"
+      | project _time, Computer, ServiceName, ImagePath, AccountName
+    mitre:
+      - T1543.003
+      - T1569.002
+  - title: Security or System log cleared
+    severity: critical
+    signals:
+      - EventID=1102 (Security log cleared)
+      - EventID=104 (System log cleared)
+    why: Clearing the event log is a deliberate anti-forensics step and almost never legitimate in production.
+    kql: |-
+      dataset="windows_logs" EventID in ("1102","104")
+      | project _time, Computer, Channel, EventID, SubjectUserName
+    mitre:
+      - T1070.001
+  - title: Host resolving a newly-seen or suspicious domain
+    severity: medium
+    signals:
+      - EventID=3008
+      - QueryName not seen in the estate in the last 30 days or on a threat-intel list
+      - single process repeatedly querying (beaconing)
+    why: DNS Client logs tie a domain to the process and host that resolved it — C2 beaconing and DGA lookups stand out by rarity and regularity.
+    kql: |-
+      dataset="windows_logs" EventID="3008" QueryStatus="0"
+      | lookup threat_domains on QueryName
+      | summarize n=count(), hosts=dcount(Computer), hit=max(isnotempty(threat_source)) by QueryName
+      | where hosts <= 2 or hit
+    mitre:
+      - T1071.004
+      - T1568.002
+optimizations:
+  - title: Convert classic events to compact JSON
+    saving: 50–70 %
+    fn: Parser → Serialize
+    how: Classic Message text repeats the field labels and explanatory paragraphs on every event. Parse Message into fields, drop the boilerplate text, serialise to JSON or KV. The Cribl Splunk Forwarder Windows Classic Events to JSON pack keeps TA-compatible fields.
+    expr: "parse Message → fields; remove Message, EventType, SourceName, OpCode, RecordNumber"
+  - title: Strip XML boilerplate
+    saving: 25–50 %
+    fn: Parser → Serialize
+    how: Drop the static System block (Provider Guid, Version, Opcode, Keywords, ThreadID, Correlation) and EventData placeholders ('-', '0x0', '%%1843', null GUIDs).
+    expr: "remove: Provider.Guid, Version, Opcode, Keywords, Execution.ThreadID, LogonGuid, TransmittedServices, ImpersonationLevel when placeholder"
+  - title: Drop low-value high-volume event IDs
+    saving: 15–40 %
+    fn: Drop
+    how: 4634/4647 logoff, 4658/4690 handle close, 5158 WFP bind and 4624 LogonType 3 by machine accounts ($) to file servers rarely drive detections. Drop them, or keep only in Lake.
+    expr: "['4634','4658','4690','5158'].includes(EventID) || (EventID=='4624' && LogonType=='3' && TargetUserName.endsWith('$'))"
+  - title: Suppress repetitive DNS Client and WFP events
+    saving: 10–30 %
+    fn: Suppress
+    how: The same process resolves the same name or opens the same connection every few seconds. Keep one per Computer/process/QueryName per 5 minutes with a count.
+    expr: "key: `${Computer}:${Execution.ProcessID}:${QueryName}`  allow 1 / 300s  when EventID=='3008'"
+  - title: Route by event class
+    saving: SIEM licence
+    fn: Routes
+    how: Logon failures, privileged logons, process creation, account/group/policy changes, 1102/104, 7045 → SIEM. DNS Client, WFP and bulk successful network logons → Lake, replayed on demand.
+    expr: "['4625','4672','4688','4720','4728','4732','4719','1102','104','7045'].includes(EventID) → SIEM"
+references:
+  - title: Microsoft — Event 4624 An account was successfully logged on
+    url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4624
+  - title: Microsoft — Appendix L Events to monitor
+    url: https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/appendix-l--events-to-monitor
+  - title: NVD — CVE-2019-0708 (BlueKeep)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2019-0708
+  - title: NVD — CVE-2025-29824 (CLFS)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-29824
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: Cribl Splunk Forwarder Windows Classic Events to JSON pack
+    url: https://github.com/criblpacks/cribl-splunk-forwarder-windows-classic-events-to-json
+  - title: MITRE ATT&CK T1070.001 Clear Windows Event Logs
+    url: https://attack.mitre.org/techniques/T1070/001/
+related:
+  - sysmon
+  - windows-powershell
+  - active-directory
+  - mde
+  - ms-dns-dhcp
+  - iis

@@ -2,13 +2,396 @@
 id: umbrella
 name: Cisco Umbrella
 short: Umbrella
+aka:
+  - OpenDNS Umbrella
+  - Cisco Umbrella DNS Security
+  - Cisco Umbrella SIG
+  - Cisco Secure Access (successor SSE)
+  - Umbrella Roaming Client
 vendor: Cisco
 category: dns
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - dns
   - s3
   - proxy
+  - swg
+  - sig
+  - cloud-firewall
+  - csv
+  - protective-dns
+summary: Cloud-delivered protective DNS (born as OpenDNS) that resolves every query through Cisco's anycast resolvers and blocks domains by security and content category before a connection is made. The SIG tiers add a secure web gateway, cloud-delivered firewall, DLP and CASB. Logs are CSV files written every few minutes to an S3 bucket (Cisco-managed or your own) — one folder each for DNS, proxy and firewall.
 sourcetypes:
   - st: cisco:umbrella:dns
-summary: Recursive DNS with security filtering; logs exported to S3.
+    desc: Splunk add-on name for Umbrella DNS logs (S3 CSV)
+  - st: cisco:umbrella:proxy
+    desc: Splunk add-on name for Umbrella secure web gateway (proxy) logs
+  - st: cisco:umbrella:cloudfirewall
+    desc: Splunk add-on name for Umbrella cloud-delivered firewall logs
+  - st: cisco_umbrella
+    desc: Generic name for Umbrella logs (any of the S3 log types)
+  - st: cisco_cloud_security_dns
+    desc: DNS logs as named by the Cisco Security Cloud app (cisco:cloud_security:dns) — same CSV for Umbrella and Secure Access
+  - st: cisco_cloud_security_firewall
+    desc: Cloud-delivered firewall logs (cisco:cloud_security:firewall)
+  - st: cisco_cloud_security_proxy
+    desc: Secure web gateway / proxy logs (cisco:cloud_security:proxy)
+  - st: UMBRELLA_DNS
+    desc: Google SecOps (Chronicle) log type for Umbrella DNS
+facts:
+  First released: 2012 (OpenDNS Umbrella); OpenDNS resolvers since 2006; Cisco since 2015
+  Delivery model: SaaS — global anycast DNS resolvers plus SIG data centers; converging into Cisco Secure Access
+  Deployment modes: Network egress IP registration, Virtual Appliance (internal IP / AD identity), Roaming client / Secure Client module, SIG IPsec tunnels, PAC / proxy chaining
+  Identities: Networks, Sites, Roaming Computers, AD Users and Computers, Network Devices, Chromebooks, mobile
+  Log transport: CSV files (gzip) to an S3 bucket — Cisco-managed or customer-owned — under dnslogs/, proxylogs/, firewalllogs/; Reporting API for queries
+  Log format: Quoted CSV, versioned schema (DNS log v10 has 16 fields); optional header row
+  Typical volume: Every DNS query of every identity — usually the highest event count of any security source per user
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+    - remote
+  items:
+    - slot: cloud
+      title: Anycast resolvers and SIG
+      desc: Umbrella resolvers answer queries and apply policy; SIG data centers host the proxy and cloud firewall for tunneled traffic.
+    - slot: edge
+      title: Network egress
+      desc: Simplest deployment — point the DHCP or internal DNS forwarders at Umbrella and register the egress IP; logs then show the network identity only.
+    - slot: internal
+      title: Virtual Appliances
+      desc: Conditional DNS forwarders inside the network that add internal IP and AD user/computer identity (with the AD connector) before forwarding to Umbrella.
+    - slot: remote
+      title: Roaming client / Secure Client
+      desc: The Umbrella roaming module on laptops sends DNS (and optionally web traffic) to Umbrella off-network and tags the query with the device identity.
+howItWorks:
+  - title: Protective DNS
+    body: Every query is resolved by Umbrella. If the domain falls in a blocked security category (Malware, Phishing, Command and Control, Newly Seen Domains, Cryptomining, DNS Tunneling VPN) or content category, Umbrella answers with the IP of a block page instead of the real address. The connection never starts, so DNS logs are both the verdict and the evidence.
+  - title: Identity-aware policy
+    body: Umbrella decides which policy applies by the most granular identity it can see — AD user beats roaming computer beats internal network beats egress network. Both the most granular identity and the full identity list land in each log line.
+  - title: Intelligent proxy
+    body: For "grey" domains (mixed reputation, e.g. shared hosting), DNS answers point to Umbrella's selective proxy, which inspects the URL and file before allowing it. Those requests show up in proxy logs, not only DNS.
+  - title: Secure Internet Gateway
+    body: The SIG tiers add a full secure web gateway (TLS decryption, AV and AMP file reputation, URL categories, DLP, CASB controls) and a layer 3/4 cloud-delivered firewall for traffic sent over IPsec tunnels or the roaming client.
+  - title: Logging to S3
+    body: "Umbrella writes CSV files per log type into an S3 bucket every few minutes, in date folders (dnslogs/<yyyy-mm-dd>/…csv.gz). A Cisco-managed bucket keeps data for a limited retention window; a customer-owned bucket keeps it as long as you want. Collectors (Cribl S3 Source, Splunk add-on, Sentinel connector) poll the bucket."
+traffic:
+  handles:
+    - Recursive DNS (UDP/TCP 53), DNSCrypt, DoH
+    - HTTP / HTTPS via selective proxy and SWG
+    - All ports via cloud-delivered firewall (SIG tunnels)
+    - File reputation (AMP / Secure Endpoint)
+    - SaaS app discovery and control (CASB)
+  flow:
+    - step: Query
+      desc: Device or forwarder sends a DNS query to Umbrella (anycast), optionally tagged with identity by VA or roaming client.
+    - step: Identify
+      desc: Most granular identity determined; matching policy selected.
+    - step: Categorize
+      desc: Domain looked up against security and content categories (Talos intelligence).
+    - step: Answer
+      desc: Real IP (allowed), block page IP (blocked) or selective-proxy IP (grey domain).
+    - step: Proxy / firewall
+      desc: SIG traffic additionally inspected by SWG and cloud firewall.
+    - step: Log
+      desc: CSV line written to the S3 log bucket per log type.
+logs:
+  - type: DNS
+    sourcetype: cisco:umbrella:dns
+    format: csv
+    share: 80–95 %
+    avg: ~250 B
+    desc: One line per DNS query (v10 field order). Identity, internal and external IP, action, query type, response code, domain and categories. The core Umbrella log.
+    fields:
+      - timestamp
+      - most_granular_identity
+      - identities
+      - internal_ip
+      - external_ip
+      - action
+      - query_type
+      - response_code
+      - domain
+      - categories
+      - most_granular_identity_type
+      - identity_types
+      - blocked_categories
+      - rule_id
+      - destination_countries
+      - organization_id
+    key:
+      - most_granular_identity
+      - internal_ip
+      - action
+      - query_type
+      - domain
+      - categories
+      - blocked_categories
+    noise:
+      - identities
+      - identity_types
+      - organization_id
+      - destination_countries
+    sample: '"2026-11-12 09:14:22","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Blocked","1 (A)","NOERROR","update.example-cdn.net.","Command and Control,Malware","Roaming Computers","Roaming Computers,Networks","Command and Control","1482901","NL","8209150"'
+  - type: Proxy (SWG)
+    sourcetype: cisco:umbrella:proxy
+    format: csv
+    share: 5–15 %
+    avg: ~600 B
+    desc: Web transactions through the selective proxy or full SWG — URL, status, sizes, SHA-256, categories, AV and AMP verdicts. Leading 26 columns shown; newer schema versions append more.
+    fields:
+      - timestamp
+      - policy_identity_label
+      - internal_client_ip
+      - external_client_ip
+      - destination_ip
+      - content_type
+      - action
+      - url
+      - referer
+      - user_agent
+      - status_code
+      - request_size
+      - response_size
+      - response_body_size
+      - sha256
+      - categories
+      - av_detections
+      - puas
+      - amp_disposition
+      - amp_malware_name
+      - amp_score
+      - policy_identity_type
+      - blocked_categories
+      - identities
+      - identity_types
+      - request_method
+    key:
+      - policy_identity_label
+      - internal_client_ip
+      - action
+      - url
+      - sha256
+      - amp_disposition
+      - amp_malware_name
+      - categories
+    noise:
+      - referer
+      - response_body_size
+      - puas
+      - identities
+      - identity_types
+    sample: '"2026-11-12 09:15:10","jdoe (jdoe@example.com)","10.20.30.44","203.0.113.45","198.51.100.77","application/zip","BLOCKED","https://files.example.org/dl/invoice_2026.zip","","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","403","612","1480","0","5f2b0a9c1e7d3b4a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e","Malware,File Storage","Win.Trojan.Agent","","Malicious","W32.Agent.Trojan","95","AD Users","Malware","jdoe (jdoe@example.com),LT-JDOE-01","AD Users,Roaming Computers","GET"'
+  - type: Cloud Firewall
+    sourcetype: cisco:umbrella:cloudfirewall
+    format: csv
+    share: 5–10 %
+    avg: ~400 B
+    desc: Layer 3/4 sessions from SIG tunnels and roaming clients — 5-tuple, data center, rule, action, packets and bytes. Leading 23 columns shown.
+    fields:
+      - timestamp
+      - origin_ids
+      - identities
+      - identity_types
+      - direction
+      - protocol
+      - packet_size
+      - source_ip
+      - source_port
+      - destination_ip
+      - destination_port
+      - data_center
+      - rule_id
+      - action
+      - fqdns
+      - destination_list_ids
+      - first_packet_timestamp
+      - last_packet_timestamp
+      - packets_sent
+      - packets_received
+      - bytes_sent
+      - bytes_received
+      - fw_event_id
+    key:
+      - identities
+      - source_ip
+      - destination_ip
+      - destination_port
+      - protocol
+      - action
+      - bytes_sent
+    noise:
+      - origin_ids
+      - packet_size
+      - destination_list_ids
+      - fw_event_id
+    sample: '"2026-11-12 09:16:02","[1360486514]","Example Branch Tunnel","Network Tunnels","OUTBOUND","6","0","10.40.1.25","51544","198.51.100.23","445","prod_aws_eu-central-1_1_0","1482950","BLOCK","","[]","1794474962","1794474962","3","0","180","0","9c1e7d3b4a6c8e0f-7-1794474962-45877"'
+cves:
+  - id: CVE-2018-0437
+    cvss: 7.8
+    year: 2018
+    kev: false
+    scope: device
+    title: Umbrella Enterprise Roaming Client / Roaming Module privilege escalation to Administrator
+    affected: Umbrella Enterprise Roaming Client for Windows before 2.1.118; Umbrella Roaming Module for AnyConnect before 4.6.1098
+    fixed: ERC 2.1.118; Roaming Module 4.6.1098
+    detect: Not visible in DNS logs. Inventory roaming client versions (Umbrella deployment report) and alert on executables written to the client's program directories by non-admin users (EDR).
+    avoid: Upgrade the roaming client / migrate to Cisco Secure Client; remove local admin rights.
+  - id: CVE-2020-3153
+    cvss: 6.5
+    year: 2020
+    kev: true
+    scope: device
+    title: AnyConnect Secure Mobility Client for Windows uncontrolled search path — the client that hosts the Umbrella roaming module
+    affected: Cisco AnyConnect Secure Mobility Client for Windows before 4.8.02042
+    fixed: 4.8.02042
+    detect: Roaming computers whose DNS logs show old client builds or that suddenly stop appearing as Roaming Computers identities; on the host, DLLs dropped into system directories by the installer process.
+    avoid: Upgrade to a fixed AnyConnect / Secure Client release; restrict local logon; monitor installer activity.
+  - id: CVE-2026-20246
+    cvss: 6.0
+    year: 2026
+    kev: false
+    scope: device
+    title: Umbrella Virtual Appliance vmadmin CLI privilege escalation to root
+    affected: Cisco Umbrella Virtual Appliance before 3.8.5
+    fixed: 3.8.5
+    detect: Not in the DNS logs. Watch VA console/SSH access and configuration changes; a compromised VA can mis-attribute identities, so sudden changes in internal_ip / AD identity mapping are a symptom.
+    avoid: Upgrade VAs to 3.8.5+; restrict vmadmin console access; keep VAs on isolated management segments.
+  - id: CVE-2020-1350
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: traffic
+    title: SIGRed — Windows DNS Server RCE via malicious SIG responses (internal resolvers that forward to Umbrella)
+    affected: Windows Server 2008 – 2019 DNS servers before the July 2020 updates
+    fixed: Microsoft July 2020 security updates
+    detect: DNS logs showing internal forwarders resolving attacker-controlled domains with SIG/TXT query types and oversized TCP responses; blocks in categories Malware / Command and Control from domain controllers' internal IPs.
+    avoid: Patch Windows DNS; apply the TcpReceivePacketSize workaround if patching is delayed; keep forwarders' upstream restricted to Umbrella.
+  - id: CVE-2023-50387
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: traffic
+    title: KeyTrap — DNSSEC validation CPU exhaustion against validating resolvers
+    affected: DNSSEC-validating resolvers (BIND, Unbound, PowerDNS, Knot, Windows DNS and others) before vendor patches
+    fixed: Vendor resolver updates (February 2024)
+    detect: Spikes of queries to a handful of domains with SERVFAIL response codes from internal forwarders; long-tail domains with many DNSSEC keys.
+    avoid: Patch internal validating resolvers; forwarding to Umbrella offloads validation from internal servers.
+detections:
+  - title: Blocked security-category lookups per host
+    severity: high
+    signals:
+      - action=Blocked
+      - blocked_categories Malware / Command and Control / Phishing
+      - count per identity
+    why: A host repeatedly resolving C2 or malware domains is almost always infected — the block stops the connection but not the malware. Hand the host to EDR.
+    kql: |-
+      dataset="umbrella_logs" sourcetype="cisco:umbrella:dns" action="Blocked"
+      | where blocked_categories has_any ("Malware","Command and Control","Phishing","Cryptomining")
+      | summarize hits=count(), domains=dcount(domain) by most_granular_identity, internal_ip, blocked_categories
+    mitre:
+      - T1071.004
+      - T1568
+  - title: Allowed lookups of newly seen domains (DGA)
+    severity: medium
+    signals:
+      - action=Allowed
+      - categories has Newly Seen Domains
+      - many unique domains per host
+    why: Domain-generation malware resolves dozens of never-seen-before domains; a human rarely produces more than a few per hour.
+    kql: |-
+      dataset="umbrella_logs" sourcetype="cisco:umbrella:dns" action="Allowed"
+      | where categories has "Newly Seen Domains"
+      | summarize uniq=dcount(domain), nx=countif(response_code == "NXDOMAIN") by most_granular_identity, bin(_time, 1h)
+      | where uniq > 25 or nx > 50
+    mitre:
+      - T1568.002
+  - title: DNS tunnelling
+    severity: high
+    signals:
+      - query_type 16 (TXT) or 10 (NULL)
+      - many unique subdomains of one parent
+      - categories DNS Tunneling VPN
+    why: Tunnelling tools (iodine, dnscat2, Cobalt Strike DNS beacons) encode data in labels and TXT records — volume per parent domain gives them away.
+    kql: |-
+      dataset="umbrella_logs" sourcetype="cisco:umbrella:dns"
+      | extend parent=extract("([^.]+\\.[^.]+)\\.?$", 1, domain)
+      | summarize uniq=dcount(domain), txt=countif(query_type == "16 (TXT)") by most_granular_identity, parent, bin(_time, 1h)
+      | where uniq > 200 or txt > 100
+    mitre:
+      - T1071.004
+      - T1048.003
+  - title: Malicious file allowed through the proxy
+    severity: high
+    signals:
+      - cisco:umbrella:proxy
+      - amp_disposition=Malicious or av_detections not empty
+      - action=ALLOWED
+    why: A file with a malicious AMP verdict that was not blocked reached the endpoint — check whether it executed.
+    kql: |-
+      dataset="umbrella_logs" sourcetype="cisco:umbrella:proxy" action="ALLOWED"
+      | where amp_disposition == "Malicious" or isnotempty(av_detections)
+      | summarize count() by policy_identity_label, internal_client_ip, url, sha256, amp_malware_name
+    mitre:
+      - T1105
+      - T1204.002
+  - title: Outbound SMB / RDP to the internet blocked by cloud firewall
+    severity: medium
+    signals:
+      - cisco:umbrella:cloudfirewall
+      - destination_port 445 / 3389
+      - direction OUTBOUND
+    why: Outbound SMB to the internet leaks NTLM hashes and is used by worms; outbound RDP from a branch is often a remote-access tool or data theft.
+    kql: |-
+      dataset="umbrella_logs" sourcetype="cisco:umbrella:cloudfirewall" direction="OUTBOUND"
+      | where destination_port in ("445","3389")
+      | summarize sessions=count(), dests=dcount(destination_ip) by identities, source_ip, destination_port, action
+    mitre:
+      - T1048
+      - T1021.001
+optimizations:
+  - title: Aggregate allowed DNS to metrics
+    saving: 40–70 %
+    fn: Aggregations
+    how: Allowed queries to common, well-categorized domains are the bulk of volume and rarely queried one by one. Roll them up to counts per identity, domain and query type per 5 minutes; keep raw in Lake.
+    expr: action=='Allowed' && !/Newly Seen|Uncategorized|Malware|Command and Control|Phishing/.test(categories)
+  - title: Suppress repeated identical lookups
+    saving: 10–25 %
+    fn: Suppress
+    how: Short TTLs and chatty apps re-query the same name constantly. Keep one line per identity, domain and action per 60 s with a count.
+    expr: "key: `${most_granular_identity}:${domain}:${action}`  allow 1 / 60s"
+  - title: Drop redundant columns
+    saving: 15–25 %
+    fn: Parser → Serialize
+    how: identities and identity_types repeat the most granular values plus parents, organization_id is constant per tenant, and empty columns are quoted empty strings. Remove them and re-serialise.
+    expr: "remove: identities, identity_types, organization_id, destination_list_ids; drop empty"
+  - title: Route by verdict
+    saving: SIEM licence
+    fn: Routes
+    how: Blocked DNS, proxy and firewall lines plus allowed lines in risky categories go to the SIEM. Everything else goes to Cribl Lake straight from the S3 collector for replay.
+    expr: action!='Allowed' || /Newly Seen|Uncategorized/.test(categories) → SIEM ; else → Lake
+references:
+  - title: Cisco Secure Access — Log Formats and Versioning (shared Umbrella CSV schemas)
+    url: https://www.cisco.com/c/en/us/td/docs/security/secure-access/secure-access-help/CiscoSecureAccessHelp/logging-intro/log_formats_and_versioning.html
+  - title: Cisco advisory — Umbrella Enterprise Roaming Client privilege escalation (CVE-2018-0437)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-20180905-umbrella-priv
+  - title: Cisco advisory — Umbrella Virtual Appliance privilege escalation (CVE-2026-20246)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-umbrella-priv-esc-F4wJB7AU
+  - title: Cisco advisory — AnyConnect for Windows uncontrolled search path (CVE-2020-3153)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ac-win-path-traverse-qO4HWBsj
+  - title: MITRE ATT&CK — T1071.004 Application Layer Protocol, DNS
+    url: https://attack.mitre.org/techniques/T1071/004/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - infoblox
+  - isc-bind
+  - ms-dns-dhcp
+  - zscaler-zia
+  - cloudflare-zero-trust
+  - cisco-asa
+  - cisco-meraki

@@ -44,12 +44,13 @@
     },
     "logs": {
       "type": "array", "minItems": 1,
-      "items": { "type": "object", "required": ["type", "sourcetype", "format", "desc", "fields", "sample"],
+      "items": { "type": "object", "required": ["type", "sourcetype", "format", "desc", "sample"],
         "properties": {
           "type": { "type": "string" }, "sourcetype": { "type": "string" },
-          "format": { "enum": ["csv"], "description": "Only CSV samples are annotated today; kv/json/cef are planned" },
+          "format": { "enum": ["csv", "tsv", "kv", "json", "cef", "leef", "xml", "text"], "description": "csv/tsv need `fields`; text needs `pattern`; the others are parsed from the sample itself" },
           "share": { "type": "string" }, "avg": { "type": "string" }, "desc": { "type": "string" },
-          "fields": { "type": "array", "items": { "type": "string" } },
+          "fields": { "type": "array", "items": { "type": "string" }, "description": "Column names (csv/tsv only)" },
+          "pattern": { "type": "string", "description": "format text: JavaScript regex with named groups that matches the sample" },
           "key": { "type": "array", "items": { "type": "string" } },
           "noise": { "type": "array", "items": { "type": "string" } },
           "sample": { "type": "string" }
@@ -71,8 +72,14 @@
       "items": { "type": "object", "required": ["title", "severity", "signals", "why", "kql"],
         "properties": {
           "title": { "type": "string" }, "severity": { "enum": ["critical", "high", "medium", "low"] },
-          "signals": { "type": "array", "items": { "type": "string" } }, "why": { "type": "string" }, "kql": { "type": "string" }
+          "signals": { "type": "array", "items": { "type": "string" } }, "why": { "type": "string" }, "kql": { "type": "string" },
+          "mitre": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" }, "description": "MITRE ATT&CK technique ids" }
         } }
+    },
+    "references": {
+      "type": "array", "description": "Vendor documentation and advisories the article is based on",
+      "items": { "type": "object", "required": ["title", "url"], "additionalProperties": false,
+        "properties": { "title": { "type": "string" }, "url": { "type": "string", "pattern": "^https://" } } }
     },
     "optimizations": {
       "type": "array",
@@ -83,7 +90,7 @@
     "related": { "type": "array", "items": { "type": "string" } }
   },
   "if": { "properties": { "status": { "const": "full" } } },
-  "then": { "required": ["aka", "updated", "facts", "placement", "howItWorks", "traffic", "logs", "cves", "detections", "optimizations"] },
+  "then": { "required": ["aka", "updated", "facts", "placement", "howItWorks", "traffic", "logs", "cves", "detections", "optimizations", "references"] },
   "definitions": {
     "cveId": { "type": "string", "pattern": "^CVE-\\d{4}-\\d{4,}$" },
     "slot": { "enum": ["edge", "internal", "cloud", "remote", "dmz", "endpoint"] },

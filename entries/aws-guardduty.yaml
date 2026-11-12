@@ -1,0 +1,318 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-guardduty
+name: Amazon GuardDuty
+short: GuardDuty
+aka:
+  - AWS GuardDuty
+  - GuardDuty Runtime Monitoring
+  - GuardDuty Malware Protection
+  - GuardDuty Extended Threat Detection
+vendor: Amazon Web Services
+category: cloud
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - threat-detection
+  - findings
+  - json
+  - eventbridge
+  - runtime
+  - eks
+  - malware
+summary: AWS's managed threat-detection service. It reads CloudTrail, VPC Flow Logs, Route 53 Resolver DNS and EKS audit logs directly from AWS (you do not have to enable or pay for those logs), plus optional runtime agents and malware scans, and emits findings as JSON. The volume is low and nearly every finding is worth a look, so it is a natural SIEM-first source rather than a data-reduction target.
+sourcetypes:
+  - st: aws_guardduty
+    desc: Pack Generator sourcetype for GuardDuty findings (S3 export or EventBridge)
+  - st: aws:cloudwatch:guardduty
+    desc: Splunk Add-on for AWS sourcetype for findings received via EventBridge/CloudWatch Events
+  - st: AWSGuardDuty
+    desc: Microsoft Sentinel table populated by the Amazon Web Services S3 connector
+  - st: GUARDDUTY
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: November 2017
+  Delivery model: Managed regional service; one detector per account and region, multi-account via Organizations delegated administrator
+  Foundational data sources: CloudTrail management events, VPC Flow Logs, Route 53 Resolver DNS query logs (read from AWS, not from your copies)
+  Protection plans: S3, EKS audit logs, Runtime Monitoring (EC2/EKS/ECS-Fargate agent), Malware Protection (EC2/S3/Backup), RDS login activity, Lambda network activity
+  Log transport: EventBridge (new findings ~5 min; updates every 15 min / 1 h / 6 h, default 6 h), S3 export (KMS-encrypted JSONL), Security Hub
+  Log format: JSON finding (type ThreatPurpose:ResourceType/ThreatFamily.Variant!Artifact)
+  Severity: "Low 1.0–3.9, Medium 4.0–6.9, High 7.0–8.9, Critical 9.0–10.0 (attack sequences)"
+  Typical volume: Tens to thousands of findings/day per organization
+  Cribl Pack: None found in the Packs Dispensary (collect with the S3 or Amazon SQS/EventBridge sources)
+placement:
+  slots:
+    - cloud
+    - endpoint
+  items:
+    - slot: cloud
+      title: Delegated administrator account
+      desc: GuardDuty is enabled organization-wide from a security account. All member findings aggregate there per region; the S3 export destination and EventBridge rules are configured in that account.
+    - slot: cloud
+      title: Per-region detectors
+      desc: Every region has its own detector and findings. Unused regions should still be enabled — attackers like regions nobody watches.
+    - slot: endpoint
+      title: Runtime Monitoring agent
+      desc: An eBPF-based security agent on EC2 instances, EKS nodes (add-on) and ECS Fargate tasks (sidecar) reports process, file and network events to GuardDuty, which produces Runtime findings.
+howItWorks:
+  - title: Independent log streams
+    body: GuardDuty pulls CloudTrail management events, VPC Flow Logs and Route 53 Resolver DNS logs from internal AWS streams. Turning off your own trail or flow logs does not blind it, and its copies are not stored for you — only the findings are.
+  - title: Detection methods
+    body: Threat-intelligence matching (known malicious IPs and domains, crypto-mining pools), rule-based signatures (e.g. Tor, port probes, DNS exfiltration patterns) and per-account ML baselines that raise AnomalousBehavior findings when a principal calls APIs it has never used before from an unusual location or ASN.
+  - title: Finding types
+    body: "Names follow ThreatPurpose:ResourceTypeAffected/ThreatFamilyName.DetectionMechanism!Artifact, e.g. UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS or CryptoCurrency:EC2/BitcoinTool.B!DNS. The purpose prefix maps loosely to ATT&CK tactics (Recon, Persistence, PrivilegeEscalation, Stealth, Exfiltration, Impact)."
+  - title: Extended Threat Detection
+    body: Correlates findings and signals across services and up to 24 hours into AttackSequence findings (e.g. AttackSequence:IAM/CompromisedCredentials, AttackSequence:EKS/CompromisedCluster) with Critical severity and a list of the signals and MITRE tactics involved.
+  - title: Finding lifecycle
+    body: Findings are aggregated — repeats of the same activity update service.count and service.eventLastSeen on the existing finding instead of creating a new one. Each update is re-exported, so the same finding id arrives many times. Suppression rules auto-archive matching findings (still exported, archived=true).
+traffic:
+  handles:
+    - CloudTrail management and S3 data events
+    - VPC Flow Logs (EC2 network activity)
+    - Route 53 Resolver DNS queries
+    - EKS Kubernetes audit logs
+    - Runtime process, file and network events (agent)
+    - Malware scans of EBS volumes, S3 objects and backups
+    - RDS / Aurora login activity
+    - Lambda network activity
+  flow:
+    - step: Telemetry
+      desc: AWS feeds CloudTrail, flow, DNS and EKS audit streams (and agent events) into the regional GuardDuty detector.
+    - step: Enrich
+      desc: IPs and domains are enriched with threat intelligence, geolocation, ASN and the affected resource's metadata.
+    - step: Detect
+      desc: Signatures, threat-intel matches and ML baselines evaluate the activity.
+    - step: Finding
+      desc: A finding with type, severity, resource and service.action is created or an existing one is updated (count, lastSeen).
+    - step: Correlate
+      desc: Extended Threat Detection links related findings into an attack sequence.
+    - step: Export
+      desc: Findings go to EventBridge, Security Hub and the S3 export bucket.
+    - step: Collect
+      desc: Cribl reads the S3 objects via SQS (or an EventBridge → Firehose/HTTP stream) and routes findings to the SIEM.
+logs:
+  - type: IAM / API finding
+    sourcetype: aws_guardduty
+    format: json
+    share: 50–80 %
+    avg: ~2.5 KB
+    desc: "Finding exported to S3 or Security Hub (no EventBridge envelope). resourceType AccessKey; service.action.awsApiCallAction describes the suspicious call, the remote IP, ASN and geo."
+    key:
+      - type
+      - severity
+      - accountId
+      - resource.accessKeyDetails.userName
+      - resource.accessKeyDetails.accessKeyId
+      - service.action.awsApiCallAction.api
+      - service.action.awsApiCallAction.remoteIpDetails.ipAddressV4
+      - service.count
+    noise:
+      - schemaVersion
+      - partition
+      - service.serviceName
+      - service.additionalInfo.type
+      - service.additionalInfo.value
+      - service.action.awsApiCallAction.remoteIpDetails.geoLocation.lat
+      - service.action.awsApiCallAction.remoteIpDetails.geoLocation.lon
+    sample: '{"schemaVersion":"2.0","accountId":"111122223333","region":"us-east-1","partition":"aws","id":"8ac9f1e2d3b4a5968778695a4b3c2d1e","arn":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/8ac9f1e2d3b4a5968778695a4b3c2d1e","type":"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS","resource":{"resourceType":"AccessKey","accessKeyDetails":{"accessKeyId":"ASIAEXAMPLEKEY12345","principalId":"AROAEXAMPLEID1234:i-0abc123def4567890","userName":"web-app-role","userType":"AssumedRole"}},"service":{"serviceName":"guardduty","detectorId":"12abc34d567e8fa901bc2d34e56789f0","action":{"actionType":"AWS_API_CALL","awsApiCallAction":{"api":"ListBuckets","serviceName":"s3.amazonaws.com","callerType":"Remote IP","remoteIpDetails":{"ipAddressV4":"198.51.100.23","organization":{"asn":"64500","asnOrg":"EXAMPLE-HOSTING","isp":"Example Hosting","org":"Example Hosting"},"country":{"countryName":"Netherlands"},"city":{"cityName":"Amsterdam"},"geoLocation":{"lat":52.37,"lon":4.89}}}},"resourceRole":"TARGET","additionalInfo":{"value":"{}","type":"default"},"eventFirstSeen":"2026-11-12T08:41:10.000Z","eventLastSeen":"2026-11-12T09:02:55.000Z","archived":false,"count":7},"severity":8,"createdAt":"2026-11-12T08:47:31.512Z","updatedAt":"2026-11-12T09:08:02.113Z","title":"Credentials for the EC2 instance role web-app-role were used from a remote AWS account.","description":"Credentials created exclusively for an EC2 instance using instance role web-app-role have been used from external IP address 198.51.100.23."}'
+  - type: Runtime finding (EventBridge)
+    sourcetype: aws_guardduty
+    format: json
+    share: 10–40 %
+    avg: ~3.5 KB
+    desc: "EventBridge event (detail-type GuardDuty Finding) wrapping a Runtime Monitoring finding. detail.service.runtimeDetails.process carries the process name, path, hash and user; detail.resource identifies the instance or EKS workload."
+    key:
+      - detail.type
+      - detail.severity
+      - detail.resource.instanceDetails.instanceId
+      - detail.service.runtimeDetails.process.name
+      - detail.service.runtimeDetails.process.executablePath
+      - detail.service.runtimeDetails.process.executableSha256
+      - detail.service.runtimeDetails.process.user
+    noise:
+      - version
+      - detail-type
+      - source
+      - account
+      - detail.schemaVersion
+      - detail.partition
+      - detail.service.serviceName
+    sample: '{"version":"0","id":"4f3e2d1c-0b9a-8877-6655-443322110000","detail-type":"GuardDuty Finding","source":"aws.guardduty","account":"111122223333","time":"2026-11-12T10:12:40Z","region":"eu-west-1","resources":[],"detail":{"schemaVersion":"2.0","accountId":"111122223333","region":"eu-west-1","partition":"aws","id":"b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2","type":"Execution:Runtime/ReverseShell","resource":{"resourceType":"Instance","instanceDetails":{"instanceId":"i-0abc123def4567890","instanceType":"t3.large","imageId":"ami-0123456789abcdef0","iamInstanceProfile":{"arn":"arn:aws:iam::111122223333:instance-profile/web-app-role","id":"AIPAEXAMPLEPROFILE01"}}},"service":{"serviceName":"guardduty","detectorId":"34cde56f789a0bc123de4f56a78901b2","featureName":"RuntimeMonitoring","runtimeDetails":{"process":{"name":"bash","executablePath":"/usr/bin/bash","executableSha256":"0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0","pid":23817,"namespacePid":23817,"user":"www-data","uid":33,"startTime":"2026-11-12T10:11:58Z"}},"eventFirstSeen":"2026-11-12T10:11:58.000Z","eventLastSeen":"2026-11-12T10:11:58.000Z","archived":false,"count":1},"severity":8,"createdAt":"2026-11-12T10:12:31.004Z","updatedAt":"2026-11-12T10:12:31.004Z","title":"A process on EC2 instance i-0abc123def4567890 opened a reverse shell.","description":"The process bash connected its standard input and output to a remote socket at 203.0.113.66:4444."}}'
+  - type: Network / DNS finding
+    sourcetype: aws_guardduty
+    format: json
+    share: 10–30 %
+    avg: ~2.8 KB
+    desc: "Findings from flow and DNS analysis, e.g. CryptoCurrency:EC2/BitcoinTool.B!DNS or Backdoor:EC2/C&CActivity.B!DNS. service.action.dnsRequestAction.domain (or networkConnectionAction) holds the indicator."
+    key:
+      - type
+      - severity
+      - resource.instanceDetails.instanceId
+      - service.action.dnsRequestAction.domain
+      - service.action.dnsRequestAction.protocol
+      - service.count
+    noise:
+      - schemaVersion
+      - partition
+      - service.serviceName
+      - service.additionalInfo.type
+    sample: '{"schemaVersion":"2.0","accountId":"111122223333","region":"us-east-2","partition":"aws","id":"c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6","arn":"arn:aws:guardduty:us-east-2:111122223333:detector/56ef78a9b0c1d2e3f4a5b6c7d8e9f0a1/finding/c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6","type":"CryptoCurrency:EC2/BitcoinTool.B!DNS","resource":{"resourceType":"Instance","instanceDetails":{"instanceId":"i-0fed987cba6543210","instanceType":"c5.4xlarge","networkInterfaces":[{"privateIpAddress":"10.40.12.7","subnetId":"subnet-0a1b2c3d4e5f60718","vpcId":"vpc-0123abcd4567ef890"}]}},"service":{"serviceName":"guardduty","detectorId":"56ef78a9b0c1d2e3f4a5b6c7d8e9f0a1","action":{"actionType":"DNS_REQUEST","dnsRequestAction":{"domain":"pool.mining.example.org","protocol":"UDP","blocked":false}},"resourceRole":"ACTOR","additionalInfo":{"value":"{\"threatListName\":\"ProofPoint\"}","type":"default"},"eventFirstSeen":"2026-11-12T03:14:00.000Z","eventLastSeen":"2026-11-12T09:44:00.000Z","archived":false,"count":212},"severity":8,"createdAt":"2026-11-12T03:20:12.771Z","updatedAt":"2026-11-12T09:50:41.208Z","title":"EC2 instance i-0fed987cba6543210 is querying a domain name that is associated with Bitcoin-related activity.","description":"EC2 instance i-0fed987cba6543210 is querying a domain name pool.mining.example.org that is associated with Bitcoin-related activity."}'
+cves:
+  - id: CVE-2024-21626
+    cvss: 8.6
+    year: 2024
+    kev: false
+    scope: traffic
+    title: runc "Leaky Vessels" container escape — workload CVE that Runtime Monitoring detects
+    affected: runc 1.1.11 and earlier
+    fixed: runc 1.1.12
+    detect: PrivilegeEscalation:Runtime/RuncContainerEscape or ContainerMountsHostDirectory findings on the EKS/ECS resource; follow-up Execution:Runtime findings on the node.
+    avoid: Patch runc / containerd / node AMIs; enable Runtime Monitoring on EKS and ECS; restrict who can run exec or deploy arbitrary images.
+  - id: CVE-2024-1086
+    cvss: 7.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Linux nf_tables use-after-free local privilege escalation on EC2/EKS nodes
+    affected: Linux kernel 3.15 up to the fix commit f342de4e2f33 (stable branches before 5.15.149, 6.1.76, 6.6.15, 6.7.3)
+    fixed: 5.15.149, 6.1.76, 6.6.15, 6.7.3 (and later)
+    detect: Runtime findings such as Execution:Runtime/NewBinaryExecuted or a root process spawned from a web/service user (runtimeDetails.process.user changes to root).
+    avoid: Patch kernels / roll node AMIs; disable unprivileged user namespaces where not needed.
+  - id: CVE-2022-0847
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Dirty Pipe — Linux page-cache overwrite privilege escalation on cloud workloads
+    affected: Linux kernel 5.8 up to 5.16.10 / 5.15.24 / 5.10.101
+    fixed: 5.16.11, 5.15.25, 5.10.102
+    detect: Runtime findings for modified system binaries or new SUID/root processes; follow-on CryptoCurrency or Backdoor findings from the same instance.
+    avoid: Patch kernels; use Bottlerocket / current EKS-optimized AMIs; Runtime Monitoring on all nodes.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — exploited on EC2 workloads, typically followed by instance-credential theft
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: Execution:Runtime/ReverseShell or NewBinaryExecuted on the Java host, then UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS / InsideAWS for its role.
+    avoid: Patch; IMDSv2 with hop limit 1; AWS WAF Known Bad Inputs rule group in front of the app.
+  - id: CVE-2023-46604
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Apache ActiveMQ OpenWire RCE — mass-exploited to drop Kinsing crypto-miners on cloud hosts
+    affected: ActiveMQ before 5.15.16, 5.16.x before 5.16.7, 5.17.x before 5.17.6, 5.18.x before 5.18.3
+    fixed: 5.15.16, 5.16.7, 5.17.6, 5.18.3
+    detect: Inbound TCP 61616 from the internet (Recon:EC2/PortProbeUnprotectedPort), then CryptoCurrency:EC2/BitcoinTool.B!DNS or CryptoCurrency:Runtime/BitcoinTool.B from the same instance.
+    avoid: Patch; never expose 61616 to the internet; security groups restricted to known clients.
+detections:
+  - title: Attack sequence or critical finding
+    severity: critical
+    signals:
+      - type startswith AttackSequence
+      - severity >= 9
+    why: Extended Threat Detection has already correlated multiple stages (credential compromise, discovery, exfiltration). Page the on-call, don't queue it.
+    kql: |-
+      dataset="aws_guardduty"
+      | where type startswith "AttackSequence:" or severity >= 9
+      | project _time, accountId, region, type, title, severity
+    mitre:
+      - T1078.004
+  - title: Instance credentials used outside AWS
+    severity: high
+    signals:
+      - type contains InstanceCredentialExfiltration
+      - resource.accessKeyDetails.userType=AssumedRole
+    why: Temporary keys minted for an EC2 role are being used from another host — almost always SSRF/RCE on the workload followed by IMDS credential theft.
+    kql: |-
+      dataset="aws_guardduty"
+      | where type contains "InstanceCredentialExfiltration"
+      | summarize calls=sum(service.count), apis=make_set(service.action.awsApiCallAction.api) by resource.accessKeyDetails.userName, service.action.awsApiCallAction.remoteIpDetails.ipAddressV4, accountId
+    mitre:
+      - T1552.005
+      - T1078.004
+  - title: Logging or GuardDuty tampering
+    severity: high
+    signals:
+      - type startswith Stealth
+      - e.g. Stealth:IAMUser/CloudTrailLoggingDisabled
+    why: An attacker disabling CloudTrail, S3 server access logging or password policies is preparing to act unseen.
+    kql: |-
+      dataset="aws_guardduty"
+      | where type startswith "Stealth:"
+      | summarize count() by type, accountId, resource.accessKeyDetails.userName
+    mitre:
+      - T1562.008
+  - title: Crypto-mining on compute
+    severity: high
+    signals:
+      - type startswith CryptoCurrency
+      - service.action.dnsRequestAction.domain
+    why: Mining pools are the most common payload after a cloud workload or key is compromised; the cost impact grows by the hour.
+    kql: |-
+      dataset="aws_guardduty"
+      | where type startswith "CryptoCurrency:"
+      | summarize hits=sum(service.count), domains=make_set(service.action.dnsRequestAction.domain) by resource.instanceDetails.instanceId, accountId, region
+    mitre:
+      - T1496
+  - title: Reverse shell or malicious process on a workload
+    severity: high
+    signals:
+      - detail.type in Execution:Runtime/ReverseShell, Execution:Runtime/MaliciousFileExecuted
+      - detail.service.runtimeDetails.process
+    why: Runtime findings show interactive attacker control of an instance or container — the stage just before privilege escalation and credential theft.
+    kql: |-
+      dataset="aws_guardduty"
+      | where detail.type in ("Execution:Runtime/ReverseShell","Execution:Runtime/MaliciousFileExecuted","PrivilegeEscalation:Runtime/RuncContainerEscape")
+      | project _time, detail.accountId, detail.resource.instanceDetails.instanceId, detail.service.runtimeDetails.process.name, detail.service.runtimeDetails.process.executablePath, detail.service.runtimeDetails.process.user
+    mitre:
+      - T1059.004
+      - T1611
+optimizations:
+  - title: Deduplicate finding updates
+    saving: 30–70 %
+    fn: Suppress
+    how: "The same finding id is re-exported every time its count or lastSeen changes. Keep the first occurrence and then one update per id per hour (or only when severity changes)."
+    expr: "key: `${id || detail.id}:${severity || detail.severity}`  allow 1 / 3600s"
+  - title: Unwrap the EventBridge envelope
+    saving: 5–10 %
+    fn: Eval
+    how: "Promote detail.* to the top level and drop version, id, detail-type, source, resources and time so EventBridge and S3-exported findings share one schema."
+    expr: "Object.assign(__e, detail); remove: detail, version, detail-type, source, resources"
+  - title: Route by severity
+    saving: SIEM alert noise
+    fn: Routes
+    how: "Critical/High findings → SIEM + ticketing; Medium → SIEM; Low (port probes, archived, suppressed) → Lake only."
+    expr: "(severity || detail.severity) >= 4 && !(service.archived || detail.service.archived) → SIEM | else → Lake"
+  - title: Drop sample findings
+    saving: test noise
+    fn: Drop
+    how: Findings generated by CreateSampleFindings carry service.additionalInfo.sample=true and the [SAMPLE] title prefix; keep them out of production alerting.
+    expr: "/\"sample\":true/.test(JSON.stringify(service && service.additionalInfo))"
+references:
+  - title: Understanding GuardDuty findings
+    url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html
+  - title: GuardDuty active finding types
+    url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_finding-types-active.html
+  - title: Severity levels of GuardDuty findings
+    url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings-severity.html
+  - title: Exporting GuardDuty findings to Amazon S3
+    url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_exportfindings.html
+  - title: GuardDuty foundational data sources
+    url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_data-sources.html
+  - title: runc advisory GHSA-xr7r-f8xq-vfvv (CVE-2024-21626)
+    url: https://github.com/opencontainers/runc/security/advisories/GHSA-xr7r-f8xq-vfvv
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cloudtrail
+  - aws-security-hub
+  - aws-vpc-flow
+  - aws-route53
+  - aws-eks-audit
+  - aws-security-lake

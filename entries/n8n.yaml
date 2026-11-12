@@ -1,0 +1,321 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: n8n
+name: n8n
+short: n8n
+aka:
+  - n8n Cloud
+  - n8n self-hosted
+  - n8n Enterprise
+  - n8n log streaming
+  - n8nEventLog.log
+vendor: n8n GmbH
+category: devops
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - automation
+  - workflow
+  - low-code
+  - ai-agents
+  - mcp
+  - audit
+  - json
+  - webhook
+  - syslog
+summary: "Fair-code workflow automation platform (self-hosted or n8n Cloud) that chains triggers, webhooks, forms, API nodes, code nodes and AI agents — while holding credentials for every system it touches. Enterprise log streaming emits JSON event messages for workflow executions, node runs, AI node activity, MCP tool calls and a broad audit set (logins, credentials, API keys, packages, workflow changes) to a webhook, syslog or Sentry."
+sourcetypes:
+  - st: n8n_log_streaming
+    desc: n8n event bus messages ($$EventMessageAudit / Workflow / Node / AiNode …) delivered by log streaming or read from n8nEventLog.log
+facts:
+  First released: "2019"
+  Platform: Node.js (TypeScript) with SQLite or PostgreSQL; queue mode adds Redis, workers and webhook processors; task runners for Code nodes
+  Delivery model: Self-hosted (Docker, npm, Kubernetes) or n8n Cloud; log streaming requires the Enterprise plan on both
+  Log transport: Webhook (HTTP POST JSON), syslog (UDP/TCP/TLS, default facility 16 / local0), Sentry; events persisted first to n8nEventLog.log per process
+  Log format: "JSON envelope: __type, id, ts, eventName, message, payload"
+  Event groups: n8n.workflow, n8n.node, n8n.audit, n8n.ai, n8n.worker, n8n.runner, n8n.queue
+  Privacy option: anonymizeAuditMessages masks underscore-prefixed fields (_email, _firstName, _lastName) per destination
+  Typical volume: Node events dominate — one started + finished pair per node per execution; audit events are a few per user per day
+  Cribl Pack: None found in the Packs Dispensary — use an HTTP source (webhook destination) or Syslog source
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Exposed webhook / form endpoint
+      desc: Webhook, Form and Chat triggers are reachable by anyone who knows the URL — the entry point for the unauthenticated 2026 file-read bug and for abuse of AI agent workflows.
+    - slot: internal
+      title: Self-hosted automation hub
+      desc: Docker or Kubernetes deployment inside the network with credentials to CRMs, databases, cloud APIs and ticketing. Effectively a privileged integration server.
+    - slot: cloud
+      title: n8n Cloud
+      desc: Vendor-hosted instances; Enterprise customers stream events to a Cribl HTTP source over HTTPS.
+howItWorks:
+  - title: Workflows and nodes
+    body: A workflow is a graph of nodes. Trigger nodes (schedule, webhook, form, app events, MCP Server Trigger) start an execution; regular nodes call APIs, transform data or branch. Each execution emits n8n.workflow.started then success/failed/cancelled, and each node n8n.node.started/finished.
+  - title: Expressions and Code nodes
+    body: "Node parameters accept {{ }} JavaScript expressions; Code nodes run JavaScript or Python in task runners. This is where most critical CVEs live — expression and sandbox escapes give anyone who can edit a workflow command execution as the n8n process."
+  - title: Credentials
+    body: Credentials are encrypted in the database with N8N_ENCRYPTION_KEY and shared per user or project. Creation, sharing, update and deletion are audited (n8n.audit.user.credentials.*); values are never streamed.
+  - title: AI agents and MCP
+    body: AI nodes (agents, memory, retrievers, vector stores, LLM calls) stream n8n.ai.* events. The instance-level MCP server lets external AI clients call tools such as execute_workflow; each call is audited as n8n.audit.mcp.tool.called with userId, toolName, workflowId, status, authType and clientId.
+  - title: Event bus and log streaming
+    body: Every event is written to n8nEventLog.log (one per process, -worker / -webhook-processor suffix) and then forwarded to subscribed destinations, so events survive restarts and are re-sent if undelivered. Destinations subscribe to event names or prefixes such as n8n.audit and n8n.workflow; a circuit breaker pauses failing destinations.
+traffic:
+  handles:
+    - Webhook, Form and Chat trigger HTTP requests
+    - Outbound API calls to SaaS, databases and cloud APIs
+    - Stored credentials (OAuth, API keys, database passwords)
+    - JavaScript / Python code execution in task runners
+    - LLM, embedding and vector store calls (AI nodes)
+    - MCP client tool calls (instance MCP server)
+    - Community node packages from npm
+  flow:
+    - step: Trigger
+      desc: Schedule, webhook/form request, app event or MCP tool call starts an execution.
+    - step: Authenticate
+      desc: Editor users sign in (email, SAML, LDAP, MFA); public webhooks may have no auth at all.
+    - step: Execute nodes
+      desc: Nodes run in order, resolving expressions and decrypting credentials as needed.
+    - step: Call out
+      desc: HTTP, database, AI and code nodes reach external systems with stored credentials.
+    - step: Emit events
+      desc: workflow, node, ai and audit messages written to n8nEventLog.log.
+    - step: Stream
+      desc: Event bus forwards to webhook / syslog / Sentry destinations (optionally anonymised).
+    - step: Collect
+      desc: Cribl HTTP or Syslog source parses the JSON envelope and routes by eventName.
+logs:
+  - type: Node / workflow execution event
+    sourcetype: n8n_log_streaming
+    format: json
+    share: 70–95 %
+    avg: ~450 B
+    desc: Execution lifecycle. Failed events add lastNodeExecuted, errorNodeType and errorMessage; started/success/failed carry userId, mode (trigger, manual, webhook, retry) and project.
+    key:
+      - eventName
+      - ts
+      - payload.workflowName
+      - payload.executionId
+      - payload.mode
+      - payload.errorNodeType
+      - payload.errorMessage
+    noise:
+      - __type
+      - message
+      - payload.isManual
+    sample: '{"__type":"$$EventMessageWorkflow","id":"5d1c8e2a-7b3f-4a9e-8c6d-0f1e2a3b4c5d","ts":"2026-11-12T09:14:22.318+00:00","eventName":"n8n.workflow.failed","message":"n8n.workflow.failed","payload":{"executionId":"48211","workflowId":"Xk3Pq9LmT2vR8sYw","workflowName":"Sync CRM to billing","userId":"3f2b1a0c-9d8e-4f7a-b6c5-d4e3f2a1b0c9","mode":"webhook","isManual":false,"projectId":"pR7tY2uI9oP4aS6d","projectName":"Finance","success":false,"lastNodeExecuted":"HTTP Request","errorNodeType":"n8n-nodes-base.httpRequest","errorMessage":"The connection to https://api.example.com timed out"}}'
+  - type: Audit event
+    sourcetype: n8n_log_streaming
+    format: json
+    share: 2–10 %
+    avg: ~500 B
+    desc: "Identity, credential and configuration changes: user login success/failed, credentials created/shared, API key created, MFA disabled, package installed, workflow created/updated/activated, variables, external secrets."
+    key:
+      - eventName
+      - ts
+      - payload.userId
+      - payload._email
+      - payload.globalRole
+      - payload.credentialName
+      - payload.credentialType
+      - payload.ipAddress
+    noise:
+      - __type
+      - message
+      - payload._firstName
+      - payload._lastName
+    sample: '{"__type":"$$EventMessageAudit","id":"a7b8c9d0-1e2f-4a3b-8c4d-5e6f7a8b9c0d","ts":"2026-11-12T09:16:03.114+00:00","eventName":"n8n.audit.user.credentials.created","message":"n8n.audit.user.credentials.created","payload":{"userId":"3f2b1a0c-9d8e-4f7a-b6c5-d4e3f2a1b0c9","_email":"jdoe@example.com","_firstName":"John","_lastName":"Doe","globalRole":"global:member","credentialName":"Prod Postgres","credentialType":"postgres","credentialId":"cR4eD5fG6hJ7kL8m","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (X11; Linux x86_64)"}}'
+  - type: MCP tool call
+    sourcetype: n8n_log_streaming
+    format: json
+    share: < 5 % (when instance MCP is on)
+    avg: ~450 B
+    desc: An external AI client (Claude, Cursor, ChatGPT…) called an instance MCP tool. Group by clientId, not clientName (unverified, not unique).
+    key:
+      - eventName
+      - payload.toolName
+      - payload.workflowId
+      - payload.status
+      - payload.authType
+      - payload.clientId
+      - payload.clientName
+      - payload.userId
+    noise:
+      - __type
+      - message
+    sample: '{"__type":"$$EventMessageAudit","id":"c1d2e3f4-5a6b-4c7d-8e9f-0a1b2c3d4e5f","ts":"2026-11-12T10:02:13.551+00:00","eventName":"n8n.audit.mcp.tool.called","message":"n8n.audit.mcp.tool.called","payload":{"userId":"3f2b1a0c-9d8e-4f7a-b6c5-d4e3f2a1b0c9","_email":"jdoe@example.com","_firstName":"John","_lastName":"Doe","globalRole":"global:member","toolName":"execute_workflow","workflowId":"Xk3Pq9LmT2vR8sYw","status":"success","authType":"oauth","clientId":"mcp-client-8f7e6d5c","clientName":"Example Desktop Agent"}}'
+cves:
+  - id: CVE-2025-68613
+    cvss: 8.8
+    year: 2025
+    kev: true
+    scope: device
+    title: Workflow expression evaluation RCE — expressions run in an insufficiently isolated context
+    affected: n8n 0.211.0 up to before 1.120.4, 1.121.1 and 1.122.0
+    fixed: 1.120.4, 1.121.1, 1.122.0
+    detect: n8n.audit.workflow.updated / created by low-privilege members followed by manual executions (mode=manual, isManual=true) and n8n.workflow.failed with odd errorMessage text; on the host, child processes of node (sh, curl, wget) spawned by n8n.
+    avoid: Upgrade; restrict workflow create/edit to trusted users; run n8n as an unprivileged container with egress filtering.
+  - id: CVE-2026-21858
+    cvss: 10
+    year: 2026
+    kev: false
+    scope: device
+    title: Unauthenticated file access through form-based workflows (content-type confusion in Form/Webhook handling)
+    affected: n8n 1.65.0 up to before 1.121.0
+    fixed: 1.121.0
+    detect: Bursts of n8n.workflow.started with mode=webhook on form workflows from one external source, then logins or API activity with the owner's identity (stolen database / encryption key → forged session).
+    avoid: Upgrade; put forms and webhooks behind authentication or a WAF; keep the editor UI off the internet.
+  - id: CVE-2025-68668
+    cvss: 9.9
+    year: 2025
+    kev: false
+    scope: device
+    title: Python Code node (Pyodide) sandbox bypass — command execution on the host
+    affected: n8n 1.0.0 up to before 2.0.0
+    fixed: 2.0.0
+    detect: Workflows containing n8n-nodes-base.code with Python edited by non-admins (n8n.audit.workflow.updated) and immediately executed; node events for Code nodes with abnormal durations.
+    avoid: Upgrade; or set N8N_PYTHON_ENABLED=false / exclude the Code node; use the task-runner Python sandbox.
+  - id: CVE-2026-25049
+    cvss: 9.9
+    year: 2026
+    kev: false
+    scope: device
+    title: Crafted expressions in workflow parameters trigger system command execution (follow-up expression sandbox bypass)
+    affected: n8n before 1.123.17 and 2.x before 2.5.2
+    fixed: 1.123.17, 2.5.2
+    detect: Same pattern as CVE-2025-68613 — workflow edits by members followed by manual runs; watch for unusual credential reads in the same session.
+    avoid: Upgrade; limit editor rights; isolate the n8n host network.
+  - id: CVE-2026-42235
+    cvss: 9.6
+    year: 2026
+    kev: false
+    scope: traffic
+    title: Malicious MCP OAuth client registration with a script-laden client_name (MCP/OAuth traffic the instance accepts) — session theft
+    affected: n8n before 1.123.32, 2.17.4 and 2.18.1
+    fixed: 1.123.32, 2.17.4, 2.18.1
+    detect: n8n.audit.mcp.oauth.completed with an unfamiliar or HTML-like clientName, followed by credential or workflow changes by the consenting user.
+    avoid: Upgrade; disable instance MCP unless needed; review registered MCP clients regularly.
+detections:
+  - title: Workflow edited then executed manually by a non-admin
+    severity: high
+    signals:
+      - eventName=n8n.audit.workflow.updated
+      - followed within 10 min by n8n.workflow.started mode=manual
+      - globalRole not owner/admin
+    why: Every critical n8n RCE (expression and Code-node sandbox escapes) requires an authenticated editor to change a workflow and run it. This sequence is the exploitation pattern.
+    kql: |-
+      dataset="n8n_events" eventName in ("n8n.audit.workflow.updated","n8n.audit.workflow.created","n8n.workflow.started")
+      | summarize edits=countif(eventName startswith "n8n.audit.workflow"), manual_runs=countif(payload.mode=="manual") by payload.userId, payload.workflowId, bin(_time, 10m)
+      | where edits > 0 and manual_runs > 0
+    mitre:
+      - T1059.007
+      - T1190
+  - title: Login brute force / password spray
+    severity: medium
+    signals:
+      - eventName=n8n.audit.user.login.failed
+      - many failures per ipAddress
+      - then n8n.audit.user.login.success
+    why: Self-hosted editors are often internet-exposed with local email/password accounts.
+    kql: |-
+      dataset="n8n_events" eventName in ("n8n.audit.user.login.failed","n8n.audit.user.login.success")
+      | summarize fails=countif(eventName endswith "failed"), ok=countif(eventName endswith "success"), users=dcount(payload._email) by payload.ipAddress, bin(_time, 15m)
+      | where fails > 20 or (fails > 5 and ok > 0)
+    mitre:
+      - T1110.003
+  - title: API key created or MFA disabled
+    severity: high
+    signals:
+      - eventName=n8n.audit.user.api.created / n8n.audit.user.api.rotated
+      - eventName=n8n.audit.user.mfa.disabled
+    why: Public API keys give scriptable access to workflows and credentials; disabling MFA weakens the account ahead of takeover.
+    kql: |-
+      dataset="n8n_events" eventName in ("n8n.audit.user.api.created","n8n.audit.user.api.rotated","n8n.audit.user.mfa.disabled")
+      | project ts, eventName, payload.userId, payload._email, payload.ipAddress
+    mitre:
+      - T1098.001
+      - T1556.006
+  - title: Credentials shared, created or read in bulk
+    severity: medium
+    signals:
+      - eventName in n8n.audit.user.credentials.created / shared / updated
+      - n8n.audit.user.credentials.data.read / list.data.read
+      - credentialType = database, aws, ssh
+    why: Sharing a production credential into a personal project lets a workflow exfiltrate data through it; bulk credential data reads point to harvesting.
+    kql: |-
+      dataset="n8n_events" eventName startswith "n8n.audit.user.credentials"
+      | summarize changes=count(), types=make_set(payload.credentialType) by payload._email, eventName
+    mitre:
+      - T1552
+      - T1098
+  - title: Community package installed
+    severity: medium
+    signals:
+      - eventName=n8n.audit.package.installed / updated
+    why: Community nodes are arbitrary npm packages that run inside n8n with access to all credentials — a classic supply-chain path.
+    kql: |-
+      dataset="n8n_events" eventName in ("n8n.audit.package.installed","n8n.audit.package.updated")
+      | project ts, eventName, payload._email, payload
+    mitre:
+      - T1195.001
+  - title: MCP tool calls from a new client or failing en masse
+    severity: medium
+    signals:
+      - eventName=n8n.audit.mcp.tool.called
+      - new clientId
+      - many status=error
+    why: An AI client driving execute_workflow can be steered by prompt injection (MITRE ATLAS AML.T0051 LLM Prompt Injection, AML.T0053 AI Agent Tool Invocation, AML.T0086 Exfiltration via AI Agent Tool Invocation) into running workflows with production credentials.
+    kql: |-
+      dataset="n8n_events" eventName="n8n.audit.mcp.tool.called"
+      | summarize calls=count(), errors=countif(payload.status=="error"), tools=make_set(payload.toolName) by payload.clientId, payload.clientName, payload.userId, bin(_time, 1h)
+      | where errors > 10 or calls > 200
+    mitre:
+      - T1059
+      - T1078
+optimizations:
+  - title: Aggregate node started/finished events
+    saving: 50–80 %
+    fn: Aggregations
+    how: n8n.node.* events are two per node per execution. Roll up to counts and failures per workflow and node type per minute; keep workflow failed events raw.
+    expr: eventName.startsWith('n8n.node.')
+  - title: Subscribe only what you need at the source
+    saving: 30–70 %
+    fn: Routes
+    how: Destinations subscribe by prefix. Stream n8n.audit and n8n.workflow to the SIEM destination; send n8n.node, n8n.ai and n8n.queue to a separate Cribl route bound for the lake.
+    expr: eventName.startsWith('n8n.audit') || eventName.startsWith('n8n.workflow') → SIEM  |  else → Lake
+  - title: Drop redundant envelope fields
+    saving: 10–15 %
+    fn: Eval
+    how: message always equals eventName and __type is implied by the event prefix. Remove both after parsing.
+    expr: "remove: message, __type"
+  - title: Mask personal data in transit
+    saving: Compliance
+    fn: Mask
+    how: If anonymizeAuditMessages is off at the source, hash _email and drop _firstName/_lastName in Stream; keep userId for correlation.
+    expr: "payload._email → sha256; remove: payload._firstName, payload._lastName"
+references:
+  - title: n8n — Stream logs to external systems (events, destinations)
+    url: https://docs.n8n.io/log-streaming/
+  - title: n8n source — EventMessageAudit payload fields
+    url: https://github.com/n8n-io/n8n/blob/8bb64899/packages/cli/src/eventbus/event-message-classes/event-message-audit.ts
+  - title: GHSA-v98v-ff95-f3cp — Expression evaluation RCE (CVE-2025-68613)
+    url: https://github.com/n8n-io/n8n/security/advisories/GHSA-v98v-ff95-f3cp
+  - title: GHSA-v4pr-fm98-w9pg — Form workflow file access (CVE-2026-21858)
+    url: https://github.com/n8n-io/n8n/security/advisories/GHSA-v4pr-fm98-w9pg
+  - title: GHSA-62r4-hw23-cc8v — Python Code node sandbox bypass (CVE-2025-68668)
+    url: https://github.com/n8n-io/n8n/security/advisories/GHSA-62r4-hw23-cc8v
+  - title: GHSA-537j-gqpc-p7fq — MCP OAuth client XSS (CVE-2026-42235)
+    url: https://github.com/n8n-io/n8n/security/advisories/GHSA-537j-gqpc-p7fq
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATLAS
+    url: https://atlas.mitre.org
+related:
+  - mcp
+  - openai
+  - ollama
+  - gitlab-audit

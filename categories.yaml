@@ -39,3 +39,47 @@ os:
   label: OS / Endpoint Logs
   color: "#495057"
   icon: 🖥️
+workload:
+  label: Container / Runtime Security
+  color: "#5c940d"
+  icon: 📦
+email:
+  label: Email Security
+  color: "#c2255c"
+  icon: ✉️
+saas:
+  label: SaaS / Collaboration Audit
+  color: "#3b5bdb"
+  icon: 🏢
+devops:
+  label: DevOps / CI-CD
+  color: "#364fc7"
+  icon: 🔧
+ai:
+  label: AI / LLM Platforms
+  color: "#862e9c"
+  icon: 🤖
+db:
+  label: Database / ERP Audit
+  color: "#a61e4d"
+  icon: 🗄️
+web:
+  label: Web Server / App Runtime
+  color: "#087f5b"
+  icon: 🕸️
+netinfra:
+  label: Network Infrastructure
+  color: "#5f3dc4"
+  icon: 🔀
+storage:
+  label: Storage / File Transfer
+  color: "#e67700"
+  icon: 💾
+mainframe:
+  label: Mainframe / Midrange
+  color: "#343a40"
+  icon: 🏛️
+pipeline:
+  label: SIEM / Log Pipeline
+  color: "#0b7285"
+  icon: 🔁

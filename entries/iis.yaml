@@ -1,0 +1,285 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: iis
+name: Microsoft IIS
+short: IIS
+aka:
+  - Internet Information Services
+  - HTTP.sys
+  - W3SVC
+  - IIS Express
+vendor: Microsoft
+category: web
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - web-server
+  - windows
+  - w3c
+  - exchange
+  - webshell
+summary: Microsoft's Windows web server, built on the kernel-mode HTTP.sys listener. It hosts ASP.NET sites and also sits under Exchange (OWA, ECP, EWS), SharePoint, ADFS, WSUS and many vendor consoles. W3C access logs show every request, and the IIS-Configuration Operational channel records config changes. That channel is how you catch malicious native modules and logging tampering, which is how IIS backdoors usually get in.
+sourcetypes:
+  - st: microsoft_iis_accesslog
+    desc: IIS W3C Extended access log (space-delimited, #Fields header)
+  - st: iis_configuration_operational
+    desc: Microsoft-IIS-Configuration/Operational event log — event 29 config changes committed, 30 failed
+  - st: ms:iis:auto
+    desc: Splunk Add-on for Microsoft IIS — W3C log with automatic field extraction from the header
+  - st: IIS:Configuration:Operational
+    desc: Splunk Add-on for Microsoft Windows sourcetype for the IIS-Configuration Operational channel
+  - st: W3CIISLog
+    desc: Microsoft Sentinel / Log Analytics table for IIS logs collected by the Azure Monitor Agent
+facts:
+  First released: 1995 (IIS 1.0 on Windows NT 3.51)
+  Current version: IIS 10.0 (Windows Server 2016, 2019, 2022, 2025)
+  Architecture: HTTP.sys kernel listener → WAS / W3SVC → w3wp.exe worker processes per application pool
+  Log types: W3C / IIS / NCSA access logs, HTTPERR (HTTP.sys rejects), IIS-Configuration Operational, Failed Request Tracing, ETW
+  Log transport: Daily or hourly files under %SystemDrive%\inetpub\logs\LogFiles\W3SVC<n>, or ETW; collected by Cribl Edge, the Splunk UF or the Azure Monitor Agent
+  Log format: W3C Extended — space-delimited, header lines starting with #; spaces in values encoded as +
+  Typical volume: 1 line per request, 200–350 B; Exchange front ends often produce millions of lines a day
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Exchange OWA / ECP and public websites
+      desc: Internet-facing IIS on Exchange, ADFS or web apps is a top target (ProxyLogon, ProxyShell). Its W3C logs are often the first and only record of exploitation.
+    - slot: internal
+      title: Intranet, SharePoint and line-of-business apps
+      desc: ASP.NET apps with Windows authentication. cs-username shows the domain user, so these logs also show lateral movement and data access.
+    - slot: cloud
+      title: Azure VMs and App Service
+      desc: IIS on Azure VMs or App Service (Windows). Logs go to Log Analytics (W3CIISLog) or a storage account.
+howItWorks:
+  - title: HTTP.sys and worker processes
+    body: HTTP.sys in the kernel accepts connections, parses requests and queues them per application pool. w3wp.exe workers run the managed (ASP.NET) or native module pipeline. Malformed requests rejected by HTTP.sys go to the HTTPERR log, not the W3C log.
+  - title: Module pipeline
+    body: Native (globalModules, DLLs) and managed modules see every request. A malicious native module (IIS backdoor families such as IIS-Raid, Owowa) can read credentials and run commands without any file in the web root. Installing one is a config change and logs event 29.
+  - title: W3C access log
+    body: One line per request after it completes. The #Fields header defines the columns, so column order can differ per server — parse from the header. Time is UTC. sc-status/sc-substatus/sc-win32-status explain failures, and time-taken is in milliseconds.
+  - title: Configuration and event 29
+    body: applicationHost.config and web.config changes made through appcmd, PowerShell (WebAdministration) or IIS Manager are committed by the configuration system. The Operational channel (disabled by default — enable it) logs Configuration, OldValue and NewValue for each change.
+  - title: Authentication
+    body: Anonymous, Basic, Windows (NTLM/Kerberos), forms and client-certificate auth. A 401 with substatus 1/2 is a normal NTLM handshake. Repeated 401.1 for one user means bad passwords.
+traffic:
+  handles:
+    - HTTP / HTTPS (80, 443) via HTTP.sys
+    - ASP.NET / ASP.NET Core (in-process or out-of-process)
+    - Exchange OWA, ECP, EWS, ActiveSync, Autodiscover, MAPI/HTTP
+    - SharePoint, ADFS, WSUS, Remote Desktop Gateway web
+    - WebDAV and FTP (optional roles)
+    - Windows / Basic / certificate authentication
+  flow:
+    - step: Listen
+      desc: HTTP.sys accepts the connection, terminates TLS and parses the request.
+    - step: Queue
+      desc: The URL maps to an application pool queue; HTTP.sys rejects go to HTTPERR.
+    - step: Authenticate
+      desc: The module pipeline runs authentication (anonymous, Windows, Basic, forms).
+    - step: Handle
+      desc: The handler (static file, ASP.NET, PHP via FastCGI, Exchange) builds the response.
+    - step: Log
+      desc: The W3C line is written (buffered and flushed to the daily file).
+    - step: Config change
+      desc: Admin changes are committed and logged as event 29 in IIS-Configuration/Operational.
+logs:
+  - type: W3C Extended access log
+    sourcetype: microsoft_iis_accesslog
+    format: text
+    share: 95–99 %
+    avg: ~280 B
+    desc: Default IIS 10 field set (date time s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs(User-Agent) cs(Referer) sc-status sc-substatus sc-win32-status time-taken). The pattern assumes that order — check the #Fields line.
+    pattern: '^(?<date>\d{4}-\d{2}-\d{2}) (?<time>\d{2}:\d{2}:\d{2}) (?<s_ip>\S+) (?<cs_method>\S+) (?<cs_uri_stem>\S+) (?<cs_uri_query>\S+) (?<s_port>\d+) (?<cs_username>\S+) (?<c_ip>\S+) (?<cs_user_agent>\S+) (?<cs_referer>\S+) (?<sc_status>\d{3}) (?<sc_substatus>\d+) (?<sc_win32_status>\d+) (?<time_taken>\d+)$'
+    key:
+      - c_ip
+      - cs_username
+      - cs_method
+      - cs_uri_stem
+      - cs_uri_query
+      - sc_status
+      - cs_user_agent
+    noise:
+      - s_port
+      - sc_win32_status
+      - cs_referer
+    sample: '2026-11-12 02:14:22 10.0.5.30 POST /ecp/y.js - 443 - 203.0.113.45 ExchangeServicesClient/0.0.0.0 - 200 0 0 187'
+  - type: IIS configuration change (event 29)
+    sourcetype: iis_configuration_operational
+    format: xml
+    share: < 1 %
+    avg: ~1.2 KB
+    desc: A configuration change was committed. It shows the path (Configuration), old and new value, and the account. Use it to catch new native modules, new handlers, and disabled logging or authentication.
+    key:
+      - EventID
+      - Computer
+      - Configuration
+      - OldValue
+      - NewValue
+      - ConfigPath
+    noise:
+      - PhysicalPath
+      - EditOperationType
+      - EventRecordID
+    sample: '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-IIS-Configuration" Guid="{DC0B8E51-4863-407A-BC3C-1B479B2978AC}"/><EventID>29</EventID><Level>4</Level><TimeCreated SystemTime="2026-11-12T02:20:11.4723631Z"/><EventRecordID>2219</EventRecordID><Channel>Microsoft-IIS-Configuration/Operational</Channel><Computer>web01.example.com</Computer><Security UserID="S-1-5-21-1004336348-1177238915-682003330-1104"/></System><EventData><Data Name="PhysicalPath">\\?\C:\Windows\system32\inetsrv\config\applicationHost.config</Data><Data Name="ConfigPath">MACHINE/WEBROOT/APPHOST</Data><Data Name="EffectiveLocationPath"></Data><Data Name="Configuration">/system.webServer/globalModules/add[@name="UrlRewriteHelper"]/@image</Data><Data Name="EditOperationType">1</Data><Data Name="OldValue"></Data><Data Name="NewValue">C:\Windows\Temp\uhelper.dll</Data></EventData></Event>'
+cves:
+  - id: CVE-2021-31166
+    cvss: 9.8
+    year: 2021
+    kev: true
+    scope: device
+    title: HTTP.sys protocol stack remote code execution (wormable) via a crafted Accept-Encoding header
+    affected: Windows 10 2004 / 20H2 and Windows Server 2004 / 20H2 (Server Core)
+    fixed: May 2021 cumulative update (KB5003173)
+    detect: Unexpected reboots / bugchecks (HTTP.sys) on IIS hosts; requests with very long or malformed Accept-Encoding values; HTTPERR entries just before a crash.
+    avoid: Patch; keep internet-facing IIS on supported, patched builds; front it with a WAF or reverse proxy.
+  - id: CVE-2022-21907
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: device
+    title: HTTP protocol stack (HTTP.sys) remote code execution with HTTP Trailer Support
+    affected: Windows 10 / 11 and Windows Server 2019, 2022 (2019 / 1809 only when EnableTrailerSupport is set)
+    fixed: January 2022 cumulative updates
+    detect: Bugchecks or HTTP.sys crashes; requests with chunked bodies and trailers from unknown sources.
+    avoid: Patch; on Server 2019 make sure the EnableTrailerSupport registry value is not enabled.
+  - id: CVE-2017-7269
+    cvss: 9.8
+    year: 2017
+    kev: true
+    scope: device
+    title: IIS 6.0 WebDAV ScStoragePathFromUrl buffer overflow — remote code execution via PROPFIND
+    affected: IIS 6.0 on Windows Server 2003 R2 (end of life)
+    detect: PROPFIND requests with long If headers ("<http://…") in the W3C log; w3wp.exe crashes on legacy servers.
+    avoid: Retire Windows Server 2003; if impossible, disable WebDAV and isolate the host.
+  - id: CVE-2021-26855
+    cvss: 9.1
+    year: 2021
+    kev: true
+    scope: traffic
+    title: ProxyLogon — Exchange Server SSRF to authentication bypass, served through IIS (chained with CVE-2021-27065)
+    affected: Exchange Server 2013, 2016, 2019 before the March 2021 security updates
+    fixed: March 2021 Exchange security updates (KB5000871)
+    detect: W3C lines with POST /ecp/*.js or /owa/auth/*.aspx from unknown clients; ExchangeServicesClient or python user agents; new .aspx files under the OWA auth folders.
+    avoid: Patch Exchange; never expose ECP to the internet; run Microsoft's EOMT / Test-ProxyLogon checks after any exposure.
+detections:
+  - title: Exchange / OWA exploitation patterns
+    severity: critical
+    signals:
+      - POST to /ecp/*.js or /owa/auth/*.aspx
+      - /autodiscover/autodiscover.json with @ or PowerShell in the query
+      - unusual user agents (python-requests, ExchangeServicesClient) from the internet
+    why: ProxyLogon / ProxyShell / ProxyNotShell all leave distinctive W3C lines. These requests have no legitimate use from outside.
+    kql: |-
+      dataset="iis_logs"
+      | where (cs_method == "POST" and cs_uri_stem matches regex "(?i)^/ecp/[^/]+\\.js$")
+          or (cs_uri_stem has "/autodiscover/autodiscover.json" and cs_uri_query has_any ("@", "powershell", "mapi/nspi"))
+          or cs_uri_stem matches regex "(?i)^/owa/auth/[^/]+\\.aspx$"
+      | summarize hits=count(), uris=make_set(cs_uri_stem, 10) by c_ip, cs_user_agent, sc_status
+    mitre:
+      - T1190
+      - T1505.003
+  - title: Webshell requests
+    severity: high
+    signals:
+      - POST to a rarely seen .aspx / .ashx / .asmx
+      - same page hit by one or two clients only
+      - status 200 with short time-taken
+    why: Dropped webshells (China Chopper, ASPXSpy) are driven by POSTs to a page no one else uses.
+    kql: |-
+      dataset="iis_logs" cs_method="POST" sc_status="200"
+      | where cs_uri_stem matches regex "(?i)\\.(aspx|ashx|asmx|asp)$"
+      | summarize posts=count(), clients=dcount(c_ip) by cs_uri_stem
+      | where clients <= 2 and posts > 5
+    mitre:
+      - T1505.003
+  - title: Malicious native module or handler added
+    severity: critical
+    signals:
+      - event 29 with Configuration under globalModules or handlers
+      - NewValue pointing to a DLL outside system32\inetsrv
+      - change outside a release window
+    why: Native IIS modules are a stealthy backdoor. They see every request and credential, and no file is left in the web root.
+    kql: |-
+      dataset="iis_config" EventID="29"
+      | where Configuration has_any ("/globalModules/", "/modules/add", "/handlers/add")
+      | where NewValue has ".dll" and not (NewValue has "\\inetsrv\\")
+      | project _time, Computer, Configuration, NewValue
+    mitre:
+      - T1505.004
+  - title: IIS logging disabled or redirected
+    severity: high
+    signals:
+      - httpLogging/@dontLog set to true
+      - logFile directory or logTargetW3C changed
+      - site logging disabled
+    why: Attackers switch off or redirect W3C logging so later webshell activity leaves no trace.
+    kql: |-
+      dataset="iis_config" EventID="29"
+      | where (Configuration has "/httpLogging/@dontLog" and NewValue == "true")
+          or Configuration has_any ("@logTargetW3C", "/logFile/@directory", "/logFile/@enabled")
+      | project _time, Computer, Configuration, OldValue, NewValue
+    mitre:
+      - T1562.002
+  - title: Password spraying against OWA / Basic auth
+    severity: medium
+    signals:
+      - many 401 responses on /owa/auth.owa, /EWS or /Microsoft-Server-ActiveSync
+      - many distinct cs_username per source
+      - one source IP, many minutes
+    why: Spraying against Exchange and Basic-auth endpoints is a common first step and shows up as bursts of 401 (or 302 loops on forms login).
+    kql: |-
+      dataset="iis_logs" sc_status="401"
+      | where cs_uri_stem has_any ("/owa/", "/EWS/", "/Microsoft-Server-ActiveSync", "/autodiscover/")
+      | summarize fails=count(), users=dcount(cs_username) by c_ip, bin(_time, 15m)
+      | where users > 10
+    mitre:
+      - T1110.003
+optimizations:
+  - title: Drop W3C header lines
+    saving: < 1 % (but avoids parse errors)
+    fn: Drop
+    how: The #Software, #Version, #Date and #Fields lines repeat at every log roll and restart. Keep #Fields only for header-driven parsing at the edge.
+    expr: "/^#/.test(_raw)"
+  - title: Drop static content and NTLM handshake noise
+    saving: 30–50 %
+    fn: Drop
+    how: 2xx/304 for images, CSS and JS, plus the 401.2 first leg of every NTLM handshake, are most of the volume on intranet and Exchange servers.
+    expr: "(/^(2\\d\\d|304)$/.test(sc_status) && /\\.(png|gif|jpe?g|css|js|woff2?|ico)$/i.test(cs_uri_stem || '')) || (sc_status == '401' && sc_substatus == '2')"
+  - title: Drop health and monitoring probes
+    saving: 5–15 %
+    fn: Drop
+    how: Load balancers and Exchange Managed Availability probes (HealthMailbox users, /healthcheck.htm) hit every server all the time.
+    expr: "/healthcheck\\.htm$/i.test(cs_uri_stem || '') || /^HealthMailbox/i.test(cs_username || '')"
+  - title: Trim and type fields
+    saving: 10–20 %
+    fn: Eval
+    how: After parsing, merge date + time into _time and remove _raw, the constant s_port, and fields that are always "-". Decode + to spaces in cs_user_agent only if your SIEM needs it.
+    expr: "_time = Date.parse(date + 'T' + time + 'Z') / 1000; remove: _raw, s_port, date, time (when '-')"
+references:
+  - title: W3C logging — IIS log file formats (Microsoft Learn)
+    url: https://learn.microsoft.com/en-us/windows/win32/http/w3c-logging
+  - title: Configure logging in IIS (Microsoft Learn)
+    url: https://learn.microsoft.com/en-us/iis/manage/provisioning-and-managing-iis/configure-logging-in-iis
+  - title: IIS-Configuration events (event 29 fields)
+    url: https://detection.wiki/microsoft-windows-iis-configuration/
+  - title: Sigma rule — HTTP logging disabled on IIS server (event 29)
+    url: https://github.com/SigmaHQ/sigma/blob/master/rules/windows/builtin/iis-configuration/win_iis_logging_http_disabled.yml
+  - title: CVE-2021-31166 HTTP Protocol Stack RCE (MSRC)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-31166
+  - title: NVD — CVE-2021-26855 (ProxyLogon)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-26855
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: "Microsoft — Security update for Exchange Server 2019, 2016 and 2013: March 2, 2021 (KB5000871)"
+    url: https://support.microsoft.com/en-us/servicing/exchange/server/hotfix/2021/description-of-the-security-update-for-microsoft-exchange-server-2019-2016-and-2013-march-2-2021-kb5
+related:
+  - win-security
+  - sysmon
+  - active-directory
+  - o365
+  - apache-httpd
+  - nginx

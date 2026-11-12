@@ -2,19 +2,421 @@
 id: zeek
 name: Zeek
 short: Zeek
-vendor: Zeek project (open source)
-category: ndr
-status: stub
 aka:
   - Bro
+  - Bro IDS
+  - Zeek Network Security Monitor
+vendor: Zeek project (open source)
+category: ndr
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - nsm
+  - ndr
   - conn
   - dns
+  - ssl
   - span
   - tap
+  - json
+  - tsv
+summary: Zeek (formerly Bro) is a passive, open-source network security monitor. It turns traffic from a TAP or SPAN into structured transaction logs, one log per protocol (conn, dns, http, ssl, files, smb, kerberos …), all linked by a connection uid. Its event-driven scripting language lets teams write their own detections. Zeek is the engine inside Corelight, Security Onion and many NDR products, and its conn.log is the de facto standard network flow record for threat hunting.
 sourcetypes:
   - st: zeek:conn
+    desc: Connection summary (conn.log) — one record per TCP/UDP/ICMP connection
   - st: zeek:dns
+    desc: DNS transactions (dns.log)
   - st: zeek:http
-summary: Passive network sensor writing protocol transaction logs from a tap or SPAN.
+    desc: HTTP requests and responses (http.log)
+  - st: bro:conn:json
+    desc: Splunk Add-on for Zeek sourcetype for JSON conn.log (also bro:dns:json, bro:http:json …)
+  - st: bro_conn_json
+    desc: conn.log in JSON (5-tuple, bytes, packets, conn_state, history)
+  - st: bro_dns_json
+    desc: dns.log in JSON (query, qtype, rcode, answers, TTLs)
+  - st: bro_files_json
+    desc: files.log in JSON (file transfers seen in HTTP/SMB/SMTP/FTP with MIME type and hashes)
+  - st: bro_http_json
+    desc: http.log in JSON (method, host, uri, user agent, status, MIME types)
+  - st: bro_loaded_scripts_json
+    desc: loaded_scripts.log in JSON. The scripts and packages active when Zeek started (sensor config audit)
+  - st: bro_ntp_json
+    desc: ntp.log in JSON (NTP mode, stratum, reference and timestamps)
+  - st: bro_ocsp_json
+    desc: ocsp.log in JSON (certificate revocation checks)
+  - st: bro_ssl_json
+    desc: ssl.log in JSON (TLS version, cipher, SNI, certificate chain, validation status)
+  - st: bro_weird_json
+    desc: weird.log in JSON (protocol anomalies and unexpected traffic)
+  - st: bro_x509_json
+    desc: x509.log in JSON (certificate subject, issuer, validity, SANs, key details)
+  - st: zeek_json
+    desc: Any Zeek log written with LogAscii::use_json=T (log path in _path when shipped together)
+  - st: zeek_tsv
+    desc: Native Zeek ASCII TSV logs with the #separator / #fields header block
+  - st: BRO_JSON
+    desc: Google SecOps (Chronicle) log type for Zeek JSON
+  - st: BRO_TSV
+    desc: Google SecOps (Chronicle) log type for Zeek TSV
+facts:
+  First released: 1995 as Bro (Vern Paxson, LBNL). Renamed Zeek in 2018
+  Current trains: Zeek 8.0.x (feature) and 7.0.x (LTS)
+  Platforms: Linux, FreeBSD, macOS. Packaged in Security Onion, Malcolm, RockNSM. Commercial in Corelight
+  Deployment modes: Standalone or cluster (manager, proxies, loggers, workers) on SPAN/TAP or packet broker. Offline PCAP analysis
+  Extensibility: Zeek scripting language, Spicy parsers and zkg packages (JA3/JA4, HASSH, community_id, ICS protocols)
+  Log transport: Local files rotated hourly, or JSON streamed via Kafka, syslog or the log-writer plugins. Shipped by Cribl Edge or Filebeat
+  Log format: TSV with a header block (default) or one JSON object per line (use_json)
+  Typical volume: 5–15 GB/day per 1 Gbps sustained. conn.log is 40–60 % of records
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - edge
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: Internet egress TAP
+      desc: Behind the perimeter firewall, ideally before NAT so internal hosts are visible. Captures all north-south DNS, HTTP, TLS and file transfers.
+    - slot: internal
+      title: Core / data-center SPAN
+      desc: East-west visibility (SMB, Kerberos, DCE-RPC, RDP, LDAP), where lateral movement and AD attacks such as Zerologon show up in the logs.
+    - slot: cloud
+      title: Cloud packet mirroring
+      desc: Zeek workers behind AWS VPC Traffic Mirroring, Azure vTAP or GCP Packet Mirroring. Gives VPC traffic the same log schema as on-prem.
+howItWorks:
+  - title: Event engine
+    body: Packets are decoded and grouped into connections, each with a unique uid. Protocol analyzers (detected dynamically, not by port) parse application layers and raise events such as dns_request, http_reply, ssl_established and file_hash.
+  - title: Script layer (policy)
+    body: Scripts subscribe to events and decide what to log, which notices to raise and what state to keep. The default scripts write conn, dns, http, ssl, x509, files, smb, kerberos, weird, notice and others. Packages add JA3, HASSH or exploit-specific detectors.
+  - title: Logging framework
+    body: Each log stream is a typed record written by a writer (ASCII TSV by default, JSON with use_json). The uid links every protocol log to its conn.log record, and fuid links files.log to the transfer.
+  - title: Cluster architecture
+    body: A front-end load balancer (AF_PACKET fanout, PF_RING, Myricom) hashes flows across worker processes. Workers analyse, proxies share state, loggers write the logs, and a manager coordinates notices and the intel framework.
+  - title: Intel and notice frameworks
+    body: The intel framework matches IOCs (IPs, domains, hashes, certificate fingerprints) against what Zeek sees and writes intel.log. Scripts raise notices (scan detection, certificate issues, package detections), which land in notice.log.
+traffic:
+  handles:
+    - TCP, UDP, ICMP, IPv4/IPv6, VLAN, tunnels (GRE, VXLAN, Teredo)
+    - DNS, HTTP, TLS/SSL + X.509, QUIC
+    - SMB, DCE-RPC, Kerberos, NTLM, LDAP, RDP
+    - SSH, FTP, SMTP, SNMP, NTP, DHCP
+    - File extraction and hashing (MD5/SHA1/SHA256)
+    - ICS via packages — Modbus, DNP3, BACnet, S7comm
+  flow:
+    - step: Capture
+      desc: Worker reads packets from SPAN/TAP via the load balancer.
+    - step: Connection tracking
+      desc: Packet assigned to a connection; uid created on first packet.
+    - step: Protocol analysis
+      desc: Dynamic protocol detection picks the analyzer and parses the application layer.
+    - step: Events
+      desc: The analyzer raises events (dns_request, ssl_established …).
+    - step: Scripts
+      desc: Policy scripts build log records, check intel and raise notices.
+    - step: Log write
+      desc: Protocol logs are written live. conn.log is written when the connection ends or times out.
+logs:
+  - type: Connection (conn.log)
+    sourcetype: bro_conn_json
+    format: json
+    share: 40–60 %
+    avg: ~450 B
+    desc: One record per connection when it closes or times out. Includes the 5-tuple, service, duration, bytes and packets in each direction, conn_state and the TCP history string. This is the flow record everything else joins to via uid.
+    key:
+      - id.orig_h
+      - id.resp_h
+      - id.resp_p
+      - service
+      - duration
+      - orig_bytes
+      - resp_bytes
+      - conn_state
+    noise:
+      - missed_bytes
+      - orig_ip_bytes
+      - resp_ip_bytes
+      - local_orig
+      - local_resp
+      - tunnel_parents
+    sample: '{"ts":1762938862.401201,"uid":"CHhAvVGS1DHFjwGM9","id.orig_h":"10.20.30.44","id.orig_p":51544,"id.resp_h":"203.0.113.50","id.resp_p":443,"proto":"tcp","service":"ssl","duration":62.104511,"orig_bytes":3412,"resp_bytes":48210,"conn_state":"SF","local_orig":true,"local_resp":false,"missed_bytes":0,"history":"ShADadFf","orig_pkts":31,"orig_ip_bytes":5024,"resp_pkts":44,"resp_ip_bytes":50510,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE="}'
+  - type: DNS (dns.log)
+    sourcetype: bro_dns_json
+    format: json
+    share: 15–30 %
+    avg: ~400 B
+    desc: One record per DNS transaction, with query, qtype, rcode, answers and TTLs. Passive DNS from the wire, including clients that bypass the corporate resolver or use direct-to-internet DNS.
+    key:
+      - id.orig_h
+      - query
+      - qtype_name
+      - rcode_name
+      - answers[0]
+      - id.resp_h
+    noise:
+      - trans_id
+      - qclass
+      - qclass_name
+      - AA
+      - TC
+      - RD
+      - RA
+      - Z
+    sample: '{"ts":1762938862.390114,"uid":"Cq9tKD2Ue3Kk1gLqY7","id.orig_h":"10.20.30.44","id.orig_p":61022,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","trans_id":40312,"rtt":0.0121,"query":"cdn-sync.example.org","qclass":1,"qclass_name":"C_INTERNET","qtype":1,"qtype_name":"A","rcode":0,"rcode_name":"NOERROR","AA":false,"TC":false,"RD":true,"RA":true,"Z":0,"answers":["198.51.100.77"],"TTLs":[60.0],"rejected":false}'
+  - type: TLS (ssl.log)
+    sourcetype: bro_ssl_json
+    format: json
+    share: 5–15 %
+    avg: ~500 B
+    desc: One record per TLS handshake, with version, cipher, SNI, whether the session resumed or was established, and the certificate chain (fuids into x509.log). Packages add JA3/JA4.
+    key:
+      - id.orig_h
+      - id.resp_h
+      - server_name
+      - version
+      - validation_status
+      - ja3
+      - established
+    noise:
+      - curve
+      - resumed
+      - last_alert
+      - next_protocol
+      - cert_chain_fps[0]
+      - client_cert_chain_fps
+    sample: '{"ts":1762938863.010422,"uid":"CHhAvVGS1DHFjwGM9","id.orig_h":"10.20.30.44","id.orig_p":51544,"id.resp_h":"203.0.113.50","id.resp_p":443,"version":"TLSv12","cipher":"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256","curve":"x25519","server_name":"cdn-sync.example.org","resumed":false,"last_alert":"","next_protocol":"","established":true,"ssl_history":"CsxknGIi","cert_chain_fps":["9b3eaa1044216c880f127d21aa903c115e7201a4"],"client_cert_chain_fps":[],"subject":"CN=cdn-sync.example.org","issuer":"CN=cdn-sync.example.org","validation_status":"self signed certificate","ja3":"72a589da586844d7f0818ce684948eea"}'
+  - type: Connection (native TSV)
+    sourcetype: zeek_tsv
+    format: tsv
+    share: varies
+    avg: ~250 B
+    desc: The same conn.log in Zeek's default ASCII writer. Tab-separated, "-" for unset fields, "(empty)" for empty sets, with a #fields header that names the columns. Smaller on disk than JSON but needs the header to parse.
+    fields:
+      - ts
+      - uid
+      - id.orig_h
+      - id.orig_p
+      - id.resp_h
+      - id.resp_p
+      - proto
+      - service
+      - duration
+      - orig_bytes
+      - resp_bytes
+      - conn_state
+      - local_orig
+      - local_resp
+      - missed_bytes
+      - history
+      - orig_pkts
+      - orig_ip_bytes
+      - resp_pkts
+      - resp_ip_bytes
+      - tunnel_parents
+    key:
+      - id.orig_h
+      - id.resp_h
+      - id.resp_p
+      - service
+      - conn_state
+      - orig_bytes
+      - resp_bytes
+    noise:
+      - missed_bytes
+      - tunnel_parents
+      - orig_ip_bytes
+      - resp_ip_bytes
+    sample: "1762938870.118902\tC4fR2b1yZr8xq0Jw3\t10.20.30.61\t49822\t10.40.1.10\t445\ttcp\tsmb,gssapi\t3.201144\t14820\t9310\tSF\tT\tT\t0\tShADadFf\t48\t16752\t39\t10882\t(empty)"
+cves:
+  - id: CVE-2026-60109
+    cvss: 7.5
+    year: 2026
+    kev: false
+    scope: device
+    title: Kerberos analyzer NULL-pointer dereference — crafted KRB_ERROR crashes the sensor
+    affected: Zeek before 8.0.9
+    fixed: 8.0.9
+    detect: Worker crashes (zeekctl / cluster "crashed" status, crash reports) and gaps in conn.log for the affected worker. kerberos.log entries with error_msg KDC_ERR_PREAUTH_REQUIRED from unusual sources just before the gap.
+    avoid: Upgrade to 8.0.9. Alert on sensor and worker silence. Restart policies keep the blind window short.
+  - id: CVE-2026-60108
+    cvss: 7.5
+    year: 2026
+    kev: false
+    scope: device
+    title: FTP analyzer uncontrolled memory consumption (AUTH GSSAPI + huge ADAT line) — DoS
+    affected: Zeek before 8.0.9
+    fixed: 8.0.9
+    detect: Memory growth then OOM-kill of workers. ftp.log sessions with command AUTH and arg GSSAPI followed by ADAT from external sources. weird.log line-length anomalies.
+    avoid: Upgrade to 8.0.9. Set memory limits per worker and monitor them.
+  - id: CVE-2021-41732
+    cvss: 7.5
+    year: 2021
+    kev: false
+    scope: device
+    title: HTTP request splitting can blind HTTP-based analysis (vendor disputes — "intended behaviour")
+    affected: Zeek 4.1.0 (reported)
+    detect: http.log entries with unexpected methods or missing hosts within one uid, and weird.log HTTP anomalies. Compare with WAF or proxy logs for the same uid / community_id.
+    avoid: Don't rely on a single HTTP parser. Correlate with server or WAF logs. Keep Zeek current.
+  - id: CVE-2019-12175
+    cvss: 7.5
+    year: 2019
+    kev: false
+    scope: device
+    title: Kerberos parser NULL-pointer dereference (case-type index) — DoS
+    affected: Zeek (Bro) before 2.6.2
+    fixed: 2.6.2
+    detect: Worker crashes during Kerberos traffic. Gaps in kerberos.log and conn.log.
+    avoid: Upgrade. Legacy Bro 2.x sensors should be retired.
+  - id: CVE-2020-1472
+    cvss: 5.5
+    year: 2020
+    kev: true
+    scope: traffic
+    title: Zerologon — Netlogon (MS-NRPC) privilege escalation against domain controllers
+    affected: Windows Server domain controllers without the August 2020+ Netlogon fix
+    detect: notice.log Zerologon_Attempt / Zerologon_Password_Change from the corelight/zerologon package. dce_rpc.log bursts of NetrServerAuthenticate3 calls followed by NetrServerPasswordSet2 from one client.
+    avoid: Patch DCs and enforce secure RPC (enforcement mode). Deploy the Zeek package for detection.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: EternalBlue — SMBv1 remote code execution (WannaCry, NotPetya)
+    affected: Windows SMBv1 servers (Vista – Server 2016 pre-MS17-010)
+    detect: conn.log with service smb to many internal hosts on 445 from one source. smb_mapping / dce_rpc logs with SMBv1 negotiation. weird.log SMB anomalies. notice.log from EternalBlue detection packages.
+    avoid: Apply MS17-010, disable SMBv1, segment 445 between workstations.
+detections:
+  - title: Beaconing — periodic connections with constant size
+    severity: medium
+    signals:
+      - same id.orig_h → id.resp_h:id.resp_p
+      - regular intervals
+      - low variance in orig_bytes
+    why: Implants check in on a timer. conn.log alone is enough to find them, even inside TLS, and it is the classic Zeek hunt (RITA-style).
+    kql: |-
+      dataset="zeek_conn" proto="tcp"
+      | summarize n=count(), avg_b=avg(orig_bytes), sd_b=stdev(orig_bytes) by id.orig_h, id.resp_h, id.resp_p, bin(_time, 1h)
+      | where n > 30 and sd_b < avg_b * 0.1
+    mitre:
+      - T1071.001
+      - T1029
+  - title: Large outbound transfer to a rare destination
+    severity: high
+    signals:
+      - local_orig=true and local_resp=false
+      - orig_bytes > 500 MB
+      - destination seen by few hosts
+    why: Exfiltration shows as an upload that is far larger than the response (orig_bytes ≫ resp_bytes) to an uncommon external host.
+    kql: |-
+      dataset="zeek_conn" local_orig=true local_resp=false
+      | summarize up=sum(orig_bytes), down=sum(resp_bytes), hosts=dcount(id.orig_h) by id.resp_h, service
+      | where up > 500000000 and up > down * 5 and hosts < 3
+    mitre:
+      - T1041
+      - T1048
+  - title: Self-signed or invalid certificate on outbound TLS
+    severity: medium
+    signals:
+      - ssl.log validation_status != ok
+      - server_name rare
+      - established=true
+    why: Commodity C2 and phishing kits often use self-signed or mismatched certs. Legitimate SaaS almost never does.
+    kql: |-
+      dataset="zeek_ssl" established=true
+      | where validation_status in ("self signed certificate","unable to get local issuer certificate","certificate has expired")
+      | summarize clients=dcount(id.orig_h), n=count() by server_name, id.resp_h, ja3
+    mitre:
+      - T1573.002
+  - title: DNS tunnelling via long queries or TXT/NULL records
+    severity: medium
+    signals:
+      - strlen(query) > 60
+      - qtype_name in TXT, NULL
+      - many unique subdomains under one parent
+    why: Encodes data in query labels. Visible in dns.log even when clients use an external resolver directly.
+    kql: |-
+      dataset="zeek_dns"
+      | extend parent=extract("([^.]+\\.[^.]+)$", 1, query)
+      | where strlen(query) > 60 or qtype_name in ("TXT","NULL")
+      | summarize names=dcount(query) by id.orig_h, parent, bin(_time, 10m)
+      | where names > 50
+    mitre:
+      - T1071.004
+      - T1048
+  - title: Internal scanning / lateral SMB fan-out
+    severity: high
+    signals:
+      - one id.orig_h to many id.resp_h on 445/3389/22
+      - conn_state REJ / S0
+    why: Worm-like spread (EternalBlue) and post-compromise discovery hit many internal hosts quickly. Failed handshakes (S0, REJ) make it obvious.
+    kql: |-
+      dataset="zeek_conn" id.resp_p in (445,3389,22,135) local_resp=true
+      | summarize targets=dcount(id.resp_h), failed=countif(conn_state in ("S0","REJ","RSTO")) by id.orig_h, id.resp_p, bin(_time, 10m)
+      | where targets > 50
+    mitre:
+      - T1046
+      - T1021.002
+  - title: Zerologon exploitation (Zeek package notice)
+    severity: critical
+    signals:
+      - notice.log note Zerologon_Attempt / Zerologon_Password_Change
+      - target is a domain controller
+    why: A successful Zerologon resets the DC machine password and leads to domain takeover in minutes.
+    kql: |-
+      dataset="zeek_notice"
+      | where note has "Zerologon"
+      | summarize n=count(), first=min(_time) by src, dst, note
+    mitre:
+      - T1210
+      - T1068
+optimizations:
+  - title: Filter low-value logs at the source
+    saving: 10–25 %
+    fn: Drop
+    how: loaded_scripts, packet_filter, stats, capture_loss and reporter are operational, so send them to Lake or a metrics store. Keep conn, dns, http, ssl, x509, files, notice, weird, smb, kerberos, dce_rpc and intel.
+    expr: "['loaded_scripts','packet_filter','stats','capture_loss','reporter'].includes(_path)"
+  - title: Drop unanswered / scan noise from conn.log
+    saving: 15–35 % of conn
+    fn: Drop
+    how: Inbound internet scans produce S0/REJ connections with zero bytes to closed ports. Keep a sampled or aggregated view, and drop the rest before the SIEM.
+    expr: "!local_orig && ['S0','REJ','OTH'].includes(conn_state) && !orig_bytes && !resp_bytes"
+  - title: Aggregate internal chatter to metrics
+    saving: 30–50 % of conn
+    fn: Aggregations
+    how: Roll up internal DNS, NTP, LDAP and Kerberos conn records to counts and bytes per src/dst/service per minute. Raw records go to Lake for replay.
+    expr: local_orig && local_resp && ['dns','ntp','krb','ldap'].includes(service)
+  - title: Trim fields and convert TSV to JSON
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: Parse TSV using the #fields header, drop missed_bytes, *_ip_bytes, tunnel_parents and "-" placeholders, and add community_id for joins with Suricata and EDR.
+    expr: "remove: missed_bytes, orig_ip_bytes, resp_ip_bytes, tunnel_parents; drop '-' and '(empty)'"
+  - title: Route by log path
+    saving: SIEM licence
+    fn: Routes
+    how: notice, intel, weird, ssl, http, dns and files go to the SIEM. conn goes to Lake in full, with an aggregated copy in the SIEM. Pivot on uid when replaying an incident.
+    expr: _path=='conn' → Lake + SIEM(aggregated)  |  else → SIEM
+references:
+  - title: Zeek docs — conn.log
+    url: https://docs.zeek.org/en/master/logs/conn.html
+  - title: Zeek docs — dns.log
+    url: https://docs.zeek.org/en/master/logs/dns.html
+  - title: Zeek docs — ssl.log
+    url: https://docs.zeek.org/en/master/logs/ssl.html
+  - title: Zeek docs — log formats (TSV and JSON)
+    url: https://docs.zeek.org/en/master/log-formats.html
+  - title: Zeek v8.0.9 release (CVE-2026-60108 / CVE-2026-60109 fixes)
+    url: https://github.com/zeek/zeek/releases/tag/v8.0.9
+  - title: VulnCheck advisory — Zeek Kerberos KRB_ERROR NULL-pointer DoS
+    url: https://www.vulncheck.com/advisories/zeek-null-pointer-dereference-dos-via-kerberos-krb-error-parsing
+  - title: corelight/zerologon — Zeek detection package for CVE-2020-1472
+    url: https://github.com/corelight/zerologon
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - corelight
+  - suricata
+  - splunk-stream
+  - netflow
+  - aws-vpc-flow
+  - infoblox

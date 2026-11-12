@@ -1,0 +1,411 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-db2
+name: IBM Db2 Audit Facility
+short: Db2
+aka:
+  - IBM Db2 for Linux, UNIX and Windows
+  - Db2 LUW
+  - db2audit
+  - Db2 Warehouse
+  - Db2 Connect Server
+vendor: IBM
+category: db
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - database
+  - sql
+  - audit
+  - ibm
+  - db2
+  - csv
+  - authentication
+  - privileged-access
+summary: The built-in audit facility of IBM Db2 (LUW). It records events in eight categories — AUDIT, CHECKING, OBJMAINT, SECMAINT, SYSADMIN, VALIDATE, CONTEXT and EXECUTE — to a binary audit log per member, which db2audit extract (or SYSPROC.AUDIT_DELIM_EXTRACT) turns into delimited files per category or a readable report. It answers who authenticated, who granted what, who ran which administrative command and which SQL statement text was executed.
+sourcetypes:
+  - st: ibm_db2_audit_context
+    desc: CONTEXT category — operation context and statement text (EXECUTE_IMMEDIATE, PREPARE, CONNECT, COMMIT, ROLLBACK …)
+  - st: ibm_db2_audit_objmaint
+    desc: OBJMAINT category — CREATE_OBJECT, DROP_OBJECT, ALTER_OBJECT, RENAME_OBJECT
+  - st: ibm_db2_audit_secmaint
+    desc: SECMAINT category — GRANT, REVOKE, IMPLICIT_GRANT, role and trusted-context changes, SECADM/DBADM/DATAACCESS authorities
+  - st: ibm_db2_audit_sysadmin
+    desc: SYSADMIN category — DB2AUDIT, DB2SET, START_DB2/STOP_DB2, UPDATE_DBM_CFG, BACKUP_DB, RESTORE_DB, FORCE_APPLICATION …
+  - st: ibm_db2_audit_validate
+    desc: VALIDATE category — AUTHENTICATION and GET_USERMAPPING_FROM_PLUGIN, with SQLCODE status
+facts:
+  First released: 1983 (DB2 for MVS); Db2 LUW since the 1990s; audit facility rewritten in 9.5 (policies, per-database logs)
+  Current releases: Db2 12.1, 11.5 (Linux, AIX, Windows; containers / OpenShift; Db2 on Cloud, Db2 Warehouse)
+  Audit configuration: Instance level via db2audit configure; database level via CREATE AUDIT POLICY + AUDIT … USING POLICY (SECADM)
+  Categories: AUDIT, CHECKING, OBJMAINT, SECMAINT, SYSADMIN, VALIDATE, CONTEXT, EXECUTE
+  Log transport: Binary db2audit.instance.log / db2audit.db.<db>.log → archive → db2audit extract (delasc or file) → file monitor / syslog forwarder
+  Log format: Delimited ASCII per category (audit.del, checking.del, objmaint.del, secmaint.del, sysadmin.del, validate.del, context.del, execute.del + auditlobs); or key=value report
+  Typical volume: VALIDATE + SECMAINT + SYSADMIN low (< 10 EPS); CONTEXT/EXECUTE can be the largest source in the estate on OLTP systems
+  Event status: SQLCODE — >= 0 success, < 0 failure (e.g. -30082 security processing failed)
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: Core banking, ERP and mainframe-adjacent data tier
+      desc: Db2 LUW on AIX/Linux behind SAP, core banking and insurance applications. Usually the system of record for regulated data, so audit is a PCI/SOX requirement.
+    - slot: internal
+      title: Warehouse / analytics
+      desc: Db2 Warehouse and federated Db2 instances pulling from many sources; federation wrappers add Java (and its CVEs) to the database host.
+    - slot: cloud
+      title: Db2 on OpenShift and Db2 on Cloud
+      desc: Containerised Db2 (Db2U operator, Cloud Pak for Data) and IBM-managed Db2 on Cloud. Audit still uses db2audit; the extract job runs inside the pod or via the managed service.
+howItWorks:
+  - title: Audit policies
+    body: A SECADM creates audit policies (CREATE AUDIT POLICY … CATEGORIES VALIDATE STATUS BOTH, SECMAINT STATUS BOTH …) and attaches them with AUDIT to the database, tables, authorities (SYSADM, DBADM, SECADM), users, groups, roles or trusted contexts. Instance-level events (SYSADMIN, instance VALIDATE) are configured with db2audit configure.
+  - title: Buffered binary audit log
+    body: Each member writes to db2audit.instance.log.<member> and db2audit.db.<dbname>.log.<member> in the audit data path. audit_buf_sz sets synchronous vs asynchronous writing; ERRORTYPE AUDIT makes a failed audit write fail the statement, NORMAL lets it continue.
+  - title: Archive and extract
+    body: db2audit archive (or SYSPROC.AUDIT_ARCHIVE) moves the active log to an archive path with a timestamp. db2audit extract delasc writes one delimited file per category (statement text goes to auditlobs with LOB location specifiers); db2audit extract file writes a readable key=value report. A scheduled extract is what feeds the SIEM.
+  - title: Categories that matter for security
+    body: VALIDATE (authentication, status SQLCODE), SECMAINT (GRANT/REVOKE of privileges and authorities such as DBADM, SECADM, DATAACCESS, ACCESSCTRL), SYSADMIN (instance commands, configuration, backup/restore, db2audit itself), OBJMAINT (DDL), CONTEXT (statement text and connection context) and EXECUTE (full statement with host-variable values — the most expensive).
+  - title: Event correlation
+    body: All records of one operation share an event correlator, and CONTEXT records carry the statement that produced an OBJMAINT/SECMAINT record. A GRANT logged as successful can still be rolled back, so the CONTEXT COMMIT/ROLLBACK tells you whether it stuck.
+traffic:
+  handles:
+    - DRDA client connections (TCP 50000 / 50001 TLS by default)
+    - Local (IPC) connections from the instance owner
+    - SQL and XQuery statements, stored procedures
+    - GRANT / REVOKE, roles, trusted contexts, RCAC (row/column access control)
+    - Instance and database administration commands
+    - Federation to remote sources (wrappers)
+  flow:
+    - step: Connect
+      desc: Client connects over DRDA (or IPC locally); the security plug-in authenticates the user.
+    - step: VALIDATE record
+      desc: AUTHENTICATION written with auth type, plug-in name and SQLCODE status.
+    - step: Authorize
+      desc: Privilege checks run; CHECKING records for authorisation attempts if audited.
+    - step: Execute
+      desc: Statement runs; CONTEXT/EXECUTE records carry the statement text, OBJMAINT/SECMAINT the object changes.
+    - step: Audit log
+      desc: Records buffered and written to the per-member binary audit log.
+    - step: Archive + extract
+      desc: Scheduled db2audit archive + extract delasc produce per-category .del files.
+    - step: Ship
+      desc: A file monitor or syslog forwarder sends the delimited rows to Cribl Stream.
+logs:
+  - type: VALIDATE (authentication)
+    sourcetype: ibm_db2_audit_validate
+    format: csv
+    share: 30–60 % (without CONTEXT/EXECUTE)
+    avg: ~260 B
+    desc: One row per authentication attempt from validate.del. event_status is the SQLCODE (0 ok, -30082 bad credentials); application_id encodes the client IP in hex for TCP connections (CB00712D = 203.0.113.45).
+    fields:
+      - timestamp
+      - category
+      - audit_event
+      - event_correlator
+      - event_status
+      - database
+      - userid
+      - authid
+      - execution_id
+      - origin_node
+      - coordinator_node
+      - application_id
+      - application_name
+      - auth_type
+      - package_schema
+      - package_name
+      - package_section
+      - package_version
+      - plugin_name
+      - local_txn_id
+      - global_txn_id
+      - client_userid
+      - client_wrkstnname
+      - client_applname
+      - client_acctng
+      - trusted_context
+      - conn_trust_type
+      - role_inherited
+      - original_userid
+      - instance_name
+      - hostname
+      - tenant_name
+    key:
+      - timestamp
+      - audit_event
+      - event_status
+      - database
+      - userid
+      - application_id
+      - application_name
+      - client_wrkstnname
+    noise:
+      - package_schema
+      - package_name
+      - package_section
+      - package_version
+      - local_txn_id
+      - global_txn_id
+      - tenant_name
+      - origin_node
+    sample: '"2026-11-12-09.14.22.185321","VALIDATE","AUTHENTICATION",2,-30082,"PAYDB   ","jdoe","JDOE","jdoe",0,0,"CB00712D.BC53.261112091422","db2jcc_application","SERVER","","",0,"","IBMOSauthserver","","","","WS-FIN-0042","","","","","","","db2inst1","db2prd01",""'
+  - type: SECMAINT (grants and authorities)
+    sourcetype: ibm_db2_audit_secmaint
+    format: text
+    share: < 5 %
+    avg: ~450 B
+    desc: GRANT/REVOKE of privileges and authorities, shown here in the db2audit extract file report form (one record, fields separated by semicolons). The delasc form has the same fields plus trusted-context, RCAC and client-register columns.
+    pattern: '^timestamp=(?<timestamp>[^;]+); category=(?<category>[^;]+); audit event=(?<audit_event>[^;]+); event correlator=(?<event_correlator>\d+); event status=(?<event_status>-?\d+); database=(?<database>[^;]*); userid=(?<userid>[^;]*); authid=(?<authid>[^;]*); application id=(?<application_id>[^;]*); application name=(?<application_name>[^;]*); package schema=(?<package_schema>[^;]*); package name=(?<package_name>[^;]*); package section=(?<package_section>\d+); object schema=(?<object_schema>[^;]*); object name=(?<object_name>[^;]*); object type=(?<object_type>[^;]*); grantor=(?<grantor>[^;]*); grantee=(?<grantee>[^;]*); grantee type=(?<grantee_type>[^;]*); privilege=(?<privilege>[^;]*);$'
+    key:
+      - timestamp
+      - audit_event
+      - event_status
+      - userid
+      - object_name
+      - grantor
+      - grantee
+      - privilege
+    noise:
+      - package_schema
+      - package_name
+      - package_section
+    sample: 'timestamp=2026-11-12-09.31.05.188101; category=SECMAINT; audit event=GRANT; event correlator=4; event status=0; database=PAYDB; userid=dbadm1; authid=DBADM1; application id=0A140411.C1F2.261112093105; application name=db2bp; package schema=NULLID; package name=SQLC2P31; package section=0; object schema=PAYDB; object name=PAYDB; object type=DATABASE; grantor=DBADM1; grantee=SVC_ETL; grantee type=USER; privilege=DATAACCESS;'
+  - type: CONTEXT (statement text)
+    sourcetype: ibm_db2_audit_context
+    format: text
+    share: 40–90 % (when enabled)
+    avg: ~400 B
+    desc: Context and statement text for each audited operation (EXECUTE_IMMEDIATE, PREPARE, CONNECT, COMMIT, ROLLBACK …). Shown in report form; in delasc output the statement text sits in auditlobs and the row carries a LOB location specifier.
+    pattern: '^timestamp=(?<timestamp>[^;]+); category=(?<category>[^;]+); audit event=(?<audit_event>[^;]+); event correlator=(?<event_correlator>\d+); database=(?<database>[^;]*); userid=(?<userid>[^;]*); authid=(?<authid>[^;]*); application id=(?<application_id>[^;]*); application name=(?<application_name>[^;]*); package schema=(?<package_schema>[^;]*); package name=(?<package_name>[^;]*); package section=(?<package_section>\d+); text=(?<text>.*);$'
+    key:
+      - timestamp
+      - audit_event
+      - database
+      - userid
+      - application_id
+      - text
+    noise:
+      - package_schema
+      - package_name
+      - package_section
+      - event_correlator
+    sample: 'timestamp=2026-11-12-09.31.05.176220; category=CONTEXT; audit event=EXECUTE_IMMEDIATE; event correlator=4; database=PAYDB; userid=dbadm1; authid=DBADM1; application id=0A140411.C1F2.261112093105; application name=db2bp; package schema=NULLID; package name=SQLC2P31; package section=203; text=GRANT DATAACCESS ON DATABASE TO USER SVC_ETL;'
+  - type: SYSADMIN (instance administration)
+    sourcetype: ibm_db2_audit_sysadmin
+    format: csv
+    share: < 5 %
+    avg: ~200 B
+    desc: Instance-level administrative commands from sysadmin.del — db2audit itself, db2set, start/stop, configuration updates, backup/restore, FORCE APPLICATION. A DB2AUDIT event outside the extract schedule can mean someone is reconfiguring or stopping audit.
+    fields:
+      - timestamp
+      - category
+      - audit_event
+      - event_correlator
+      - event_status
+      - database
+      - userid
+      - authid
+      - origin_node
+      - coordinator_node
+      - application_id
+      - application_name
+      - package_schema
+      - package_name
+      - package_section
+      - package_version
+      - local_txn_id
+      - global_txn_id
+      - client_userid
+      - client_wrkstnname
+      - client_applname
+      - client_acctng
+      - trusted_context
+      - conn_trust_type
+      - role_inherited
+      - original_userid
+      - event_details
+      - tenant_name
+    key:
+      - timestamp
+      - audit_event
+      - event_status
+      - userid
+      - application_id
+      - application_name
+      - event_details
+    noise:
+      - package_schema
+      - package_name
+      - package_section
+      - package_version
+      - local_txn_id
+      - global_txn_id
+    sample: '"2026-11-12-02.47.10.004512","SYSADMIN","DB2AUDIT",1,0,"        ","db2inst1","DB2INST1",0,0,"*LOCAL.db2inst1.261112014710","db2audit","","",0,"","","","","","","","","","","","",""'
+cves:
+  - id: CVE-2026-10543
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Db2 privilege escalation with a specially crafted query (improper authorization; ownership-transfer and ADMIN_MOVE_TABLE / ADMIN_COPY_SCHEMA paths changed by the fix)
+    affected: Db2 Server 11.5.0–11.5.9 and 12.1.0–12.1.5, all platforms
+    fixed: Interim security update (APAR DT472016) for 11.5.9, 12.1.4 and 12.1.5
+    detect: SECMAINT records where the grantee gains DBADM/SECADM/DATAACCESS without a matching GRANT by a known admin; CONTEXT text with TRANSFER OWNERSHIP, ADMIN_MOVE_TABLE or ADMIN_COPY_SCHEMA from non-admin users.
+    avoid: Apply the security update; audit SECMAINT and CONTEXT for all authorities; restrict EXECUTE on administrative procedures.
+  - id: CVE-2025-36184
+    cvss: 7.2
+    year: 2026
+    kev: false
+    scope: device
+    title: Db2 on Linux — instance owner can escalate to root (execution with unnecessary privileges)
+    affected: Db2 11.5.0–11.5.9 on Linux
+    fixed: Special build (APAR DT191269) for 11.5.9
+    detect: SYSADMIN records for DB2SET / UPDATE_DBM_CFG by the instance owner at unusual times, followed by OS-level root activity on the database host (auditd).
+    avoid: Patch; protect the instance-owner account like root (MFA on jump host, no shared password); monitor setuid binaries under sqllib.
+  - id: CVE-2018-1978
+    cvss: 7.8
+    year: 2019
+    kev: false
+    scope: device
+    title: Db2 buffer overflow — authenticated local user executes code as root
+    affected: Db2 9.7, 10.1, 10.5, 11.1
+    fixed: 11.1.4.4 iFix001 (special builds for older releases)
+    detect: Not visible in db2audit; look for crashes (db2diag.log traps) and root processes spawned from Db2 setuid binaries.
+    avoid: Patch or upgrade off out-of-support releases; restrict shell access to database hosts.
+  - id: CVE-2023-27559
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: device
+    title: Db2 server crash (DoS) on a specially crafted subquery
+    affected: Db2 10.5, 11.1, 11.5
+    detect: CONTEXT records with deeply nested subqueries from one application id immediately before a gap in all audit categories and a START_DB2 SYSADMIN record.
+    avoid: Patch; limit ad-hoc SQL access; use workload management to cap runaway queries.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: device
+    title: Apache Log4j JNDI RCE (Log4Shell) in Db2 11.5 Federation wrappers (DVM JDBC, NoSQL/Hadoop, Blockchain)
+    affected: Db2 11.5 only when FEDERATED=YES and one of those wrappers is configured
+    fixed: Special builds for 11.5.6 / 11.5.7; mitigation DB2_JVM_STARTARGS=-Dlog4j2.formatMsgNoLookups=true
+    detect: CONTEXT text with ${jndi strings passed to federated nicknames; outbound LDAP/RMI from the Db2 host in firewall logs.
+    avoid: Set FEDERATED=NO if unused; apply the special build; egress-filter database hosts.
+detections:
+  - title: Brute force / password spraying against Db2
+    severity: high
+    signals:
+      - category=VALIDATE
+      - audit_event=AUTHENTICATION
+      - event_status < 0 (e.g. -30082)
+      - many attempts per application_id source or per user
+    why: Db2 authenticates against the OS or LDAP, so a spray against Db2 is also a spray against those accounts. Repeated -30082 from one client is either an attack or a broken service credential.
+    kql: |-
+      dataset="db2_audit" category has "VALIDATE" event_status < 0
+      | extend client=substring(application_id, 1, 8)
+      | summarize fails=count(), users=dcount(userid) by client, database, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: High-value authority granted (DBADM, SECADM, DATAACCESS, ACCESSCTRL)
+    severity: high
+    signals:
+      - category=SECMAINT
+      - audit_event=GRANT
+      - privilege in DBADM / SECADM / DATAACCESS / ACCESSCTRL / SQLADM
+    why: These authorities give read access to all data or control over security itself. They change rarely and only through change management — any grant is worth a ticket check.
+    kql: |-
+      dataset="db2_audit" category="SECMAINT" audit_event="GRANT" event_status >= 0
+      | where privilege in ("DBADM","SECADM","DATAACCESS","ACCESSCTRL","SQLADM","SETSESSIONUSER")
+      | project _time, userid, grantor, grantee, grantee_type, privilege, object_name
+    mitre:
+      - T1098
+  - title: Audit configuration changed or stopped
+    severity: high
+    signals:
+      - category=SYSADMIN audit_event=DB2AUDIT outside the archive/extract schedule
+      - CONTEXT text with AUDIT … REMOVE POLICY / DROP AUDIT POLICY / ALTER AUDIT POLICY
+    why: Turning off or narrowing the audit policy is defence evasion; on Db2 it requires SYSADM (instance) or SECADM (database), so it also identifies who holds those powers.
+    kql: |-
+      dataset="db2_audit" (audit_event has "DB2AUDIT") or (text matches regex @"(?i)(DROP|ALTER)\s+AUDIT\s+POLICY|REMOVE\s+POLICY")
+      | project _time, userid, application_name, audit_event, text
+    mitre:
+      - T1562.001
+  - title: Instance owner or SYSADM changing registry and configuration
+    severity: medium
+    signals:
+      - category=SYSADMIN
+      - audit_event in DB2SET / UPDATE_DBM_CFG / UPDATE_DB_CFG
+      - outside change window
+    why: db2set and DBM CFG changes (e.g. AUTHENTICATION=CLIENT, SYSADM_GROUP, DB2_JVM_STARTARGS) can weaken authentication or load code — the precursor to CVE-2025-36184-style escalation.
+    kql: |-
+      dataset="db2_audit" category has "SYSADMIN"
+      | where audit_event has_any ("DB2SET","UPDATE_DBM_CFG","UPDATE_DB_CFG")
+      | summarize count() by userid, audit_event, bin(_time, 1h)
+    mitre:
+      - T1078.003
+      - T1556
+  - title: Bulk data export or unload
+    severity: medium
+    signals:
+      - CONTEXT text with EXPORT TO / UNLOAD / ADMIN_CMD('EXPORT …')
+      - SYSADMIN UNLOAD_TABLE or BACKUP_DB to an unusual path
+    why: Exfiltration from Db2 commonly uses the built-in EXPORT/UNLOAD utilities or a backup image copied off-host, which bypasses application-level controls.
+    kql: |-
+      dataset="db2_audit"
+      | where text matches regex @"(?i)\b(EXPORT\s+TO|UNLOAD|ADMIN_CMD\s*\(\s*'EXPORT)" or audit_event has_any ("UNLOAD_TABLE","BACKUP_DB")
+      | project _time, userid, application_id, audit_event, text
+    mitre:
+      - T1005
+      - T1213
+optimizations:
+  - title: Audit EXECUTE/CONTEXT only where it matters
+    saving: 50–90 %
+    fn: Drop
+    how: Attach EXECUTE/CONTEXT policies to sensitive tables, privileged authorities (SYSADM, DBADM, SECADM) and human users rather than the whole database. In Stream, drop CONTEXT COMMIT/ROLLBACK/CONNECT_RESET records that carry no statement text.
+    expr: category=='CONTEXT' && ['COMMIT','ROLLBACK','CONNECT_RESET','DESCRIBE','CLOSE_CURSOR'].includes(audit_event)
+  - title: Strip empty and package columns
+    saving: 30–50 %
+    fn: Parser → Serialize
+    how: Delasc rows carry many empty client-register, trusted-context, transaction-id and package columns. Parse with the per-category header, drop empties and package_*/txn ids, then serialise to JSON or keep CSV if the SIEM parser expects it.
+    expr: "remove: package_*, local_txn_id, global_txn_id, tenant_name; drop empty"
+  - title: Decode the client IP from application_id
+    saving: Analyst time
+    fn: Eval
+    how: For TCP connections the first 8 hex digits of application_id are the client IPv4 address. Add src_ip so detections and lookups work without string tricks.
+    expr: "Code function — if application_id starts with 8 hex digits, src_ip = the 4 hex byte pairs converted to decimal and joined with dots"
+  - title: Suppress repeated failed authentications
+    saving: 5–20 %
+    fn: Suppress
+    how: A misconfigured service retries with a stale password thousands of times. Keep one per userid + client per minute with a count.
+    expr: "key: `${userid}:${application_id.substr(0,8)}`  allow 1 / 60s  when category=='VALIDATE' && event_status<0"
+  - title: Route by category
+    saving: SIEM licence
+    fn: Routes
+    how: VALIDATE failures, SECMAINT, SYSADMIN and OBJMAINT → SIEM. CONTEXT/EXECUTE → Cribl Lake for compliance retention and investigations.
+    expr: category in ('CONTEXT','EXECUTE') → Lake | else → SIEM
+references:
+  - title: Db2 12.1 — db2audit command (extract delasc / file)
+    url: https://www.ibm.com/docs/en/db2/12.1.x?topic=commands-db2audit-audit-facility-administrator-tool
+  - title: Db2 12.1 — Audit record layout for VALIDATE events
+    url: https://www.ibm.com/docs/en/db2/12.1.x?topic=layouts-audit-record-layout-validate-events
+  - title: Db2 12.1 — Audit record layout for SECMAINT events
+    url: https://www.ibm.com/docs/en/db2/12.1.x?topic=layouts-audit-record-layout-secmaint-events
+  - title: IBM Db2 12.1 Database Security Guide (PDF — audit categories and record layouts)
+    url: https://public.dhe.ibm.com/ps/products/db2/info/vr121/pdf/en_US/db2_sec_guide_121.pdf
+  - title: IBM Security Bulletin — CVE-2026-10543
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm%C2%AE-db2%C2%AE-vulnerable-privilege-escalation-specially-crafted-query-cve-2026-10543
+  - title: IBM Security Bulletin — CVE-2025-36184
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm%C2%AE-db2%C2%AE-vulnerable-local-privilege-escalation-and-get-root-access-system-cve-2025-36184
+  - title: IBM Security Bulletin — Log4j in Db2 Federation (CVE-2021-44228)
+    url: https://www.ibm.com/support/pages/node/6526462
+related:
+  - ibm-aix
+  - ibm-zos
+  - ibm-i
+  - sap
+  - imperva-dam
+  - mysql

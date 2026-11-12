@@ -1,0 +1,265 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: exabeam
+name: Exabeam
+short: Exabeam
+aka:
+  - Exabeam New-Scale Security Operations Platform
+  - Exabeam Fusion
+  - Exabeam Advanced Analytics (UEBA)
+  - Exabeam Data Lake
+  - LogRhythm (merged 2024)
+vendor: Exabeam
+category: pipeline
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - siem
+  - ueba
+  - cim
+  - normalization
+  - json
+  - risk-scoring
+summary: SIEM and UEBA platform (cloud-native New-Scale, plus legacy on-prem Advanced Analytics and Data Lake). Exabeam parsers normalise every log into its Common Information Model (CIM 2.0), and UEBA models score users and assets for risk. The exabeam_cim sourcetype covers these normalised events exported as JSON. Each event carries the context elements subject, activity, activity_type, outcome, vendor, product, platform and landscape alongside common fields such as user, src_ip and dest_host.
+sourcetypes:
+  - st: exabeam_cim
+    desc: Exabeam CIM-normalised events as one JSON object per line (context elements plus common fields such as user, src_ip, dest_host, event_code, alert_name, risk_score)
+facts:
+  First released: 2013 (Exabeam founded; Advanced Analytics UEBA); cloud Fusion/New-Scale SIEM from 2022; merged with LogRhythm in 2024
+  Deployment modes: "SaaS New-Scale platform (Security Operations Platform); legacy on-prem Advanced Analytics and Data Lake (i-series releases)"
+  Data model: "Common Information Model 2.0 — event name subject-sub_subject-activity:outcome, fields classed Core / Detection / Informational"
+  Collection: Site Collector (on-prem agent/relay, Logstash-based in legacy releases), Cloud Collectors for SaaS APIs, syslog
+  Log format: "JSON; field names from the ExabeamLabs CIMLibrary (e.g. activity_type, outcome, src_ip, dest_host)"
+  Detection model: Fact-based and model-based UEBA rules add risk to user and asset timelines; correlation rules raise alerts
+  Typical EPS: Mirrors the ingested sources — 1k–100k+ per tenant
+placement:
+  slots:
+    - cloud
+    - internal
+  items:
+    - slot: cloud
+      title: New-Scale SaaS tenant
+      desc: Cloud SIEM/UEBA. Cloud Collectors pull SaaS APIs (M365, Okta, AWS); on-prem data arrives through Site Collectors or a pipeline such as Cribl.
+    - slot: internal
+      title: Site Collector and legacy on-prem
+      desc: Site Collectors on-prem relay syslog and agent data. Legacy Advanced Analytics and Data Lake clusters ran entirely in the data center.
+howItWorks:
+  - title: Parsers and the CIM
+    body: Each supported product has Exabeam parsers (regex or JSON) that extract fields and map them to CIM names. An event builder then assigns subject, activity, activity_type and outcome, so authentication from Okta and Windows looks the same downstream.
+  - title: Context elements
+    body: Subject is the entity acted on (user, file, process, endpoint), activity is what happened (login, create, modify), outcome is success or fail. Vendor, product, product_category, platform and landscape say where the event came from.
+  - title: Enrichment
+    body: Events are enriched with user and asset context (HR attributes, AD groups, asset criticality), geo-IP and threat intelligence before models run.
+  - title: UEBA models and rules
+    body: Categorical and numerical models learn normal behaviour per user and peer group. Fact-based and model-based rules fire on deviations and add points to a session's risk score.
+  - title: Alerts and timelines
+    body: Correlation rules and high-risk sessions create alerts with alert_name, severity and MITRE mapping. Analysts work them as cases in the timeline view.
+traffic:
+  handles:
+    - Syslog UDP/TCP/TLS to Site Collectors
+    - HTTPS ingestion APIs and Cloud Collector API pulls
+    - Agent forwarding (Windows events, files) via Site Collector
+    - Search / export APIs (HTTPS, JSON)
+    - Outbound forwarding of normalised events
+  flow:
+    - step: Collect
+      desc: Site Collectors, Cloud Collectors and syslog receive raw logs from sources.
+    - step: Parse
+      desc: Parser selection by log signature; fields extracted and renamed to CIM fields.
+    - step: Build event
+      desc: Event builder assigns subject, activity, activity_type, outcome and the vendor/product context.
+    - step: Enrich
+      desc: User, asset, geo and threat-intel context is added.
+    - step: Analyse
+      desc: UEBA models and correlation rules score sessions and raise alerts.
+    - step: Export
+      desc: Normalised events and alerts leave as JSON (exabeam_cim) to a pipeline, lake or another SIEM.
+logs:
+  - type: CIM authentication event
+    sourcetype: exabeam_cim
+    format: json
+    share: 30–50 %
+    avg: ~700 B
+    desc: Normalised login event. subject/activity/outcome classify it, vendor/product/platform say which source produced it, and the common fields carry the user, source and target.
+    key:
+      - activity_type
+      - outcome
+      - user
+      - src_ip
+      - dest_host
+      - failure_reason
+      - product
+    noise:
+      - landscape
+      - product_category
+      - platform
+    sample: '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"fail","event_code":"4625","user":"jdoe","domain":"CORP","src_ip":"10.20.30.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"Unknown user name or bad password","host":"dc01.corp.example.com"}'
+  - type: CIM process event
+    sourcetype: exabeam_cim
+    format: json
+    share: 20–40 %
+    avg: ~800 B
+    desc: Normalised endpoint process creation (Sysmon, EDR or 4688) with the process, parent and command line.
+    key:
+      - activity_type
+      - user
+      - src_host
+      - process_name
+      - parent_process_name
+      - process_command_line
+    noise:
+      - landscape
+      - product_category
+      - event_code
+    sample: '{"time":"2026-11-12T09:15:22.031Z","vendor":"Microsoft","product":"Sysmon","product_category":"endpoint","platform":"Windows","landscape":"endpoint","subject":"process","activity":"create","activity_type":"process-create","outcome":"success","event_code":"1","user":"jdoe","src_host":"ws-0142","process_name":"powershell.exe","parent_process_name":"winword.exe","process_command_line":"powershell.exe -nop -w hidden -enc SQBFAFgA","host":"ws-0142"}'
+  - type: Exabeam alert
+    sourcetype: exabeam_cim
+    format: json
+    share: < 1 %
+    avg: ~600 B
+    desc: Alert or high-risk session raised by a correlation rule or UEBA model, with the alert name, severity, risk score and the entity involved.
+    key:
+      - alert_name
+      - alert_severity
+      - risk_score
+      - user
+      - src_host
+    noise:
+      - vendor
+      - product
+      - landscape
+    sample: '{"time":"2026-11-12T09:20:00.000Z","vendor":"Exabeam","product":"Exabeam Analytics","product_category":"siem","subject":"alert","activity":"trigger","activity_type":"alert-trigger","outcome":"success","alert_name":"Abnormal logon to multiple hosts by user","alert_severity":"high","risk_score":87,"user":"jdoe","src_host":"ws-0142","src_ip":"10.20.30.44","landscape":"siem"}'
+cves:
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: device
+    title: Log4Shell in bundled Logstash/Elasticsearch (Data Lake) and Logstash/Datadog Agent (Site Collector)
+    affected: Exabeam Data Lake before i40.3 and Site Collector releases bundling vulnerable Log4j 2 (per Data Lake i40.3 release notes)
+    fixed: Data Lake i40.3
+    detect: "Outbound LDAP/RMI/DNS from Data Lake or Site Collector hosts; ${jndi: strings in logs those components parse."
+    avoid: Upgrade Data Lake to i40.3+ and Site Collectors to a patched release; legacy on-prem clusters should be on supported releases or migrated.
+  - id: CVE-2020-1472
+    cvss: 5.5
+    year: 2020
+    kev: true
+    scope: traffic
+    title: Zerologon — Netlogon privilege escalation to domain admin, visible in the Windows events Exabeam normalises
+    affected: Unpatched Windows domain controllers (Netlogon secure channel)
+    detect: "Netlogon events 5827/5828/5829 and a machine-account password change (4742) on a DC, followed by DCSync-like replication (4662) from a non-DC src_host."
+    avoid: Apply the August 2020 and February 2021 Netlogon updates and enforce secure RPC.
+  - id: CVE-2023-23397
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Outlook NTLM hash leak via a reminder sound UNC path, visible in email and auth events
+    affected: Microsoft Outlook for Windows before the March 2023 updates
+    detect: Outbound SMB (445) or WebDAV from workstations to internet IPs; NTLM authentication events (endpoint-login, auth_method NTLM) to external hosts.
+    avoid: Patch Outlook; block outbound 445; add users to Protected Users where possible.
+detections:
+  - title: Password spraying across many users
+    severity: high
+    signals:
+      - activity_type=endpoint-login or user-login, outcome=fail
+      - many distinct user per src_ip
+    why: Spraying tries a few passwords against many accounts. The CIM normalises failures from AD, Okta and VPN into one shape, so the same query works across sources.
+    kql: |-
+      dataset="exabeam" activity="login" outcome="fail"
+      | summarize users=dcount(user), fails=count() by src_ip, product, bin(_time, 15m)
+      | where users > 15
+    mitre:
+      - T1110.003
+  - title: Office application spawning a script host
+    severity: high
+    signals:
+      - activity_type=process-create
+      - parent_process_name in winword.exe, excel.exe, outlook.exe
+      - process_name in powershell.exe, cmd.exe, wscript.exe, mshta.exe
+    why: Malicious documents launch interpreters from Office. Legitimate macros rarely do.
+    kql: |-
+      dataset="exabeam" activity_type="process-create" parent_process_name in ("winword.exe","excel.exe","powerpnt.exe","outlook.exe")
+      | where process_name in ("powershell.exe","cmd.exe","wscript.exe","cscript.exe","mshta.exe","rundll32.exe")
+      | project _time, user, src_host, parent_process_name, process_name, process_command_line
+    mitre:
+      - T1566.001
+      - T1059.001
+      - T1204.002
+  - title: High-risk Exabeam alert for a privileged user
+    severity: critical
+    signals:
+      - alert_severity in high, critical
+      - risk_score >= 80
+      - user in privileged accounts
+    why: Exabeam already aggregated many weak signals into one risky session. When the user is privileged, response time matters more than another layer of correlation.
+    kql: |-
+      dataset="exabeam" subject="alert" alert_severity in ("high","critical") risk_score >= 80
+      | lookup privileged_users on user
+      | where isnotempty(priv_role)
+      | summarize alerts=make_set(alert_name), max_risk=max(risk_score) by user, src_host
+    mitre:
+      - T1078.002
+  - title: Successful login after a burst of failures
+    severity: medium
+    signals:
+      - outcome=fail ×N then outcome=success for the same user and src_ip
+    why: A success right after many failures from one source suggests a guessed or sprayed password worked.
+    kql: |-
+      dataset="exabeam" activity="login"
+      | summarize fails=countif(outcome=="fail"), ok=countif(outcome=="success") by user, src_ip, bin(_time, 30m)
+      | where fails >= 10 and ok >= 1
+    mitre:
+      - T1110.001
+      - T1078
+  - title: Log source stopped reporting
+    severity: medium
+    signals:
+      - no events for a product or host within its normal interval
+    why: Stopped parsers, broken collectors or a deliberately disabled agent all show up as a silent source, and UEBA models degrade without telling anyone.
+    kql: |-
+      dataset="exabeam"
+      | summarize last_seen=max(_time), events=count() by product, host
+      | where last_seen < now() - 2h
+    mitre:
+      - T1562.006
+optimizations:
+  - title: Drop empty and null CIM fields
+    saving: 15–35 %
+    fn: Parser (JSON, drop empty values)
+    how: Exports often include every template field even when the value is empty or "N/A". Re-serialising with empty and placeholder values removed cuts the payload without losing data.
+    expr: "Parser mode reserialize; fields to drop where value in ('', null, 'N/A', '-')"
+  - title: Drop constant context elements per source
+    saving: 10–20 %
+    fn: Eval (remove)
+    how: vendor, product_category, platform and landscape are constant for a given product. Keep product and drop the rest, re-adding them at search time via a lookup on product if needed.
+    expr: "remove: vendor, product_category, platform, landscape"
+  - title: Sample successful routine activity
+    saving: 30–60 % of high-volume classes
+    fn: Sampling
+    how: Successful process-create events of known-good binaries and successful service-account logins can be sampled 1:10 for the lake copy. Never sample failures, alerts or privileged users.
+    expr: outcome=='success' && /^svc_/.test(user) && activity=='login'
+  - title: Route alerts and raw events separately
+    saving: SIEM licence
+    fn: Routes
+    how: Send Exabeam alerts to the SOC case tool or SIEM in full. Send the bulk CIM events to Cribl Lake, where they stay searchable for hunts and retrospective IOC sweeps.
+    expr: "subject=='alert' → SOAR/SIEM  |  else → Lake"
+references:
+  - title: Exabeam — Common Information Model context elements
+    url: https://docs.exabeam.com/en/content/all/exabeam-security-content-cim/common-information-model/common-information-model-context-elements.html
+  - title: Exabeam — Introducing the Common Information Model 2.0
+    url: https://docs.exabeam.com/en/content/all/whats-new-in-content/new-features-in-security-content/security-content-features-introduced-in-2022/introducing-the-common-information-model-2-0.html
+  - title: Exabeam — CIM impact on Data Lake categorization
+    url: https://docs.exabeam.com/en/content/all/exabeam-security-content-cim/common-information-model/transitioning-to-the-common-information-model/common-information-model-impact-on-data-lake-categorization-for-search-and-reporting.html
+  - title: ExabeamLabs CIMLibrary — field descriptions
+    url: https://github.com/ExabeamLabs/CIMLibrary/blob/main/Fields_Descriptions.md
+  - title: Exabeam Data Lake i40.3 fixed issues (Log4j patch)
+    url: https://docs.exabeam.com/en/data-lake/i40/exabeam-data-lake-release-notes/169060-fixed-issues-in-data-lake-i40-3.html
+related:
+  - splunk-enterprise
+  - cribl
+  - win-security
+  - sysmon
+  - active-directory
+  - log4j

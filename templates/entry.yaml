@@ -30,18 +30,21 @@ cveIds: [CVE-2024-0000]     # stubs only; full articles use the cves: section
 # logs:
 #   - type: Traffic
 #     sourcetype: vendor:product:traffic
-#     format: csv
+#     format: csv            # csv | tsv | kv | json | cef | leef | xml | text
 #     share: "80 %"
 #     avg: "~800 B"
 #     desc: What one event represents
-#     fields: [f0, f1, f2]   # one name per CSV column of the sample
-#     key: [f1]              # highlighted as important
+#     fields: [f0, f1, f2]   # csv/tsv only: one name per column
+#     pattern: ""            # text only: regex with named groups
+#     key: [f1]              # highlighted as important (parsed field names; JSON uses dotted paths)
 #     noise: [f0]            # safe to drop
 #     sample: a,b,c          # realistic, anonymised (RFC 5737 IPs: 192.0.2.x, 198.51.100.x, 203.0.113.x)
 # cves:
 #   - { id: CVE-2024-0000, cvss: 9.8, kev: true, scope: device, title: "", affected: "", fixed: "", detect: "", avoid: "" }
 # detections:
-#   - { title: "", severity: high, signals: [""], why: "", kql: "" }
+#   - { title: "", severity: high, signals: [""], why: "", kql: "", mitre: [T1110] }
 # optimizations:
 #   - { title: "", saving: "10–20 %", fn: Drop, how: "", expr: "" }
+# references:
+#   - { title: Vendor log reference, url: "https://…" }
 # related: [other-entry-id]

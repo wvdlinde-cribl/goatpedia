@@ -1,0 +1,350 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: barracuda-cloudgen
+name: Barracuda CloudGen Firewall
+short: Barracuda
+aka:
+  - Barracuda CGF
+  - Barracuda NextGen Firewall F-Series
+  - Barracuda NG Firewall
+  - phion netfence (origin)
+  - Firewall Control Center
+vendor: Barracuda Networks
+category: ngfw
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - sd-wan
+  - vpn
+  - ips
+  - atp
+  - syslog
+  - json
+  - cef
+  - azure
+summary: Barracuda's NGFW (formerly NextGen Firewall F-Series, rooted in phion netfence) with application control, IPS, ATP sandboxing, URL filtering, TINA-based SD-WAN/VPN and central management through the Firewall Control Center. Logs stream as pipe-separated syslog per log file (box_Firewall_Activity, threat), as CEF to Azure, or as JSON events from Firewall Insights.
+sourcetypes:
+  - st: barracuda_cloudgen_firewall
+    desc: Pack Generator sourcetype — Firewall Insights JSON (activity, threat and web events)
+  - st: barracuda_cloudgen_firewall.log
+    desc: Elastic integration data stream (Lumberjack input from the built-in Logstash/Filebeat stream)
+  - st: BARRACUDA_CLOUDGEN_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+  - st: CGFWFirewallActivity
+    desc: Microsoft Sentinel parser function over the Syslog table for box_Firewall_Activity
+facts:
+  First released: Originally phion netfence (phion AG, Austria; acquired by Barracuda in 2009); renamed NextGen Firewall F-Series, then CloudGen Firewall in 2018
+  OS: Hardened Linux firmware with the ACPF kernel packet forwarder; current trains 9.0.x, 10.0.x and 10.5.x
+  Form factors: F-Series hardware, Vx virtual (VMware, Hyper-V, KVM), Azure, AWS and GCP images
+  Deployment modes: Routed gateway, transparent / bridged, HA pairs; hub-and-spoke SD-WAN with TINA VPN tunnels
+  Central mgmt: Barracuda Firewall Control Center (multi-tenant, ranges / clusters)
+  Log transport: Syslog streaming (UDP, TCP, SSL) per log file; CEF to Azure Log Analytics / AMA; JSON from Firewall Insights over the Logstash (Lumberjack) stream
+  Log format: Activity log as pipe-separated value list or pipe-separated key=value list; CEF for activity (event id 100), threat (200), VPN user accounting (300), SD-WAN (400)
+  Typical EPS: 100 – 20k per box; the activity log is the bulk
+placement:
+  slots:
+    - edge
+    - remote
+    - cloud
+    - internal
+  items:
+    - slot: edge
+      title: Branch and HQ perimeter with SD-WAN
+      desc: Typical in distributed enterprises and retail / OT estates — each site has an F-Series box that routes over several uplinks and builds TINA tunnels to the hub.
+    - slot: remote
+      title: Client-to-site VPN
+      desc: CloudGen Access / VPN client and SSL VPN portal for remote users; VPN user accounting is a separate log stream.
+    - slot: cloud
+      title: Azure / AWS hub
+      desc: Very common as the inspection hub in Azure VNets (Azure Route Server, vWAN), with logs streamed natively to Log Analytics.
+    - slot: internal
+      title: OT / segment firewall
+      desc: Ruggedised models segment industrial networks and inspect industrial protocols (Modbus, IEC 104) with app control.
+howItWorks:
+  - title: ACPF forwarding engine
+    body: The Advanced Connection and Packet Forwarding (ACPF) module is Barracuda's own in-kernel session engine — it does not use Linux netfilter conntrack. Each session gets a slot; rule lookup, NAT and TCP state validation happen here.
+  - title: Forwarding vs host firewall
+    body: Traffic is logged with a type code — FWD / IFWD (forwarding), LIN / LOUT (local in/out of the box itself), LB (loopback), PXY / IPXY (proxy). LIN entries are the attacks on the firewall's own services.
+  - title: Application control and threat protection
+    body: DPI identifies applications and protocols (protos / apps lists), enforces app rules and URL categories, runs IPS signatures, AV, and Advanced Threat Protection sandboxing of files. Results land in the threat log (box_Firewall_threat) with type IPS, Virus or ATD.
+  - title: TINA VPN and SD-WAN
+    body: Barracuda's proprietary TINA protocol carries site-to-site tunnels over multiple transports, with per-application path selection and failover. SD-WAN path data is a separate log (srv_CSC_VPN_sdwandata).
+  - title: Log files and streaming
+    body: Every service writes its own log file (Box\Firewall\Activity, Box\Auth\access, Box\Config\changes …). Syslog streaming selects files by module group and forwards each with its program name, e.g. box_Firewall_Activity. Firewall Insights adds a structured JSON stream.
+traffic:
+  handles:
+    - IPv4 / IPv6 stateful forwarding and NAT (ACPF)
+    - Application control, URL filtering, TLS inspection
+    - IPS, antivirus, ATP sandboxing, DNS sinkhole
+    - TINA, IPsec and SSL VPN; SD-WAN
+    - Industrial protocols (Modbus, IEC 60870-5-104, S7)
+    - Proxy (HTTP / SOCKS) and mail gateway services
+  flow:
+    - step: Ingress
+      desc: Packet arrives; ACPF looks up an existing session slot.
+    - step: Rule match
+      desc: "New session: forwarding or host ruleset evaluated, NAT applied."
+    - step: DPI
+      desc: Application and protocol detection; app rule and URL category checks.
+    - step: Threat inspection
+      desc: IPS signatures, AV and ATP verdicts → threat log.
+    - step: Path selection
+      desc: SD-WAN picks the uplink / TINA tunnel per application policy.
+    - step: Egress + log
+      desc: Forwarded; activity log entry at session end (and on block), with bytes, packets and duration.
+logs:
+  - type: Firewall activity (Insights JSON)
+    sourcetype: barracuda_cloudgen_firewall
+    format: json
+    share: 70–90 %
+    avg: ~600 B
+    desc: One JSON event per connection from Firewall Insights with interfaces, MACs, NAT, rule, app rule, bytes and packets in both directions, plus the detected protocol and application lists.
+    key:
+      - action
+      - src_ip
+      - dst_ip
+      - dst_port
+      - fw_rule
+      - fwd_bytes
+      - rev_bytes
+      - apps[0]
+    noise:
+      - version
+      - src_mac
+      - dst_mac
+      - fw_info
+      - protos[1]
+      - protos[2]
+    sample: '{"version":1,"timestamp":1794474862,"action":"End","duration":8436,"src_iface":"eth0","src_ip":"10.17.35.171","src_port":40532,"src_mac":"00:0c:29:9a:0a:78","dst_iface":"eth1","dst_ip":"203.0.113.78","dst_port":443,"dst_mac":"00:0c:29:00:d6:00","fw_rule":"BOX-LAN-2-INTERNET","app_rule":"<App>:ALL-APPS","fw_info":2007,"src_ip_nat":"198.51.100.20","dst_ip_nat":"203.0.113.78","fwd_bytes":7450,"rev_bytes":561503,"fwd_packets":129,"rev_packets":439,"ip_proto":6,"protos":["HTTPS direct","HTTPS","All HTTP protocols"],"apps":["Web browsing","Microsoft Services"]}'
+  - type: Threat (IPS / AV / ATD)
+    sourcetype: barracuda_cloudgen_firewall
+    format: json
+    share: 1–5 %
+    avg: ~450 B
+    desc: Verdicts from IPS signatures, antivirus and Advanced Threat Detection sandboxing, with the operation taken (Block / Alert), threat severity and user.
+    key:
+      - type
+      - description
+      - operation
+      - src_ip
+      - dst_ip
+      - user
+      - threat_severity
+    noise:
+      - date
+      - time
+      - timezone
+      - component
+    sample: '{"component":"firewall","date":"2026 11 12","description":"ID: 1054837 WEB Remote File Inclusion /etc/passwd","dst_ip":"203.0.113.130","ips_category":"Web Attack","operation":"Block","port":"80","severity":"Warning","src_ip":"10.17.35.169","threat_severity":"3","time":"08:02:41","timestamp":"2026-11-12T08:02:41+00:00","timezone":"+00:00","trans_proto":"TCP","type":"IPS","user":"jdoe"}'
+  - type: Web log (Insights JSON)
+    sourcetype: barracuda_cloudgen_firewall
+    format: json
+    share: 5–20 %
+    avg: ~550 B
+    desc: HTTP/HTTPS request records from URL filtering and the proxy — method, status, URL, domain, URL category ids and user agent.
+    key:
+      - source_ip
+      - domain
+      - name
+      - status_code
+      - category[0]
+      - user
+      - fw_rule
+    noise:
+      - traffic_type
+      - user_type
+      - content_type
+    sample: '{"timestamp":1794474862000,"traffic_type":0,"action":0,"source_ip":"10.17.35.171","source_port":"50646","destination_ip":"203.0.113.12","destination_port":"443","method":"GET","status_code":"200","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","content_type":"text/html; charset=UTF-8","name":"https://www.example.com/downloads/","size":59558,"domain":"www.example.com","category":["79"],"user":"jdoe","user_type":1,"fw_rule":"LAN-2-INTERNET","app_rule":"<App>:<pass-no-match>"}'
+  - type: Firewall activity (syslog)
+    sourcetype: barracuda_cloudgen_firewall
+    format: text
+    share: alt. transport
+    avg: ~350 B
+    desc: The same activity record streamed over syslog with program name box_Firewall_Activity, here in "Log-Pipe-Separated-Key-Value-List" mode. The value-list mode drops the keys (required for CEF conversion).
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) (?<host>\S+) box_Firewall_Activity: (?<action>\w+): type=(?<type>[^|]*)\|proto=(?<proto>[^|]*)\|srcIF=(?<srcIF>[^|]*)\|srcIP=(?<srcIP>[^|]*)\|srcPort=(?<srcPort>[^|]*)\|srcMAC=(?<srcMAC>[^|]*)\|dstIP=(?<dstIP>[^|]*)\|dstPort=(?<dstPort>[^|]*)\|dstService=(?<dstService>[^|]*)\|dstIF=(?<dstIF>[^|]*)\|rule=(?<rule>[^|]*)\|info=(?<info>[^|]*)\|srcNAT=(?<srcNAT>[^|]*)\|dstNAT=(?<dstNAT>[^|]*)\|duration=(?<duration>[^|]*)\|count=(?<count>[^|]*)\|receivedBytes=(?<receivedBytes>[^|]*)\|sentBytes=(?<sentBytes>[^|]*)\|receivedPackets=(?<receivedPackets>[^|]*)\|sentPackets=(?<sentPackets>[^|]*)\|user=(?<user>[^|]*)\|protocol=(?<protocol>[^|]*)\|application=(?<application>[^|]*)\|target=(?<target>[^|]*)\|content=(?<content>[^|]*)\|urlcat=(?<urlcat>.*)$'
+    key:
+      - action
+      - type
+      - srcIP
+      - dstIP
+      - dstPort
+      - rule
+      - sentBytes
+      - user
+    noise:
+      - srcMAC
+      - info
+      - count
+      - target
+      - content
+    sample: '<134>Nov 12 09:14:22 cgf01 box_Firewall_Activity: Block: type=LIN|proto=TCP|srcIF=p1|srcIP=198.51.100.23|srcPort=51544|srcMAC=00:0d:3a:46:14:a3|dstIP=203.0.113.10|dstPort=807|dstService=|dstIF=|rule=BLOCKALL|info=4003|srcNAT=198.51.100.23|dstNAT=203.0.113.10|duration=0|count=1|receivedBytes=0|sentBytes=0|receivedPackets=0|sentPackets=0|user=|protocol=|application=|target=|content=|urlcat='
+cves:
+  - id: CVE-2026-31431
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Linux kernel "Copy Fail" local privilege escalation (algif_aead splice) — module present in CGF
+    affected: CloudGen Firewall and SecureEdge (algif_aead module present); Barracuda notes root is already required for normal operation
+    detect: Shell / SSH admin sessions in Box\Auth\access from unusual sources; LOUT activity entries from the box to unknown hosts after such a session.
+    avoid: Apply the Barracuda hotfix that blocks loading algif_aead; restrict shell access to named admins on a management network.
+  - id: CVE-2026-98432
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Linux kernel IPv4 TCP handshake use-after-free (kfree without RCU grace period)
+    affected: CloudGen Firewall 9.0.x, 10.0.x, 10.5.x (Barracuda rates practical severity moderate)
+    fixed: 9.0.7, 10.0.3, 10.5.2
+    detect: Box crash / HA failover events in the operative event log; floods of LIN TCP sessions with handshake anomalies to box services.
+    avoid: Upgrade; limit LIN (host firewall) exposure to required services only.
+  - id: CVE-2026-111497
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Google Brotli decoder out-of-bounds write — Brotli is used in CGF userspace and the ACPF kernel module
+    affected: All supported CloudGen Firewall versions (Barracuda rates it low in the CGF context; fix in upcoming firmware)
+    detect: Unexpected ACPF / service restarts while inspecting Brotli-compressed HTTP (content-encoding br); correlate with threat-log gaps.
+    avoid: Track the CVE overview for the fixed firmware; until then keep IPS signatures current and consider disabling TLS inspection for untrusted bulk-download categories.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: device
+    title: OpenSSH "regreSSHion" pre-auth race in the box's SSH service
+    affected: CloudGen Firewall firmware 8.3.0–8.3.3 and 9.0.0–9.0.2 (physical, Vx and public cloud)
+    fixed: Hotfix 1122 (8.3.x) and Hotfix 1123 (9.0.x), released 2024-07-09
+    detect: Thousands of LIN TCP/22 sessions from one srcIP within hours; repeated failed logins in Box\Auth\access.
+    avoid: Install the hotfix; never allow SSH to the box from WAN (host firewall rule); use the Control Center for management.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS against web servers behind the firewall
+    affected: Any HTTP/2 server published through the firewall
+    fixed: Server-side patches; IPS signature coverage
+    detect: Bursts of short IFWD sessions to published web servers with high count and low bytes per srcIP; IPS threat entries for HTTP/2 reset floods.
+    avoid: Patch servers; apply connection-rate limits on the inbound rule; keep IPS patterns updated.
+detections:
+  - title: IPS / AV verdict not blocked
+    severity: high
+    signals:
+      - type in (IPS, Virus, ATD)
+      - operation != Block
+    why: A threat verdict where the firewall only alerted means attack or malware traffic reached its target.
+    kql: |-
+      dataset="barracuda_logs" type in ("IPS","Virus","ATD")
+      | where operation != "Block"
+      | summarize hits=count(), threats=make_set(description) by src_ip, dst_ip, user, operation
+    mitre:
+      - T1190
+      - T1204.002
+  - title: Sandbox-detected malware download
+    severity: high
+    signals:
+      - type=ATD
+      - description = file or signature
+      - user
+    why: ATP sandbox verdicts identify the user and file even when the download was blocked; repeat offenders often indicate a compromised host or phishing campaign.
+    kql: |-
+      dataset="barracuda_logs" type in ("ATD","Virus")
+      | summarize files=count(), names=make_set(description) by user, src_ip, bin(_time, 1h)
+      | where files >= 3
+    mitre:
+      - T1105
+      - T1566.002
+  - title: Attacks on the firewall itself (LIN blocks)
+    severity: medium
+    signals:
+      - type=LIN
+      - action=Block
+      - many dstPort per srcIP
+    why: Local-in traffic is aimed at the box's own services (SSH, management, VPN). Scans here precede exploitation of the appliance.
+    kql: |-
+      dataset="barracuda_logs" type="LIN" action="Block"
+      | summarize ports=dcount(dstPort), hits=count() by srcIP, bin(_time, 10m)
+      | where ports > 20 or hits > 500
+    mitre:
+      - T1046
+      - T1595.001
+  - title: Large outbound transfer
+    severity: medium
+    signals:
+      - action=End
+      - fwd_bytes high
+      - fwd_bytes >> rev_bytes
+    why: Upload-heavy sessions to external destinations are the network footprint of exfiltration.
+    kql: |-
+      dataset="barracuda_logs" action="End"
+      | summarize up=sum(fwd_bytes), down=sum(rev_bytes) by src_ip, dst_ip, fw_rule
+      | where up > 500000000 and up > down * 5
+    mitre:
+      - T1048
+      - T1041
+  - title: Web access to uncategorised or new domains
+    severity: low
+    signals:
+      - web log
+      - empty category list
+      - first-seen domain
+    why: C2 and phishing infrastructure is often too new to be categorised; first-seen, uncategorised domains are a useful hunting lead.
+    kql: |-
+      dataset="barracuda_logs" isnotempty(domain)
+      | where isempty(category[0])
+      | summarize first=min(_time), reqs=count(), users=dcount(user) by domain
+      | where reqs < 20
+    mitre:
+      - T1071.001
+      - T1566.002
+optimizations:
+  - title: Drop local loopback and box housekeeping
+    saving: 5–15 %
+    fn: Drop
+    how: LB (loopback) and LOUT entries to Barracuda update / Azure platform endpoints are pure housekeeping. Drop them or route to Lake only.
+    expr: type=='LB' || (type=='LOUT' && dstIP=='168.63.129.16')
+  - title: Suppress repeated host-firewall blocks
+    saving: 10–30 %
+    fn: Suppress
+    how: Internet scanning of LIN services repeats per packet burst. Keep one record per srcIP/dstPort per minute.
+    expr: "key: `${srcIP}:${dstPort}`  allow 1 / 60s  when action=='Block' && type=='LIN'"
+  - title: Strip MACs, empty keys and NAT duplicates
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: The key=value activity list carries a dozen empty keys (target, content, urlcat, user …) and NAT fields that equal the original address. Remove empties, MACs and identical NAT values, then re-serialise.
+    expr: "remove: srcMAC, dstMAC, info, count, empty values; drop srcNAT if srcNAT==srcIP; drop dstNAT if dstNAT==dstIP"
+  - title: Aggregate allowed internal flows
+    saving: 20–40 %
+    fn: Aggregations
+    how: Allowed DNS, NTP and internal file-share sessions are rarely queried individually. Roll up bytes and sessions per src/dst/app per minute.
+    expr: action=='End' && dst_port in (53, 123, 445)
+  - title: Route threats at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: Threat (IPS / Virus / ATD), auth and config-change logs → SIEM. Activity and web logs → Cribl Lake raw + SIEM optimised.
+    expr: isnotempty(type) && type in ('IPS','Virus','ATD') → SIEM  |  else → Lake + SIEM(optimised)
+references:
+  - title: Barracuda CGF — Available log files and structure
+    url: https://documentation.campus.barracuda.com/wiki/spaces/CGFv90/pages/9571594/Available+Log+Files+and+Structure
+  - title: Barracuda CGF — Streaming to Azure Log Analytics (CEF / pipe-separated formats)
+    url: https://documentation.campus.barracuda.com/wiki/spaces/CGFv105/pages/379093037/Streaming+to+Azure+Log+Analytics+via+the+Barracuda+Log+Analytics+Daemon
+  - title: Barracuda CGF — Log streaming via Azure Monitor Agent (CEF event ids)
+    url: https://campus.barracuda.com/product/cloudgenfirewall/doc/117278995/how-to-configure-log-streaming-via-azure-monitor-agent/
+  - title: CVE overview for Barracuda CloudGen Firewall
+    url: https://documentation.campus.barracuda.com/wiki/spaces/NGFEOL/pages/5505175
+  - title: Barracuda advisory — Linux kernel LPE (CVE-2026-31431)
+    url: https://trust.barracuda.com/security/linux-kernel-local-privilege-escalation-lpe
+  - title: Barracuda Japan — CGF OpenSSH hotfix for CVE-2024-6387
+    url: https://www.barracuda.co.jp/cgf-openssh-hotfix/
+  - title: Elastic Barracuda CloudGen Firewall integration
+    url: https://www.elastic.co/docs/reference/integrations/barracuda_cloudgen_firewall
+related:
+  - fortigate
+  - sophos-xg
+  - pan-ngfw
+  - checkpoint
+  - cisco-sdwan
+  - azure-nsg-flow
