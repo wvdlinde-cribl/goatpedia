@@ -1,0 +1,17 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: win-security
+name: Windows Security Event Log
+short: WinSec
+vendor: Microsoft
+category: os
+status: stub
+tags:
+  - windows
+  - "4624"
+  - "4688"
+  - wef
+  - xml
+sourcetypes:
+  - st: XmlWinEventLog:Security
+  - st: WinEventLog:Security
+summary: Authentication, process and policy events from Windows hosts (4624, 4688, 4720…).

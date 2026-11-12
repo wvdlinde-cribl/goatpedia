@@ -1,0 +1,17 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: zscaler-zia
+name: Zscaler Internet Access
+short: ZIA
+vendor: Zscaler
+category: swg
+status: stub
+tags:
+  - proxy
+  - swg
+  - nss
+  - sse
+  - web
+sourcetypes:
+  - st: zscalernss-web
+  - st: zscalernss-fw
+summary: Cloud secure web gateway; logs delivered via NSS / Cloud NSS.

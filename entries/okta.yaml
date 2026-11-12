@@ -1,0 +1,16 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: okta
+name: Okta Workforce Identity
+short: Okta
+vendor: Okta
+category: idp
+status: stub
+tags:
+  - sso
+  - mfa
+  - system log
+  - api
+sourcetypes:
+  - st: OktaIM2:log
+summary: Cloud IdP; System Log pulled via REST API.
+cveIds: []

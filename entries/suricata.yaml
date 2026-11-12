@@ -1,0 +1,16 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: suricata
+name: Suricata
+short: Suricata
+vendor: OISF (open source)
+category: ids
+status: stub
+tags:
+  - ids
+  - ips
+  - eve
+  - json
+  - span
+sourcetypes:
+  - st: suricata
+summary: Open-source IDS/IPS emitting EVE JSON (alert, flow, dns, http, tls).

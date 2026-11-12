@@ -1,0 +1,16 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: crowdstrike
+name: CrowdStrike Falcon
+short: Falcon
+vendor: CrowdStrike
+category: edr
+status: stub
+tags:
+  - edr
+  - fdr
+  - endpoint
+  - json
+  - s3
+sourcetypes:
+  - st: crowdstrike:events:sensor
+summary: Cloud-managed EDR; raw telemetry via Falcon Data Replicator (S3/SQS), detections via Event Streams.

@@ -1,0 +1,47 @@
+# Copy to entries/<id>.yaml. Start as a stub (top block only); set status: full when every section exists.
+# Validate locally with: npm run validate
+id: my-device               # lowercase, dashes; must equal the file name
+name: Vendor Product Name
+short: Product              # ≤ 14 chars, shown on the network diagram
+vendor: Vendor
+category: ngfw              # key from categories.yaml
+status: stub                # stub | full
+tags: [firewall, syslog]
+summary: One or two sentences on what it is and why its logs matter.
+sourcetypes:
+  - st: vendor:product:log
+    desc: What this sourcetype carries
+cveIds: [CVE-2024-0000]     # stubs only; full articles use the cves: section
+
+# ---------- required once status: full ----------
+# aka: [Other names]
+# updated: "2026-01-31"
+# contributors: [your-github-handle]
+# facts: { "Log transport": "Syslog TCP/TLS", "Log format": "CSV" }
+# placement:
+#   items:                  # slot: edge | internal | cloud | remote | dmz | endpoint
+#     - { slot: edge, title: Internet perimeter, desc: Why it sits here }
+# howItWorks:
+#   - { title: Core engine, body: How it technically works }
+# traffic:
+#   handles: [HTTP/S, DNS]
+#   flow:
+#     - { step: Ingress, desc: What happens first }
+# logs:
+#   - type: Traffic
+#     sourcetype: vendor:product:traffic
+#     format: csv
+#     share: "80 %"
+#     avg: "~800 B"
+#     desc: What one event represents
+#     fields: [f0, f1, f2]   # one name per CSV column of the sample
+#     key: [f1]              # highlighted as important
+#     noise: [f0]            # safe to drop
+#     sample: a,b,c          # realistic, anonymised (RFC 5737 IPs: 192.0.2.x, 198.51.100.x, 203.0.113.x)
+# cves:
+#   - { id: CVE-2024-0000, cvss: 9.8, kev: true, scope: device, title: "", affected: "", fixed: "", detect: "", avoid: "" }
+# detections:
+#   - { title: "", severity: high, signals: [""], why: "", kql: "" }
+# optimizations:
+#   - { title: "", saving: "10–20 %", fn: Drop, how: "", expr: "" }
+# related: [other-entry-id]

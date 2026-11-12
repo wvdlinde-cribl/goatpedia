@@ -1,0 +1,15 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: mde
+name: Microsoft Defender for Endpoint
+short: MDE
+vendor: Microsoft
+category: edr
+status: stub
+tags:
+  - edr
+  - event hub
+  - advanced hunting
+  - json
+sourcetypes:
+  - st: ms:defender:advancedhunting
+summary: EDR integrated with Windows; Advanced Hunting tables streamed to Event Hub.

@@ -1,0 +1,41 @@
+# Device categories. Key is used as `category:` in entries.
+ngfw:
+  label: Firewall / NGFW
+  color: "#e8590c"
+  icon: 🧱
+waf:
+  label: Web App Firewall
+  color: "#7048e8"
+  icon: 🛡️
+edr:
+  label: EDR / XDR
+  color: "#d6336c"
+  icon: 💻
+ids:
+  label: IDS / IPS
+  color: "#1971c2"
+  icon: 🚨
+ndr:
+  label: Network Sensor / NDR
+  color: "#0c8599"
+  icon: 📡
+swg:
+  label: Proxy / SWG / SSE
+  color: "#2f9e44"
+  icon: 🌐
+dns:
+  label: DNS Security
+  color: "#f08c00"
+  icon: 🔎
+idp:
+  label: Identity / IdP
+  color: "#9c36b5"
+  icon: 🔑
+cloud:
+  label: Cloud Audit
+  color: "#1098ad"
+  icon: ☁️
+os:
+  label: OS / Endpoint Logs
+  color: "#495057"
+  icon: 🖥️

@@ -1,0 +1,23 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: fortigate
+name: Fortinet FortiGate
+short: FortiGate
+vendor: Fortinet
+category: ngfw
+status: stub
+aka:
+  - FortiOS
+tags:
+  - firewall
+  - vpn
+  - sslvpn
+  - kv
+sourcetypes:
+  - st: fortigate_traffic
+  - st: fortigate_utm
+  - st: fortigate_event
+summary: NGFW running FortiOS with SSL-VPN; key=value syslog.
+cveIds:
+  - CVE-2024-21762
+  - CVE-2022-40684
+  - CVE-2018-13379

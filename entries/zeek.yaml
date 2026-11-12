@@ -1,0 +1,20 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: zeek
+name: Zeek
+short: Zeek
+vendor: Zeek project (open source)
+category: ndr
+status: stub
+aka:
+  - Bro
+tags:
+  - nsm
+  - conn
+  - dns
+  - span
+  - tap
+sourcetypes:
+  - st: zeek:conn
+  - st: zeek:dns
+  - st: zeek:http
+summary: Passive network sensor writing protocol transaction logs from a tap or SPAN.

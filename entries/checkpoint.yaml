@@ -1,0 +1,15 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: checkpoint
+name: Check Point Quantum
+short: Check Point
+vendor: Check Point
+category: ngfw
+status: stub
+tags:
+  - firewall
+  - log exporter
+sourcetypes:
+  - st: cp_log
+summary: NGFW managed via SmartConsole; logs exported with Log Exporter (syslog/CEF/LEEF).
+cveIds:
+  - CVE-2024-24919

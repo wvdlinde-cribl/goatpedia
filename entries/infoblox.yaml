@@ -1,0 +1,16 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: infoblox
+name: Infoblox NIOS DNS
+short: Infoblox
+vendor: Infoblox
+category: dns
+status: stub
+tags:
+  - dns
+  - dhcp
+  - ipam
+  - syslog
+sourcetypes:
+  - st: infoblox:dns
+  - st: infoblox:dhcp
+summary: DNS/DHCP/IPAM appliance; query logging is very high volume.

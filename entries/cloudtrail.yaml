@@ -1,0 +1,15 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cloudtrail
+name: AWS CloudTrail
+short: CloudTrail
+vendor: Amazon Web Services
+category: cloud
+status: stub
+tags:
+  - aws
+  - audit
+  - s3
+  - json
+sourcetypes:
+  - st: aws:cloudtrail
+summary: Records AWS API calls; delivered to S3, often via SQS notification.

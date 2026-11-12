@@ -1,0 +1,16 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cloudflare-waf
+name: Cloudflare WAF
+short: CF WAF
+vendor: Cloudflare
+category: waf
+status: stub
+tags:
+  - waf
+  - cdn
+  - ddos
+  - http
+  - logpush
+sourcetypes:
+  - st: cloudflare:json
+summary: Edge-hosted WAF and CDN; HTTP request and firewall events delivered via Logpush.

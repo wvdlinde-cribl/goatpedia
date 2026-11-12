@@ -1,0 +1,22 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-asa
+name: Cisco ASA / FTD
+short: Cisco ASA
+vendor: Cisco
+category: ngfw
+status: stub
+aka:
+  - Firepower
+  - FTD
+tags:
+  - firewall
+  - vpn
+  - anyconnect
+  - syslog
+sourcetypes:
+  - st: cisco:asa
+  - st: cisco:ftd
+summary: Stateful firewall and VPN head-end; message-ID based syslog (%ASA-6-302013).
+cveIds:
+  - CVE-2024-20353
+  - CVE-2024-20359

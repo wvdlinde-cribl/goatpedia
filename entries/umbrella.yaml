@@ -1,0 +1,14 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: umbrella
+name: Cisco Umbrella
+short: Umbrella
+vendor: Cisco
+category: dns
+status: stub
+tags:
+  - dns
+  - s3
+  - proxy
+sourcetypes:
+  - st: cisco:umbrella:dns
+summary: Recursive DNS with security filtering; logs exported to S3.

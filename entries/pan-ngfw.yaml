@@ -1,0 +1,406 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: pan-ngfw
+name: Palo Alto Networks NGFW
+short: PAN NGFW
+aka:
+  - PAN-OS
+  - PA-Series
+  - VM-Series
+  - CN-Series
+  - Panorama
+vendor: Palo Alto Networks
+category: ngfw
+status: full
+updated: "2026-11-10"
+contributors:
+  - wlinde
+tags:
+  - firewall
+  - vpn
+  - globalprotect
+  - app-id
+  - syslog
+  - csv
+  - ips
+  - url-filtering
+summary: A next-generation firewall that classifies traffic by application, user and content rather than port, combining stateful firewalling, IPS, URL filtering, sandboxing and remote-access VPN (GlobalProtect) in a single-pass engine. One of the highest-volume log sources in most SOCs.
+sourcetypes:
+  - st: pan:traffic
+    desc: Session start/end records — the bulk of volume
+  - st: pan:threat
+    desc: IPS, AV, spyware, URL, WildFire, file and data-filtering verdicts
+  - st: pan:system
+    desc: Device events incl. GlobalProtect logins, HA, commits
+  - st: pan:config
+    desc: Admin configuration changes (who/what/when)
+  - st: pan:globalprotect
+    desc: Dedicated GlobalProtect log type (PAN-OS 9.1+)
+  - st: pan:userid
+    desc: IP-to-user mapping events
+facts:
+  First released: 2007 (PA-4000)
+  OS: PAN-OS (current trains 10.2 / 11.1 / 11.2)
+  Form factors: Hardware (PA-400 → PA-7500), VM-Series, CN-Series, Cloud NGFW
+  Deployment modes: Layer 3, Layer 2, Virtual Wire, Tap
+  Central mgmt: Panorama, Strata Cloud Manager
+  Log transport: Syslog UDP/TCP/TLS, Panorama, Strata Logging Service (HTTPS)
+  Log format: CSV (default), custom → CEF / LEEF / key=value
+  Typical EPS: 1k – 100k+ per firewall
+  Cribl Pack: Palo Alto Networks (Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - internal
+    - cloud
+    - remote
+  items:
+    - slot: edge
+      title: Internet perimeter
+      desc: Most common. Sits between ISP and the internal network, enforces outbound web policy and protects published services in the DMZ.
+    - slot: internal
+      title: Internal segmentation
+      desc: Between user and data-center zones (east-west). Often in Virtual Wire mode so no re-IP is needed.
+    - slot: cloud
+      title: Cloud / VPC
+      desc: VM-Series or Cloud NGFW in AWS/Azure/GCP transit or inspection VPCs, often behind a gateway load balancer.
+    - slot: remote
+      title: Remote access (GlobalProtect)
+      desc: The firewall hosts the GlobalProtect portal + gateway; the agent on laptops tunnels traffic back in. Exposed to the internet — prime CVE target.
+howItWorks:
+  - title: Single-Pass Parallel Processing (SP3)
+    body: Each packet is parsed once. Networking, policy lookup, App-ID, decoding and signature matching run as one pass over the stream rather than chained engines, which is why enabling features costs less throughput than on stacked appliances.
+  - title: App-ID
+    body: "Identifies the application regardless of port using signatures, protocol decoders and heuristics. A session can \"app-shift\" as more is learned: ssl → web-browsing → youtube-base. The final app is what lands in the traffic log."
+  - title: User-ID
+    body: Maps IP addresses to users from AD event logs, GlobalProtect, SAML/captive portal, XFF headers or syslog parsing, so policies and logs carry src_user.
+  - title: Content-ID
+    body: Threat Prevention (IPS, anti-virus, anti-spyware, DNS Security), URL Filtering, WildFire sandboxing and data filtering operate on the decoded stream. Every verdict is a THREAT log.
+  - title: Decryption
+    body: SSL Forward Proxy (outbound) and SSL Inbound Inspection (to your own servers). Without decryption, App-ID and Content-ID only see TLS metadata (SNI, certificate).
+  - title: Zones & policy
+    body: Interfaces belong to zones; security rules match src/dst zone, address, user, application, service and URL category. First match wins. NAT is a separate policy evaluated before security.
+traffic:
+  handles:
+    - All IPv4/IPv6 L3–L4
+    - 5,000+ L7 applications (App-ID)
+    - TLS 1.2/1.3 (decryption optional)
+    - IPsec & SSL VPN
+    - DNS (DNS Security)
+    - SaaS (SaaS Security inline)
+  flow:
+    - step: Ingress
+      desc: Packet arrives on an interface; zone assigned.
+    - step: Session lookup
+      desc: Existing session? Fast-path to content inspection.
+    - step: Route + NAT
+      desc: "New flow: forwarding lookup, NAT policy evaluated (pre-NAT addresses)."
+    - step: Security policy
+      desc: Zone/address/user/port match; App-ID may re-evaluate later.
+    - step: App-ID / Decrypt
+      desc: Application identified, optional TLS decryption.
+    - step: Content-ID
+      desc: IPS, AV, URL, WildFire verdicts → THREAT log.
+    - step: Egress + log
+      desc: Forwarded; TRAFFIC log at session start and/or end.
+logs:
+  - type: Traffic
+    sourcetype: pan:traffic
+    format: csv
+    share: 80–90 %
+    avg: ~900 B
+    desc: One record per session (start and/or end). Contains 5-tuple, NAT, zones, rule, app, user, bytes, packets and why the session ended.
+    fields:
+      - future_use
+      - receive_time
+      - serial
+      - type
+      - subtype
+      - future_use2
+      - generated_time
+      - src_ip
+      - dst_ip
+      - nat_src_ip
+      - nat_dst_ip
+      - rule
+      - src_user
+      - dst_user
+      - app
+      - vsys
+      - src_zone
+      - dst_zone
+      - inbound_if
+      - outbound_if
+      - log_profile
+      - future_use3
+      - session_id
+      - repeat_count
+      - src_port
+      - dst_port
+      - nat_src_port
+      - nat_dst_port
+      - flags
+      - protocol
+      - action
+      - bytes
+      - bytes_sent
+      - bytes_received
+      - packets
+      - start_time
+      - elapsed_sec
+      - url_category
+      - future_use4
+      - seqno
+      - action_flags
+      - src_location
+      - dst_location
+      - future_use5
+      - pkts_sent
+      - pkts_received
+      - session_end_reason
+    key:
+      - src_ip
+      - dst_ip
+      - rule
+      - src_user
+      - app
+      - action
+      - bytes
+      - session_end_reason
+    noise:
+      - future_use
+      - future_use2
+      - future_use3
+      - future_use4
+      - future_use5
+      - receive_time
+      - seqno
+      - action_flags
+    sample: 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,10.20.30.44,142.250.74.110,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,ssl,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,443,31544,443,0x400053,tcp,allow,6842,1532,5310,22,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,tcp-fin
+  - type: Threat
+    sourcetype: pan:threat
+    format: csv
+    share: 2–8 %
+    avg: ~1.2 KB
+    desc: Emitted when Content-ID matches a signature or URL/file policy. Highest analytic value per byte — never sample or drop.
+    fields:
+      - future_use
+      - receive_time
+      - serial
+      - type
+      - subtype
+      - future_use2
+      - generated_time
+      - src_ip
+      - dst_ip
+      - nat_src_ip
+      - nat_dst_ip
+      - rule
+      - src_user
+      - dst_user
+      - app
+      - vsys
+      - src_zone
+      - dst_zone
+      - inbound_if
+      - outbound_if
+      - log_profile
+      - future_use3
+      - session_id
+      - repeat_count
+      - src_port
+      - dst_port
+      - nat_src_port
+      - nat_dst_port
+      - flags
+      - protocol
+      - action
+      - misc
+      - threat_id
+      - url_category
+      - severity
+      - direction
+    key:
+      - src_ip
+      - dst_ip
+      - app
+      - action
+      - misc
+      - threat_id
+      - severity
+    noise:
+      - future_use
+      - future_use2
+      - future_use3
+    sample: 1,2026/11/12 08:02:41,013201001234,THREAT,vulnerability,2561,2026/11/12 08:02:41,198.51.100.23,203.0.113.10,0.0.0.0,0.0.0.0,gp-portal-in,,,panos-global-protect,vsys1,untrust,untrust,ethernet1/1,ethernet1/1,fwd-cribl,2026/11/12 08:02:41,77120,1,43218,443,0,0,0x2000,tcp,reset-both,"/ssl-vpn/hipreport.esp",Palo Alto Networks PAN-OS GlobalProtect Command Injection Vulnerability(95187),any,critical,client-to-server
+  - type: System
+    sourcetype: pan:system
+    format: csv
+    share: < 1 %
+    avg: ~400 B
+    desc: "Device-level events: GlobalProtect auth, HA failover, commits, dynamic updates, link state."
+    fields:
+      - future_use
+      - receive_time
+      - serial
+      - type
+      - subtype
+      - future_use2
+      - generated_time
+      - vsys
+      - eventid
+      - object
+      - future_use3
+      - future_use4
+      - module
+      - severity
+      - description
+      - seqno
+    key:
+      - eventid
+      - severity
+      - description
+    noise:
+      - future_use
+      - future_use2
+      - future_use3
+      - future_use4
+    sample: "1,2026/11/12 08:05:10,013201001234,SYSTEM,globalprotect,0,2026/11/12 08:05:10,,globalprotectgateway-auth-fail,GP-GW-N,0,0,general,medium,\"GlobalProtect gateway user authentication failed. Login from: 198.51.100.23, User name: admin, Reason: Authentication failed.\",7340032201"
+cves:
+  - id: CVE-2024-3400
+    cvss: 10
+    year: 2024
+    kev: true
+    scope: device
+    title: GlobalProtect OS command injection via arbitrary file creation
+    affected: PAN-OS 10.2, 11.0, 11.1 with GlobalProtect gateway or portal
+    fixed: 10.2.9-h1, 11.0.4-h1, 11.1.2-h3 (and later hotfixes)
+    detect: "THREAT logs with threat_id 95187 / 95189 / 95191. On-box: gpsvc.log lines matching \"failed to unmarshal session(../\". Unusual outbound from the firewall itself."
+    avoid: Patch; enable Threat Prevention with the above IDs set to reset on the GP interface; restrict GP portal exposure; enable device telemetry off.
+  - id: CVE-2024-0012
+    cvss: 9.3
+    year: 2024
+    kev: true
+    scope: device
+    title: Management web interface authentication bypass (chained with CVE-2024-9474)
+    affected: PAN-OS 10.2, 11.0, 11.1, 11.2 with mgmt interface reachable
+    fixed: 10.2.12-h2, 11.0.6-h1, 11.1.5-h1, 11.2.4-h1
+    detect: TRAFFIC to the management IP from untrust or unknown sources; CONFIG logs from unexpected admins; new admin accounts.
+    avoid: Never expose the management interface; permit only a jump-host allow-list; patch.
+  - id: CVE-2025-0108
+    cvss: 8.8
+    year: 2025
+    kev: true
+    scope: device
+    title: Management web interface authentication bypass (path confusion)
+    affected: PAN-OS 10.1, 10.2, 11.1, 11.2
+    fixed: 10.1.14-h9, 10.2.13-h3, 11.1.6-h1, 11.2.4-h4
+    detect: Same signals as CVE-2024-0012; web requests to /unauth/ paths in mgmt access logs.
+    avoid: Restrict mgmt interface; patch.
+  - id: CVE-2020-2021
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: device
+    title: SAML authentication bypass when IdP certificate validation is disabled
+    affected: PAN-OS 8.1, 9.0, 9.1 with SAML auth
+    fixed: 8.1.15, 9.0.9, 9.1.3
+    detect: SYSTEM/GlobalProtect auth success from new geos without matching IdP sign-in event.
+    avoid: Enable "Validate Identity Provider Certificate"; patch.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS — affects HTTP/2 traffic the firewall protects
+    affected: Any HTTP/2 server behind the firewall
+    fixed: Server-side patches; PAN Threat ID 40152 for detection
+    detect: Burst of very short HTTP/2 sessions per src_ip with low bytes and session_end_reason=tcp-rst-from-client.
+    avoid: Enable the threat signature; rate-limit with DoS Protection profiles.
+detections:
+  - title: GlobalProtect exploitation (CVE-2024-3400)
+    severity: critical
+    signals:
+      - type=THREAT
+      - threat_id 95187/95189/95191
+      - dst = GP portal
+    why: Direct indicator of exploitation attempts against an internet-facing service.
+    kql: |-
+      dataset="pan_logs" type="THREAT"
+      | where threat_id has_any ("95187","95189","95191")
+      | summarize hits=count(), first=min(_time) by src_ip, dst_ip, action
+  - title: GlobalProtect brute force / password spray
+    severity: high
+    signals:
+      - type=SYSTEM
+      - eventid=globalprotectgateway-auth-fail
+      - count per login IP
+    why: Spray against VPN is a top initial-access vector; precedes successful logins from the same IP.
+    kql: |-
+      dataset="pan_logs" type="SYSTEM" eventid="globalprotectgateway-auth-fail"
+      | extract "Login from: (?<login_ip>[^,]+), User name: (?<user>[^,]+)" from description
+      | summarize fails=count(), users=dcount(user) by login_ip, bin(_time, 10m)
+      | where fails > 20 or users > 5
+  - title: Management interface reachable from untrust
+    severity: high
+    signals:
+      - type=TRAFFIC
+      - src_zone=untrust
+      - dst_ip ∈ mgmt IPs
+    why: Pre-condition for CVE-2024-0012 / CVE-2025-0108. Should be zero.
+    kql: |-
+      dataset="pan_logs" type="TRAFFIC" src_zone="untrust"
+      | lookup pan_mgmt_ips on dst_ip
+      | where isnotempty(mgmt_host)
+      | summarize count() by src_ip, dst_ip, app
+  - title: Critical threat allowed (prevention gap)
+    severity: medium
+    signals:
+      - type=THREAT
+      - severity=critical
+      - action=alert
+    why: Signature matched but the profile only alerts — a policy misconfiguration, not an attack per se.
+    kql: |-
+      dataset="pan_logs" type="THREAT" severity="critical" action="alert"
+      | summarize count() by rule, threat_id
+  - title: Non-standard app on 443 (tunnelling)
+    severity: medium
+    signals:
+      - dst_port=443
+      - app=unknown-tcp | ssh | tor
+    why: App-ID disagrees with the port — classic C2 or tunnelling sign.
+    kql: |-
+      dataset="pan_logs" type="TRAFFIC" dst_port=443
+      | where app in ("unknown-tcp","ssh","tor","openvpn")
+      | summarize bytes=sum(bytes) by src_ip, dst_ip, app
+optimizations:
+  - title: Drop session-start records
+    saving: 10–20 %
+    fn: Drop
+    how: Session-end records contain everything the start record has plus bytes and end reason. Prefer "Log at Session End" on rules, or drop subtype=start in Stream.
+    expr: type=='TRAFFIC' && subtype=='start'
+  - title: Strip future_use, empty and duplicate fields
+    saving: 25–40 %
+    fn: Parser → Serialize
+    how: Parse the CSV, remove future_use*, receive_time (≈ generated_time), seqno, action_flags and empty values, then re-serialise. Keep field order if the SIEM TA expects CSV.
+    expr: "remove: future_use*, receive_time, seqno, action_flags; drop empty"
+  - title: Suppress repetitive denies
+    saving: 5–15 %
+    fn: Suppress
+    how: Internet background noise produces thousands of identical denies. Keep one per src_ip/dst_ip/dst_port per 60 s with a count.
+    expr: "key: `${src_ip}:${dst_ip}:${dst_port}`  allow 1 / 60s  when action=='deny'"
+  - title: Aggregate high-volume allowed flows to metrics
+    saving: 20–35 %
+    fn: Aggregations
+    how: Allowed DNS, NTP and internal SMB flows are rarely searched individually. Roll up to bytes/sessions per src/dst/app per minute, send raw to Lake.
+    expr: app in ('dns','ntp','ms-ds-smb') && action=='allow'
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: THREAT, SYSTEM, CONFIG, GLOBALPROTECT → SIEM at full fidelity. TRAFFIC → Cribl Lake raw + SIEM optimised. Replay from Lake during incidents.
+    expr: type!='TRAFFIC' → SIEM  |  type=='TRAFFIC' → Lake + SIEM(optimised)
+related:
+  - fortigate
+  - cisco-asa
+  - checkpoint
+  - zscaler-zia
+  - suricata

@@ -1,0 +1,21 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: f5-awaf
+name: F5 BIG-IP Advanced WAF
+short: F5 AWAF
+vendor: F5
+category: waf
+status: stub
+aka:
+  - ASM
+  - BIG-IP ASM
+tags:
+  - waf
+  - http
+  - owasp
+  - reverse-proxy
+sourcetypes:
+  - st: f5:bigip:asm:syslog
+summary: Reverse-proxy web application firewall on BIG-IP that inspects HTTP(S) requests against signatures and positive-security policies.
+cveIds:
+  - CVE-2022-1388
+  - CVE-2023-46747
