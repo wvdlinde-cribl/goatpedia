@@ -4,16 +4,329 @@ name: Check Point Quantum
 short: Check Point
 vendor: Check Point
 category: ngfw
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+aka:
+  - Quantum Security Gateway
+  - FireWall-1 / VPN-1
+  - Gaia
+  - CloudGuard Network Security
+  - Quantum Spark
+  - Maestro
 tags:
   - firewall
+  - vpn
+  - ips
+  - threat-prevention
   - log exporter
+  - cef
+  - syslog
+summary: Check Point's NGFW family (heritage FireWall-1, today Quantum gateways on Gaia OS) with Software Blades for firewall, IPS, application control, URL filtering, Threat Emulation, Remote Access VPN and Mobile Access. Gateways send logs to a Management or Log Server, and Log Exporter forwards them to the SIEM as syslog, Splunk key=value, CEF, LEEF or JSON — so one feed carries every blade.
 sourcetypes:
   - st: cp_log
+    desc: Splunk Check Point App sourcetype — Log Exporter "splunk" format (key=value separated by |)
   - st: checkpoint_firewall
-    desc: Pack Generator sourcetype
+    desc: Check Point firewall and Software Blade logs from Log Exporter (CEF or key=value); Pack Generator name
   - st: checkpoint_firewall_rfc_5424
-    desc: Pack Generator sourcetype
-summary: NGFW managed via SmartConsole; logs exported with Log Exporter (syslog/CEF/LEEF).
-cveIds:
-  - CVE-2024-24919
+    desc: Log Exporter default "syslog" format — RFC 5424 header with a [key:"value"; …] body; Pack Generator name
+  - st: cp_log:syslog
+    desc: Splunk Check Point App sourcetype for Log Exporter syslog format
+  - st: CHECKPOINT_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+  - st: CommonSecurityLog
+    desc: Microsoft Sentinel table when Log Exporter sends CEF
+facts:
+  First released: 1994 (FireWall-1); Quantum branding since 2020
+  OS: Gaia (current R81.20 / R82 / R82.10, Jumbo Hotfix "Takes")
+  Form factors: Quantum appliances (Spark, 3000 → 28000, Lightspeed), Maestro hyperscale, CloudGuard Network Security VMs, Quantum Spark (Gaia Embedded)
+  Management: Security Management Server or Multi-Domain (SmartConsole), Smart-1 Cloud
+  Log path: Gateway → Log Server (FWD, TCP 257) → Log Exporter → SIEM
+  Log transport: Syslog over TCP/UDP, mutual-TLS 1.2 optional
+  Log format: Syslog (default), Splunk, CEF, LEEF, Generic, JSON, LogRhythm, RSA
+  Typical EPS: 1k – 50k+ per log server (connection logs dominate)
+  Cribl Pack: Check Point log shaping & filtering pack (Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Internet perimeter
+      desc: Quantum gateways or ClusterXL pairs at the internet edge with IPS, Threat Emulation and URL filtering; very common in banking, government and telecom.
+    - slot: internal
+      title: Data-center segmentation
+      desc: Maestro hyperscale or VSX (virtual systems) separating data-center tenants and zones with access-control layers per segment.
+    - slot: remote
+      title: Remote Access VPN / Mobile Access
+      desc: Endpoint Security VPN / Harmony clients (IKE) and the Mobile Access SSL portal terminate on the gateway — both are internet-facing and were targeted by CVE-2024-24919 and CVE-2026-50751.
+    - slot: cloud
+      title: CloudGuard Network Security
+      desc: Gateways in AWS/Azure/GCP transit hubs and auto-scaling groups, managed from the same Security Management Server.
+howItWorks:
+  - title: INSPECT kernel and SecureXL
+    body: The firewall kernel (INSPECT) enforces the rulebase on the first packet of a connection; SecureXL then accelerates the connection templates and CoreXL spreads inspection across cores. Connections that need content inspection are handled by the Medium/Firewall path.
+  - title: Unified rulebase and layers
+    body: Access control is an ordered set of layers (Network, Applications & URL Filtering, Content Awareness), each with its own rules; inline layers allow sub-policies. A connection log names the matched layer_name, rule_name and rule_uid per layer.
+  - title: Threat Prevention blades
+    body: IPS, Anti-Bot, Anti-Virus, Threat Emulation (sandbox) and Threat Extraction (CDR) run from a Threat Prevention policy with profiles (Optimized, Strict). Each detection is a log with product=IPS / Anti-Bot / Threat Emulation, the protection_name, severity, confidence_level and action Prevent or Detect.
+  - title: Logging architecture
+    body: Gateways do not send syslog themselves by default; they ship logs over FWD to the Management or a dedicated Log Server, where SmartLog/SmartView index them. Log Exporter (cp_log_export) reads the log files there and forwards them. The origin field holds the gateway that wrote the log.
+  - title: Log updates and aggregation
+    body: A long connection produces an initial log and later update records (bytes, session end). Log Exporter sends updates in semi-unified mode by default; R82.20+ adds Last only and First and Last modes, which directly cut volume.
+  - title: Remote Access and Mobile Access
+    body: Remote Access VPN uses IKEv1/IKEv2 with password, certificate or multi-factor authentication; Mobile Access offers an SSL portal. Login and logout events are logged with user, src, auth_method and auth_status.
+traffic:
+  handles:
+    - IPv4/IPv6 stateful firewalling and NAT
+    - 10,000+ applications and URL categories
+    - IPS (12,000+ protections), Anti-Bot, Anti-Virus
+    - Threat Emulation sandbox and Threat Extraction (CDR)
+    - HTTPS inspection (TLS 1.2/1.3)
+    - IPsec site-to-site, Remote Access VPN, Mobile Access SSL
+    - Identity Awareness (AD, Identity Collector, captive portal)
+  flow:
+    - step: Ingress
+      desc: Packet arrives; anti-spoofing and SecureXL template lookup.
+    - step: Access control
+      desc: First packet matched against the ordered layers; Drop/Reject/Accept with a connection log.
+    - step: NAT
+      desc: Static/hide NAT applied (xlatesrc / xlatedst in the log).
+    - step: HTTPS inspection
+      desc: Optional decryption by the HTTPS Inspection policy.
+    - step: Threat Prevention
+      desc: IPS, Anti-Bot, AV and Threat Emulation inspect the stream; detections log with protection_name and Prevent / Detect.
+    - step: Egress + log
+      desc: Forwarded; connection log written and later updated with bytes and duration.
+    - step: Export
+      desc: Log Server stores the record; Log Exporter forwards it to the SIEM.
+logs:
+  - type: Firewall connection (CEF)
+    sourcetype: checkpoint_firewall
+    format: cef
+    share: 80–90 %
+    avg: ~700 B
+    desc: Access-control decisions per connection with the matched layer and rule, zones, NAT and service. In CEF, the rule name lands in cs2 with cs2Label=Rule Name.
+    key:
+      - act
+      - src
+      - dst
+      - dpt
+      - cs2
+      - layer_name
+      - service_id
+      - origin
+    noise:
+      - cef_version
+      - device_version
+      - deviceDirection
+      - layer_uuid
+      - loguid
+      - sequencenum
+      - version
+      - cs2Label
+    sample: |-
+      CEF:0|Check Point|VPN-1 & FireWall-1|Check Point|Log|https|Unknown|act=Accept deviceDirection=0 rt=1762935262000 spt=51544 dpt=443 cs2Label=Rule Name cs2=allow-web-out layer_name=Network layer_uuid=8c1f5a2e-0d3b-4c7e-9a61-2f4b5c6d7e8f match_id=12 parent_rule=0 rule_action=Accept ifname=eth1 logid=0 loguid={0x6a1f2c11,0x2,0x5f00a8c0,0x2a1b} origin=192.0.2.1 originsicname=CN\=gw-edge-01,O\=mgmt.example.com.7h3k2a sequencenum=40 version=5 dst=203.0.113.80 inzone=Internal outzone=External product=VPN-1 & FireWall-1 proto=6 service_id=https src=10.20.30.44 xlatesrc=198.51.100.10
+  - type: Threat Prevention / IPS (Splunk format)
+    sourcetype: cp_log
+    format: text
+    share: 1–5 %
+    avg: ~1.1 KB
+    desc: IPS, Anti-Bot, Anti-Virus and Threat Emulation detections with attack, protection_name, severity, confidence_level and Prevent / Detect. Log Exporter's "splunk" format uses | between pairs.
+    pattern: '^time=(?<time>[^|]*)\|hostname=(?<hostname>[^|]*)\|product=(?<product>[^|]*)\|action=(?<action>[^|]*)\|ifdir=(?<ifdir>[^|]*)\|ifname=(?<ifname>[^|]*)\|loguid=(?<loguid>[^|]*)\|origin=(?<origin>[^|]*)\|originsicname=(?<originsicname>[^|]*)\|sequencenum=(?<sequencenum>[^|]*)\|version=(?<version>[^|]*)\|attack=(?<attack>[^|]*)\|attack_info=(?<attack_info>[^|]*)\|confidence_level=(?<confidence_level>[^|]*)\|dst=(?<dst>[^|]*)\|performance_impact=(?<performance_impact>[^|]*)\|protection_id=(?<protection_id>[^|]*)\|protection_name=(?<protection_name>[^|]*)\|protection_type=(?<protection_type>[^|]*)\|proto=(?<proto>[^|]*)\|rule_name=(?<rule_name>[^|]*)\|s_port=(?<s_port>[^|]*)\|service=(?<service>[^|]*)\|severity=(?<severity>[^|]*)\|src=(?<src>[^|]*)\|smartdefense_profile=(?<smartdefense_profile>.*)$'
+    key:
+      - product
+      - action
+      - src
+      - dst
+      - protection_name
+      - severity
+      - confidence_level
+    noise:
+      - loguid
+      - originsicname
+      - sequencenum
+      - version
+      - performance_impact
+      - ifdir
+    sample: |-
+      time=1762930961|hostname=gw-edge-01|product=IPS|action=Prevent|ifdir=inbound|ifname=eth1|loguid={0x6a1f2c11,0x3,0x5f00a8c0,0x2a1b}|origin=192.0.2.1|originsicname=CN=gw-edge-01,O=mgmt.example.com.7h3k2a|sequencenum=41|version=5|attack=Web Server Enforcement Violation|attack_info=Citrix NetScaler Information Disclosure (CVE-2023-4966)|confidence_level=High|dst=203.0.113.40|performance_impact=Low|protection_id=asm_dynamic_prop_CVE_2023_4966|protection_name=Citrix NetScaler Information Disclosure (CVE-2023-4966)|protection_type=IPS|proto=6|rule_name=Perimeter-TP|s_port=43218|service=443|severity=High|src=198.51.100.23|smartdefense_profile=Optimized
+  - type: Remote Access / Mobile Access login (syslog format)
+    sourcetype: checkpoint_firewall_rfc_5424
+    format: text
+    share: < 2 %
+    avg: ~450 B
+    desc: VPN and Mobile Access login, failure and logout events in Log Exporter's default syslog format (RFC 5424 header, [key:"value"; …] body). The source for VPN spray detection and for spotting legacy password-only accounts.
+    pattern: '^<(?<pri>\d+)>1 (?<timestamp>\S+) (?<host>\S+) (?<app>CheckPoint) (?<procid>\d+) - \[action:"(?<action>[^"]*)"; auth_method:"(?<auth_method>[^"]*)"; auth_status:"(?<auth_status>[^"]*)"; ifdir:"(?<ifdir>[^"]*)"; ifname:"(?<ifname>[^"]*)"; loguid:"(?<loguid>[^"]*)"; origin:"(?<origin>[^"]*)"; product:"(?<product>[^"]*)"; reason:"(?<reason>[^"]*)"; src:"(?<src>[^"]*)"; user:"(?<user>[^"]*)"; vpn_feature_name:"(?<vpn_feature_name>[^"]*)"\]$'
+    key:
+      - action
+      - auth_method
+      - auth_status
+      - src
+      - user
+      - reason
+    noise:
+      - pri
+      - procid
+      - loguid
+      - ifdir
+    sample: |-
+      <134>1 2026-11-12T08:05:10Z gw-edge-01 CheckPoint 26203 - [action:"Failed Log In"; auth_method:"Password"; auth_status:"Failed Login"; ifdir:"inbound"; ifname:"eth1"; loguid:"{0x6a1f2c40,0x0,0x5f00a8c0,0x2a1c}"; origin:"192.0.2.1"; product:"Mobile Access"; reason:"Unknown user name or bad password"; src:"198.51.100.23"; user:"jdoe"; vpn_feature_name:"Remote Access"]
+cves:
+  - id: CVE-2024-24919
+    cvss: 8.6
+    year: 2024
+    kev: true
+    scope: device
+    title: Quantum Gateway arbitrary file read (path traversal) with Remote Access VPN or Mobile Access enabled
+    affected: Quantum Security Gateway and CloudGuard Network R80.40, R81, R81.10, R81.20; Quantum Spark R80.20, R81.10 — only with IPsec Remote Access community or Mobile Access blade
+    fixed: Preventative hotfix (sk182336); included in R81.20 JHF Take 65, R81.10 JHF Take 150, R81 JHF Take 99 and R82
+    detect: IPS logs for the Check Point protection for CVE-2024-24919 (POSTs to /clients/MyCRL with ../ sequences toward /etc/shadow); successful VPN logins of old local accounts with auth_method Password from new IPs; LDAP binds by the gateway's AD service account from unusual hosts.
+    avoid: Install the hotfix or a fixed JHF; remove password-only local accounts, rotate the LDAP account password, enforce MFA / certificates.
+  - id: CVE-2026-50751
+    cvss: 9.3
+    year: 2026
+    kev: true
+    scope: device
+    title: Remote Access / Mobile Access authentication bypass in deprecated IKEv1 certificate validation
+    affected: Gateways R82.10 ≤ JHF Take 19, R82 ≤ Take 103, R81.20 ≤ Take 141, R81.10 / R81 / R80.40 (EOS); Spark R80.20.X, R81.10.X, R82.00.X — when IKEv1 and legacy clients are allowed and no machine certificate is required
+    fixed: R82.10 JHF Take 24, R82 JHF Take 107, R81.20 JHF Take 146, R81.10 JHF Take 187 (sk185033)
+    detect: Remote Access "Log In" events with vpn_feature_name IKE for users that have no matching password check or MFA event, logins from unfamiliar src IPs, and VPN sessions with no preceding auth_status entries. Exploited by ransomware crews since May 2026.
+    avoid: Install the fixed JHF; set Remote Access to IKEv2 only, disable legacy clients, or require machine certificates (mitigations in sk185033).
+  - id: CVE-2023-28130
+    cvss: 7.2
+    year: 2023
+    kev: false
+    scope: device
+    title: Gaia Portal "Hosts and DNS" command injection — authenticated admin to root
+    affected: Gaia R80.40, R81, R81.10, R81.20 (gateways and management servers) before the fixed JHF takes
+    fixed: R81.20 JHF Take 14, R81.10 JHF Take 95, R81 JHF Take 82, R80.40 JHF Take 198, R82
+    detect: Gaia audit logs for hostname changes containing shell metacharacters; Gaia Portal (HTTPS) sessions from non-admin networks; IPS protection CPAI-2023-0680 hits.
+    avoid: Patch; restrict Gaia Portal to a management network; use RBAC and MFA for Gaia admins.
+  - id: CVE-2023-4966
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Citrix Bleed — NetScaler session token disclosure in traffic the gateway inspects toward protected appliances
+    affected: NetScaler ADC / Gateway 13.0 < 13.0-92.19, 13.1 < 13.1-49.15, 14.1 < 14.1-8.50 (and FIPS/NDcPP builds) behind the gateway
+    fixed: NetScaler builds 14.1-8.50, 13.1-49.15, 13.0-92.19 (server side); Check Point IPS protection CPAI-2023-0965
+    detect: IPS logs with attack "Web Server Enforcement Violation" and attack_info "Citrix NetScaler Information Disclosure (CVE-2023-4966)", followed by new sessions from different IPs using the same NetScaler session.
+    avoid: Patch NetScaler and kill all sessions; set the IPS protection to Prevent on the perimeter profile.
+detections:
+  - title: Remote Access / Mobile Access password spray
+    severity: high
+    signals:
+      - action=Failed Log In
+      - many distinct user per src
+      - product=Mobile Access or VPN-1 & FireWall-1
+    why: Check Point's own CVE-2024-24919 investigation started from login attempts against old local accounts with password-only authentication; spraying precedes access.
+    kql: |-
+      dataset="checkpoint_logs" action="Failed Log In"
+      | summarize fails=count(), users=dcount(user) by src, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
+  - title: Password-only VPN login for a local account
+    severity: medium
+    signals:
+      - action=Log In
+      - auth_method=Password
+      - user in the local-account lookup
+    why: Accounts that bypass MFA are exactly what CVE-2024-24919 credential theft and CVE-2026-50751 abuse; every such login deserves review.
+    kql: |-
+      dataset="checkpoint_logs" action="Log In" auth_method="Password"
+      | lookup cp_local_accounts on user
+      | where isnotempty(local_account)
+      | summarize logins=count(), ips=make_set(src) by user
+    mitre:
+      - T1078.003
+      - T1133
+  - title: IPS detect-only on a critical protection
+    severity: high
+    signals:
+      - product=IPS
+      - severity=Critical or High
+      - action=Detect
+    why: A high-confidence protection that only detects is a prevention gap — typically an inherited Detect profile on a new protection.
+    kql: |-
+      dataset="checkpoint_logs" product="IPS" action="Detect"
+      | where severity in ("Critical","High") and confidence_level in ("High","Medium-High")
+      | summarize hits=count() by protection_name, src, dst
+    mitre:
+      - T1190
+  - title: Exploit attempts against published services
+    severity: critical
+    signals:
+      - product=IPS
+      - attack_info mentions a CVE
+      - dst = DMZ / published server
+    why: CVE-named protections firing against your own published services (NetScaler, VPN portals, web apps) show active targeting.
+    kql: |-
+      dataset="checkpoint_logs" product="IPS"
+      | where attack_info has "CVE-"
+      | summarize hits=count(), first=min(_time) by src, dst, attack_info, action
+    mitre:
+      - T1190
+  - title: Accepted inbound connection to administrative services
+    severity: medium
+    signals:
+      - act=Accept
+      - inzone=External
+      - dpt in 22 / 443 / 4434 (Gaia Portal) / 3389
+    why: Gaia Portal (CVE-2023-28130) and other admin interfaces should never be reachable from the internet.
+    kql: |-
+      dataset="checkpoint_logs" act="Accept" inzone="External"
+      | where dpt in ("22","4434","3389","18190","19009")
+      | summarize count() by src, dst, dpt, cs2
+    mitre:
+      - T1133
+      - T1021
+optimizations:
+  - title: Export only the last log update per connection
+    saving: 15–30 %
+    fn: Drop
+    how: Semi-unified export repeats every update for long connections. Use Log Exporter "Last only" (R82.20+) or, in Stream, keep only the final update per loguid.
+    expr: "Suppress key: loguid  allow 1 / 300s (keep latest)"
+  - title: Strip internal and empty fields
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Remove fields Check Point itself marks as internal (flags, ifdir, ifname, version, __policy_id_tag, db_tag) plus layer_uuid, loguid, sequencenum, originsicname and parent_rule before the SIEM; keep them in Lake.
+    expr: "remove: flags, version, __policy_id_tag, db_tag, layer_uuid, loguid, sequencenum, originsicname, parent_rule, match_id"
+  - title: Suppress repetitive drops
+    saving: 5–20 %
+    fn: Suppress
+    how: Internet scanning causes floods of identical cleanup-rule drops. Keep one per src/dst/dpt per 60 s with a count.
+    expr: "key: `${src}:${dst}:${dpt}`  allow 1 / 60s  when act=='Drop'"
+  - title: Route blades separately
+    saving: SIEM licence
+    fn: Routes
+    how: product in (IPS, Anti-Bot, Threat Emulation, Anti-Virus, Mobile Access) and VPN login events go to the SIEM at full fidelity; VPN-1 & FireWall-1 connection logs go raw to Lake and optimised to the SIEM.
+    expr: product!='VPN-1 & FireWall-1' → SIEM  |  product=='VPN-1 & FireWall-1' → Lake + SIEM(optimised)
+references:
+  - title: sk122323 — Log Exporter (formats, transport, filtering)
+    url: https://support.checkpoint.com/results/sk/sk122323
+  - title: Log Exporter Administration Guide — CEF / LEEF mapping
+    url: https://sc1.checkpoint.com/documents/Log_Exporter/EN/Content/Topics/Appendix_B_Additional_Information.htm
+  - title: sk144192 — Description of fields in Check Point logs
+    url: https://support.checkpoint.com/results/sk/sk144192
+  - title: sk182336 — CVE-2024-24919 Quantum Gateway information disclosure
+    url: https://support.checkpoint.com/results/sk/sk182336
+  - title: sk185033 — CVE-2026-50751 IKEv1 Remote Access authentication bypass
+    url: https://support.checkpoint.com/results/sk/sk185033
+  - title: sk181311 — CVE-2023-28130 Gaia Portal command injection
+    url: https://support.checkpoint.com/results/sk/sk181311
+  - title: CPAI-2023-0965 — IPS protection for Citrix NetScaler information disclosure (CVE-2023-4966)
+    url: https://advisories.checkpoint.com/defense/advisories/public/2023/cpai-2023-0965.html/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - pan-ngfw
+  - fortigate
+  - cisco-asa
+  - juniper-srx
+  - sophos-xg

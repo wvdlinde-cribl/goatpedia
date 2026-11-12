@@ -29,14 +29,15 @@
       }
       return out;
     }
-    const re = /(?:^|\s|>)([\w.:\-\[\]]+)=("(?:[^"\\]|\\.)*"|.*?)(?=\s+[\w.:\-\[\]]+=|\s*$)/g;
+    const re = /(?:^|\s|>)([\w.:\-\[\]]+)=("(?:[^"\\]|\\.)*"\]?|.*?)(?=\s+[\w.:\-\[\]]+=|\s*$)/g;
     let m, first = true, last = 0;
     while ((m = re.exec(s))) {
       const keyAt = m.index + m[0].indexOf(m[1] + '=');
       if (first && keyAt > 0 && s.slice(0, keyAt).trim()) out.push({ name: 'header', value: s.slice(0, keyAt).trim() });
       first = false;
       let v = m[2];
-      if (v.length > 1 && v[0] === '"' && v[v.length - 1] === '"') v = v.slice(1, -1);
+      if (v.length > 1 && v[0] === '"' && v.endsWith('"]')) v = v.slice(1, -2);
+      else if (v.length > 1 && v[0] === '"' && v[v.length - 1] === '"') v = v.slice(1, -1);
       out.push({ name: m[1], value: v });
       last = re.lastIndex;
     }

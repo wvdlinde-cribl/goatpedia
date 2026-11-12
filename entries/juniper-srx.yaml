@@ -4,7 +4,349 @@ name: Juniper SRX Series
 short: Juniper SRX
 vendor: Juniper Networks
 category: ngfw
-status: stub
-summary: Junos-based services gateway combining stateful firewall, IPS, AppSecure and IPsec VPN; logs RT_FLOW session events over structured syslog.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+aka:
+  - SRX
+  - vSRX
+  - cSRX
+  - Junos OS
+  - Juniper Networks (an HPE company)
+tags:
+  - firewall
+  - vpn
+  - ips
+  - idp
+  - appsecure
+  - sd-syslog
+  - structured-syslog
+summary: Junos OS services gateway that combines a stateful zone/policy firewall, NAT, AppSecure application identification, IDP (IPS), content security and IPsec VPN, from branch SRX300 boxes to SRX5800 chassis and vSRX/cSRX. The data plane streams RT_FLOW session create/close/deny and RT_IDP events straight to syslog in structured-data (sd-syslog) format, so one connection is usually two to three records.
 sourcetypes:
   - st: juniper_srx
+    desc: Juniper SRX syslog — RT_FLOW, RT_IDP, RT_UTM and system events in sd-syslog or plain syslog (Pack Generator name)
+  - st: juniper:junos:firewall:structured
+    desc: Splunk Add-on for Juniper — structured (sd-syslog) SRX firewall/flow events
+  - st: juniper:junos:idp:structured
+    desc: Splunk Add-on for Juniper — structured IDP attack events
+  - st: juniper:junos:firewall
+    desc: Splunk Add-on for Juniper — plain-text Junos syslog
+  - st: JUNIPER_FIREWALL
+    desc: Google SecOps (Chronicle) log type for Juniper SRX
+  - st: Syslog
+    desc: Microsoft Sentinel table used by the Juniper SRX (syslog) data connector
+facts:
+  First released: 2008 (SRX5800); Junos OS since 1998
+  OS: Junos OS (FreeBSD-based); releases like 22.4R3, 23.4R2, 24.2R2 with -S service releases
+  Form factors: Branch SRX300/320/340/345/380, SRX1500/1600/2300/4100/4600/4700, chassis SRX5400/5600/5800, vSRX (VM), cSRX (container)
+  Management: CLI, J-Web, Junos Space Security Director, Security Director Cloud (Mist)
+  Log path: Data plane → stream mode over revenue ports (up to 8 streams); RE/eventd for system logs
+  Log transport: Syslog UDP, TCP or TLS
+  Log format: syslog, sd-syslog (structured), WELF, binary, protobuf
+  Typical EPS: 1k – 100k+ (session create+close doubles flow volume)
+  Ownership: Juniper Networks acquired by HPE (closed July 2025)
+  Cribl Pack: Juniper Structured Syslog (cc-juniper-structured-syslog-cribl, Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Branch and campus edge
+      desc: SRX300-series boxes as branch firewall, SD-WAN and IPsec hub/spoke; J-Web is often (wrongly) left reachable from the internet — the exposure behind CVE-2023-36845.
+    - slot: internal
+      title: Data-center and service-provider core
+      desc: SRX4000/5000 chassis cluster pairs doing CGNAT, zone segmentation and IDP at tens to hundreds of Gbps, logging every session.
+    - slot: remote
+      title: IPsec / remote access
+      desc: Site-to-site IPsec (route-based st0 interfaces) and Juniper Secure Connect client VPN.
+    - slot: cloud
+      title: vSRX / cSRX
+      desc: vSRX in AWS/Azure/GCP transit VPCs and cSRX in Kubernetes for micro-segmentation; same RT_FLOW logs.
+howItWorks:
+  - title: Flow-based forwarding
+    body: The first packet of a session takes the slow path (route lookup, zone pair, policy, NAT, ALG), then a session is installed and later packets take the fast path. Every policy with "then log session-init / session-close" emits RT_FLOW events for that session.
+  - title: Zones and policies
+    body: Interfaces belong to security zones; policies are evaluated from-zone to-zone (plus global policies) top-down. Default is deny with no log, so a deny-all policy with logging is required to see blocked traffic.
+  - title: Stream vs event logging
+    body: Security logs are generated in the data plane. Stream mode sends them straight out of a revenue port to up to 8 collectors; event mode hands them to the Routing Engine (eventd), which can overload it. System logs (logins, commits) always come from the RE.
+  - title: Structured syslog (sd-syslog)
+    body: sd-syslog wraps each event in an RFC 5424 structured-data block [junos@2636.… key="value" …] with stable field names such as source-address, nat-source-address, policy-name, session-id-32 and elapsed-time — far easier to parse than the plain format.
+  - title: AppSecure and IDP
+    body: AppID identifies applications (application / nested-application fields); IDP matches attack signatures per IDP policy and logs IDP_ATTACK_LOG_EVENT with attack-name, threat-severity and action (DROP, CLOSE, NONE).
+  - title: Session close carries the counters
+    body: RT_FLOW_SESSION_CLOSE contains bytes/packets in each direction, elapsed-time and the close reason; RT_FLOW_SESSION_CREATE duplicates most of the 5-tuple without counters, so it is usually the first thing to drop.
+traffic:
+  handles:
+    - IPv4/IPv6 stateful firewalling per zone pair
+    - Source, destination and static NAT, CGNAT
+    - AppSecure application ID and AppFW
+    - IDP (IPS) signatures and protocol anomalies
+    - Content security (antivirus, web filtering), ATP Cloud
+    - IPsec site-to-site and Secure Connect remote access
+    - Chassis cluster HA, SD-WAN (APBR)
+  flow:
+    - step: Ingress
+      desc: Packet arrives on an interface in a zone; screens (DoS/anti-spoof) are applied.
+    - step: Session lookup
+      desc: Existing session → fast path; otherwise first-packet processing.
+    - step: Route, NAT, zone pair
+      desc: Destination NAT and route lookup decide the egress zone.
+    - step: Policy
+      desc: From-zone/to-zone policy match; deny emits RT_FLOW_SESSION_DENY (if logging), permit installs the session and emits RT_FLOW_SESSION_CREATE.
+    - step: Services
+      desc: AppID, IDP and content security inspect the permitted session; hits log RT_IDP / RT_UTM.
+    - step: Egress
+      desc: Source NAT applied and packet forwarded.
+    - step: Close
+      desc: On FIN/RST/age-out, RT_FLOW_SESSION_CLOSE with counters and reason.
+logs:
+  - type: RT_FLOW session close (sd-syslog)
+    sourcetype: juniper_srx
+    format: kv
+    share: 55–70 %
+    avg: ~900 B
+    desc: One record per ended session with 5-tuple, NAT, policy, zones, application, bytes in both directions, elapsed-time and close reason. The structured-data block parses as key="value".
+    key:
+      - source-address
+      - destination-address
+      - destination-port
+      - policy-name
+      - application
+      - bytes-from-client
+      - bytes-from-server
+      - reason
+    noise:
+      - header
+      - connection-tag
+      - nat-connection-tag
+      - dst-nat-rule-type
+      - dst-nat-rule-name
+      - roles
+      - src-vrf-grp
+    sample: |-
+      <14>1 2026-11-12T09:14:02.118Z srx-edge-01 RT_FLOW - RT_FLOW_SESSION_CLOSE [junos@2636.1.1.1.2.129 reason="TCP FIN" source-address="10.20.30.44" source-port="51544" destination-address="203.0.113.80" destination-port="443" connection-tag="0" service-name="junos-https" nat-source-address="198.51.100.10" nat-source-port="23011" nat-destination-address="203.0.113.80" nat-destination-port="443" nat-connection-tag="0" src-nat-rule-type="source rule" src-nat-rule-name="internet-pat" dst-nat-rule-type="N/A" dst-nat-rule-name="N/A" protocol-id="6" policy-name="trust-to-untrust-web" source-zone-name="trust" destination-zone-name="untrust" session-id-32="40211873" packets-from-client="14" bytes-from-client="2311" packets-from-server="19" bytes-from-server="18842" elapsed-time="6" application="SSL" nested-application="UNKNOWN" username="N/A" roles="N/A" packet-incoming-interface="ge-0/0/1.0" encrypted="No" src-vrf-grp="N/A"]
+  - type: RT_FLOW session deny (sd-syslog)
+    sourcetype: juniper:junos:firewall:structured
+    format: kv
+    share: 15–35 %
+    avg: ~600 B
+    desc: Blocked first packets — only logged when the deny policy has "then log session-init". Scanning from the internet makes this the noisiest SRX event.
+    key:
+      - source-address
+      - destination-address
+      - destination-port
+      - policy-name
+      - source-zone-name
+      - reason
+    noise:
+      - header
+      - connection-tag
+      - icmp-type
+      - roles
+      - dst-vrf-grp
+    sample: |-
+      <14>1 2026-11-12T09:14:05.402Z srx-edge-01 RT_FLOW - RT_FLOW_SESSION_DENY [junos@2636.1.1.1.2.129 source-address="198.51.100.23" source-port="44120" destination-address="192.0.2.10" destination-port="3389" connection-tag="0" service-name="None" protocol-id="6" icmp-type="0" policy-name="untrust-deny-all" source-zone-name="untrust" destination-zone-name="dmz" application="UNKNOWN" nested-application="UNKNOWN" username="N/A" roles="N/A" packet-incoming-interface="ge-0/0/0.0" encrypted="No" reason="policy deny" session-id-32="0" dst-vrf-grp="N/A"]
+  - type: IDP attack (sd-syslog)
+    sourcetype: juniper:junos:idp:structured
+    format: kv
+    share: < 2 %
+    avg: ~1 KB
+    desc: IDP signature matches with attack-name, threat-severity, rulebase and the action taken (DROP / CLOSE / NONE).
+    key:
+      - attack-name
+      - threat-severity
+      - action
+      - source-address
+      - destination-address
+      - policy-name
+    noise:
+      - header
+      - export-id
+      - packet-log-id
+      - nat-source-port
+      - nat-destination-port
+      - message
+    sample: |-
+      <11>1 2026-11-12T09:20:44.502Z srx-edge-01 RT_IDP - IDP_ATTACK_LOG_EVENT [junos@2636.1.1.1.2.129 epoch-time="1762939244" message-type="SIG" source-address="198.51.100.23" source-port="43218" destination-address="203.0.113.40" destination-port="443" protocol-name="TCP" service-name="SERVICE_IDP" application-name="HTTP" rule-name="3" rulebase-name="IPS" policy-name="Recommended" export-id="18210" repeat-count="0" action="DROP" threat-severity="HIGH" attack-name="HTTP:DIR:TRAVERSE-DIRECTORY" nat-source-address="0.0.0.0" nat-source-port="0" nat-destination-address="0.0.0.0" nat-destination-port="0" elapsed-time="0" inbound-bytes="0" outbound-bytes="0" source-zone-name="untrust" source-interface-name="ge-0/0/0.0" destination-zone-name="dmz" destination-interface-name="ge-0/0/2.0" packet-log-id="0" alert="no" username="N/A" roles="N/A" message="-"]
+  - type: System — SSH login failure
+    sourcetype: juniper_srx
+    format: text
+    share: < 1 %
+    avg: ~150 B
+    desc: Routing-Engine system log for failed SSH logins (sshd). Together with UI_LOGIN_EVENT and UI_COMMIT this is the device-access trail.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} +\d+ [\d:]+) (?<host>\S+) (?<process>\w+)\[(?<pid>\d+)\]: (?<event_id>[A-Z_]+): Login failed for user ''(?<user>[^'']+)'' from host ''(?<src_ip>[^'']+)''$'
+    key:
+      - host
+      - event_id
+      - user
+      - src_ip
+      - process
+    noise:
+      - pri
+      - pid
+    sample: |-
+      <38>Nov 12 09:31:07 srx-edge-01 sshd[50212]: SSHD_LOGIN_FAILED: Login failed for user 'root' from host '198.51.100.23'
+cves:
+  - id: CVE-2023-36845
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: device
+    title: J-Web PHP external variable modification (PHPRC) — unauthenticated RCE when chained with CVE-2023-36846 file upload
+    affected: Junos OS on SRX and EX with J-Web enabled — all before 20.4R3-S9, 21.1, 21.2 < R3-S7, 21.3 < R3-S5, 21.4 < R3-S5, 22.1 < R3-S4, 22.2 < R3-S2, 22.3 < R2-S2/R3-S1, 22.4 < R2-S1/R3, 23.2 < R1-S1/R2
+    fixed: 20.4R3-S9, 21.2R3-S7, 21.3R3-S5, 21.4R3-S5, 22.1R3-S4, 22.2R3-S2, 22.3R2-S2, 22.3R3-S1, 22.4R2-S1, 22.4R3, 23.2R1-S1, 23.2R2 (JSA72300)
+    detect: HTTP(S) sessions from the internet to the SRX's own J-Web (RT_FLOW to junos-host / self-traffic on 80/443/8443) — especially POSTs to webauth_operation.php or user.php; IDP signatures for the PHPRC chain; unexpected new files or processes after J-Web requests.
+    avoid: Upgrade; disable J-Web or restrict it to a management network with "system services web-management" limited to trusted interfaces.
+  - id: CVE-2023-36846
+    cvss: 5.3
+    year: 2023
+    kev: true
+    scope: device
+    title: J-Web missing authentication on user.php — arbitrary file upload (the first step of the 36845 chain)
+    affected: Junos OS on SRX — all before 20.4R3-S8, 21.1, 21.2 < R3-S6, 21.3 < R3-S5, 21.4 < R3-S5, 22.1 < R3-S3, 22.2 < R3-S2, 22.3 < R2-S2/R3, 22.4 < R2-S1/R3
+    fixed: 20.4R3-S8, 21.2R3-S6, 21.3R3-S5, 21.4R3-S5, 22.1R3-S3, 22.2R3-S2, 22.3R2-S2, 22.3R3, 22.4R2-S1, 22.4R3 (JSA72300)
+    detect: Unauthenticated requests to J-Web /webauth_operation.php with the do_upload action from external IPs, followed by requests that set PHPRC / LD_PRELOAD.
+    avoid: As for CVE-2023-36845 — patch and remove J-Web from untrusted interfaces.
+  - id: CVE-2024-21591
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: J-Web out-of-bounds write — unauthenticated DoS or RCE with root privileges
+    affected: Junos OS on SRX and EX — before 20.4R3-S9, 21.2 < R3-S7, 21.3 < R3-S5, 21.4 < R3-S5, 22.1 < R3-S4, 22.2 < R3-S3, 22.3 < R3-S2, 22.4 < R2-S2/R3
+    fixed: 20.4R3-S9, 21.2R3-S7, 21.3R3-S5, 21.4R3-S5, 22.1R3-S4, 22.2R3-S3, 22.3R3-S2, 22.4R2-S2, 22.4R3 (JSA75729)
+    detect: J-Web (httpd-gk / httpd) crashes and core dumps in system logs, and any inbound sessions to J-Web from the internet.
+    avoid: Upgrade; disable J-Web or restrict access to trusted hosts.
+  - id: CVE-2025-21590
+    cvss: 4.4
+    year: 2025
+    kev: true
+    scope: device
+    title: Junos kernel veriexec bypass — shell user can inject code (used by UNC3886 TINYSHELL backdoors)
+    affected: Junos OS — all before 21.2R3-S9, 21.4 < R3-S10, 22.2 < R3-S6, 22.4 < R3-S6, 23.2 < R2-S3, 23.4 < R2-S4, 24.2 < R1-S2/R2
+    fixed: 21.2R3-S9, 21.4R3-S10, 22.2R3-S6, 22.4R3-S6, 23.2R2-S3, 23.4R2-S4, 24.2R1-S2, 24.2R2 (JSA93446)
+    detect: "Shell access (start shell) by admin accounts, veriexec warnings, unknown processes, and syslog or accounting gaps (the backdoors disabled logging) — compare the device's log rate against its baseline."
+    avoid: Upgrade and run the Juniper Malware Removal Tool; restrict shell access, use RADIUS/TACACS+ accounting and send system logs off-box.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 Rapid Reset — request/cancel floods against web servers and load balancers behind the SRX
+    affected: HTTP/2 servers and proxies (nginx, Apache httpd, Envoy, IIS, Go, …) behind the firewall
+    detect: Short RT_FLOW sessions to published HTTPS services with very high request counts per connection and spikes in session-create rate from a small set of sources; screen and IDP DoS counters.
+    avoid: Patch the HTTP/2 servers; apply per-source session limits (screen limit-session) and rate limiting on the edge.
+detections:
+  - title: Internet access to J-Web / SRX self-traffic
+    severity: critical
+    signals:
+      - source-zone-name=untrust
+      - destination-address = SRX interface
+      - destination-port in 80 / 443 / 8443
+    why: Every exploited Junos J-Web chain (CVE-2023-36845/36846, CVE-2024-21591) starts with an internet session to the SRX's own web management.
+    kql: |-
+      dataset="juniper_srx" source-zone-name="untrust" destination-port in ("80","443","8443")
+      | lookup srx_interface_ips on destination-address
+      | where isnotempty(srx_host)
+      | summarize sessions=count() by source-address, destination-address, destination-port
+    mitre:
+      - T1190
+  - title: SSH brute force against the SRX
+    severity: high
+    signals:
+      - event_id=SSHD_LOGIN_FAILED
+      - many failures per src_ip
+    why: Device credentials give full control of the firewall and its policies; root logins from the internet should never occur.
+    kql: |-
+      dataset="juniper_srx" event_id="SSHD_LOGIN_FAILED"
+      | summarize fails=count(), users=dcount(user) by src_ip, host, bin(_time, 10m)
+      | where fails > 10
+    mitre:
+      - T1110.001
+      - T1021.004
+  - title: Large outbound transfer to the internet
+    severity: medium
+    signals:
+      - RT_FLOW_SESSION_CLOSE
+      - destination-zone-name=untrust
+      - bytes-from-client very high
+    why: Session close carries client→server bytes, so uploads stand out directly; useful for exfiltration triage.
+    kql: |-
+      dataset="juniper_srx" destination-zone-name="untrust"
+      | extend up=toint(['bytes-from-client'])
+      | summarize sent=sum(up) by source-address, destination-address, application, bin(_time, 1h)
+      | where sent > 1000000000
+    mitre:
+      - T1048
+      - T1041
+  - title: Internal host scanning across zones
+    severity: medium
+    signals:
+      - RT_FLOW_SESSION_DENY
+      - one source-address, many destination-port / destination-address
+    why: Lateral discovery from a compromised host shows as policy denies between internal zones.
+    kql: |-
+      dataset="juniper_srx" reason="policy deny" source-zone-name!="untrust"
+      | summarize ports=dcount(['destination-port']), hosts=dcount(['destination-address']) by source-address, bin(_time, 15m)
+      | where ports > 50 or hosts > 30
+    mitre:
+      - T1046
+  - title: IDP critical/high attack not blocked
+    severity: high
+    signals:
+      - IDP_ATTACK_LOG_EVENT
+      - threat-severity in CRITICAL / HIGH
+      - action=NONE
+    why: A recommended-policy hit that was only logged means the IDP policy is in monitor mode for that rule.
+    kql: |-
+      dataset="juniper_srx" ['attack-name']!=""
+      | where ['threat-severity'] in ("CRITICAL","HIGH") and action == "NONE"
+      | summarize hits=count() by ['attack-name'], source-address, destination-address
+    mitre:
+      - T1190
+optimizations:
+  - title: Drop session-create events
+    saving: 30–45 %
+    fn: Drop
+    how: RT_FLOW_SESSION_CREATE repeats the 5-tuple without counters; the close event has everything. Drop create (or set "then log session-close" only on busy policies).
+    expr: "_raw.includes('RT_FLOW_SESSION_CREATE')"
+  - title: Remove N/A and placeholder fields
+    saving: 15–25 %
+    fn: Parser → Serialize
+    how: Structured SRX logs carry many fields that are N/A, 0 or 0.0.0.0 (roles, username, dst-nat-rule-name, peer-*, vrf groups, connection-tag). Strip them before the SIEM.
+    expr: "remove fields where value in ('N/A','NA','0.0.0.0','UNKNOWN') plus connection-tag, nat-connection-tag, roles, src-vrf-grp, dst-vrf-grp"
+  - title: Aggregate internet denies
+    saving: 10–30 %
+    fn: Aggregations
+    how: Turn RT_FLOW_SESSION_DENY from untrust into 1-minute counts per source/destination/port; keep raw in Lake.
+    expr: "count() by source-address, destination-address, destination-port, policy-name  window 60s  where source-zone-name=='untrust'"
+  - title: Keep IDP and system logs at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: Route RT_IDP, RT_UTM and RE system events (sshd, mgd UI_*) unchanged to the SIEM; RT_FLOW to Lake plus an optimised copy.
+    expr: /RT_IDP|RT_UTM|UI_|SSHD_/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)
+references:
+  - title: Juniper — Configure system logging for security devices (stream mode, formats)
+    url: https://www.juniper.net/documentation/en_US/junos/topics/concept/security-system-log-message-overview.html
+  - title: Juniper — Information in session log entries (RT_FLOW fields)
+    url: https://www.juniper.net/documentation/en_US/junos12.1x46/topics/reference/general/session-log-entry-information-for-srx-series.html
+  - title: JSA72300 — J-Web multiple vulnerabilities (CVE-2023-36844/36845/36846/36847)
+    url: https://supportportal.juniper.net/JSA72300
+  - title: JSA75729 — J-Web out-of-bounds write (CVE-2024-21591)
+    url: https://supportportal.juniper.net/JSA75729
+  - title: JSA93446 — Junos veriexec bypass (CVE-2025-21590)
+    url: https://supportportal.juniper.net/JSA93446
+  - title: Mandiant — China-nexus espionage targets Juniper routers
+    url: https://cloud.google.com/blog/topics/threat-intelligence/china-nexus-espionage-targets-juniper-routers
+  - title: Cribl Pack — Juniper Structured Syslog
+    url: https://packs.cribl.io/packs/cc-juniper-structured-syslog-cribl
+related:
+  - pan-ngfw
+  - fortigate
+  - checkpoint
+  - cisco-asa
+  - sonicwall

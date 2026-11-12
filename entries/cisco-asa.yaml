@@ -1,30 +1,349 @@
 # Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cisco-asa
-name: Cisco ASA / FTD
+name: Cisco Secure Firewall ASA
 short: Cisco ASA
 vendor: Cisco
 category: ngfw
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 aka:
-  - Firepower
-  - FTD
+  - Adaptive Security Appliance
+  - ASA 5500-X
+  - ASAv
+  - Cisco PIX (predecessor)
+  - Firepower (ASA image)
+  - FTD (shares LINA syslog)
 tags:
   - firewall
   - vpn
   - anyconnect
+  - ipsec
   - syslog
+  - text
+summary: Cisco's long-running stateful firewall and remote-access VPN head-end (AnyConnect / Secure Client, clientless WebVPN, IPsec). Logs are free-text syslog keyed by a six-digit message ID (%ASA-6-302013), so parsing is per message ID. Its internet-facing VPN web server was the target of the ArcaneDoor and 2025 state-sponsored campaigns.
 sourcetypes:
   - st: cisco:asa
+    desc: Splunk Add-on for Cisco ASA — all %ASA- syslog
   - st: cisco:ftd
+    desc: FTD's LINA engine emits the same message IDs with a %FTD- prefix (see Cisco FTD entry for eStreamer/Snort events)
   - st: cisco_asa
-    desc: Pack Generator sourcetype
+    desc: Pack Generator sourcetype — ASA syslog
   - st: cisco_asa_syslog
-    desc: Pack Generator sourcetype
+    desc: Pack Generator sourcetype — ASA syslog with PRI/timestamp header
   - st: cisco_fwsm_syslog
-    desc: Pack Generator sourcetype
+    desc: Pack Generator sourcetype — legacy Firewall Services Module (FWSM), same %FWSM- message ID format
   - st: cisco_fwsm_v2
-    desc: Pack Generator sourcetype
-summary: Stateful firewall and VPN head-end; message-ID based syslog (%ASA-6-302013).
-cveIds:
-  - CVE-2024-20353
-  - CVE-2024-20359
+    desc: Pack Generator sourcetype — FWSM variant
+  - st: CISCO_ASA_FIREWALL
+    desc: Google SecOps (Chronicle) log type
+  - st: CommonSecurityLog
+    desc: Microsoft Sentinel table when ASA logs arrive through the Cisco ASA (AMA) connector
+facts:
+  First released: 2005 (ASA 5500, successor to PIX)
+  OS: ASA Software 9.x (current trains 9.20 / 9.22 / 9.23), ASDM for GUI
+  Form factors: Secure Firewall 1200/2100/3100/4200/9300 with ASA image, ASAv on VMware/KVM/AWS/Azure/GCP, ASA 5500-X (end of life)
+  Deployment modes: Routed or transparent, single or multiple context, active/standby or active/active failover, clustering
+  Log transport: Syslog UDP 514 / TCP 1470 / TLS, NetFlow Secure Event Logging (NSEL), SNMP traps
+  Log format: Free-text syslog, %ASA-<severity>-<message_id> (optional EMBLEM, RFC 5424 timestamps, device-id)
+  Typical EPS: 1k – 50k+ per firewall (302013/302014 connection messages dominate)
+  Cribl Pack: cribl-cisco-asa-cleanup (Packs Dispensary)
+placement:
+  slots:
+    - edge
+    - remote
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: Internet perimeter
+      desc: Classic deployment between ISP and internal/DMZ interfaces, with security levels (outside 0, inside 100) and static/dynamic NAT for published services.
+    - slot: remote
+      title: Remote-access VPN head-end
+      desc: Terminates AnyConnect / Secure Client SSL and IKEv2 tunnels and clientless WebVPN. The VPN web server is internet-exposed and the main CVE target.
+    - slot: internal
+      title: Data-center / segmentation
+      desc: Transparent-mode or multi-context ASAs separate tenants, PCI zones or data-center tiers; often clustered on Firepower 9300 chassis.
+    - slot: cloud
+      title: ASAv in the cloud
+      desc: ASAv instances as VPN concentrators or transit firewalls in AWS/Azure/GCP, frequently behind a load balancer for scaling remote access.
+howItWorks:
+  - title: Security levels, ACLs and the adaptive algorithm
+    body: Each interface has a nameif and security level (0–100). Traffic from higher to lower level is allowed by default; everything else needs an access-group ACL. The stateful engine (adaptive security algorithm) tracks connections and xlates so return traffic is permitted automatically.
+  - title: NAT (xlate) before ACL
+    body: Object and twice NAT translate addresses; since 8.3 ACLs are written against the real (untranslated) IP. Connection messages show both real and mapped addresses — 302013 "Built outbound TCP connection … for outside:real (mapped) to inside:real (mapped)".
+  - title: Message-ID syslog
+    body: Every event is a numbered message — 106023 ACL deny, 302013/302014 TCP build/teardown, 113004/113005 AAA, 722051 VPN address assigned, 111008/111010 CLI commands. Severity 0–7 sits in the tag and logging lists can enable or disable per ID, so what you receive depends entirely on the logging config.
+  - title: Remote-access VPN and WebVPN
+    body: Tunnel groups (connection profiles) bind authentication (LOCAL, RADIUS, LDAP, SAML, certificates) to group policies. The embedded HTTPS server serves the AnyConnect portal, client downloads and clientless WebVPN on the outside interface; ASDM uses the same server for management.
+  - title: Modular Policy Framework and inspection
+    body: Class maps and policy maps apply application inspection (DNS, FTP, SIP, ICMP), connection limits and QoS. Threat detection and basic IPS-like scanning detection produce 733100 / 733101 messages. Full NGIPS needs FTD or the legacy FirePOWER module.
+traffic:
+  handles:
+    - IPv4/IPv6 stateful firewalling and NAT
+    - AnyConnect / Secure Client SSL-VPN and DTLS
+    - IKEv1/IKEv2 IPsec site-to-site and remote access
+    - Clientless WebVPN portal
+    - Application inspection (DNS, FTP, SIP, H.323, ICMP)
+    - Identity firewall (AD user/group in ACLs)
+  flow:
+    - step: Ingress
+      desc: Packet arrives on a named interface; existing connection lookup.
+    - step: Un-NAT / route
+      desc: Destination NAT is resolved and the egress interface chosen.
+    - step: Access-list
+      desc: Interface ACL (access-group) checked against real addresses — a miss produces 106023 / 106100.
+    - step: Inspection
+      desc: MPF application inspection and connection limits.
+    - step: NAT + xlate
+      desc: Source translation created (305011 built dynamic translation).
+    - step: Connection
+      desc: Connection built (302013/302015) and forwarded; teardown at close (302014/302016) with duration, bytes and reason.
+logs:
+  - type: Connection (302013 / 302014)
+    sourcetype: cisco:asa
+    format: text
+    share: 60–85 %
+    avg: ~230 B
+    desc: Built and teardown messages for every TCP/UDP connection. Teardown carries duration, bytes and the teardown reason; built carries the mapped (NAT) addresses. Most volume and the first candidate for reduction.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} \d{1,2} \d{4} \d{2}:\d{2}:\d{2}): %(?<facility>ASA)-(?<severity>\d)-(?<message_id>\d{6}): (?<action>Teardown) (?<protocol>TCP|UDP) connection (?<connection_id>\d+) for (?<dest_interface>[^:]+):(?<dest_ip>[\d.]+)/(?<dest_port>\d+) to (?<src_interface>[^:]+):(?<src_ip>[\d.]+)/(?<src_port>\d+) duration (?<duration>[\d:]+) bytes (?<bytes>\d+) ?(?<reason>.*)$'
+    key:
+      - message_id
+      - src_ip
+      - dest_ip
+      - dest_port
+      - bytes
+      - duration
+      - reason
+    noise:
+      - pri
+      - facility
+      - connection_id
+    sample: |-
+      <166>Nov 12 2026 09:14:22: %ASA-6-302014: Teardown TCP connection 48211907 for outside:203.0.113.80/443 to inside:10.20.30.44/51544 duration 0:00:31 bytes 59952 TCP FINs from inside
+  - type: Access-list deny (106023)
+    sourcetype: cisco:asa
+    format: text
+    share: 5–25 %
+    avg: ~180 B
+    desc: Packet denied by an interface ACL, with the ACL name and hash. Internet-facing interfaces produce bursts from scanners.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} \d{1,2} \d{4} \d{2}:\d{2}:\d{2}): %(?<facility>ASA)-(?<severity>\d)-(?<message_id>\d{6}): (?<action>Deny) (?<protocol>\w+) src (?<src_interface>[^:]+):(?<src_ip>[\d.]+)/(?<src_port>\d+) dst (?<dest_interface>[^:]+):(?<dest_ip>[\d.]+)/(?<dest_port>\d+) by access-group "(?<acl>[^"]+)" \[(?<hash>[^\]]+)\]$'
+    key:
+      - message_id
+      - src_ip
+      - dest_ip
+      - dest_port
+      - acl
+    noise:
+      - pri
+      - facility
+      - hash
+    sample: |-
+      <164>Nov 12 2026 08:02:41: %ASA-4-106023: Deny tcp src outside:198.51.100.77/43218 dst inside:10.20.40.15/3389 by access-group "outside_access_in" [0x0, 0x0]
+  - type: AAA / VPN authentication (113005)
+    sourcetype: cisco:asa
+    format: text
+    share: < 2 %
+    avg: ~200 B
+    desc: Authentication rejected by the AAA server (113005) or the local database (113015); 716039 is the WebVPN equivalent. Usernames are masked as ***** unless "no logging hide username" is set.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} \d{1,2} \d{4} \d{2}:\d{2}:\d{2}): %(?<facility>ASA)-(?<severity>\d)-(?<message_id>\d{6}): AAA user authentication (?<result>Rejected) : reason = (?<reason>[^:]+?) : server = (?<server>[\d.]+) : user = (?<user>\S+) : user IP = (?<src_ip>[\d.]+)$'
+    key:
+      - message_id
+      - result
+      - reason
+      - user
+      - src_ip
+    noise:
+      - pri
+      - facility
+    sample: |-
+      <166>Nov 12 2026 08:05:10: %ASA-6-113005: AAA user authentication Rejected : reason = AAA failure : server = 10.10.5.20 : user = jdoe : user IP = 198.51.100.23
+  - type: Command accounting (111010)
+    sourcetype: cisco:asa
+    format: text
+    share: < 0.1 %
+    avg: ~180 B
+    desc: Every configuration command with user, interface (CLI/ASDM/REST) and source IP. Disabling logging, new privilege-15 users or copying files to disk0 are the ArcaneDoor-style tells.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3} \d{1,2} \d{4} \d{2}:\d{2}:\d{2}): %(?<facility>ASA)-(?<severity>\d)-(?<message_id>\d{6}): User ''(?<user>[^'']+)'', running ''(?<app>[^'']+)'' from IP (?<src_ip>[\d.]+), executed ''(?<command>[^'']+)''$'
+    key:
+      - message_id
+      - user
+      - app
+      - src_ip
+      - command
+    noise:
+      - pri
+      - facility
+    sample: |-
+      <173>Nov 12 2026 03:41:07: %ASA-5-111010: User 'admin', running 'CLI' from IP 10.0.0.5, executed 'username svc_backup2 password ***** privilege 15'
+cves:
+  - id: CVE-2025-20333
+    cvss: 9.9
+    year: 2025
+    kev: true
+    scope: device
+    title: VPN web server buffer overflow — authenticated RCE as root (exploited with CVE-2025-20362)
+    affected: ASA and FTD with AnyConnect/IKEv2 client services or WebVPN enabled on an interface
+    detect: Chained with CVE-2025-20362 in the 2025 ArcaneDoor-linked campaign. Look for unexpected reloads (199001 / crash messages), logging gaps or 111008 "no logging" commands, and web requests to VPN endpoints right before a crash.
+    avoid: Upgrade per the Cisco advisory (no workaround); follow CISA ED 25-03 core-dump collection; restrict the VPN web server to needed interfaces.
+  - id: CVE-2025-20362
+    cvss: 8.6
+    year: 2025
+    kev: true
+    scope: device
+    title: VPN web server missing authorization — unauthenticated access to restricted URL endpoints
+    affected: ASA and FTD with remote-access VPN web services enabled
+    detect: Pre-auth step of the CVE-2025-20333 chain; a November 2025 variant causes unpatched devices to reload. Unexplained reloads and HTTPS sessions to the outside interface without a matching 113004/722051 login.
+    avoid: Upgrade per the Cisco advisory; disable WebVPN/clientless where unused.
+  - id: CVE-2024-20353
+    cvss: 8.6
+    year: 2024
+    kev: true
+    scope: device
+    title: Management and VPN web server DoS via a crafted HTTP header (ArcaneDoor)
+    affected: ASA and FTD with the management or VPN web server enabled
+    detect: Reloads without an operator-initiated 199001; crashinfo after HTTPS traffic to the device. Used to force reboots that activate the CVE-2024-20359 implant.
+    avoid: Upgrade per the Cisco advisory; restrict HTTPS management to an inside management network.
+  - id: CVE-2024-20359
+    cvss: 6.0
+    year: 2024
+    kev: true
+    scope: device
+    title: Legacy VPN client preload capability — persistent local code execution as root (Line Runner)
+    affected: ASA and FTD; requires admin privileges to copy a file to disk0
+    detect: 111010 commands copying files to disk0 or changing webvpn/client plug-in settings; files named client_bundle*.zip on disk0; reload shortly after.
+    avoid: Upgrade per the Cisco advisory; enforce command authorization and MFA for admins; forward command accounting off-box.
+  - id: CVE-2023-20269
+    cvss: 9.1
+    year: 2023
+    kev: true
+    scope: device
+    title: Remote-access VPN AAA separation flaw — brute force via default tunnel groups (Akira / LockBit)
+    affected: ASA and FTD with remote-access VPN or clientless SSL VPN and default connection profiles
+    detect: Bursts of 113005 / 113015 / 716039 rejects with group DefaultWEBVPNGroup or DefaultRAGroup and many usernames from one IP; clientless sessions for unexpected users.
+    avoid: Lock default groups (vpn-simultaneous-logins 0, no address pool), enforce MFA, apply the workarounds in the Cisco advisory and upgrade.
+  - id: CVE-2024-3661
+    cvss: 7.6
+    year: 2024
+    kev: false
+    scope: traffic
+    title: TunnelVision — DHCP option 121 routes leak traffic outside the remote-access VPN tunnel
+    affected: Route-based VPN clients (incl. AnyConnect / Secure Client) on attacker-controlled local networks
+    detect: Not visible on the ASA directly. Look for VPN sessions (722051) where expected traffic volume through the tunnel drops while the user is on public Wi-Fi; endpoint telemetry showing option 121 routes.
+    avoid: Use full-tunnel with local LAN access disabled and client firewall rules that block non-tunnel traffic; prefer network namespaces / per-app VPN where supported.
+detections:
+  - title: Remote-access VPN password spray
+    severity: high
+    signals:
+      - message_id 113005 / 113015 / 716039
+      - many users per src_ip
+      - DefaultWEBVPNGroup / DefaultRAGroup
+    why: Password spraying against ASA VPN (including the CVE-2023-20269 default-group path) has been a leading ransomware initial-access vector; Cisco documents these three IDs as the spray indicators.
+    kql: |-
+      dataset="cisco_asa_logs" message_id in ("113005","113015","716039")
+      | summarize fails=count(), users=dcount(user) by src_ip, bin(_time, 10m)
+      | where fails > 20 or users > 5
+    mitre:
+      - T1110.003
+      - T1133
+  - title: Logging disabled or privilege-15 user created
+    severity: critical
+    signals:
+      - message_id 111008 / 111010
+      - command has "no logging" or "privilege 15"
+    why: ArcaneDoor and the 2025 campaign disabled logging and added persistence on the device. Any such command outside a change window is an incident.
+    kql: |-
+      dataset="cisco_asa_logs" message_id in ("111008","111010")
+      | where command has_any ("no logging","privilege 15","copy ","disk0:","webvpn")
+      | project _time, user, app, src_ip, command
+    mitre:
+      - T1562.001
+      - T1136.001
+      - T1098
+  - title: Unexpected device reload
+    severity: high
+    signals:
+      - 199005 Startup begin without a preceding 199001 operator reload
+      - crash / signal messages (199010)
+    why: CVE-2024-20353 and the CVE-2025-20333/20362 variant crash the box; an unplanned reload on an internet-facing ASA warrants core-dump collection.
+    kql: |-
+      dataset="cisco_asa_logs" message_id in ("199001","199010","199005")
+      | summarize events=count(), ids=make_set(message_id) by bin(_time, 15m)
+      | where set_has_element(ids, "199005") and not(set_has_element(ids, "199001"))
+    mitre:
+      - T1499.004
+      - T1190
+  - title: Inbound RDP/SMB/SSH denies from the internet
+    severity: medium
+    signals:
+      - message_id=106023
+      - src_interface=outside
+      - dest_port in 3389/445/22
+    why: Scanners hunt for exposed management protocols; a sudden source that is denied on many internal IPs is a targeted scan worth blocking at the edge.
+    kql: |-
+      dataset="cisco_asa_logs" message_id="106023" src_interface="outside"
+      | where dest_port in ("3389","445","22")
+      | summarize targets=dcount(dest_ip), hits=count() by src_ip, dest_port
+      | where targets > 10
+    mitre:
+      - T1046
+  - title: Large outbound transfer on a single connection
+    severity: medium
+    signals:
+      - message_id=302014
+      - src_interface=inside
+      - bytes > 1 GB
+    why: Exfiltration often shows as a few very large long-lived connections to a new external IP.
+    kql: |-
+      dataset="cisco_asa_logs" message_id="302014" src_interface="inside"
+      | where toint(bytes) > 1000000000
+      | summarize total=sum(toint(bytes)) by src_ip, dest_ip, dest_port
+    mitre:
+      - T1048
+      - T1041
+optimizations:
+  - title: Drop connection-built messages
+    saving: 30–45 %
+    fn: Drop
+    how: 302013/302015 (built) carry the same 5-tuple as 302014/302016 (teardown) minus bytes and duration. Keep built only if you need the NAT mapping and do not log 305011; otherwise drop or disable with "no logging message 302013".
+    expr: /%ASA-\d-30201[35]:/.test(_raw)
+  - title: Suppress repeated ACL denies
+    saving: 5–20 %
+    fn: Suppress
+    how: Keep one 106023 per src_ip/dest_ip/dest_port per 60 s with a count. Scanner floods compress dramatically.
+    expr: "key: `${src_ip}:${dest_ip}:${dest_port}`  allow 1 / 60s  when message_id=='106023'"
+  - title: Drop low-value message IDs
+    saving: 5–15 %
+    fn: Drop
+    how: 305011/305012 (xlate build/teardown), 302020/302021 (ICMP), 110002/110003 (routing) and 609001/609002 (local host) are high-volume and rarely queried. Drop or route to Lake via a lookup of message IDs, as the cribl-cisco-asa-cleanup pack does.
+    expr: C.Lookup('asa_drop_ids.csv','message_id').match(message_id)
+  - title: Aggregate teardowns to flow metrics
+    saving: 15–30 %
+    fn: Aggregations
+    how: Roll internal-to-internal teardowns up to bytes and connection counts per src/dest/port per minute; send full-fidelity copies to Cribl Lake.
+    expr: message_id=='302014' && src_interface=='inside' && dest_interface!='outside'
+references:
+  - title: Cisco Secure Firewall ASA Series Syslog Messages
+    url: https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/asa-syslog.pdf
+  - title: Mitigate password spray attacks on remote access VPN (Cisco)
+    url: https://www.cisco.com/c/en/us/support/docs/security/secure-firewall-threat-defense/221806-password-spray-attacks-impacting-custome.html
+  - title: cisco-sa-asaftd-webvpn-z5xP8EUB — CVE-2025-20333
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-webvpn-z5xP8EUB
+  - title: cisco-sa-asaftd-webvpn-YROOTUW — CVE-2025-20362
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-webvpn-YROOTUW
+  - title: cisco-sa-asaftd-websrvs-dos-X8gNucD2 — CVE-2024-20353 (ArcaneDoor)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-websrvs-dos-X8gNucD2
+  - title: cisco-sa-asaftd-ravpn-auth-8LyfCkeC — CVE-2023-20269
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-ravpn-auth-8LyfCkeC
+  - title: CISA ED 25-03 — Identify and mitigate potential compromise of Cisco devices
+    url: https://www.cisa.gov/news-events/directives/ed-25-03-identify-and-mitigate-potential-compromise-cisco-devices
+  - title: Cribl Pack — Cisco ASA cleanup
+    url: https://packs.cribl.io/packs/cribl-cisco-asa-cleanup
+related:
+  - cisco-ftd
+  - fortigate
+  - pan-ngfw
+  - checkpoint
+  - cisco-ios
+  - cisco-meraki
