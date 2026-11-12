@@ -2,10 +2,375 @@
 id: ms-dns-dhcp
 name: Microsoft DNS & DHCP Server
 short: MS DNS/DHCP
+aka:
+  - Windows Server DNS
+  - Windows Server DHCP
+  - AD-integrated DNS
+  - dns.exe
+  - DhcpServer
 vendor: Microsoft
 category: dns
-status: stub
-summary: Windows Server DNS and DHCP roles; DNS analytical/audit event logs and DHCP audit logs.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - dns
+  - dhcp
+  - windows
+  - active-directory
+  - etw
+  - event-log
+  - csv
+summary: The DNS Server and DHCP Server roles of Windows Server — in most enterprises the resolvers every domain-joined host uses and the service that hands out their IP addresses. DNS writes audit and analytic events (ETW / event log) and an optional text debug log; DHCP writes a daily CSV audit log plus event-log entries. Together they answer "which host had this IP, and what did it look up?"
 sourcetypes:
   - st: microsoft_dns_server_eventlog
+    desc: DNS Server audit / operational events as Windows event log text (EventCode=…, Message=…)
   - st: microsoft_dhcp_syslog
+    desc: DHCP Server event-log entries forwarded as Snare-style tab-delimited syslog
+  - st: MSAD:NT6:DNS
+    desc: Splunk Add-on for Microsoft DNS — DNS debug log (dns.log) text
+  - st: DhcpSrvLog
+    desc: DHCP audit log CSV (DhcpSrvLog-<Day>.log) as collected by the Splunk Windows TA
+  - st: XmlWinEventLog:Microsoft-Windows-DNSServer/Analytical
+    desc: DNS analytic events (256 query received, 257 response…) in Windows event XML
+  - st: WinEventLog:Microsoft-Windows-DNSServer/Audit
+    desc: DNS audit channel (zone and record changes, settings)
+facts:
+  First released: DNS Server in Windows NT 4.0 (1996); DHCP Server in Windows NT 3.5 (1994)
+  Platform: Windows Server 2016 / 2019 / 2022 / 2025 (role on domain controllers or member servers)
+  Deployment: AD-integrated zones replicated between domain controllers; DHCP failover pairs
+  DNS logs: Audit channel (on by default), Analytical ETW channel (off by default), debug log dns.log (off by default)
+  DHCP logs: Daily CSV audit log in %windir%\System32\dhcp (DhcpSrvLog-<Day>.log, 7-day rotation) + event log
+  Log transport: Windows Event Forwarding, agents (Cribl Edge, Splunk UF, NXLog, Snare) or Sentinel AMA
+  Analytic-log cost: ~5 % CPU at 100k QPS per Microsoft, no measurable impact at ≤ 50k QPS
+  Typical volume: 1–2 analytic events per query — often the largest Windows log source after Security
+  Cribl Pack: Microsoft Windows Events (criblpacks/cribl-windows-events) for the event-log channels
+placement:
+  slots:
+    - internal
+    - cloud
+    - remote
+  items:
+    - slot: internal
+      title: Domain controllers / core resolvers
+      desc: DNS usually runs on every DC with AD-integrated zones; every domain-joined client resolves here first, so the query log covers the whole fleet.
+    - slot: internal
+      title: DHCP servers (failover pair)
+      desc: One pair per site or central with relay agents (option 82). The lease log is the authoritative IP→MAC→hostname history.
+    - slot: cloud
+      title: Azure / AWS domain controllers
+      desc: DCs in IaaS extend AD DNS to cloud workloads and forward cloud-private zones to the provider resolver.
+    - slot: remote
+      title: VPN clients
+      desc: Remote users get DNS servers via the VPN; their lookups appear only if split-DNS sends them to the corporate resolvers.
+howItWorks:
+  - title: AD-integrated zones and dynamic updates
+    body: Zones are stored in Active Directory partitions and replicated with AD. Clients and the DHCP server register A/PTR records via secure dynamic update (Kerberos-signed); any authenticated user can create new records by default — the basis of ADIDNS spoofing attacks.
+  - title: Three DNS logging paths
+    body: The Audit channel records zone, record and server-setting changes (events 513–582). The Analytical channel is an ETW provider that emits per-packet events (256 query received, 257 response success, 258 failure, 260/261 recursion). The legacy debug log writes every packet to a text file — expensive and rotated by size, but still widely collected.
+  - title: DNS policies and filtering
+    body: Query resolution policies (Windows Server 2016+) can block, redirect or answer based on client subnet, FQDN or time of day — a built-in DNS sinkhole. Matches show PolicyName in analytic events.
+  - title: DHCP lease life cycle
+    body: DISCOVER → OFFER → REQUEST → ACK. The audit log records the outcome (10 Assign, 11 Renew, 12 Release, 15 Denied, 14 scope exhausted) with IP, hostname and MAC, plus DNS-update results (30–32) when DHCP registers records on the client's behalf.
+  - title: Authorization and rogue detection
+    body: A Windows DHCP server must be authorized in AD before it serves leases; events 50–64 show authorization status and other DHCP servers seen on the wire. MAC allow/deny filters and failover state also appear here.
+traffic:
+  handles:
+    - DNS UDP/TCP 53 (recursive and authoritative)
+    - Secure dynamic updates (GSS-TSIG)
+    - Zone transfers and AD replication
+    - DNSSEC signing and validation
+    - DHCPv4 (UDP 67/68) and DHCPv6 (UDP 546/547)
+    - DHCP relay (option 82) and failover (TCP 647)
+  flow:
+    - step: DHCP lease
+      desc: Client gets an IP; audit log writes Assign/Renew with MAC and hostname.
+    - step: DNS registration
+      desc: Client or DHCP registers A/PTR records (audit 515, DHCP 30–32).
+    - step: Query received
+      desc: Client query arrives on 53 — analytic event 256 / debug-log Rcv line.
+    - step: Policy + zone/cache
+      desc: DNS policies evaluated, answer from AD zone or cache.
+    - step: Recursion / forwarders
+      desc: Unknown names go to forwarders or root hints (260/261).
+    - step: Response
+      desc: Answer sent — analytic 257 (success) or 258 (failure).
+logs:
+  - type: DNS analytic query event
+    sourcetype: XmlWinEventLog:Microsoft-Windows-DNSServer/Analytical
+    format: xml
+    share: 70–85 %
+    avg: ~1.1 KB
+    desc: Event 256 QUERY_RECEIVED (and 257 RESPONSE_SUCCESS) from the ETW analytical channel. Structured source IP, QNAME, QTYPE and flags — the modern replacement for the debug log.
+    key:
+      - EventID
+      - Source
+      - QNAME
+      - QTYPE
+      - TCP
+      - Computer
+    noise:
+      - PacketData
+      - XID
+      - Keywords
+      - Opcode
+      - Version
+    sample: |-
+      <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-DNSServer' Guid='{EB79061A-A566-4698-9119-3ED2807060E7}'/><EventID>256</EventID><Version>0</Version><Level>4</Level><Task>1</Task><Opcode>0</Opcode><Keywords>0x8000000000000001</Keywords><TimeCreated SystemTime='2026-11-12T09:14:22.4185123Z'/><Execution ProcessID='2312' ThreadID='3740'/><Channel>Microsoft-Windows-DNSServer/Analytical</Channel><Computer>DC01.corp.example.com</Computer></System><EventData><Data Name='TCP'>0</Data><Data Name='InterfaceIP'>10.0.0.53</Data><Data Name='Source'>10.20.30.44</Data><Data Name='RD'>1</Data><Data Name='QNAME'>www.example.com.</Data><Data Name='QTYPE'>1</Data><Data Name='XID'>41394</Data><Data Name='Port'>51544</Data><Data Name='Flags'>256</Data><Data Name='ServerScope'>Default</Data><Data Name='CacheScope'>Default</Data><Data Name='PacketData'>0xA1B201000001000000000000037777770765786D706C6503636F6D0000010001</Data></EventData></Event>
+  - type: DNS debug log
+    sourcetype: MSAD:NT6:DNS
+    format: text
+    share: legacy alternative
+    avg: ~150 B
+    desc: Text dns.log written when debug logging is enabled (packet Snd/Rcv lines). Names are in length-prefixed form, e.g. (3)www(7)example(3)com(0). Still the most common collection method on older servers.
+    pattern: '^(?<date>\d{1,2}/\d{1,2}/\d{4}) (?<time>\d{1,2}:\d{2}:\d{2} [AP]M) (?<thread_id>[0-9A-F]+) (?<context>PACKET)\s+(?<packet_id>[0-9A-F]+) (?<protocol>UDP|TCP) (?<direction>Snd|Rcv) (?<remote_ip>[0-9a-fA-F.:]+)\s+(?<xid>[0-9a-f]{4}) (?<response_flag>[R ]) (?<opcode>[QNUD?]) \[(?<flags_hex>[0-9a-f]{4})\s+(?<flags_char>[A-Z]*)\s+(?<rcode>[A-Z]+)\] (?<query_type>\S+)\s+(?<query_name>\S+)$'
+    key:
+      - remote_ip
+      - direction
+      - query_type
+      - query_name
+      - rcode
+    noise:
+      - thread_id
+      - packet_id
+      - context
+      - flags_hex
+    sample: |-
+      11/12/2026 9:14:22 AM 0E5C PACKET  000001D8F2A3B1C0 UDP Rcv 10.20.30.44     a1b2   Q [0001   D   NOERROR] A      (3)www(7)example(3)com(0)
+  - type: DNS audit event
+    sourcetype: microsoft_dns_server_eventlog
+    format: kv
+    share: < 1 %
+    avg: ~450 B
+    desc: Audit channel — record create/delete (515/516), zone create/delete, server settings (541). Low volume, high value — catches ADIDNS record injection and configuration tampering.
+    key:
+      - EventCode
+      - ComputerName
+      - TaskCategory
+      - Message
+    noise:
+      - EventType
+      - OpCode
+      - Keywords
+      - RecordNumber
+    sample: |-
+      11/12/2026 09:20:31 AM LogName=Microsoft-Windows-DNSServer/Audit SourceName=Microsoft-Windows-DNSServer EventCode=515 EventType=4 Type=Information ComputerName=DC01.corp.example.com TaskCategory=Zone OpCode=Info RecordNumber=48211 Keywords=0x4000000000020000 Message=A resource record of type 1, name wpad, TTL 3600 and RDATA 0x0A141E63 was created in scope Default of zone corp.example.com.
+  - type: DHCP audit log
+    sourcetype: DhcpSrvLog
+    format: csv
+    share: 5–15 % (with DNS)
+    avg: ~110 B
+    desc: Daily CSV lease log. Every Assign/Renew/Release with IP, hostname and MAC — the IP-to-device history needed to attribute any other log.
+    fields:
+      - id
+      - date
+      - time
+      - description
+      - ip_address
+      - host_name
+      - mac_address
+      - user_name
+      - transaction_id
+      - qresult
+      - probation_time
+      - correlation_id
+      - dhcid
+      - vendor_class_hex
+      - vendor_class_ascii
+      - user_class_hex
+      - user_class_ascii
+      - relay_agent_info
+      - dns_reg_error
+    key:
+      - id
+      - description
+      - ip_address
+      - host_name
+      - mac_address
+      - vendor_class_ascii
+    noise:
+      - probation_time
+      - correlation_id
+      - dhcid
+      - vendor_class_hex
+      - user_class_hex
+      - qresult
+    sample: 10,11/12/26,09:14:22,Assign,10.20.30.150,LAPTOP-JDOE.corp.example.com,A4BB6D112233,,2864529813,0,,,,0x4D53465420352E30,MSFT 5.0,,,,0
+  - type: DHCP server event (syslog)
+    sourcetype: microsoft_dhcp_syslog
+    format: text
+    share: < 1 %
+    avg: ~300 B
+    desc: DHCP Server event-log entries (scope full, authorization, conflicts) forwarded by a Snare-style agent as tab-delimited syslog.
+    pattern: '^<(?<priority>\d+)>(?<syslog_timestamp>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (?<syslog_host>\S+) (?<app>\S+)\t(?<criticality>\d+)\t(?<log_name>[^\t]+)\t(?<record_number>\d+)\t(?<event_time>[^\t]+)\t(?<event_id>\d+)\t(?<source_name>[^\t]+)\t(?<user>[^\t]*)\t(?<user_sid>[^\t]*)\t(?<severity>[^\t]+)\t(?<computer>[^\t]+)\t(?<category>[^\t]*)\t(?<raw_data>[^\t]*)\t(?<message>[^\t]*)\t(?<event_category_id>\d+)$'
+    key:
+      - event_id
+      - severity
+      - computer
+      - message
+    noise:
+      - criticality
+      - user_sid
+      - raw_data
+      - event_category_id
+    sample: "<14>Nov 12 09:14:22 DHCP01.corp.example.com MSWinEventLog\t1\tSystem\t88213\tThu Nov 12 09:14:22 2026\t1020\tMicrosoft-Windows-DHCP-Server\tN/A\tN/A\tWarning\tDHCP01.corp.example.com\tNone\t\tScope, 10.20.30.0, is 95 percent full with only 12 IP addresses remaining.\t1020"
+cves:
+  - id: CVE-2020-1350
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: device
+    title: SIGRed — wormable DNS Server RCE via oversized SIG response
+    affected: Windows Server 2008 – 2019 / 1903 / 1909 / 2004 with the DNS Server role
+    fixed: Microsoft security updates of 14 July 2020
+    detect: DNS server queries for SIG (type 24) records to an external domain followed by a TCP response > 64 KB; dns.exe crash (System 7031/7034) or unexpected child processes of dns.exe.
+    avoid: Patch; interim workaround TcpReceivePacketSize = 0xFF00 in HKLM\SYSTEM\CurrentControlSet\Services\DNS\Parameters; restrict DNS server egress to forwarders.
+  - id: CVE-2021-26877
+    cvss: 9.8
+    year: 2021
+    kev: false
+    scope: device
+    title: DNS Server RCE (dynamic-update parsing; one of five March 2021 DNS RCEs)
+    affected: Windows Server 2008 – 2019 / 20H2 with DNS Server role and dynamic updates enabled
+    fixed: Microsoft security updates of March 2021
+    detect: Audit 515/516 or analytic 263/264 dynamic-update events from unexpected sources; dns.exe crash.
+    avoid: Patch; require secure-only dynamic updates; block untrusted networks from TCP/UDP 53 on DCs.
+  - id: CVE-2019-0626
+    cvss: 9.8
+    year: 2019
+    kev: false
+    scope: device
+    title: DHCP Server memory-corruption RCE via crafted packets
+    affected: Windows Server 2008 – 2019 with the DHCP Server role
+    detect: DHCP service crashes/restarts (System events, DHCP audit log 00/01 start/stop) close to malformed requests from one MAC; inspect relay sources.
+    avoid: Patch; limit DHCP to relay agents and trusted VLANs.
+  - id: CVE-2023-28231
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: DHCPv6 Server RCE via crafted RPC call (adjacent attacker)
+    affected: Windows Server 2008 – 2022 with the DHCP Server role
+    fixed: Microsoft security updates of April 2023
+    detect: DHCPv6 audit log (DhcpV6SrvLog) anomalies and DHCP service crashes; RPC connections to the DHCP server from non-admin hosts.
+    avoid: Patch; disable DHCPv6 if unused; restrict RPC to the DHCP server.
+  - id: CVE-2023-50387
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: traffic
+    title: KeyTrap — DNSSEC validation CPU exhaustion (protocol flaw; Windows DNS patched Feb 2024)
+    affected: DNSSEC-validating resolvers, including Windows DNS Server with validation enabled
+    detect: Analytic 258 RESPONSE_FAILURE / SERVFAIL spikes for one zone, dns.exe CPU saturation, repeated recursion (260/261) to one signed domain.
+    avoid: Apply the February 2024 updates; recursion only for internal clients.
+detections:
+  - title: DNS tunnelling / exfiltration via the corporate resolver
+    severity: high
+    signals:
+      - EventID=256
+      - long or high-entropy QNAME labels
+      - many unique subdomains under one parent
+      - QTYPE 16 (TXT) / 10 (NULL)
+    why: Internal hosts usually can't reach external DNS directly, so tunnels go through the DC resolver — the analytic log is where they become visible.
+    kql: |-
+      dataset="ms_dns" EventID=256
+      | extend parent=extract(@"([^.]+\.[^.]+)\.$", 1, QNAME)
+      | summarize uniq=dcount(QNAME), maxlen=max(strlen(QNAME)) by Source, parent, bin(_time, 15m)
+      | where uniq > 300 or maxlen > 80
+    mitre:
+      - T1071.004
+      - T1048.003
+  - title: ADIDNS record injection (wpad / wildcard / new A record)
+    severity: high
+    signals:
+      - EventCode=515
+      - name wpad, *, or a host that already exists
+      - created by a non-admin account
+    why: Any authenticated user can add records to AD-integrated zones; attackers add wpad or wildcard records to intercept traffic and relay credentials.
+    kql: |-
+      dataset="ms_dns" EventCode=515
+      | where Message has_any ("name wpad","name *","name isatap")
+      | project _time, ComputerName, Message
+    mitre:
+      - T1557
+      - T1557.001
+  - title: SIGRed exploitation indicators
+    severity: critical
+    signals:
+      - query type SIG (24)
+      - external destination
+      - DNS service crash shortly after
+    why: Exploit forces the server to fetch a malicious SIG record; patched servers stay up, but the query pattern still reveals attempts.
+    kql: |-
+      dataset="ms_dns" EventID=256 QTYPE=24
+      | summarize count() by Source, QNAME, Computer
+    mitre:
+      - T1210
+  - title: DHCP scope exhaustion or rogue DHCP server
+    severity: medium
+    signals:
+      - audit id 14 (pool exhausted)
+      - event 1020 scope nearly full
+      - many Assign from random MACs
+      - events 57/61/62 other DHCP server found
+    why: Starvation with spoofed MACs precedes a rogue DHCP server that hands out an attacker-controlled gateway/DNS.
+    kql: |-
+      dataset="ms_dhcp" id in ("14","57","61","62") or event_id="1020"
+      | summarize count(), macs=dcount(mac_address) by id, event_id, bin(_time, 15m)
+    mitre:
+      - T1557.003
+  - title: New unknown device on the network
+    severity: low
+    signals:
+      - id=10 Assign
+      - MAC not in asset inventory
+      - unusual vendor_class_ascii (not MSFT 5.0 / known OS)
+    why: Unmanaged devices (drop boxes, rogue Raspberry Pis) get a lease like anything else — the DHCP log is often the first trace.
+    kql: |-
+      dataset="ms_dhcp" id="10"
+      | lookup asset_inventory on mac_address
+      | where isempty(asset_owner)
+      | project _time, ip_address, host_name, mac_address, vendor_class_ascii
+    mitre:
+      - T1200
+optimizations:
+  - title: Keep 256 or 257, not both
+    saving: 40–50 %
+    fn: Drop
+    how: Every resolved query produces a 256 (received) and a 257 (response). For hunting, one is enough — keep 257 if you want RCODE, 256 otherwise; always keep 258 failures.
+    expr: EventID==256 && keep_responses  // or EventID==257 && !keep_responses
+  - title: Drop internal and infrastructure lookups
+    saving: 20–40 %
+    fn: Drop
+    how: AD SRV lookups (_ldap._tcp, _kerberos._tcp), PTR for internal ranges and the DC's own queries are the bulk of volume and rarely searched.
+    expr: /^_(ldap|kerberos|gc|kpasswd)\.|in-addr\.arpa\.?$/.test(QNAME)
+  - title: XML to compact JSON, drop PacketData
+    saving: 50–70 %
+    fn: Parser → Serialize
+    how: Windows event XML is verbose; extract EventData into fields, drop PacketData, Keywords, Version, Opcode and the namespace, serialise as JSON.
+    expr: "remove: PacketData, Keywords, Version, Opcode, Execution*"
+  - title: Suppress DHCP renewals
+    saving: 30–60 % of DHCP volume
+    fn: Suppress
+    how: Clients renew at half the lease time; one Renew per IP/MAC per day is enough to keep the IP→device history.
+    expr: "key: `${ip_address}:${mac_address}`  allow 1 / 86400s  when id=='11'"
+references:
+  - title: DNS logging and diagnostics (audit and analytic events)
+    url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/dn800669(v=ws.11)
+  - title: Analyzing DHCP server log files (format and event codes)
+    url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc776384(v=ws.10)
+  - title: NXLog — collect logs from Windows DHCP Server (current CSV header)
+    url: https://docs.nxlog.co/integrations/dhcp/windows-dhcp-server.html
+  - title: NVD — CVE-2020-1350 (SIGRed)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2020-1350
+  - title: Cribl Pack for Microsoft Windows Events
+    url: https://github.com/criblpacks/cribl-windows-events
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - active-directory
+  - win-security
+  - isc-bind
+  - infoblox
+  - sysmon

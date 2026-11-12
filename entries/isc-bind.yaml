@@ -2,9 +2,330 @@
 id: isc-bind
 name: ISC BIND
 short: BIND
+aka:
+  - BIND 9
+  - named
+  - Berkeley Internet Name Domain
+  - BIND Supported Preview Edition (-S)
 vendor: Internet Systems Consortium
 category: dns
-status: stub
-summary: The reference open-source DNS server; query and security logging channels.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - dns
+  - resolver
+  - authoritative
+  - dnssec
+  - rpz
+  - syslog
+  - open-source
+summary: The reference open-source DNS server (named), used as an authoritative server, a recursive resolver or both, with DNSSEC validation and Response Policy Zones (DNS firewall). Its query log is one of the richest sources for spotting malware C2, DNS tunnelling and DGA domains — and named itself is a frequent target for cache poisoning and resolver DoS.
 sourcetypes:
   - st: isc_bind_query
+    desc: Query log (queries category) — one line per client query
+  - st: isc:bind:query
+    desc: Splunk Add-on for ISC BIND — queries category
+  - st: isc:bind:queryerror
+    desc: Splunk Add-on — query-errors category (SERVFAIL, REFUSED…)
+  - st: isc:bind:transfer
+    desc: Splunk Add-on — notify / xfer-in / xfer-out zone transfer events
+  - st: isc:bind:lameserver
+    desc: Splunk Add-on — lame-servers category (resolution failures to broken delegations)
+  - st: isc:bind:network
+    desc: Splunk Add-on — network category (listening interfaces)
+  - st: isc:bind
+    desc: Other named categories (security, rpz, general, dnssec) as routed by SC4S
+facts:
+  First released: 1980s (BIND 4); BIND 9 rewrite released 2000
+  Platform: Linux, BSD, Solaris, macOS (Windows dropped after 9.16)
+  Current branches: 9.18 (ESV), 9.20 (stable), 9.21 (development)
+  Roles: Authoritative, recursive resolver, forwarder, DNS firewall (RPZ)
+  Log transport: File channels or syslog (local), forwarded with an agent or rsyslog
+  Log format: 'Single-line text — "date category: severity: message" (print-time / print-category / print-severity)'
+  Query logging: Off by default; enabled via the queries category or `rndc querylog`
+  Typical volume: 1 line per query — 1k–50k+ QPS on busy resolvers
+  Cribl Pack: None dedicated in the Dispensary (use the Syslog Input pack + a parser)
+placement:
+  slots:
+    - internal
+    - dmz
+    - edge
+    - cloud
+  items:
+    - slot: internal
+      title: Internal recursive resolver
+      desc: All clients resolve through it; the query log is the best place to see which host looked up which domain. Usually forwards to an upstream or recurses to the root.
+    - slot: dmz
+      title: Public authoritative server
+      desc: Serves the organisation's zones to the internet. Exposed to zone-transfer attempts, reflection abuse and DoS.
+    - slot: edge
+      title: Hidden primary / DNS firewall
+      desc: A hidden primary signs zones and notifies secondaries; RPZ on the egress resolver blocks known-bad domains before a connection is made.
+    - slot: cloud
+      title: Cloud VM resolvers
+      desc: BIND on cloud instances for hybrid split-horizon DNS, forwarding cloud-private zones to the provider resolver.
+howItWorks:
+  - title: Authoritative vs recursive
+    body: An authoritative server answers from its own zone data (primary or secondary). A recursive resolver walks the delegation chain from the root, caches answers for their TTL and returns them to clients. Mixing both roles on one internet-facing server widens the attack surface; views separate internal and external answers.
+  - title: Logging channels and categories
+    body: The logging statement maps categories (queries, query-errors, security, xfer-in/out, notify, lame-servers, rpz, dnssec, network…) to channels (file, syslog, stderr) with a severity filter. print-time, print-category and print-severity control the line prefix — the shape every parser depends on.
+  - title: The query log line
+    body: "client @0x… object id, client IP#port, (qname), optional view, then query: name class type flags (server IP). Flags: + recursion desired, S signed, E(n) EDNS version, T TCP, D DO bit, C CD bit, V valid server cookie, K cookie without valid server cookie, plus [ECS] when Client-Subnet is present. The answer is NOT logged — only the question."
+  - title: DNSSEC validation
+    body: The resolver validates signatures from the root trust anchor down. Bogus answers become SERVFAIL (visible in query-errors and the dnssec category). KeyTrap/NSEC3 (2024) showed that validation itself can be abused for CPU exhaustion.
+  - title: Response Policy Zones
+    body: RPZ is a DNS firewall — policy zones (from threat-intel feeds or local lists) rewrite answers for matching QNAMEs, IPs or nameservers to NXDOMAIN, NODATA or a walled-garden address. Each rewrite is logged in the rpz category with the policy zone that matched.
+  - title: Zone transfers and notifies
+    body: Secondaries pull zones with AXFR/IXFR after a NOTIFY. allow-transfer and TSIG keys restrict who may copy the zone; refused attempts land in the security category.
+traffic:
+  handles:
+    - DNS over UDP/TCP port 53
+    - DNS over TLS / HTTPS (BIND 9.18+)
+    - DNSSEC signing and validation
+    - Zone transfers (AXFR / IXFR) with TSIG
+    - Dynamic updates (RFC 2136)
+    - EDNS Client Subnet, DNS cookies
+  flow:
+    - step: Client query
+      desc: Client sends a query to port 53; ACLs (allow-query, allow-recursion) checked.
+    - step: View + policy
+      desc: Matching view selected; RPZ evaluated — a hit rewrites the answer and logs to rpz.
+    - step: Cache / zone lookup
+      desc: Answered from authoritative zone data or the cache if present.
+    - step: Recursion
+      desc: Otherwise the resolver walks root → TLD → authoritative servers (fetch limits apply).
+    - step: DNSSEC validate
+      desc: Signatures checked; bogus data becomes SERVFAIL.
+    - step: Respond + log
+      desc: Answer returned; the question is logged in queries, failures in query-errors.
+logs:
+  - type: Query log
+    sourcetype: isc_bind_query
+    format: text
+    share: 90–99 %
+    avg: ~180 B
+    desc: One line per client query (question only, no answer). The foundation for DNS hunting — which internal host asked for which name, type and over which transport.
+    pattern: '^(?<timestamp>\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}) (?<category>queries): (?<severity>\w+): client @(?<client_obj>0x[0-9a-f]+) (?<client_ip>[0-9A-Fa-f.:]+)#(?<client_port>\d+) \((?<query_name_paren>[^)]+)\): (?:view (?<view>[^:]+): )?query: (?<query_name>\S+) (?<query_class>\S+) (?<query_type>\S+) (?<query_flags>\S+) \((?<server_ip>[^)]+)\)$'
+    key:
+      - timestamp
+      - client_ip
+      - query_name
+      - query_type
+      - query_flags
+      - view
+    noise:
+      - client_obj
+      - query_name_paren
+      - category
+      - severity
+    sample: |-
+      12-Nov-2026 09:14:22.123 queries: info: client @0x7f3a2c0e1168 10.20.30.44#51544 (www.example.com): view internal: query: www.example.com IN A +E(0)K (10.0.0.53)
+  - type: Query errors
+    sourcetype: isc:bind:queryerror
+    format: text
+    share: 1–5 %
+    avg: ~200 B
+    desc: Why a query failed (SERVFAIL, REFUSED, DNSSEC failure). Spikes reveal resolver attacks, broken delegations and blocked recursion attempts from outside.
+    pattern: '^(?<timestamp>\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}) (?<category>query-errors): (?<severity>\w+): client @(?<client_obj>0x[0-9a-f]+) (?<client_ip>[0-9A-Fa-f.:]+)#(?<client_port>\d+) \((?<query_name_paren>[^)]+)\): query failed \((?<rcode>[A-Z]+)\) for (?<query_name>[^/]+)/(?<query_class>[^/]+)/(?<query_type>\S+) at (?<source_file>\S+)$'
+    key:
+      - client_ip
+      - rcode
+      - query_name
+      - query_type
+    noise:
+      - client_obj
+      - source_file
+      - query_name_paren
+    sample: |-
+      12-Nov-2026 09:15:03.881 query-errors: info: client @0x7f3a2c0e2a10 198.51.100.23#40211 (example.org): query failed (REFUSED) for example.org/IN/ANY at query.c:5438
+  - type: RPZ rewrite
+    sourcetype: isc:bind
+    format: text
+    share: < 1 %
+    avg: ~220 B
+    desc: Response Policy Zone hit — a client asked for a name on a block list and the answer was rewritten. High-signal; each line names the client and the policy zone (threat feed) that matched.
+    pattern: '^(?<timestamp>\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}) (?<category>rpz): (?<severity>\w+): client @(?<client_obj>0x[0-9a-f]+) (?<client_ip>[0-9A-Fa-f.:]+)#(?<client_port>\d+) \((?<query_name_paren>[^)]+)\): (?:view (?<view>[^:]+): )?rpz (?<rpz_trigger>\S+) (?<rpz_action>\S+) rewrite (?<query_name>[^/]+)/(?<query_type>[^/]+)/(?<query_class>\S+) via (?<rpz_rule>\S+)$'
+    key:
+      - client_ip
+      - query_name
+      - rpz_action
+      - rpz_rule
+    noise:
+      - client_obj
+      - query_name_paren
+    sample: |-
+      12-Nov-2026 09:16:40.512 rpz: info: client @0x7f3a2c0e3b20 10.20.30.61#53211 (update-check.example.net): view internal: rpz QNAME NXDOMAIN rewrite update-check.example.net/A/IN via update-check.example.net.threat-feed.rpz.example.com
+  - type: Security (denied requests)
+    sourcetype: isc:bind
+    format: text
+    share: < 1 %
+    avg: ~170 B
+    desc: Requests denied by ACLs — zone transfers, recursion or updates from unauthorised clients. Should be rare; every external AXFR attempt is reconnaissance.
+    pattern: '^(?<timestamp>\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}) (?<category>security): (?<severity>\w+): client @(?<client_obj>0x[0-9a-f]+) (?<client_ip>[0-9A-Fa-f.:]+)#(?<client_port>\d+) \((?<query_name_paren>[^)]+)\): (?<request>.+?) \x27(?<zone>[^/]+)/(?<query_type>[^/]+)/(?<query_class>[^\x27]+)\x27 (?<action>\w+)$'
+    key:
+      - client_ip
+      - request
+      - zone
+      - query_type
+      - action
+    noise:
+      - client_obj
+      - query_name_paren
+    sample: |-
+      12-Nov-2026 09:17:11.090 security: info: client @0x7f3a2c0e4c30 203.0.113.66#40999 (example.com): zone transfer 'example.com/AXFR/IN' denied
+cves:
+  - id: CVE-2025-40778
+    cvss: 8.6
+    year: 2025
+    kev: false
+    scope: device
+    title: Cache poisoning via unsolicited resource records in answers
+    affected: BIND 9.11.0–9.16.50, 9.18.0–9.18.39, 9.20.0–9.20.13, 9.21.0–9.21.12 (resolvers)
+    fixed: 9.18.41, 9.20.15, 9.21.14
+    detect: No direct log line. Watch for clients suddenly resolving well-known domains to unexpected IPs (compare resolver answers with passive DNS / firewall dst), and bursts of query-errors or lame-server noise while an attacker races responses.
+    avoid: Upgrade; enable DNSSEC validation (poisoned unsigned data still possible, signed zones protected); restrict recursion to internal clients.
+  - id: CVE-2023-50387
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: traffic
+    title: KeyTrap — DNSSEC validation CPU exhaustion (protocol-level, affects all validators)
+    affected: BIND 9.0.0–9.16.46, 9.18.0–9.18.22, 9.19.0–9.19.20
+    fixed: 9.16.48, 9.18.24, 9.19.21
+    detect: query-errors SERVFAIL spikes for one zone, rising response latency, named CPU at 100 %; the same client repeatedly asking for names under an attacker-controlled signed zone.
+    avoid: Upgrade; rate-limit clients; recursion only for trusted networks.
+  - id: CVE-2020-8616
+    cvss: 8.6
+    year: 2020
+    kev: false
+    scope: device
+    title: NXNSAttack — unlimited fetches on referrals (DoS and reflection amplification)
+    affected: BIND 9.0.0–9.11.18, 9.12.0–9.12.4-P2, 9.14.0–9.14.11, 9.16.0–9.16.2
+    fixed: 9.11.19, 9.14.12, 9.16.3
+    detect: Query log shows many random subdomains of one attacker domain from few clients; outbound query rate from the resolver far above inbound client QPS.
+    avoid: Upgrade; recursion only for internal clients (no open resolver).
+  - id: CVE-2015-5477
+    cvss: 7.5
+    year: 2015
+    kev: true
+    scope: device
+    title: TKEY query assertion failure crashes named (remote DoS, exploited)
+    affected: BIND 9.1.0–9.9.7-P1, 9.10.0–9.10.2-P2
+    fixed: 9.9.7-P2, 9.10.2-P3
+    detect: Query log line with query_type TKEY from an untrusted client immediately followed by named exiting (general/syslog "assertion failure", then startup messages).
+    avoid: Upgrade — ACLs don't help because the bug is hit before ACL checks.
+detections:
+  - title: DNS tunnelling / exfiltration
+    severity: high
+    signals:
+      - very long query names (> 60 chars)
+      - high count of unique subdomains under one parent domain
+      - TXT / NULL / ANY query types
+    why: Tools like iodine, dnscat2 and many RATs encode data in subdomain labels. One host producing thousands of unique labels under one domain is rarely legitimate.
+    kql: |-
+      dataset="bind_dns" category="queries"
+      | extend parent=extract(@"([^.]+\.[^.]+)\.?$", 1, query_name)
+      | summarize uniq=dcount(query_name), maxlen=max(strlen(query_name)), types=make_set(query_type) by client_ip, parent, bin(_time, 15m)
+      | where uniq > 300 or maxlen > 80
+    mitre:
+      - T1071.004
+      - T1048.003
+  - title: Threat-feed RPZ hit (known-bad domain)
+    severity: high
+    signals:
+      - category=rpz
+      - rpz_action NXDOMAIN / CNAME walled garden
+      - repeated hits from one client
+    why: RPZ blocked the lookup, but the host is still trying — likely an infected machine beaconing.
+    kql: |-
+      dataset="bind_dns" category="rpz"
+      | summarize hits=count(), domains=make_set(query_name) by client_ip, rpz_rule, bin(_time, 1h)
+      | sort by hits desc
+    mitre:
+      - T1071.004
+      - T1568
+  - title: Zone transfer attempt from an unauthorised source
+    severity: medium
+    signals:
+      - category=security
+      - "request = zone transfer"
+      - action = denied
+    why: AXFR pulls the whole zone — a reconnaissance shortcut. Legitimate secondaries are a short, known list.
+    kql: |-
+      dataset="bind_dns" category="security" action="denied"
+      | where request has "zone transfer"
+      | summarize count() by client_ip, zone
+    mitre:
+      - T1590.002
+  - title: DGA-style NXDOMAIN storm
+    severity: medium
+    signals:
+      - many unique random-looking names from one client
+      - matching query-errors / NXDOMAIN responses
+    why: Domain-generation-algorithm malware tries hundreds of names per hour until one resolves.
+    kql: |-
+      dataset="bind_dns" category="queries" query_type in ("A","AAAA")
+      | summarize uniq=dcount(query_name) by client_ip, bin(_time, 1h)
+      | where uniq > 500
+    mitre:
+      - T1568.002
+  - title: Open-resolver / reflection abuse
+    severity: medium
+    signals:
+      - external client_ip
+      - query_type=ANY or large-response types
+      - REFUSED errors at high rate
+    why: Internet hosts sending ANY queries are using the server as a DDoS reflector or probing for an open resolver.
+    kql: |-
+      dataset="bind_dns" category="query-errors" rcode="REFUSED"
+      | where not(ipv4_is_private(client_ip))
+      | summarize refused=count(), names=dcount(query_name) by client_ip, query_type, bin(_time, 5m)
+      | where refused > 100
+    mitre:
+      - T1498.002
+optimizations:
+  - title: Drop internal infrastructure lookups
+    saving: 20–40 %
+    fn: Drop
+    how: Reverse lookups for internal ranges, AD SRV records, WPAD/ISATAP and the resolver's own health checks dominate volume and are rarely searched.
+    expr: /in-addr\.arpa$|_ldap\._tcp|_kerberos\._|^wpad\./.test(query_name)
+  - title: Suppress repeated identical queries
+    saving: 30–50 %
+    fn: Suppress
+    how: Clients re-query the same name every TTL. Keep one event per client/name/type per 5 minutes with a count — enough for hunting.
+    expr: "key: `${client_ip}:${query_name}:${query_type}`  allow 1 / 300s"
+  - title: Strip the client object id and duplicate name
+    saving: 15–25 %
+    fn: Parser → Serialize
+    how: The @0x… object id and the parenthesised qname repeat other fields; serialise to compact JSON or CSV without them.
+    expr: "remove: client_obj, query_name_paren, category, severity"
+  - title: Enrich with threat intel and route RPZ/security to the SIEM
+    saving: SIEM licence
+    fn: Lookup
+    how: Look up the parent domain against a threat list and newly-registered-domain list; send rpz, security and matching queries to the SIEM, the full query log to Cribl Lake.
+    expr: category in ('rpz','security','query-errors') || threat_match → SIEM  |  else → Lake
+references:
+  - title: BIND 9 Administrator Reference Manual — configuration reference (logging)
+    url: https://bind9.readthedocs.io/en/latest/reference.html
+  - title: BIND 9 logging categories (query log format)
+    url: https://bind9.readthedocs.io/en/v9.16.24/logging-categories.html
+  - title: Sourcetypes for the Splunk Add-on for ISC BIND
+    url: https://docs.splunk.com/Documentation/AddOns/released/ISCBIND/Sourcetypes
+  - title: ISC advisory CVE-2025-40778
+    url: https://kb.isc.org/docs/cve-2025-40778
+  - title: ISC advisory CVE-2023-50387 (KeyTrap)
+    url: https://kb.isc.org/docs/cve-2023-50387
+  - title: ISC advisory CVE-2020-8616 (NXNSAttack)
+    url: https://kb.isc.org/docs/cve-2020-8616
+  - title: ISC advisory CVE-2015-5477 (TKEY)
+    url: https://kb.isc.org/docs/aa-01272
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - infoblox
+  - ms-dns-dhcp
+  - umbrella
+  - aws-route53
+  - zeek

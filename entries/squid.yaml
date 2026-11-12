@@ -2,9 +2,308 @@
 id: squid
 name: Squid Proxy
 short: Squid
+aka:
+  - Squid Cache
+  - squid-cache
+  - Squid forward proxy
 vendor: Squid Project
 category: swg
-status: stub
-summary: Open-source caching forward proxy; access.log records every request.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - proxy
+  - web
+  - caching
+  - ssl-bump
+  - icap
+  - open-source
+  - access-log
+summary: The long-standing open-source caching proxy, deployed as an explicit or transparent forward proxy for user and server egress, as a reverse-proxy accelerator, and inside many commercial appliances. Its access.log records one line per request — client, URL, method, status, bytes, cache result and upstream — making it the web-egress audit trail in environments without a commercial SWG.
 sourcetypes:
   - st: squid_access
+    desc: access.log in the native "squid" logformat (space-delimited, epoch timestamp)
+  - st: squid:access
+    desc: Splunk Add-on for Squid Proxy — default squid logformat
+  - st: squid:access:recommended
+    desc: Splunk Add-on — splunk_recommended_squid key=value logformat (adds ports, UA, referrer, bytes in/out)
+  - st: cache.log
+    desc: cache.log daemon/diagnostic log (errors, TLS failures, startup) (file name; no official add-on sourcetype)
+facts:
+  First released: 1996 (fork of the Harvest cache)
+  Platform: Linux, BSD, macOS, Windows (community builds); bundled in pfSense, many appliances
+  Current versions: 7.x (stable); 6.x security fixes only
+  Deployment modes: Explicit forward proxy (3128), transparent/intercept, reverse proxy (accelerator)
+  TLS: SslBump peek-and-splice for HTTPS inspection or SNI-only logging
+  Integrations: ICAP/eCAP (AV, DLP), external ACL helpers, auth helpers (Basic, Digest, NTLM, Kerberos)
+  Log transport: access.log / cache.log files, syslog (access_log syslog:), or daemon/UDP/TCP log modules
+  Log format: Native "squid" format, Common/Combined, or fully custom logformat
+  Typical volume: 1 line per HTTP request / CONNECT tunnel — 10–100+ lines/user/minute
+  Cribl Pack: None dedicated in the Dispensary (parse with Regex Extract)
+placement:
+  slots:
+    - internal
+    - edge
+    - dmz
+  items:
+    - slot: internal
+      title: Explicit user proxy
+      desc: Browsers configured via PAC/WPAD or GPO to use Squid on 3128; users authenticate with Kerberos/NTLM so ident carries the username.
+    - slot: edge
+      title: Transparent egress gateway
+      desc: Firewall redirects port 80/443 to Squid in intercept mode; SslBump peeks at SNI so HTTPS is logged by hostname even when not decrypted.
+    - slot: dmz
+      title: Reverse proxy / server egress
+      desc: Accelerator in front of web servers, or the only permitted egress path for servers (package repos, APIs) — any other destination stands out.
+howItWorks:
+  - title: Request handling and ACLs
+    body: Each request is matched against ordered http_access rules built from ACLs (src, dstdomain, url_regex, port, method, proxy_auth, time). First match decides allow/deny; denied requests are logged as TCP_DENIED with status 403 (or 407 when authentication is required).
+  - title: Caching
+    body: Cacheable responses are stored in memory and disk caches. The cache result code (TCP_HIT, TCP_MISS, TCP_REFRESH_MODIFIED, TCP_MEM_HIT…) shows how the request was served; HIER_* shows whether Squid went direct, to a parent proxy or not at all.
+  - title: CONNECT tunnels and SslBump
+    body: HTTPS from explicit clients is a CONNECT host:443 tunnel (TCP_TUNNEL). With SslBump, Squid peeks at the TLS ClientHello to log the SNI and can splice (pass through) or bump (decrypt, inspect and re-encrypt with a local CA) based on ACLs.
+  - title: Authentication helpers
+    body: External helpers validate Basic, Digest, NTLM or Negotiate/Kerberos credentials; the authenticated name is written to the ident/user field. Auth failures show as TCP_DENIED/407.
+  - title: ICAP and external ACLs
+    body: Content can be sent to ICAP services (antivirus, DLP) and URL categorisation helpers; their verdicts appear as denies or as extra fields when added to a custom logformat.
+traffic:
+  handles:
+    - HTTP/1.0 and HTTP/1.1
+    - HTTPS via CONNECT (SNI logging, optional decryption)
+    - FTP over HTTP
+    - ICAP / eCAP adaptation
+    - WCCP / policy-routed intercept traffic
+  flow:
+    - step: Client request
+      desc: Browser sends GET or CONNECT to Squid (explicit) or is redirected (intercept).
+    - step: Authenticate
+      desc: proxy_auth ACL triggers a 407 challenge and helper validation.
+    - step: Access rules
+      desc: http_access ACLs allow or deny — deny writes TCP_DENIED.
+    - step: SslBump / ICAP
+      desc: Optional TLS peek/bump and content adaptation.
+    - step: Cache or fetch
+      desc: Served from cache (HIT) or fetched direct / via parent (MISS).
+    - step: Log
+      desc: One access.log line when the transaction completes (tunnels log at close).
+logs:
+  - type: Access log (native format)
+    sourcetype: squid_access
+    format: text
+    share: 95–99 %
+    avg: ~150 B
+    desc: Default "squid" logformat — epoch.ms, elapsed ms, client, result/status, reply bytes, method, URL, user, hierarchy/peer, MIME type. CONNECT tunnels show only host:port unless SslBump decrypts.
+    pattern: '^(?<timestamp>\d{10}\.\d+)\s+(?<elapsed_ms>\d+)\s+(?<client_ip>\S+)\s+(?<cache_result>[^/\s]+)/(?<http_status>\d{3})\s+(?<bytes>\d+)\s+(?<http_method>\S+)\s+(?<url>\S+)\s+(?<ident>\S+)\s+(?<hierarchy_status>[^/\s]+)/(?<server>\S+)\s+(?<mime_type>\S+)$'
+    key:
+      - client_ip
+      - cache_result
+      - http_status
+      - http_method
+      - url
+      - ident
+      - bytes
+    noise:
+      - hierarchy_status
+      - mime_type
+    sample: 1794557662.123    245 10.20.30.44 TCP_TUNNEL/200 6842 CONNECT www.example.com:443 jdoe HIER_DIRECT/203.0.113.80 -
+  - type: Access log (Splunk recommended format)
+    sourcetype: squid:access:recommended
+    format: kv
+    share: alternative to native
+    avg: ~550 B
+    desc: The splunk_recommended_squid logformat — key=value with source/destination ports, user agent, referrer and bytes in/out. Much better for detection; recommended whenever you control squid.conf.
+    key:
+      - src_ip
+      - user
+      - http_method
+      - url
+      - status
+      - vendor_action
+      - http_user_agent
+      - bytes_out
+    noise:
+      - logformat
+      - local_time
+      - request_method_from_client
+      - request_method_to_server
+      - total_time_milliseconds
+    sample: 1794557670.456 logformat=splunk_recommended_squid duration=12 src_ip=10.20.30.61 src_port=53122 dest_ip=- dest_port=- user="-" local_time=[12/Nov/2026:09:14:30 +0000] http_method=GET request_method_from_client=GET request_method_to_server=- url="http://malware.example.net/payload.exe" http_referrer="-" http_user_agent="Microsoft Office Word 2014" status=403 vendor_action=TCP_DENIED dest_status=HIER_NONE total_time_milliseconds=- http_content_type="text/html" bytes=3912 bytes_in=286 bytes_out=3912
+  - type: cache.log (daemon)
+    sourcetype: cache.log
+    format: text
+    share: < 1 %
+    avg: ~200 B
+    desc: Operational log — startup, helper failures, TLS handshake errors, forwarding loops, assertion failures. Crashes here can be the only trace of a DoS exploit.
+    pattern: '^(?<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?) (?<kid>kid\d+)\| (?<level>[A-Z]+): (?<message>.*)$'
+    key:
+      - timestamp
+      - level
+      - message
+    noise:
+      - kid
+    sample: '2026/11/12 09:15:02 kid1| ERROR: failure while accepting a TLS connection on conn4711 local=10.0.0.3:3128 remote=10.20.30.44:51544 FD 14 flags=1: SQUID_TLS_ERR_ACCEPT+TLS_LIB_ERR=A000417+TLS_IO_ERR=1'
+cves:
+  - id: CVE-2025-62168
+    cvss: 7.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Error pages leak HTTP authentication credentials (SQUID-2025:2)
+    affected: Squid before 7.2 with email_err_data on or unset (default)
+    fixed: "7.2"
+    detect: Hard to see in access.log; look for requests that deliberately trigger Squid error pages (4xx/5xx generated by Squid, HIER_NONE) from scripts, followed by reuse of internal tokens from new sources.
+    avoid: Upgrade to 7.2; set email_err_data off.
+  - id: CVE-2023-46846
+    cvss: 5.3
+    year: 2023
+    kev: false
+    scope: device
+    title: HTTP/1.1 and ICAP request/response smuggling via lenient chunked decoder (SQUID-2023:1, CNA score 9.3)
+    affected: Squid 2.6 – 6.3
+    fixed: "6.4"
+    detect: Requests with Transfer-Encoding chunked whose access.log status/bytes don't match origin logs; one client logging requests to URLs it never sent according to its own logs.
+    avoid: Upgrade to 6.4+; use trusted ICAP services over ICAPS. No workaround for HTTP smuggling.
+  - id: CVE-2023-46847
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: device
+    title: Heap buffer overflow in HTTP Digest authentication (DoS, SQUID-2023:3)
+    affected: Squid 3.2.0.1 – 5.9 and 6.0 – 6.3 with Digest auth configured
+    fixed: "6.4"
+    detect: cache.log assertion/crash followed by restart messages; a client sending unusual 407 retries just before.
+    avoid: Upgrade; prefer Negotiate/Kerberos over Digest.
+  - id: CVE-2023-49285
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: device
+    title: Buffer over-read in HTTP message processing (DoS, SQUID-2023:7)
+    affected: Squid 2.2 – 5.9 and 6.0 – 6.4
+    fixed: "6.5"
+    detect: Repeated worker crashes in cache.log (kid restarts) and gaps in access.log volume.
+    avoid: Upgrade to 6.5+; monitor worker restarts.
+  - id: CVE-2022-30190
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Follina — MSDT RCE via Office documents fetching remote HTML (traffic Squid proxies)
+    affected: Windows MSDT invoked via the ms-msdt URL protocol from Office documents
+    fixed: Microsoft Windows security updates of June 2022
+    detect: Recommended-format logs with http_user_agent of Office (Microsoft Office Word/Existence Discovery) fetching .html from external hosts, often followed by PowerShell downloads from the same client.
+    avoid: Patch Windows; block ms-msdt protocol handler; deny Office user agents to uncategorised domains at the proxy.
+detections:
+  - title: Repeated blocked requests to a malicious domain (beaconing)
+    severity: high
+    signals:
+      - cache_result=TCP_DENIED
+      - http_status=403
+      - same client + domain at regular intervals
+    why: Malware keeps calling home after the proxy blocks it; regular intervals from one host are a strong infection signal.
+    kql: |-
+      dataset="squid" cache_result="TCP_DENIED" http_status="403"
+      | extend host=extract(@"^(?:https?://)?([^/:]+)", 1, url)
+      | summarize hits=count(), first=min(_time), last=max(_time) by client_ip, host
+      | where hits > 20
+    mitre:
+      - T1071.001
+  - title: CONNECT to non-standard ports (tunnelling)
+    severity: high
+    signals:
+      - http_method=CONNECT
+      - port not 443
+      - long elapsed_ms / high bytes
+    why: CONNECT should only reach 443 (Squid's default SSL_ports ACL). Other ports indicate SSH, VPN or C2 tunnelled through the proxy.
+    kql: |-
+      dataset="squid" http_method="CONNECT"
+      | extend port=toint(extract(@":(\d+)$", 1, url))
+      | where port != 443
+      | summarize count(), bytes=sum(toint(bytes)) by client_ip, url, ident
+    mitre:
+      - T1572
+      - T1090
+  - title: Large uploads to file-sharing or paste sites
+    severity: medium
+    signals:
+      - http_method in (POST, PUT)
+      - bytes_in high (recommended format)
+      - destination category cloud storage / paste
+    why: Data exfiltration over the web proxy is the most common egress path from user networks.
+    kql: |-
+      dataset="squid" http_method in ("POST","PUT")
+      | summarize up=sum(toint(bytes_in)) by src_ip, user, url, bin(_time, 1h)
+      | where up > 100000000
+    mitre:
+      - T1567.002
+      - T1048
+  - title: Proxy authentication brute force
+    severity: medium
+    signals:
+      - http_status=407
+      - many 407 per client
+      - many usernames from one client
+    why: Repeated 407s with changing usernames are password guessing against the proxy auth helper (and often AD behind it).
+    kql: |-
+      dataset="squid" http_status="407"
+      | summarize fails=count(), users=dcount(ident) by client_ip, bin(_time, 10m)
+      | where fails > 50
+    mitre:
+      - T1110
+  - title: Office application fetching remote HTML or executables
+    severity: high
+    signals:
+      - http_user_agent contains Microsoft Office
+      - url ends .html / .exe / .hta
+      - external host
+    why: Document-borne exploits (Follina, remote template injection) make Office itself perform the download.
+    kql: |-
+      dataset="squid" http_user_agent has "Microsoft Office"
+      | where url matches regex @"\.(html?|hta|exe|dll)(\?|$)"
+      | project _time, src_ip, user, url, status, vendor_action
+    mitre:
+      - T1203
+      - T1221
+optimizations:
+  - title: Drop cache hits for static content
+    saving: 20–40 %
+    fn: Drop
+    how: TCP_HIT/TCP_MEM_HIT for images, CSS and JS have no security value — the original MISS was already logged.
+    expr: /HIT/.test(cache_result) && /^(image|text\/css|application\/javascript)/.test(mime_type)
+  - title: Suppress repeated CONNECTs to the same host
+    saving: 25–50 %
+    fn: Suppress
+    how: Browsers open many parallel tunnels to the same SaaS host. Keep one per client/host per minute with a count and summed bytes.
+    expr: "key: `${client_ip}:${url}`  allow 1 / 60s  when http_method=='CONNECT'"
+  - title: Aggregate allowed traffic to well-known SaaS
+    saving: 20–35 %
+    fn: Aggregations
+    how: Microsoft 365, Google and update CDNs dominate volume; roll up bytes/requests per user/domain per 5 min, keep raw in Lake.
+    expr: cache_result!='TCP_DENIED' && /(microsoft|office|windowsupdate|googleapis|gstatic)\.com/.test(url)
+  - title: Enrich and route denies to the SIEM
+    saving: SIEM licence
+    fn: Routes
+    how: TCP_DENIED, 407 and cache.log errors go to the SIEM in full; allowed traffic goes to Cribl Lake with aggregates to the SIEM. Add a URL-category / threat-intel lookup on the host.
+    expr: cache_result=='TCP_DENIED' || http_status=='407' → SIEM  |  else → Lake
+references:
+  - title: Squid logformat directive
+    url: https://www.squid-cache.org/Doc/config/logformat/
+  - title: Squid FAQ — log files (access.log fields, result codes)
+    url: https://wiki.squid-cache.org/SquidFaq/SquidLogs
+  - title: Squid SslBump peek and splice
+    url: https://wiki.squid-cache.org/Features/SslPeekAndSplice
+  - title: Splunk Add-on for Squid Proxy — access log setup (recommended logformat)
+    url: https://docs.splunk.com/Documentation/AddOns/released/Squid/Setup
+  - title: SQUID-2025:2 advisory (CVE-2025-62168)
+    url: https://github.com/squid-cache/squid/security/advisories/GHSA-c8cc-phh7-xmxr
+  - title: SQUID-2023:1 advisory (CVE-2023-46846)
+    url: https://github.com/squid-cache/squid/security/advisories/GHSA-j83v-w3p4-5cqh
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - zscaler-zia
+  - netskope
+  - pfsense
+  - nginx
+  - umbrella

