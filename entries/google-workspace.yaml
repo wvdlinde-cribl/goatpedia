@@ -1,0 +1,15 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: google-workspace
+name: Google Workspace
+short: Workspace
+vendor: Google
+category: saas
+status: stub
+summary: Admin SDK Reports API activity (login, admin, Drive, Gmail) and Alert Center alerts.
+sourcetypes:
+  - st: gsuite_drive_json
+  - st: gsuite_gmail_bigquery
+  - st: gws_activity_reports
+  - st: gws_alerts
+  - st: gws_reports_admin
+  - st: gws_reports_login

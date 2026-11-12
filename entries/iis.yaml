@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: iis
+name: Microsoft IIS
+short: IIS
+vendor: Microsoft
+category: web
+status: stub
+summary: Windows web server; W3C extended access logs and configuration operational events.
+sourcetypes:
+  - st: microsoft_iis_accesslog
+  - st: iis_configuration_operational

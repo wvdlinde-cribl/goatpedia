@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-security-hub
+name: AWS Security Hub
+short: Security Hub
+vendor: Amazon Web Services
+category: cloud
+status: stub
+summary: Aggregates findings from AWS services and partners in AWS Security Finding Format (ASFF).
+sourcetypes:
+  - st: aws_security_hub
+  - st: aws_securityhub_finding

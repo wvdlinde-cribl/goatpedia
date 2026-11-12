@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-i
+name: IBM i (AS/400) Audit Journal
+short: IBM i
+vendor: IBM
+category: mainframe
+status: stub
+summary: QAUDJRN security audit journal of IBM i (OS/400), forwarded as syslog.
+sourcetypes:
+  - st: ibm_os400_syslog

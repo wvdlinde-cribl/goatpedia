@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-cloudfront
+name: Amazon CloudFront
+short: CloudFront
+vendor: Amazon Web Services
+category: netinfra
+status: stub
+summary: AWS CDN; standard (W3C tab-separated) and real-time access logs per edge request.
+sourcetypes:
+  - st: aws_cloudfront_accesslog
+  - st: aws_cloudfront_accesslogs

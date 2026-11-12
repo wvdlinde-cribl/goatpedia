@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: squid
+name: Squid Proxy
+short: Squid
+vendor: Squid Project
+category: swg
+status: stub
+summary: Open-source caching forward proxy; access.log records every request.
+sourcetypes:
+  - st: squid_access

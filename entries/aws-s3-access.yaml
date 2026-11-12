@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-s3-access
+name: Amazon S3 Server Access Logs
+short: S3 Access
+vendor: Amazon Web Services
+category: cloud
+status: stub
+summary: Per-request access records for S3 buckets in a space-delimited format.
+sourcetypes:
+  - st: aws_s3_access

@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-config
+name: AWS Config
+short: AWS Config
+vendor: Amazon Web Services
+category: cloud
+status: stub
+summary: Resource configuration history and compliance evaluations for AWS accounts.
+sourcetypes:
+  - st: aws_config

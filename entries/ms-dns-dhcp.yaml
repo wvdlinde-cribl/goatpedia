@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ms-dns-dhcp
+name: Microsoft DNS & DHCP Server
+short: MS DNS/DHCP
+vendor: Microsoft
+category: dns
+status: stub
+summary: Windows Server DNS and DHCP roles; DNS analytical/audit event logs and DHCP audit logs.
+sourcetypes:
+  - st: microsoft_dns_server_eventlog
+  - st: microsoft_dhcp_syslog

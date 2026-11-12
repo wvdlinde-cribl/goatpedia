@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: log4j
+name: Apache Log4j (Java application logs)
+short: Log4j
+vendor: Apache Software Foundation
+category: web
+status: stub
+summary: Ubiquitous Java logging library; pattern-layout application logs and the Log4Shell attack surface.
+sourcetypes:
+  - st: log4j

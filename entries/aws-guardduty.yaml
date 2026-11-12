@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-guardduty
+name: Amazon GuardDuty
+short: GuardDuty
+vendor: Amazon Web Services
+category: cloud
+status: stub
+summary: Managed threat detection over CloudTrail, VPC Flow, DNS, EKS and runtime telemetry; findings as JSON.
+sourcetypes:
+  - st: aws_guardduty

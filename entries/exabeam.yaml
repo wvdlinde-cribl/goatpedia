@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: exabeam
+name: Exabeam
+short: Exabeam
+vendor: Exabeam
+category: pipeline
+status: stub
+summary: SIEM/UEBA platform; Common Information Model (CIM) normalised events exported as JSON.
+sourcetypes:
+  - st: exabeam_cim

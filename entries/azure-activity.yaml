@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: azure-activity
+name: Azure Activity Log
+short: Azure Activity
+vendor: Microsoft
+category: cloud
+status: stub
+summary: Subscription-level control-plane log of Azure Resource Manager operations, health and policy events.
+sourcetypes:
+  - st: azure_monitor_activity
+  - st: mscs_azure_audit

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cribl
+name: Cribl Stream & Edge
+short: Cribl
+vendor: Cribl
+category: pipeline
+status: stub
+summary: Telemetry pipeline; internal logs and metrics of leaders, workers and Edge nodes.
+sourcetypes:
+  - st: cribl_internal_logs
+  - st: cribl_metrics

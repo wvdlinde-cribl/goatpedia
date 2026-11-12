@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: crushftp
+name: CrushFTP
+short: CrushFTP
+vendor: CrushFTP LLC
+category: storage
+status: stub
+summary: Multi-protocol managed file transfer server (FTP/SFTP/HTTPS); session logs per connection.
+sourcetypes:
+  - st: crushftp_sessionlogs

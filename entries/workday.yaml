@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: workday
+name: Workday
+short: Workday
+vendor: Workday
+category: saas
+status: stub
+summary: HCM/finance SaaS; user activity and sign-on logs via the Workday API.
+sourcetypes:
+  - st: workday_activity
+  - st: workday_signon

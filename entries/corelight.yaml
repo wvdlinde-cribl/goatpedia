@@ -1,0 +1,15 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: corelight
+name: Corelight Sensor
+short: Corelight
+vendor: Corelight
+category: ndr
+status: stub
+summary: Commercial Zeek-based NDR sensor with Suricata; emits enriched Zeek logs as JSON.
+sourcetypes:
+  - st: corelight_conn
+  - st: corelight_dns
+  - st: corelight_http
+  - st: corelight_ldap
+  - st: corelight_ldap_search
+  - st: corelight_smtp_links

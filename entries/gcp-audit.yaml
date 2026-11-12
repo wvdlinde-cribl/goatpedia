@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gcp-audit
+name: Google Cloud Audit Logs
+short: GCP Audit
+vendor: Google Cloud
+category: cloud
+status: stub
+summary: Admin Activity, Data Access, System Event and Policy Denied audit logs for Google Cloud resources.
+sourcetypes:
+  - st: gcp_audit
+  - st: gcp_audit_logs

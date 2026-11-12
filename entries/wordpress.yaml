@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: wordpress
+name: WordPress Activity Log
+short: WordPress
+vendor: WordPress (Automattic)
+category: web
+status: stub
+summary: 'Activity-log plugin output for WordPress sites: logins, content, plugin and user changes.'
+sourcetypes:
+  - st: wordpress_activity_log

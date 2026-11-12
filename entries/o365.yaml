@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: o365
+name: Microsoft 365 (Office 365) Audit
+short: M365
+vendor: Microsoft
+category: saas
+status: stub
+summary: Unified audit log for Exchange, SharePoint, OneDrive, Teams and Entra via the Management Activity API, plus message trace.
+sourcetypes:
+  - st: o365_management_activity
+  - st: o365_graph_api
+  - st: o365_reporting_messagetrace

@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: slack-audit
+name: Slack Audit Logs
+short: Slack
+vendor: Salesforce (Slack)
+category: saas
+status: stub
+summary: 'Enterprise Grid Audit Logs API: user, workspace, channel, file and app actions.'
+sourcetypes:
+  - st: slack_audit

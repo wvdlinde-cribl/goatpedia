@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-waf
+name: AWS WAF
+short: AWS WAF
+vendor: Amazon Web Services
+category: waf
+status: stub
+summary: Managed web application firewall for CloudFront, ALB, API Gateway and AppSync; logs every inspected request as JSON.
+sourcetypes:
+  - st: aws_waf_log_json

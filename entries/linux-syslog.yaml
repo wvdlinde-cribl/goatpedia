@@ -1,0 +1,13 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: linux-syslog
+name: Linux Syslog (messages / secure / auth)
+short: Linux syslog
+vendor: Linux distributions
+category: os
+status: stub
+summary: rsyslog/journald system logs including sshd, sudo and PAM authentication in secure/auth.log.
+sourcetypes:
+  - st: linux_messages_syslog
+  - st: linux_secure
+  - st: linux_syslog
+  - st: aws_ec2

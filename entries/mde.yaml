@@ -12,4 +12,12 @@ tags:
   - json
 sourcetypes:
   - st: ms:defender:advancedhunting
+  - st: ms_defender_atp_alerts
+    desc: Pack Generator sourcetype
+  - st: ms365_defender_incident_alerts
+    desc: Pack Generator sourcetype
+  - st: mscs_azure_eventhub_defender_advancedhunting
+    desc: Pack Generator sourcetype
+  - st: windows_defender
+    desc: Pack Generator sourcetype
 summary: EDR integrated with Windows; Advanced Hunting tables streamed to Event Hub.

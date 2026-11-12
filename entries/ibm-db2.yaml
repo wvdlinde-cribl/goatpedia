@@ -1,0 +1,14 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-db2
+name: IBM Db2 Audit Facility
+short: Db2
+vendor: IBM
+category: db
+status: stub
+summary: 'db2audit categories: context, object maintenance, security maintenance, sysadmin and validate.'
+sourcetypes:
+  - st: ibm_db2_audit_context
+  - st: ibm_db2_audit_objmaint
+  - st: ibm_db2_audit_secmaint
+  - st: ibm_db2_audit_sysadmin
+  - st: ibm_db2_audit_validate

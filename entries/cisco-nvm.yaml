@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-nvm
+name: Cisco Secure Client Network Visibility Module
+short: Cisco NVM
+vendor: Cisco
+category: edr
+status: stub
+summary: Endpoint flow telemetry (IPFIX) from Cisco Secure Client (AnyConnect) with process, user and host context, plus osquery inventory.
+sourcetypes:
+  - st: cisco_nvm_flowdata_v2
+  - st: cisco_nvm_osquery_v2

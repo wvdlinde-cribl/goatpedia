@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: n8n
+name: n8n
+short: n8n
+vendor: n8n GmbH
+category: devops
+status: stub
+summary: Workflow automation platform; log streaming of workflow, node, user and audit events.
+sourcetypes:
+  - st: n8n_log_streaming

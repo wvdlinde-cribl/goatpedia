@@ -11,4 +11,12 @@ tags:
   - proxy
 sourcetypes:
   - st: cisco:umbrella:dns
+  - st: cisco_umbrella
+    desc: Pack Generator sourcetype
+  - st: cisco_cloud_security_dns
+    desc: Pack Generator sourcetype
+  - st: cisco_cloud_security_firewall
+    desc: Pack Generator sourcetype
+  - st: cisco_cloud_security_proxy
+    desc: Pack Generator sourcetype
 summary: Recursive DNS with security filtering; logs exported to S3.

@@ -1,0 +1,13 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-zos
+name: IBM z/OS (SMF & RACF)
+short: z/OS
+vendor: IBM
+category: mainframe
+status: stub
+summary: Mainframe System Management Facility records and RACF security events, forwarded by Syncsort/Precisely Ironstream.
+sourcetypes:
+  - st: syncsort_zos_smf
+  - st: syncsort_zos_smf_racf
+  - st: syncsort_zos_syslog
+  - st: ibm_racf_syslog

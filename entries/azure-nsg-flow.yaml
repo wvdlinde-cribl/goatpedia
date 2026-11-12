@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: azure-nsg-flow
+name: Azure NSG / VNet Flow Logs
+short: NSG Flow
+vendor: Microsoft
+category: ndr
+status: stub
+summary: Network Watcher flow logs for network security groups and virtual networks, JSON in a storage account.
+sourcetypes:
+  - st: azure_nsg_flowlog_json

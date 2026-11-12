@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sap
+name: SAP NetWeaver & HANA Audit
+short: SAP
+vendor: SAP
+category: db
+status: stub
+summary: SAP Security Audit Log (SM19/SM20) and SAP HANA audit trail.
+sourcetypes:
+  - st: sap_audit
+  - st: sap_audit_tlv
+  - st: sap_hana

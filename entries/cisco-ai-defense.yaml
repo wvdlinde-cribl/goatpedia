@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-ai-defense
+name: Cisco AI Defense
+short: AI Defense
+vendor: Cisco
+category: ai
+status: stub
+summary: Runtime guardrails and visibility for AI applications and model traffic; policy violation events.
+sourcetypes:
+  - st: cisco_ai_defense

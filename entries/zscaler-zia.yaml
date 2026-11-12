@@ -14,4 +14,14 @@ tags:
 sourcetypes:
   - st: zscalernss-web
   - st: zscalernss-fw
+  - st: zia_alerts
+    desc: Pack Generator sourcetype
+  - st: zia_csv
+    desc: Pack Generator sourcetype
+  - st: zia_json
+    desc: Pack Generator sourcetype
+  - st: zia_tsv
+    desc: Pack Generator sourcetype
+  - st: zscaler_web
+    desc: Pack Generator sourcetype
 summary: Cloud secure web gateway; logs delivered via NSS / Cloud NSS.

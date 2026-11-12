@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ibm-aix
+name: IBM AIX Audit
+short: AIX
+vendor: IBM
+category: mainframe
+status: stub
+summary: AIX audit subsystem events (PROC, FILE, USER, TCPIP) and syslog from IBM Power servers.
+sourcetypes:
+  - st: ibm_aix_audit

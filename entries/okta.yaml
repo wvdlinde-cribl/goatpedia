@@ -12,5 +12,11 @@ tags:
   - api
 sourcetypes:
   - st: OktaIM2:log
+  - st: okta_system
+    desc: Pack Generator sourcetype
+  - st: okta_system_log
+    desc: Pack Generator sourcetype
+  - st: oktaim2_log
+    desc: Pack Generator sourcetype
 summary: Cloud IdP; System Log pulled via REST API.
 cveIds: []

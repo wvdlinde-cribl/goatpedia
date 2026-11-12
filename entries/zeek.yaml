@@ -17,4 +17,28 @@ sourcetypes:
   - st: zeek:conn
   - st: zeek:dns
   - st: zeek:http
+  - st: bro_conn_json
+    desc: Pack Generator sourcetype
+  - st: bro_dns_json
+    desc: Pack Generator sourcetype
+  - st: bro_files_json
+    desc: Pack Generator sourcetype
+  - st: bro_http_json
+    desc: Pack Generator sourcetype
+  - st: bro_loaded_scripts_json
+    desc: Pack Generator sourcetype
+  - st: bro_ntp_json
+    desc: Pack Generator sourcetype
+  - st: bro_ocsp_json
+    desc: Pack Generator sourcetype
+  - st: bro_ssl_json
+    desc: Pack Generator sourcetype
+  - st: bro_weird_json
+    desc: Pack Generator sourcetype
+  - st: bro_x509_json
+    desc: Pack Generator sourcetype
+  - st: zeek_json
+    desc: Pack Generator sourcetype
+  - st: zeek_tsv
+    desc: Pack Generator sourcetype
 summary: Passive network sensor writing protocol transaction logs from a tap or SPAN.

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sentinelone
+name: SentinelOne Singularity
+short: SentinelOne
+vendor: SentinelOne
+category: edr
+status: stub
+summary: AI-driven EPP/EDR platform; Cloud Funnel streams Deep Visibility endpoint telemetry as JSON.
+sourcetypes:
+  - st: sentinelone_cloudfunnel_v1
+  - st: sentinelone_cloudfunnel_v2

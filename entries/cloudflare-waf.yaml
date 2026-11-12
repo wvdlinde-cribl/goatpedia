@@ -13,4 +13,12 @@ tags:
   - logpush
 sourcetypes:
   - st: cloudflare:json
+  - st: cloudflare_firewall_event
+    desc: Pack Generator sourcetype
+  - st: cloudflare_http_request
+    desc: Pack Generator sourcetype
+  - st: cloudflare_workers_trace
+    desc: Pack Generator sourcetype
+  - st: cloudflare_audit
+    desc: Pack Generator sourcetype
 summary: Edge-hosted WAF and CDN; HTTP request and firewall events delivered via Logpush.

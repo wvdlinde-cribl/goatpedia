@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-security-lake
+name: Amazon Security Lake
+short: Security Lake
+vendor: Amazon Web Services
+category: cloud
+status: stub
+summary: Centralised security data lake that normalises AWS and third-party logs to OCSF in Parquet.
+sourcetypes:
+  - st: aws_asl

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sysmon
+name: Microsoft Sysmon (Windows & Linux)
+short: Sysmon
+vendor: Microsoft
+category: edr
+status: stub
+summary: Sysinternals System Monitor; driver-level process, network, file and registry events into the event log (Windows) or syslog (Linux).
+sourcetypes:
+  - st: windows_sysmon
+  - st: sysmon_linux

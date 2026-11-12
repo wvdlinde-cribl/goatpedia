@@ -1,0 +1,13 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: trellix
+name: Trellix ePO & Endpoint Security (EDR)
+short: Trellix
+vendor: Trellix
+category: edr
+status: stub
+summary: Formerly McAfee ePolicy Orchestrator and Trellix EDR; ePO threat events, device inventory and EDR detections.
+sourcetypes:
+  - st: trellix_edr_event
+  - st: trellix_epo_device
+  - st: trellix_epo_event
+  - st: trellix_epo_group

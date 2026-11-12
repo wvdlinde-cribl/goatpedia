@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-network-firewall
+name: AWS Network Firewall
+short: AWS NFW
+vendor: Amazon Web Services
+category: ngfw
+status: stub
+summary: Managed stateful VPC firewall built on Suricata; emits flow and alert logs (EVE JSON) to S3, CloudWatch or Firehose.
+sourcetypes:
+  - st: aws_network_firewall

@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: splunk-stream
+name: Splunk Stream
+short: Splunk Stream
+vendor: Splunk (Cisco)
+category: ndr
+status: stub
+summary: Wire-data capture forwarder that decodes protocols into JSON events (IP, TCP, HTTP, DNS …).
+sourcetypes:
+  - st: stream_http
+  - st: stream_ip
+  - st: stream_tcp

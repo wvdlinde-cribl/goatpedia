@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: osquery
+name: osquery
+short: osquery
+vendor: osquery (Linux Foundation)
+category: edr
+status: stub
+summary: SQL-powered OS instrumentation; scheduled queries emit differential results as JSON.
+sourcetypes:
+  - st: osquery_results

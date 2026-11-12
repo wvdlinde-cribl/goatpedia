@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gong
+name: Gong
+short: Gong
+vendor: Gong
+category: saas
+status: stub
+summary: Revenue intelligence SaaS; audit log of user and admin activity.
+sourcetypes:
+  - st: gong_audit

@@ -37,6 +37,76 @@ sourcetypes:
     desc: Dedicated GlobalProtect log type (PAN-OS 9.1+)
   - st: pan:userid
     desc: IP-to-user mapping events
+  - st: palo_alto_system
+    desc: Pack Generator sourcetype
+  - st: palo_alto_threat
+    desc: Pack Generator sourcetype
+  - st: palo_alto_traffic
+    desc: Pack Generator sourcetype
+  - st: pan_authentication_csv
+    desc: Pack Generator sourcetype
+  - st: pan_authentication_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_authentication_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_config_csv
+    desc: Pack Generator sourcetype
+  - st: pan_config_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_config_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_correlation_csv
+    desc: Pack Generator sourcetype
+  - st: pan_correlation_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_correlation_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_custom_v2
+    desc: Pack Generator sourcetype
+  - st: pan_globalprotect_csv
+    desc: Pack Generator sourcetype
+  - st: pan_globalprotect_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_globalprotect_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_hipmatch_csv
+    desc: Pack Generator sourcetype
+  - st: pan_hipmatch_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_hipmatch_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_iptag_csv
+    desc: Pack Generator sourcetype
+  - st: pan_iptag_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_iptag_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_system_csv
+    desc: Pack Generator sourcetype
+  - st: pan_system_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_system_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_threat_csv
+    desc: Pack Generator sourcetype
+  - st: pan_threat_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_threat_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_traffic_csv
+    desc: Pack Generator sourcetype
+  - st: pan_traffic_fixed_time
+    desc: Pack Generator sourcetype
+  - st: pan_traffic_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_traffic_syslog_nopri
+    desc: Pack Generator sourcetype
+  - st: pan_tunnel_csv
+    desc: Pack Generator sourcetype
+  - st: pan_tunnel_syslog
+    desc: Pack Generator sourcetype
+  - st: pan_tunnel_syslog_nopri
+    desc: Pack Generator sourcetype
 facts:
   First released: 2007 (PA-4000)
   OS: PAN-OS (current trains 10.2 / 11.1 / 11.2)
@@ -398,6 +468,19 @@ optimizations:
     fn: Routes
     how: THREAT, SYSTEM, CONFIG, GLOBALPROTECT → SIEM at full fidelity. TRAFFIC → Cribl Lake raw + SIEM optimised. Replay from Lake during incidents.
     expr: type!='TRAFFIC' → SIEM  |  type=='TRAFFIC' → Lake + SIEM(optimised)
+references:
+  - title: PAN-OS syslog field descriptions
+    url: https://docs.paloaltonetworks.com/pan-os/11-1/pan-os-admin/monitoring/use-syslog-for-monitoring/syslog-field-descriptions
+  - title: Palo Alto Networks security advisories
+    url: https://security.paloaltonetworks.com/
+  - title: CVE-2024-3400 advisory
+    url: https://security.paloaltonetworks.com/CVE-2024-3400
+  - title: CVE-2024-0012 advisory
+    url: https://security.paloaltonetworks.com/CVE-2024-0012
+  - title: CVE-2025-0108 advisory
+    url: https://security.paloaltonetworks.com/CVE-2025-0108
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 related:
   - fortigate
   - cisco-asa

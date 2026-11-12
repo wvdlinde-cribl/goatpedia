@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: windows-powershell
+name: Windows PowerShell Logging
+short: PowerShell
+vendor: Microsoft
+category: os
+status: stub
+summary: 'PowerShell operational log: script block, module and engine events (4103/4104/400/800).'
+sourcetypes:
+  - st: windows_powershell
+  - st: pwsh_installediismodules
+  - st: pwsh_subjectinterfacepackage

@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: nginx
+name: NGINX / NGINX Plus
+short: NGINX
+vendor: F5
+category: web
+status: stub
+summary: Web server, reverse proxy and load balancer; access log in combined or key=value format.
+sourcetypes:
+  - st: nginx_access
+  - st: nginx_accesslog
+  - st: nginx_plus_kv

@@ -13,4 +13,6 @@ tags:
   - span
 sourcetypes:
   - st: suricata
+  - st: suricata_ids
+    desc: Pack Generator sourcetype
 summary: Open-source IDS/IPS emitting EVE JSON (alert, flow, dns, http, tls).

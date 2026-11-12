@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ivanti-vtm
+name: Ivanti Virtual Traffic Manager
+short: Ivanti vTM
+vendor: Ivanti
+category: netinfra
+status: stub
+summary: Software application delivery controller / load balancer (formerly Pulse/Brocade vTM); admin audit log.
+sourcetypes:
+  - st: ivanti_vtm_audit

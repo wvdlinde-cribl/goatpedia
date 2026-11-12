@@ -12,4 +12,10 @@ tags:
   - json
 sourcetypes:
   - st: aws:cloudtrail
+  - st: aws_cloudtrail
+    desc: Pack Generator sourcetype
+  - st: cloudtrail_digest
+    desc: Pack Generator sourcetype
+  - st: cloudtrail_event
+    desc: Pack Generator sourcetype
 summary: Records AWS API calls; delivered to S3, often via SQS notification.

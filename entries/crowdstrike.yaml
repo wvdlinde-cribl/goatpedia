@@ -13,4 +13,24 @@ tags:
   - s3
 sourcetypes:
   - st: crowdstrike:events:sensor
+  - st: crowdstrike_event_streams_json
+    desc: Pack Generator sourcetype
+  - st: crowdstrike_events_sensor
+    desc: Pack Generator sourcetype
+  - st: crowdstrike_falcon
+    desc: Pack Generator sourcetype
+  - st: falcon_events
+    desc: Pack Generator sourcetype
+  - st: falcon_fdr
+    desc: Pack Generator sourcetype
+  - st: falcon_fdr_aidmaster
+    desc: Pack Generator sourcetype
+  - st: falcon_fdr_external_api
+    desc: Pack Generator sourcetype
+  - st: falcon_rest_alerts
+    desc: Pack Generator sourcetype
+  - st: falcon_rest_devices
+    desc: Pack Generator sourcetype
+  - st: falcon_rest_vulnerabilities
+    desc: Pack Generator sourcetype
 summary: Cloud-managed EDR; raw telemetry via Falcon Data Replicator (S3/SQS), detections via Event Streams.

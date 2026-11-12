@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: github-audit
+name: GitHub Audit Log
+short: GitHub
+vendor: GitHub (Microsoft)
+category: devops
+status: stub
+summary: Enterprise/organisation audit log of repository, member, token and workflow actions; streamable as JSON.
+sourcetypes:
+  - st: github_cloud_audit

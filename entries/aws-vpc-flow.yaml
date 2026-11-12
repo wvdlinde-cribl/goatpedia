@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-vpc-flow
+name: Amazon VPC Flow Logs
+short: VPC Flow
+vendor: Amazon Web Services
+category: ndr
+status: stub
+summary: Per-ENI accepted/rejected IP traffic summaries for VPCs, delivered to S3, CloudWatch or Firehose.
+sourcetypes:
+  - st: aws_vpc_v2
+  - st: aws_vpc_v5

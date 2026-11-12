@@ -10,6 +10,10 @@ tags:
   - log exporter
 sourcetypes:
   - st: cp_log
+  - st: checkpoint_firewall
+    desc: Pack Generator sourcetype
+  - st: checkpoint_firewall_rfc_5424
+    desc: Pack Generator sourcetype
 summary: NGFW managed via SmartConsole; logs exported with Log Exporter (syslog/CEF/LEEF).
 cveIds:
   - CVE-2024-24919

@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: apache-httpd
+name: Apache HTTP Server
+short: Apache
+vendor: Apache Software Foundation
+category: web
+status: stub
+summary: The most common open-source web server; access log in common/combined format and error log.
+sourcetypes:
+  - st: apache_access
+  - st: apache_httpd_accesslog_combined
+  - st: apache_httpd_accesslog_common

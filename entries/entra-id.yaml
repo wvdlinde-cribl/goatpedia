@@ -1,0 +1,17 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: entra-id
+name: Microsoft Entra ID (Azure AD)
+short: Entra ID
+vendor: Microsoft
+category: idp
+status: stub
+summary: Microsoft cloud identity provider; sign-in, audit and directory objects via Azure Monitor and Microsoft Graph.
+sourcetypes:
+  - st: azure_graph_alerts
+  - st: azure_graph_devices
+  - st: azure_graph_directory_audits
+  - st: azure_graph_signins
+  - st: azure_graph_user_registration
+  - st: azure_graph_users
+  - st: azure_monitor_aad
+  - st: azure_signin

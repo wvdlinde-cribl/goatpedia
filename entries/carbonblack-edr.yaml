@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: carbonblack-edr
+name: VMware Carbon Black EDR
+short: Carbon Black
+vendor: Broadcom (VMware)
+category: edr
+status: stub
+summary: Endpoint detection and response with continuous process, network and module recording; event forwarder emits JSON.
+sourcetypes:
+  - st: carbonblack_edr

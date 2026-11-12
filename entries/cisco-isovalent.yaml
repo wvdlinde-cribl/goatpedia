@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-isovalent
+name: Cisco Isovalent (Cilium / Tetragon)
+short: Isovalent
+vendor: Cisco
+category: workload
+status: stub
+summary: eBPF-based Kubernetes networking and runtime security; Tetragon emits process exec and connect events as JSON.
+sourcetypes:
+  - st: cisco_isovalent
+  - st: cisco_isovalent_processconnect
+  - st: cisco_isovalent_processexec

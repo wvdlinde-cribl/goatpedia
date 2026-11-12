@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: mcp
+name: Model Context Protocol (MCP) Servers
+short: MCP
+vendor: Anthropic (open standard)
+category: ai
+status: stub
+summary: JSON-RPC protocol connecting AI agents to tools and data; request/response traffic logged as JSON-RPC.
+sourcetypes:
+  - st: mcp_jsonrpc

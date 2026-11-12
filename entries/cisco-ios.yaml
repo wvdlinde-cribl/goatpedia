@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-ios
+name: Cisco IOS / IOS XE
+short: Cisco IOS
+vendor: Cisco
+category: netinfra
+status: stub
+summary: Router and switch operating system; syslog for interfaces, ACLs, AAA and configuration changes.
+sourcetypes:
+  - st: cisco_ios

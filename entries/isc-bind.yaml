@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: isc-bind
+name: ISC BIND
+short: BIND
+vendor: Internet Systems Consortium
+category: dns
+status: stub
+summary: The reference open-source DNS server; query and security logging channels.
+sourcetypes:
+  - st: isc_bind_query

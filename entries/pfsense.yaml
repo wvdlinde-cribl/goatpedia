@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: pfsense
+name: pfSense
+short: pfSense
+vendor: Netgate
+category: ngfw
+status: stub
+summary: Open-source FreeBSD firewall/router built on pf; filterlog emits CSV-style rule match records over syslog.
+sourcetypes:
+  - st: pfsense

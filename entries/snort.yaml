@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: snort
+name: Snort
+short: Snort
+vendor: Cisco (Talos)
+category: ids
+status: stub
+summary: Open-source signature-based network IDS/IPS; alert_full and syslog alert output.
+sourcetypes:
+  - st: snort_alert_full
+  - st: snort_alert_syslog

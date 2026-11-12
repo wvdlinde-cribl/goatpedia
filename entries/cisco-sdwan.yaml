@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-sdwan
+name: Cisco Catalyst SD-WAN
+short: Cisco SD-WAN
+vendor: Cisco
+category: netinfra
+status: stub
+summary: SD-WAN (formerly Viptela) edge routers and controllers; syslog and access/flow logs.
+sourcetypes:
+  - st: cisco_sdwan_access
+  - st: cisco_sdwan_syslog

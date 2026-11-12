@@ -14,4 +14,14 @@ tags:
 sourcetypes:
   - st: XmlWinEventLog:Security
   - st: WinEventLog:Security
+  - st: windows_security
+    desc: Pack Generator sourcetype
+  - st: microsoft_windows_eventlog_classic
+    desc: Pack Generator sourcetype
+  - st: windows_system
+    desc: Pack Generator sourcetype
+  - st: windows_application
+    desc: Pack Generator sourcetype
+  - st: windows_dns_client
+    desc: Pack Generator sourcetype
 summary: Authentication, process and policy events from Windows hosts (4624, 4688, 4720…).

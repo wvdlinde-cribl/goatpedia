@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: falco
+name: Falco
+short: Falco
+vendor: CNCF (Sysdig)
+category: workload
+status: stub
+summary: Cloud-native runtime threat detection for containers and Kubernetes using syscall rules; alerts as JSON.
+sourcetypes:
+  - st: kube_container_falco

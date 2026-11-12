@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: circleci
+name: CircleCI
+short: CircleCI
+vendor: CircleCI
+category: devops
+status: stub
+summary: Hosted CI/CD; organisation audit log of contexts, projects, secrets and user actions.
+sourcetypes:
+  - st: circleci

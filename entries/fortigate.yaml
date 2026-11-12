@@ -16,6 +16,14 @@ sourcetypes:
   - st: fortigate_traffic
   - st: fortigate_utm
   - st: fortigate_event
+  - st: fortinet_fortigate
+    desc: Pack Generator sourcetype
+  - st: fortinet_fortigate_syslog
+    desc: Pack Generator sourcetype
+  - st: fortinet_fortigate_syslog_wrapped
+    desc: Pack Generator sourcetype
+  - st: my-fortinetv2
+    desc: Pack Generator sourcetype
 summary: NGFW running FortiOS with SSL-VPN; key=value syslog.
 cveIds:
   - CVE-2024-21762

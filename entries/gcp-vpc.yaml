@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gcp-vpc
+name: Google Cloud VPC Flow & Firewall Logs
+short: GCP VPC
+vendor: Google Cloud
+category: ndr
+status: stub
+summary: VPC flow samples and firewall rule logging from Google Cloud, exported through Cloud Logging.
+sourcetypes:
+  - st: gcp_vpc_flow
+  - st: gcp_firewall

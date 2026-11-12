@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: terraform-enterprise
+name: HCP Terraform / Terraform Enterprise
+short: Terraform
+vendor: HashiCorp (IBM)
+category: devops
+status: stub
+summary: Infrastructure-as-code platform; audit trails API of workspace, run and token activity.
+sourcetypes:
+  - st: terraform_enterprise_audit

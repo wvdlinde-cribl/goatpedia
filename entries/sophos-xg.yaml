@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sophos-xg
+name: Sophos Firewall (XG / XGS)
+short: Sophos XG
+vendor: Sophos
+category: ngfw
+status: stub
+summary: Sophos Firewall OS appliance with IPS, web filtering, ATP and VPN; key=value syslog per module.
+sourcetypes:
+  - st: sophos_xg

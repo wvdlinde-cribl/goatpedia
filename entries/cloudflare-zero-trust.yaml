@@ -1,0 +1,13 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cloudflare-zero-trust
+name: Cloudflare Zero Trust (Access & Gateway)
+short: CF Zero Trust
+vendor: Cloudflare
+category: swg
+status: stub
+summary: 'Cloudflare SSE: Access (ZTNA) and Gateway (DNS, HTTP and network filtering); Logpush JSON per request, query and session.'
+sourcetypes:
+  - st: cloudflare_access_request
+  - st: cloudflare_gateway
+  - st: cloudflare_gateway_dns
+  - st: cloudflare_zero_trust_network_session

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: netapp-ontap
+name: NetApp ONTAP
+short: NetApp
+vendor: NetApp
+category: storage
+status: stub
+summary: Storage OS for NetApp filers; EMS syslog and CIFS/NFS file-access auditing.
+sourcetypes:
+  - st: netapp_filer_cfoa
+  - st: netapp_filer_syslog

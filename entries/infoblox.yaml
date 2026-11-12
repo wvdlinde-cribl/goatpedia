@@ -13,4 +13,20 @@ tags:
 sourcetypes:
   - st: infoblox:dns
   - st: infoblox:dhcp
+  - st: infoblox_cef
+    desc: Pack Generator sourcetype
+  - st: infoblox_cef_rfc5424
+    desc: Pack Generator sourcetype
+  - st: infoblox_dns
+    desc: Pack Generator sourcetype
+  - st: infoblox_leef
+    desc: Pack Generator sourcetype
+  - st: infoblox_leef_rfc5424
+    desc: Pack Generator sourcetype
+  - st: infoblox_syslog
+    desc: Pack Generator sourcetype
+  - st: infoblox_syslog_bsd_nopri
+    desc: Pack Generator sourcetype
+  - st: infoblox_syslog_iso8601
+    desc: Pack Generator sourcetype
 summary: DNS/DHCP/IPAM appliance; query logging is very high volume.

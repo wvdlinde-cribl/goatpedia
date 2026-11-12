@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: sonicwall
+name: SonicWall Firewall
+short: SonicWall
+vendor: SonicWall
+category: ngfw
+status: stub
+summary: SonicOS next-generation firewall with SSL-VPN; emits key=value syslog for connections, threats and VPN events.
+sourcetypes:
+  - st: sonicwall_firewall

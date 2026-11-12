@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: confluent-cloud
+name: Confluent Cloud Audit Logs
+short: Confluent
+vendor: Confluent
+category: saas
+status: stub
+summary: CloudEvents-format audit log of authentication and authorization on Kafka clusters and the Confluent control plane.
+sourcetypes:
+  - st: confluent_audit

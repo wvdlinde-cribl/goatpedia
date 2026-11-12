@@ -56,6 +56,8 @@ mark{background:#fef08a;border-radius:2px}
 .cve{display:grid;grid-template-columns:90px 1fr;gap:14px;border-top:1px solid var(--line);padding:14px 0}.cve:first-of-type{border-top:0}
 .score{border-radius:12px;color:#fff;text-align:center;padding:10px 0;font-weight:800;font-size:22px}.score small{display:block;font-size:10px;font-weight:600;opacity:.9}
 .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13.5px;margin-top:6px}.kv b{color:var(--muted);font-weight:600}
+.mitre{font-size:12.5px;color:var(--muted);margin-top:8px}.mitre a{font-family:ui-monospace,Menlo,monospace}
+.refs{margin:0;padding-left:18px;line-height:1.8}
 pre.kql{background:#0f172a;color:#cbd5e1;border-radius:10px;padding:12px 14px;font:12.5px/1.6 ui-monospace,Menlo,monospace;overflow-x:auto;margin:8px 0 0}
 .copy{float:right;font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer}
 .sig{display:inline-block;background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;border-radius:6px;font:12px ui-monospace,Menlo,monospace;padding:1px 6px;margin:2px 4px 2px 0}

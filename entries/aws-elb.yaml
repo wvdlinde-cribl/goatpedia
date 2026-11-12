@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-elb
+name: Elastic Load Balancing (ALB / NLB / CLB)
+short: AWS ELB
+vendor: Amazon Web Services
+category: netinfra
+status: stub
+summary: Access logs for Application, Network and Classic Load Balancers, written to S3.
+sourcetypes:
+  - st: aws_alb_accesslog
+  - st: aws_elb_accesslog
+  - st: aws_nlb_accesslog

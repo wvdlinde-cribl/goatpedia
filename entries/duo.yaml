@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: duo
+name: Cisco Duo
+short: Duo
+vendor: Cisco
+category: idp
+status: stub
+summary: MFA and SSO service; Admin API exposes authentication, administrator and telephony logs as JSON.
+sourcetypes:
+  - st: cisco_duo_activity
+  - st: cisco_duo_administrator
+  - st: duo_security

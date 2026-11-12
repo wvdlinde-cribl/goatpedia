@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-rds-audit
+name: Amazon RDS Database Audit
+short: RDS Audit
+vendor: Amazon Web Services
+category: db
+status: stub
+summary: MariaDB/MySQL audit plugin and pgaudit logs from Amazon RDS / Aurora, published to CloudWatch.
+sourcetypes:
+  - st: aws_rds_audit_mysql
+  - st: aws_rds_audit_postgresql

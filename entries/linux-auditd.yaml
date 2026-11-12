@@ -1,0 +1,12 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: linux-auditd
+name: Linux Audit (auditd)
+short: auditd
+vendor: Linux kernel / Red Hat
+category: os
+status: stub
+summary: Kernel audit subsystem; syscall, execve, file watch and authentication records.
+sourcetypes:
+  - st: auditd
+  - st: linux_audit
+  - st: linux_auditd_log

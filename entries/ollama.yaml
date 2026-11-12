@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: ollama
+name: Ollama
+short: Ollama
+vendor: Ollama
+category: ai
+status: stub
+summary: Local LLM runtime exposing an HTTP API; server log of model loads and API requests.
+sourcetypes:
+  - st: ollama_server

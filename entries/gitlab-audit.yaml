@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: gitlab-audit
+name: GitLab Audit Events
+short: GitLab
+vendor: GitLab
+category: devops
+status: stub
+summary: Instance, group and project audit events, including streaming audit destinations.
+sourcetypes:
+  - st: gitlab_audit_log
+  - st: gitlab_audit_streaming

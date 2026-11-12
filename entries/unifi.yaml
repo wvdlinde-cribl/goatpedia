@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: unifi
+name: Ubiquiti UniFi
+short: UniFi
+vendor: Ubiquiti
+category: netinfra
+status: stub
+summary: UniFi gateways, switches and access points; stahtd station health and client connection events.
+sourcetypes:
+  - st: unifi_stahtd

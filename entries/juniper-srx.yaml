@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: juniper-srx
+name: Juniper SRX Series
+short: Juniper SRX
+vendor: Juniper Networks
+category: ngfw
+status: stub
+summary: Junos-based services gateway combining stateful firewall, IPS, AppSecure and IPsec VPN; logs RT_FLOW session events over structured syslog.
+sourcetypes:
+  - st: juniper_srx

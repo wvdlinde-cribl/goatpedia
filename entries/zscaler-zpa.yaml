@@ -1,0 +1,14 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: zscaler-zpa
+name: Zscaler Private Access (ZPA)
+short: Zscaler ZPA
+vendor: Zscaler
+category: swg
+status: stub
+summary: ZTNA service brokering user-to-app connections through App Connectors; Log Streaming Service emits JSON.
+sourcetypes:
+  - st: zpa_app_connector
+  - st: zpa_audit
+  - st: zpa_browser_access
+  - st: zpa_user_activity
+  - st: zpa_user_status

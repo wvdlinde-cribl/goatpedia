@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: appdynamics-secure-app
+name: Cisco Secure Application (AppDynamics)
+short: AppD SecApp
+vendor: Cisco
+category: web
+status: stub
+summary: 'Runtime application security in the AppDynamics agent: vulnerable libraries and attack events in running apps.'
+sourcetypes:
+  - st: appdynamics_security

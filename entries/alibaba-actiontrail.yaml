@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: alibaba-actiontrail
+name: Alibaba Cloud ActionTrail
+short: ActionTrail
+vendor: Alibaba Cloud
+category: cloud
+status: stub
+summary: API and console activity audit for Alibaba Cloud accounts.
+sourcetypes:
+  - st: alibaba_action_trail

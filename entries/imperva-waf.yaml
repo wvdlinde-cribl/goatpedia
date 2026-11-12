@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: imperva-waf
+name: Imperva Cloud WAF (Incapsula)
+short: Imperva WAF
+vendor: Imperva (Thales)
+category: waf
+status: stub
+summary: Cloud reverse-proxy WAF, CDN and DDoS service; security and access events delivered as CEF/W3C via log integration.
+sourcetypes:
+  - st: imperva_incapsula_waf

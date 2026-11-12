@@ -1,0 +1,13 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: vmware-nsx
+name: VMware NSX
+short: NSX
+vendor: Broadcom (VMware)
+category: ngfw
+status: stub
+summary: Network virtualisation and distributed firewall for vSphere workloads; distributed firewall and system events over RFC 5424 syslog.
+sourcetypes:
+  - st: vmware_nsx_fabric_rfc
+  - st: vmware_nsx_firewall_syslog
+  - st: vmware_nsx_routing_rfc
+  - st: vmware_nsx_system_rfc

@@ -16,6 +16,14 @@ tags:
 sourcetypes:
   - st: cisco:asa
   - st: cisco:ftd
+  - st: cisco_asa
+    desc: Pack Generator sourcetype
+  - st: cisco_asa_syslog
+    desc: Pack Generator sourcetype
+  - st: cisco_fwsm_syslog
+    desc: Pack Generator sourcetype
+  - st: cisco_fwsm_v2
+    desc: Pack Generator sourcetype
 summary: Stateful firewall and VPN head-end; message-ID based syslog (%ASA-6-302013).
 cveIds:
   - CVE-2024-20353

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: netskope
+name: Netskope One (SSE / CASB)
+short: Netskope
+vendor: Netskope
+category: swg
+status: stub
+summary: Cloud security platform with inline CASB, SWG, DLP and ZTNA; events and alerts as JSON.
+sourcetypes:
+  - st: netskope_alert_json
+  - st: netskope_event_json

@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-route53
+name: Amazon Route 53 Query Logs
+short: Route 53
+vendor: Amazon Web Services
+category: dns
+status: stub
+summary: Public hosted-zone query logs and Resolver query logs for VPC DNS.
+sourcetypes:
+  - st: aws_route53_public
+  - st: aws_route53_resolver

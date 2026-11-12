@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: netflow
+name: Cisco NetFlow v9 / IPFIX
+short: NetFlow
+vendor: Cisco (IETF)
+category: ndr
+status: stub
+summary: 'Flow export from routers, switches and firewalls: template-based records summarising each conversation.'
+sourcetypes:
+  - st: cisco_netflow_v9

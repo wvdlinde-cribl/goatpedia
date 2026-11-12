@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: aws-eks-audit
+name: Amazon EKS Control Plane Audit
+short: EKS Audit
+vendor: Amazon Web Services
+category: workload
+status: stub
+summary: Kubernetes API server audit logs for EKS clusters, shipped to CloudWatch Logs.
+sourcetypes:
+  - st: aws_eks_audit

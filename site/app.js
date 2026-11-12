@@ -17,16 +17,15 @@
   const editUrl = (id) => `${REPO}/edit/main/entries/${id}.yaml`;
   const newUrl = `${REPO}/new/main/entries?filename=new-device.yaml`;
 
-  function csv(line) {
-    const out = []; let cur = ''; let q = false;
-    for (const c of line) {
-      if (c === '"') { q = !q; cur += c; } else if (c === ',' && !q) { out.push(cur); cur = ''; } else cur += c;
-    }
-    out.push(cur); return out;
-  }
-  const parsed = (l) => csv(l.sample).map((v, i) => ({ i, name: l.fields[i], value: v, key: (l.key || []).includes(l.fields[i]), noise: (l.noise || []).includes(l.fields[i]) }));
-  const logHtml = (l) => parsed(l).map((f) =>
-    `<span class="lf ${f.key ? 'k' : f.noise ? 'n' : ''}" data-i="${f.i}" title="${f.i}: ${esc(f.name)}">${esc(f.value) || '<i>∅</i>'}</span>`).join('<span class="lc">,</span>');
+  const { parseLog, SEP } = window.SecpediaParse;
+  const parsed = (l) => { try { return parseLog(l).map((f) => ({ ...f, key: (l.key || []).includes(f.name), noise: (l.noise || []).includes(f.name) })); } catch { return []; } };
+  const logHtml = (l) => {
+    const p = parsed(l);
+    if (!p.length) return esc(l.sample);
+    return p.map((f) => `<span class="lf ${f.key ? 'k' : f.noise ? 'n' : ''}" data-i="${f.i}" title="${f.i}: ${esc(f.name)}">${esc(f.text) || '<i>∅</i>'}</span>`)
+      .join(`<span class="lc">${esc(SEP[l.format] || ' ')}</span>`);
+  };
+  const mitreUrl = (t) => `https://attack.mitre.org/techniques/${t.replace('.', '/')}/`;
 
   function mark(text, q) {
     let s = esc(text);
@@ -169,7 +168,8 @@
     overview: (e) => `<div class="two">${e.howItWorks.map((h) => `<div class="box"><h4>${esc(h.title)}</h4><p>${esc(h.body)}</p></div>`).join('')}</div>
       <div class="box"><h2>Sourcetypes</h2><table class="ftable">${e.sourcetypes.map((s) => `<tr><td style="width:220px"><span class="st">${esc(s.st)}</span></td><td>${esc(s.desc || '')}</td></tr>`).join('')}</table></div>
       <div class="box"><h2>Key facts</h2><div class="kv">${Object.entries(e.facts).map(([k, v]) => `<b>${esc(k)}</b><span>${esc(v)}</span>`).join('')}</div></div>
-      ${(e.related || []).length ? `<div class="box"><h2>Related</h2>${e.related.map((r) => `<a class="st" href="#/e/${r}">${esc(byId(r).name)}</a>`).join('')}</div>` : ''}`,
+      ${(e.related || []).length ? `<div class="box"><h2>Related</h2>${e.related.map((r) => `<a class="st" href="#/e/${r}">${esc(byId(r).name)}</a>`).join('')}</div>` : ''}
+      ${(e.references || []).length ? `<div class="box"><h2>References</h2><ul class="refs">${e.references.map((r) => `<li><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a></li>`).join('')}</ul></div>` : ''}`,
     network: (e) => `<div class="box"><h2>Where it sits in the network</h2>${diagram(e)}</div>
       <div class="two">${e.placement.items.map((p, i) => `<div class="box"><h4><span class="num">${i + 1}</span>${esc(p.title)}</h4><p>${esc(p.desc)}</p></div>`).join('')}</div>
       <div class="box"><h2>What traffic it handles</h2><div style="margin-bottom:12px">${e.traffic.handles.map((h) => `<span class="sig">${esc(h)}</span>`).join('')}</div>
@@ -188,14 +188,15 @@
         <div class="kv"><b>Scope</b><span>${v.scope === 'device' ? 'The device itself' : 'Traffic type it protects'}</span><b>Affected</b><span>${esc(v.affected)}</span>
         ${v.fixed ? `<b>Fixed in</b><span>${esc(v.fixed)}</span>` : ''}<b>How to identify</b><span>${esc(v.detect)}</span><b>Avoid / mitigate</b><span>${esc(v.avoid)}</span></div></div></div>`).join('')}</div>`,
     detect: (e) => e.detections.map((d) => `<div class="box"><button class="copy">Copy KQL</button><h4><span class="b" style="background:${sevColor(d.severity)};color:#fff">${d.severity}</span> ${esc(d.title)}</h4>
-      <p>${esc(d.why)}</p><div>${d.signals.map((s) => `<span class="sig">${esc(s)}</span>`).join('')}</div><pre class="kql">${esc(d.kql)}</pre></div>`).join(''),
+      <p>${esc(d.why)}</p><div>${d.signals.map((s) => `<span class="sig">${esc(s)}</span>`).join('')}</div>
+      ${(d.mitre || []).length ? `<div class="mitre">MITRE ATT&amp;CK: ${d.mitre.map((t) => `<a href="${mitreUrl(t)}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>` : ''}<pre class="kql">${esc(d.kql)}</pre></div>`).join(''),
     optimize: (e) => `<div class="box"><h2>Reduce volume without losing signal</h2>${e.optimizations.map((o) => `<div class="opt"><div class="pct">${esc(o.saving)}<small>typical saving</small></div>
       <div><h4>${esc(o.title)} <span class="st">${esc(o.fn)}</span></h4><p>${esc(o.how)}</p>${o.expr ? `<code class="st" style="display:inline-block">${esc(o.expr)}</code>` : ''}</div></div>`).join('')}</div>`,
   };
   function wireLogs(e, logi) {
     const l = e.logs[logi] || e.logs[0], p = parsed(l);
     const drop = p.filter((f) => f.noise || !f.value).reduce((a, f) => a + f.value.length + 1, 0);
-    const pct = Math.round((drop / l.sample.length) * 100);
+    const pct = Math.min(100, Math.round((drop / l.sample.length) * 100));
     $('#save').innerHTML = `<div class="save"><span>Noise + empty fields in this event:</span><div class="bar"><i style="width:${pct}%"></i></div><b style="color:#16a34a">${pct}%</b></div>`;
     $('#raw').onclick = (ev) => {
       const f = ev.target.closest('.lf'); if (!f) return;

@@ -1,0 +1,14 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: openai
+name: OpenAI API Platform
+short: OpenAI
+vendor: OpenAI
+category: ai
+status: stub
+summary: 'OpenAI organisation Admin API: audit logs, usage/costs, projects and users, plus completion request logs.'
+sourcetypes:
+  - st: openai_audit
+  - st: openai_completions
+  - st: openai_costs
+  - st: openai_projects
+  - st: openai_users

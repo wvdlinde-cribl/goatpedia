@@ -1,0 +1,11 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: mysql
+name: MySQL Server
+short: MySQL
+vendor: Oracle
+category: db
+status: stub
+summary: Open-source relational database; general/error logs and audit plugin events.
+sourcetypes:
+  - st: mysql
+  - st: mysql_server_audit

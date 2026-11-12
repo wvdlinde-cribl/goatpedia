@@ -1,0 +1,10 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: cisco-meraki
+name: Cisco Meraki MX / MR / MS
+short: Meraki
+vendor: Cisco
+category: ngfw
+status: stub
+summary: Cloud-managed security appliances, wireless and switches; syslog carries flows, URLs, IDS alerts and security events.
+sourcetypes:
+  - st: cisco_meraki

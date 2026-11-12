@@ -1,0 +1,14 @@
+# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: salesforce
+name: Salesforce
+short: Salesforce
+vendor: Salesforce
+category: saas
+status: stub
+summary: CRM platform; Event Monitoring EventLogFile, LoginHistory and Setup Audit Trail.
+sourcetypes:
+  - st: salesforce_eventlogfile_callout
+  - st: salesforce_eventlogfile_execution
+  - st: salesforce_eventlogfile_restapi
+  - st: salesforce_loginhistory
+  - st: salesforce_setupaudittrail
