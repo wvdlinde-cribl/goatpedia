@@ -2,9 +2,318 @@
 id: falco
 name: Falco
 short: Falco
+aka:
+  - falcosecurity
+  - Sysdig Falco
+  - Falcosidekick
+  - Falco k8saudit plugin
 vendor: CNCF (Sysdig)
 category: workload
-status: stub
-summary: Cloud-native runtime threat detection for containers and Kubernetes using syscall rules; alerts as JSON.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - kubernetes
+  - container
+  - runtime-security
+  - ebpf
+  - syscalls
+  - json
+  - open-source
+summary: CNCF-graduated runtime threat detection for Linux hosts, containers and Kubernetes. Falco reads system calls through a kernel driver (modern eBPF, legacy eBPF or a kernel module), and plugin event streams such as Kubernetes audit or CloudTrail, then runs them against YAML rules. It emits only alerts, one line per rule match, as text or JSON. It does not log every event.
 sourcetypes:
   - st: kube_container_falco
+    desc: Falco alerts read from the Falco pod's stdout container log (text or JSON line)
+  - st: falco
+    desc: Falco JSON alerts (json_output) delivered by Falcosidekick, HTTP output or a file
+facts:
+  First released: 2016 (Sysdig); CNCF sandbox 2018, graduated 2024
+  Platform: Linux (x86_64, aarch64); Kubernetes DaemonSet via Helm, or a host package
+  Drivers: Modern eBPF probe (CO-RE, default), legacy eBPF probe, kernel module; plugins for k8s audit, CloudTrail, Okta, GitHub …
+  Delivery model: Open source (Apache-2.0); commercial runtime detection in Sysdig Secure is built on it
+  Log transport: stdout, file, syslog, program, HTTP(S), gRPC; Falcosidekick fans out to 50+ outputs (Splunk HEC, Elastic, Kafka, S3 …)
+  Log format: 'Text line ("time: Priority message | k=v …") or one JSON object per alert (rule, priority, output, output_fields, tags)'
+  Typical volume: Alerts only — usually 1–100 per node per hour after tuning; untuned noisy rules can produce thousands
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - internal
+    - endpoint
+  items:
+    - slot: cloud
+      title: Managed Kubernetes (EKS / AKS / GKE)
+      desc: A DaemonSet on every node with the modern eBPF driver. A separate Deployment with the k8saudit plugin can read EKS/GKE/AKS control-plane audit logs.
+    - slot: internal
+      title: On-prem Kubernetes / OpenShift
+      desc: Same DaemonSet pattern. The k8saudit plugin receives API-server audit events through an audit webhook backend.
+    - slot: endpoint
+      title: Linux hosts and VMs
+      desc: Installed as a systemd service to watch bare-metal or VM workloads (Docker hosts, CI runners, bastions) without Kubernetes.
+howItWorks:
+  - title: Kernel event capture
+    body: The driver captures syscalls (execve, open, connect, setuid, ptrace, mount …) in the kernel and pushes them through a per-CPU ring buffer to user space, where libsinsp keeps process, file-descriptor, container and user state tables.
+  - title: Enrichment
+    body: Container runtime sockets (containerd, CRI-O, Docker) and the Kubernetes API add container.id, image, k8s.ns.name and k8s.pod.name to each event, so rule conditions and output can use them.
+  - title: Rules engine
+    body: Rules are YAML with a condition in Falco's filter language (e.g. spawned_process and container and shell_procs and proc.tty != 0), an output template, a priority and tags. Macros and lists make the default ruleset reusable. Matching is in-memory, per event.
+  - title: Plugins
+    body: Plugins add event sources other than syscalls (k8s_audit, aws_cloudtrail, okta, github) and field extractors. Rules name their source, so the same engine detects a kubectl exec in the audit log and the resulting shell in the syscall stream.
+  - title: Outputs and drops
+    body: Each match becomes one alert on every enabled output. When the ring buffer overflows, Falco logs dropped-event statistics. Drops are a blind spot that attackers have used to evade detection (see CVE-2019-8339).
+  - title: Response
+    body: Falco itself only detects. Falcosidekick forwards alerts, and Falco Talon or other automation can kill the pod, label it or apply a NetworkPolicy.
+traffic:
+  handles:
+    - Linux syscalls (process, file, network, privilege)
+    - Container runtime metadata (containerd, CRI-O, Docker)
+    - Kubernetes metadata (namespace, pod, labels)
+    - Kubernetes API audit events (k8saudit plugin)
+    - Cloud audit streams via plugins (CloudTrail, Okta, GitHub)
+    - Network connections at the socket level (no packet payloads)
+  flow:
+    - step: Syscall
+      desc: A process in a container calls execve / open / connect.
+    - step: Driver
+      desc: The eBPF probe or kernel module captures the event and arguments into the ring buffer.
+    - step: State + enrich
+      desc: libsinsp updates the process and FD tables and adds container and pod metadata.
+    - step: Rule match
+      desc: Each enabled rule condition is evaluated against the event.
+    - step: Alert
+      desc: On a match the output template is rendered with priority, rule name and tags.
+    - step: Output
+      desc: The alert goes to stdout / file / HTTP / gRPC; Falcosidekick fans it out to the SIEM.
+logs:
+  - type: Syscall rule alert (JSON)
+    sourcetype: falco
+    format: json
+    share: 85–95 %
+    avg: ~1.2 KB
+    desc: One JSON object per rule match from the syscall source. output repeats the rendered text; output_fields carries the same values as typed fields, which is what you should parse and search.
+    key:
+      - rule
+      - priority
+      - output_fields.proc.cmdline
+      - output_fields.proc.pname
+      - output_fields.user.name
+      - output_fields.k8s.ns.name
+      - output_fields.k8s.pod.name
+      - output_fields.container.image.repository
+    noise:
+      - output
+      - output_fields.evt.time
+      - output_fields.user.loginuid
+      - output_fields.proc.tty
+    sample: '{"hostname":"falco-7xk2p","output":"09:14:22.418203117: Notice A shell was spawned in a container with an attached terminal | evt_type=execve user=root user_uid=0 user_loginuid=-1 process=bash proc_exepath=/usr/bin/bash parent=runc command=bash -il terminal=34816 exe_flags=EXE_WRITABLE container_id=4f1c2a9e7b3d container_name=checkout-api container_image_repository=registry.example.com/payments/checkout-api k8s_ns=payments k8s_pod_name=checkout-api-7c9f6d5b8d-q2xkp","priority":"Notice","rule":"Terminal shell in container","source":"syscall","tags":["T1059","container","maturity_stable","mitre_execution","shell"],"time":"2026-11-12T09:14:22.418203117Z","output_fields":{"container.id":"4f1c2a9e7b3d","container.image.repository":"registry.example.com/payments/checkout-api","container.name":"checkout-api","evt.arg.flags":"EXE_WRITABLE","evt.time":1794474862418203117,"evt.type":"execve","k8s.ns.name":"payments","k8s.pod.name":"checkout-api-7c9f6d5b8d-q2xkp","proc.cmdline":"bash -il","proc.exepath":"/usr/bin/bash","proc.name":"bash","proc.pname":"runc","proc.tty":34816,"user.loginuid":-1,"user.name":"root","user.uid":0}}'
+  - type: Alert on container stdout (text)
+    sourcetype: kube_container_falco
+    format: text
+    share: Deployments without json_output
+    avg: ~550 B
+    desc: The default text output as collected from the Falco pod's container log. Everything after the pipe is k=v pairs from the rule's output template (and append_output), so the field set changes per rule.
+    pattern: '^(?<time>\d{2}:\d{2}:\d{2}\.\d{9}): (?<priority>Emergency|Alert|Critical|Error|Warning|Notice|Informational|Debug) (?<message>.+?) \| (?<fields>.+)$'
+    key:
+      - priority
+      - message
+      - fields
+    noise:
+      - time
+    sample: '09:16:40.553018221: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=containerd-shim ggparent=<NA> gggparent=<NA> evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=4f1c2a9e7b3d container_name=checkout-api container_image_repository=registry.example.com/payments/checkout-api k8s_ns=payments k8s_pod_name=checkout-api-7c9f6d5b8d-q2xkp'
+  - type: Kubernetes audit rule alert (k8saudit plugin)
+    sourcetype: falco
+    format: json
+    share: 5–15 % (when the plugin is enabled)
+    avg: ~1 KB
+    desc: Alerts from the k8s_audit source, for example exec into a pod, a privileged pod being created or a ClusterRole bound to a user. Fields come from ka.* extractors.
+    key:
+      - rule
+      - priority
+      - output_fields.ka.user.name
+      - output_fields.ka.verb
+      - output_fields.ka.target.namespace
+      - output_fields.ka.target.name
+      - output_fields.ka.uri
+    noise:
+      - output
+      - output_fields.evt.time
+    sample: '{"hostname":"falco-k8saudit-0","output":"09:13:58.112000000: Notice Attach/Exec to pod | user=jdoe@example.com pod=checkout-api-7c9f6d5b8d-q2xkp resource=pods ns=payments action=exec command=bash","priority":"Notice","rule":"Attach/Exec Pod","source":"k8s_audit","tags":["T1609","k8s","maturity_stable","mitre_execution"],"time":"2026-11-12T09:13:58.112000000Z","output_fields":{"evt.time":1794474838112000000,"ka.target.name":"checkout-api-7c9f6d5b8d-q2xkp","ka.target.namespace":"payments","ka.target.resource":"pods","ka.target.subresource":"exec","ka.uri":"/api/v1/namespaces/payments/pods/checkout-api-7c9f6d5b8d-q2xkp/exec?command=bash&container=checkout-api&stdin=true&tty=true","ka.user.name":"jdoe@example.com","ka.verb":"create"}}'
+cves:
+  - id: CVE-2021-33505
+    cvss: 7.8
+    year: 2021
+    kev: false
+    scope: device
+    title: Detection bypass by a program that alters syscall arguments while the call is in flight
+    affected: Falco through 0.28.1
+    fixed: 0.29.1
+    detect: No alert is the problem. Look for gaps instead — workloads where Tetragon/auditd or EDR see execs that Falco never alerted on; Falco version below 0.29.1 in the agent inventory.
+    avoid: Upgrade; run a second sensor (auditd / EDR) on high-value nodes; alert on Falco agent version drift.
+  - id: CVE-2019-8339
+    cvss: 5.5
+    year: 2019
+    kev: false
+    scope: device
+    title: Missing indicator for dropped events lets a local user flood the ring buffer and bypass detection
+    affected: Falco through 0.14.0
+    detect: Falco's own "Falco internal — syscall event drop" messages, drop counters rising on one node, a node that suddenly stops alerting while its workload continues.
+    avoid: Upgrade; enable syscall_event_drops actions (log + alert); alert on drop-rate metrics; size the ring buffer for the node.
+  - id: CVE-2022-0492
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Linux cgroups v1 release_agent escape — container breakout that Falco watches for
+    affected: Linux kernel 2.6.24 up to 4.9.301, 4.14.266, 4.19.229, 5.4.177, 5.10.97, 5.15.20, 5.16.6 (per NVD CPE ranges)
+    fixed: 4.9.301, 4.14.266, 4.19.229, 5.4.177, 5.10.97, 5.15.20, 5.16.6, 5.17-rc3
+    detect: Rule "Detect release_agent File Container Escapes" (writes to a cgroup release_agent from a container with CAP_SYS_ADMIN); mount of cgroup filesystems from inside a pod.
+    avoid: Patch node kernels; drop CAP_SYS_ADMIN; seccomp/AppArmor RuntimeDefault; prefer cgroups v2.
+  - id: CVE-2022-0847
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Dirty Pipe — overwrite read-only files via pipe page cache → root on the node
+    affected: Linux kernel 5.8 up to 5.10.102, 5.15.25, 5.16.11
+    fixed: 5.10.102, 5.15.25, 5.16.11
+    detect: Unknown binaries dropped and executed in containers ("Drop and execute new binary in container"), followed by root shells or writes to /etc/passwd and SUID binaries.
+    avoid: Patch node kernels; read-only root filesystems; block unknown binaries with an image allow-list.
+  - id: CVE-2024-21626
+    cvss: 8.6
+    year: 2024
+    kev: false
+    scope: traffic
+    title: runc "Leaky Vessels" fd leak → container escape
+    affected: runc 1.0.0-rc93 through 1.1.11
+    fixed: runc 1.1.12
+    detect: Processes in a container whose cwd resolves under /proc/self/fd, host binaries opened for write from a container pid; a custom Falco rule on proc.cwd startswith /proc/self/fd.
+    avoid: Patch runc on every node; only allow trusted images; add the custom rule until all nodes are patched.
+  - id: CVE-2025-1974
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: IngressNightmare — unauthenticated RCE in the ingress-nginx admission controller (CNA score)
+    affected: ingress-nginx up to 1.11.4 and 1.12.0
+    fixed: 1.11.5, 1.12.1
+    detect: Shells or unexpected child processes of nginx in the ingress-nginx namespace ("Run shell untrusted"); reads of /proc/*/fd by nginx; the controller reading Secrets it never touched before (k8saudit).
+    avoid: Upgrade; restrict network access to the admission webhook to the API server only; disable the validating webhook until patched.
+detections:
+  - title: Interactive shell in a production container
+    severity: high
+    signals:
+      - rule = Terminal shell in container
+      - k8s.ns.name not a debug namespace
+      - proc.pname = runc
+    why: An interactive shell with a TTY in a running container is a person typing. Outside break-glass it is either an attacker or a policy violation.
+    kql: |-
+      dataset="falco" rule="Terminal shell in container"
+      | where output_fields.k8s.ns.name !in ("debug","kube-system")
+      | summarize n=count(), cmds=make_set(output_fields.proc.cmdline) by output_fields.k8s.ns.name, output_fields.k8s.pod.name, hostname
+    mitre:
+      - T1609
+      - T1059.004
+  - title: Credential file read by an untrusted program
+    severity: high
+    signals:
+      - rule = Read sensitive file untrusted
+      - file = /etc/shadow or similar
+    why: Reading /etc/shadow or private keys from inside a container has no business reason and is a precursor to credential cracking or lateral movement.
+    kql: |-
+      dataset="falco" rule="Read sensitive file untrusted"
+      | summarize n=count() by output_fields.k8s.ns.name, output_fields.k8s.pod.name, output_fields.proc.cmdline
+    mitre:
+      - T1003.008
+  - title: Reverse shell (stdin/stdout redirected to a socket)
+    severity: critical
+    signals:
+      - rule = Redirect STDOUT/STDIN to Network Connection in Container
+      - or Netcat Remote Code Execution in Container
+    why: The shell's standard streams are bound to a TCP connection. This is the classic interactive reverse shell and rarely a false positive.
+    kql: |-
+      dataset="falco" rule in ("Redirect STDOUT/STDIN to Network Connection in Container","Netcat Remote Code Execution in Container")
+      | project _time, hostname, rule, output_fields.k8s.pod.name, output_fields.proc.cmdline, output
+    mitre:
+      - T1059.004
+      - T1095
+  - title: Container escape attempt
+    severity: critical
+    signals:
+      - rule = Detect release_agent File Container Escapes
+      - or Debugfs Launched in Privileged Container
+      - or Linux Kernel Module Injection Detected
+    why: These rules fire on the specific techniques used to break from a privileged container to the host.
+    kql: |-
+      dataset="falco"
+      | where rule in ("Detect release_agent File Container Escapes","Debugfs Launched in Privileged Container","Linux Kernel Module Injection Detected")
+      | summarize n=count(), first=min(_time) by hostname, rule, output_fields.k8s.pod.name
+    mitre:
+      - T1611
+  - title: Pod talking to the Kubernetes API server or exec into pods
+    severity: medium
+    signals:
+      - rule = Contact K8S API Server From Container
+      - rule = Attach/Exec Pod (k8s_audit)
+    why: Application pods rarely call the API server; attackers who stole a service-account token do, to enumerate secrets and pods.
+    kql: |-
+      dataset="falco" rule in ("Contact K8S API Server From Container","Attach/Exec Pod")
+      | summarize n=count() by rule, output_fields.k8s.ns.name, output_fields.ka.user.name, output_fields.k8s.pod.name
+    mitre:
+      - T1613
+      - T1609
+  - title: Log tampering and fileless execution
+    severity: high
+    signals:
+      - rule = Clear Log Activities
+      - rule = Fileless execution via memfd_create
+      - rule = Execution from /dev/shm
+    why: Defense-evasion steps that follow a successful compromise. Fileless execution keeps the payload out of the image layers.
+    kql: |-
+      dataset="falco" rule in ("Clear Log Activities","Fileless execution via memfd_create","Execution from /dev/shm")
+      | summarize n=count() by rule, hostname, output_fields.proc.cmdline
+    mitre:
+      - T1070.002
+      - T1620
+optimizations:
+  - title: Suppress repeated identical alerts
+    saving: 30–70 %
+    fn: Suppress
+    how: A misbehaving workload fires the same rule for the same pod and command every few seconds. Keep one per rule/pod/cmdline per 5 minutes with a count.
+    expr: "key: `${rule}:${output_fields['k8s.pod.name']}:${output_fields['proc.cmdline']}`  allow 1 / 300s"
+  - title: Drop the rendered output string
+    saving: 35–50 %
+    fn: Eval
+    how: The output field repeats every value already present in output_fields. Remove it after parsing (keep it only if analysts read alerts in a chat tool).
+    expr: "remove: output"
+  - title: Drop low-priority rules at the pipeline
+    saving: 10–30 %
+    fn: Drop
+    how: Debug and Informational rules are mostly for tuning. Send them to Cribl Lake for rule development and keep Notice and above in the SIEM. Better still, raise the priority threshold in falco.yaml.
+    expr: priority=='Debug' || priority=='Informational'
+  - title: Route by source and priority
+    saving: SIEM licence
+    fn: Routes
+    how: Critical/Error alerts go to the SIEM and the paging tool. Notice/Warning goes to the SIEM. Everything goes raw to Lake for rule tuning and hunting.
+    expr: priority in ('Emergency','Alert','Critical','Error') → SIEM + pager  |  else → SIEM + Lake
+references:
+  - title: Falco — Output channels and JSON output fields
+    url: https://falco.org/docs/concepts/outputs/channels/
+  - title: Falco — Alert formatting (append_output, encoding)
+    url: https://falco.org/docs/concepts/outputs/formatting/
+  - title: Falco default rules (falcosecurity/rules)
+    url: https://raw.githubusercontent.com/falcosecurity/rules/main/rules/falco_rules.yaml
+  - title: Falco security advisories
+    url: https://github.com/falcosecurity/falco/security/advisories
+  - title: NVD — CVE-2021-33505
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-33505
+  - title: Kubernetes issue 131009 — ingress-nginx CVE-2025-1974
+    url: https://github.com/kubernetes/kubernetes/issues/131009
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-isovalent
+  - aws-eks-audit
+  - linux-auditd
+  - osquery
+  - crowdstrike

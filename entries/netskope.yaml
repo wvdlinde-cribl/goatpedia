@@ -198,7 +198,7 @@ cves:
     detect: Client enrollment / client status events for a user from a device, hostname or country never seen before; the same user enrolled on several devices in a short time; activity for users who are on leave or disabled.
     avoid: Enforce Secure Enrollment tokens; use IdP enrollment with MFA; enable device classification and block unclassified devices.
   - id: CVE-2023-2270
-    cvss: 7.0
+    cvss: 7.8
     year: 2023
     kev: false
     scope: device

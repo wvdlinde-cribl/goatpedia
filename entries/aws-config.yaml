@@ -2,9 +2,310 @@
 id: aws-config
 name: AWS Config
 short: AWS Config
+aka:
+  - Config Rules
+  - Conformance packs
+  - Configuration items
+  - AWS Config aggregator
 vendor: Amazon Web Services
 category: cloud
-status: stub
-summary: Resource configuration history and compliance evaluations for AWS accounts.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - cspm
+  - compliance
+  - configuration
+  - json
+  - sns
+  - eventbridge
+  - inventory
+summary: AWS Config records the configuration of supported AWS resources (security groups, IAM roles, S3 buckets, KMS keys, instances, SSM inventory …) as configuration items each time they change, and evaluates them against managed or custom Config rules. Its change and compliance notifications answer "what changed, when, and is it still compliant" — the state-based companion to CloudTrail's who-did-what.
 sourcetypes:
   - st: aws_config
+    desc: Pack Generator sourcetype for AWS Config configuration items and notifications (JSON)
+  - st: aws:config
+    desc: Splunk Add-on for AWS sourcetype for configuration snapshots and history files from S3
+  - st: aws:config:notification
+    desc: Splunk Add-on for AWS sourcetype for Config SNS/SQS change and compliance notifications
+  - st: aws:config:rule
+    desc: Splunk Add-on for AWS sourcetype for Config rule evaluation results (API input)
+  - st: AWS_CONFIG
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: Announced November 2014
+  Delivery model: Managed AWS service, enabled per account and Region; organisation-wide via aggregators and delegated admin
+  Recording: Continuous (every change) or periodic (daily) recording, per resource type
+  Evaluation: Managed rules, custom Lambda rules, custom Guard policy rules; conformance packs bundle rules
+  Log transport: SNS topic (change and compliance notifications), EventBridge, S3 delivery channel (history every 6 h, snapshots on a schedule)
+  Log format: JSON — configuration items, configurationItemDiff, compliance results
+  Typical volume: Low to medium — 1k–100k configuration items/day per account; ephemeral resources (ENIs, containers) dominate
+  Cribl Pack: No dedicated Dispensary pack found — collect with the Amazon S3 or SQS source
+placement:
+  slots:
+    - cloud
+    - internal
+  items:
+    - slot: cloud
+      title: Per-account recorder
+      desc: A configuration recorder and delivery channel in every account and Region (usually deployed by Control Tower / StackSets) sends notifications to an SNS topic and files to a central S3 bucket.
+    - slot: cloud
+      title: Aggregator / delegated admin
+      desc: An aggregator in the security or audit account gives one view across the organisation; conformance packs are deployed org-wide from there.
+    - slot: internal
+      title: Hybrid inventory via SSM
+      desc: On-prem servers managed by Systems Manager report software inventory, which Config records as AWS::SSM::ManagedInstanceInventory.
+howItWorks:
+  - title: Configuration recorder
+    body: For each recorded resource type, Config reads the resource state through describe APIs (triggered by the resource's own CloudTrail events) and writes a configuration item (CI) whenever the state changes. A CI holds the full configuration, supplementary configuration, tags, relationships and the CloudTrail event IDs that caused the change.
+  - title: Configuration item diff
+    body: "Change notifications carry configurationItemDiff.changedProperties: each changed path (e.g. Configuration.IpPermissions.0) with previousValue, updatedValue and changeType CREATE / UPDATE / DELETE. This is the field to alert on — it shows exactly what changed."
+  - title: Relationships
+    body: CIs reference related resources (an instance's ENI, security groups, volumes, subnet). A change to one resource can generate relationship-only updates on several others, a common source of noise.
+  - title: Config rules and conformance packs
+    body: Rules are evaluated on configuration change and/or periodically. Each evaluation produces COMPLIANT, NON_COMPLIANT or NOT_APPLICABLE for a resource; a flip produces a ComplianceChangeNotification. Conformance packs group rules (CIS, PCI, NIST) and can trigger SSM remediation.
+  - title: Delivery
+    body: The delivery channel writes history files (all CIs for a period) and snapshots (current state) to S3 and streams change and compliance notifications to SNS; the same events reach EventBridge as Config Configuration Item Change and Config Rules Compliance Change.
+traffic:
+  handles:
+    - Resource configuration state (EC2, VPC, IAM, S3, KMS, RDS, EKS, Lambda …)
+    - Configuration diffs with previous and updated values
+    - Resource relationships
+    - Config rule and conformance-pack compliance results
+    - SSM software and instance inventory
+    - Resource deletions (ResourceDeleted)
+  flow:
+    - step: Resource change
+      desc: A user or service changes a resource; CloudTrail records the API call.
+    - step: Discovery
+      desc: Config reads the new state of the resource through the service's describe APIs.
+    - step: Configuration item
+      desc: A new CI is written with a configurationStateId and the related CloudTrail event IDs.
+    - step: Diff and notify
+      desc: A ConfigurationItemChangeNotification with configurationItemDiff goes to SNS and EventBridge.
+    - step: Rule evaluation
+      desc: Rules scoped to that resource type evaluate the CI; a result flip emits a ComplianceChangeNotification.
+    - step: History and snapshot
+      desc: CIs are bundled into history files and snapshots in S3 for audit and Athena.
+logs:
+  - type: Configuration item change
+    sourcetype: aws:config:notification
+    format: json
+    share: 70–90 %
+    avg: ~3–8 KB
+    desc: One notification per changed resource with the full new configuration item and a diff of the changed properties. Large because configuration and supplementaryConfiguration are included in full.
+    key:
+      - messageType
+      - configurationItemDiff.changeType
+      - configurationItem.resourceType
+      - configurationItem.resourceId
+      - configurationItem.awsAccountId
+      - configurationItem.configurationItemStatus
+      - configurationItemDiff.changedProperties.Configuration.IpPermissions.0.updatedValue.ipRanges[0]
+      - configurationItem.relatedEvents[0]
+    noise:
+      - configurationItem.configurationStateMd5Hash
+      - configurationItem.configurationItemVersion
+      - recordVersion
+      - configurationItem.configurationStateId
+      - configurationItem.supplementaryConfiguration.Tags[0].key
+      - configurationItem.relationships[0].name
+    sample: '{"configurationItemDiff":{"changedProperties":{"Configuration.IpPermissions.0":{"previousValue":null,"updatedValue":{"ipProtocol":"tcp","fromPort":22,"toPort":22,"userIdGroupPairs":[],"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipv6Ranges":[],"prefixListIds":[],"ipRanges":["0.0.0.0/0"]},"changeType":"CREATE"}},"changeType":"UPDATE"},"configurationItem":{"relatedEvents":["7f2e9c1a-3b4d-4e5f-8a9b-0c1d2e3f4a5b"],"relationships":[{"resourceId":"vpc-0123456789abcdef0","resourceName":null,"resourceType":"AWS::EC2::VPC","name":"Is contained in Vpc"}],"configuration":{"description":"web tier","groupName":"sg-web","ipPermissions":[{"ipProtocol":"tcp","fromPort":22,"toPort":22,"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipRanges":["0.0.0.0/0"]}],"ownerId":"111122223333","groupId":"sg-0a1b2c3d4e5f67890","vpcId":"vpc-0123456789abcdef0"},"supplementaryConfiguration":{"Tags":[{"key":"env","value":"prod"}]},"tags":{"env":"prod"},"configurationItemVersion":"1.3","configurationItemCaptureTime":"2026-11-12T09:14:31.210Z","configurationStateId":1762938871210,"awsAccountId":"111122223333","configurationItemStatus":"OK","resourceType":"AWS::EC2::SecurityGroup","resourceId":"sg-0a1b2c3d4e5f67890","resourceName":"sg-web","ARN":"arn:aws:ec2:eu-west-1:111122223333:security-group/sg-0a1b2c3d4e5f67890","awsRegion":"eu-west-1","availabilityZone":"Not Applicable","configurationStateMd5Hash":""},"notificationCreationTime":"2026-11-12T09:14:33.004Z","messageType":"ConfigurationItemChangeNotification","recordVersion":"1.3"}'
+  - type: Compliance change
+    sourcetype: aws_config
+    format: json
+    share: 5–20 %
+    avg: ~1 KB
+    desc: Emitted when a Config rule evaluation for a resource changes, e.g. COMPLIANT → NON_COMPLIANT. Small and high-signal; the primary CSPM feed for a SIEM.
+    key:
+      - configRuleName
+      - resourceType
+      - resourceId
+      - newEvaluationResult.complianceType
+      - oldEvaluationResult.complianceType
+      - awsAccountId
+      - awsRegion
+    noise:
+      - recordVersion
+      - newEvaluationResult.resultToken
+      - newEvaluationResult.evaluationResultIdentifier.evaluationResultQualifier.configRuleName
+      - newEvaluationResult.evaluationResultIdentifier.evaluationResultQualifier.resourceType
+      - newEvaluationResult.evaluationResultIdentifier.evaluationResultQualifier.resourceId
+      - oldEvaluationResult.resultToken
+    sample: '{"awsAccountId":"111122223333","configRuleName":"restricted-ssh","configRuleARN":"arn:aws:config:eu-west-1:111122223333:config-rule/config-rule-a1b2c3","resourceType":"AWS::EC2::SecurityGroup","resourceId":"sg-0a1b2c3d4e5f67890","awsRegion":"eu-west-1","newEvaluationResult":{"evaluationResultIdentifier":{"evaluationResultQualifier":{"configRuleName":"restricted-ssh","resourceType":"AWS::EC2::SecurityGroup","resourceId":"sg-0a1b2c3d4e5f67890"},"orderingTimestamp":"2026-11-12T09:14:31.210Z"},"complianceType":"NON_COMPLIANT","resultRecordedTime":"2026-11-12T09:14:40.552Z","configRuleInvokedTime":"2026-11-12T09:14:39.987Z","annotation":null,"resultToken":null},"oldEvaluationResult":{"evaluationResultIdentifier":{"evaluationResultQualifier":{"configRuleName":"restricted-ssh","resourceType":"AWS::EC2::SecurityGroup","resourceId":"sg-0a1b2c3d4e5f67890"},"orderingTimestamp":"2026-11-10T16:02:11.004Z"},"complianceType":"COMPLIANT","resultRecordedTime":"2026-11-10T16:02:19.311Z","configRuleInvokedTime":"2026-11-10T16:02:18.870Z","annotation":null,"resultToken":null},"notificationCreationTime":"2026-11-12T09:14:41.120Z","messageType":"ComplianceChangeNotification","recordVersion":"1.0"}'
+  - type: SSM inventory configuration item
+    sourcetype: aws:config
+    format: json
+    share: 5–15 %
+    avg: ~5–50 KB
+    desc: "AWS::SSM::ManagedInstanceInventory items list installed applications, OS and network details per managed instance. Useful to find hosts running a vulnerable package version; large, so keep only changed packages."
+    key:
+      - configurationItem.resourceId
+      - "configurationItem.configuration.AWS:InstanceInformation.Content.i-0abc123def4567890.PlatformName"
+      - "configurationItem.configuration.AWS:Application.Content.openssh-server.Name"
+      - "configurationItem.configuration.AWS:Application.Content.openssh-server.Version"
+      - "configurationItem.configuration.AWS:Application.Content.liblog4j2-java.Version"
+      - configurationItem.awsAccountId
+    noise:
+      - configurationItem.configurationStateMd5Hash
+      - configurationItem.configurationItemVersion
+      - "configurationItem.configuration.AWS:Application.SchemaVersion"
+      - "configurationItem.configuration.AWS:Application.CaptureTime"
+      - "configurationItem.configuration.AWS:InstanceInformation.SchemaVersion"
+    sample: '{"configurationItem":{"configurationItemVersion":"1.3","configurationItemCaptureTime":"2026-11-12T06:00:12.441Z","configurationStateId":1762927212441,"awsAccountId":"111122223333","configurationItemStatus":"OK","resourceType":"AWS::SSM::ManagedInstanceInventory","resourceId":"i-0abc123def4567890","awsRegion":"eu-west-1","configurationStateMd5Hash":"","configuration":{"AWS:InstanceInformation":{"SchemaVersion":"1.0","CaptureTime":"2026-11-12T05:58:40Z","Content":{"i-0abc123def4567890":{"AgentType":"amazon-ssm-agent","AgentVersion":"3.3.1142.0","ComputerName":"web-01.example.com","InstanceId":"i-0abc123def4567890","IpAddress":"10.20.30.44","PlatformName":"Ubuntu","PlatformType":"Linux","PlatformVersion":"22.04","ResourceType":"EC2Instance","InstanceStatus":"Active"}}},"AWS:Application":{"SchemaVersion":"1.1","CaptureTime":"2026-11-12T05:58:40Z","Content":{"openssh-server":{"Name":"openssh-server","Version":"1:8.9p1-3ubuntu0.6","Publisher":"Ubuntu Developers","PackageId":"openssh-server_8.9p1-3ubuntu0.6_amd64.deb","Architecture":"amd64"},"liblog4j2-java":{"Name":"liblog4j2-java","Version":"2.14.1-1","Publisher":"Debian Java Maintainers","Architecture":"all"}}}}}}'
+cves:
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH "regreSSHion" sshd signal-handler race (unauthenticated RCE) — found on hosts via the SSM inventory Config records
+    affected: OpenSSH sshd 8.5p1 – 9.7p1 (and versions before 4.4p1) on glibc Linux
+    fixed: OpenSSH 9.8p1 (distributions backport the fix into older package versions — check the distro advisory)
+    detect: AWS::SSM::ManagedInstanceInventory items with openssh-server in the affected range on instances whose security groups (AWS::EC2::SecurityGroup CIs) allow tcp/22 from 0.0.0.0/0.
+    avoid: Patch through SSM Patch Manager; never allow SSH from 0.0.0.0/0 (managed rule restricted-ssh); use Session Manager instead of public SSH.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — vulnerable log4j packages located through Config / SSM application inventory
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: Inventory CIs listing log4j packages below the fixed versions; prioritise instances related to internet-facing load balancers or security groups. Inventory only sees OS packages, not log4j jars bundled inside applications.
+    avoid: Patch; Inspector for jar-level scanning; WAF Log4JRCE managed rule in front of web tiers.
+  - id: CVE-2023-35165
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: traffic
+    title: AWS CDK EKS constructs created over-permissive IAM role trust policies — visible in the AWS::IAM::Role configuration Config records
+    affected: aws-cdk-lib 2.0.0 – 2.79.x; "@aws-cdk/aws-eks 1.57.0 – 1.201.x"
+    fixed: aws-cdk-lib 2.80.0, @aws-cdk/aws-eks 1.202.0
+    detect: AWS::IAM::Role CIs whose configuration.assumeRolePolicyDocument trusts arn:aws:iam::<account>:root for the cluster CreationRole or MastersRole.
+    avoid: Upgrade CDK and redeploy; a custom Config rule or IAM Access Analyzer finding on broad trust principals.
+  - id: CVE-2024-28056
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Amplify CLI left IAM role trust policies with sts:AssumeRoleWithWebIdentity and no condition — the open trust policy shows up in Config
+    affected: Amplify CLI before 12.10.1 / Amplify Studio projects where the Authentication component was removed
+    fixed: Amplify CLI 12.10.1
+    detect: configurationItemDiff on amplify-* AWS::IAM::Role items where the Condition block disappears from the AssumeRoleWithWebIdentity statement.
+    avoid: Upgrade Amplify CLI; review existing amplify auth/unauth roles; IAM Access Analyzer.
+detections:
+  - title: Security group opened to the internet
+    severity: high
+    signals:
+      - resourceType=AWS::EC2::SecurityGroup
+      - changedProperties Configuration.IpPermissions.* with 0.0.0.0/0 or ::/0
+      - changeType=CREATE
+    why: A new world-open ingress rule (especially 22, 3389, databases) exposes workloads directly. Config gives the exact rule added, not only the API call.
+    kql: |-
+      dataset="aws_config" messageType="ConfigurationItemChangeNotification" configurationItem.resourceType="AWS::EC2::SecurityGroup"
+      | where tostring(configurationItemDiff.changedProperties) contains "0.0.0.0/0" or tostring(configurationItemDiff.changedProperties) contains "::/0"
+      | project _time, configurationItem.awsAccountId, configurationItem.resourceId, configurationItem.relatedEvents, configurationItemDiff.changedProperties
+    mitre:
+      - T1562.007
+  - title: Critical rule turned NON_COMPLIANT
+    severity: medium
+    signals:
+      - messageType=ComplianceChangeNotification
+      - newEvaluationResult.complianceType=NON_COMPLIANT
+      - oldEvaluationResult.complianceType=COMPLIANT
+    why: A flip on rules such as cloudtrail-enabled, s3-bucket-public-read-prohibited or restricted-ssh means a control was removed — by mistake or by an attacker.
+    kql: |-
+      dataset="aws_config" messageType="ComplianceChangeNotification"
+      | where newEvaluationResult.complianceType=="NON_COMPLIANT" and oldEvaluationResult.complianceType=="COMPLIANT"
+      | where configRuleName has_any ("cloudtrail","s3-bucket-public","restricted-ssh","restricted-common-ports","iam-root","guardduty")
+      | summarize count() by configRuleName, resourceType, resourceId, awsAccountId
+    mitre:
+      - T1562.008
+      - T1562.007
+  - title: S3 bucket made public
+    severity: high
+    signals:
+      - resourceType=AWS::S3::Bucket
+      - PublicAccessBlockConfiguration changed to false
+      - bucket policy with Principal *
+    why: Removing Block Public Access or adding a wildcard policy is the usual precursor to data exposure or a staging bucket for exfiltration.
+    kql: |-
+      dataset="aws_config" configurationItem.resourceType="AWS::S3::Bucket"
+      | where tostring(configurationItemDiff.changedProperties) has_any ("PublicAccessBlockConfiguration","BucketPolicy")
+      | project _time, configurationItem.awsAccountId, configurationItem.resourceName, configurationItemDiff.changedProperties
+    mitre:
+      - T1530
+  - title: IAM role trust policy changed to trust another account
+    severity: high
+    signals:
+      - resourceType=AWS::IAM::Role
+      - changed assumeRolePolicyDocument
+      - principal account not in the org
+    why: Adding an external account (or the account root) to a role's trust policy is cross-account persistence that survives key rotation.
+    kql: |-
+      dataset="aws_config" configurationItem.resourceType="AWS::IAM::Role"
+      | where tostring(configurationItemDiff.changedProperties) contains "AssumeRolePolicyDocument"
+      | project _time, configurationItem.awsAccountId, configurationItem.resourceName, configurationItem.relatedEvents, configurationItemDiff.changedProperties
+    mitre:
+      - T1098.003
+  - title: Security-relevant resource deleted
+    severity: medium
+    signals:
+      - configurationItem.configurationItemStatus=ResourceDeleted
+      - resourceType in KMS key, CloudTrail trail, Logs log group, GuardDuty detector
+    why: Deleting keys, trails or detectors destroys data or blinds monitoring; legitimate deletions come from change windows and IaC roles.
+    kql: |-
+      dataset="aws_config" configurationItem.configurationItemStatus="ResourceDeleted"
+      | where configurationItem.resourceType in ("AWS::KMS::Key","AWS::CloudTrail::Trail","AWS::Logs::LogGroup","AWS::GuardDuty::Detector","AWS::Config::ConfigurationRecorder")
+      | summarize count() by configurationItem.resourceType, configurationItem.resourceId, configurationItem.awsAccountId
+    mitre:
+      - T1485
+      - T1562.008
+optimizations:
+  - title: Drop delivery status and relationship-only changes
+    saving: 20–40 %
+    fn: Drop
+    how: ConfigurationSnapshotDeliveryCompleted / ConfigurationHistoryDeliveryCompleted messages carry no resource state, and relationship-only updates (an ENI attached somewhere) repeat on every related resource. Keep them in S3 history only.
+    expr: /Delivery(Completed|Started)$/.test(messageType) || (messageType=='ConfigurationItemChangeNotification' && !/"Configuration\./.test(JSON.stringify(configurationItemDiff.changedProperties)))
+  - title: Keep the diff, drop the full configuration for the SIEM
+    saving: 50–80 % per event
+    fn: Parser → Serialize
+    how: The diff says what changed; the full configuration and supplementaryConfiguration can be several KB. Send the diff plus identity fields to the SIEM and the full CI to Lake.
+    expr: "remove: configurationItem.configuration, configurationItem.supplementaryConfiguration, configurationItem.configurationStateMd5Hash"
+  - title: Filter ephemeral resource types
+    saving: 10–30 %
+    fn: Drop
+    how: Network interfaces, ECS tasks and auto-scaled instances churn constantly. Record them periodically (daily) in Config, or drop their CIs in Stream unless the change touches a security group.
+    expr: configurationItem.resourceType=='AWS::EC2::NetworkInterface' && !/Groups/.test(JSON.stringify(configurationItemDiff))
+  - title: Route compliance to SIEM, state to Lake
+    saving: SIEM licence
+    fn: Routes
+    how: ComplianceChangeNotification and changes on IAM, security groups, S3, KMS and CloudTrail go to the SIEM; everything else (inventory, relationships, compute) goes to Lake for audit queries.
+    expr: messageType=='ComplianceChangeNotification' || /IAM|SecurityGroup|S3::Bucket|KMS|CloudTrail/.test(configurationItem.resourceType) → SIEM | else → Lake
+references:
+  - title: What is AWS Config?
+    url: https://docs.aws.amazon.com/config/latest/developerguide/WhatIsConfig.html
+  - title: Components of a configuration item
+    url: https://docs.aws.amazon.com/config/latest/developerguide/config-item-table.html
+  - title: Notifications that AWS Config sends to an Amazon SNS topic
+    url: https://docs.aws.amazon.com/config/latest/developerguide/notifications-for-AWS-Config.html
+  - title: Example configuration item change notifications
+    url: https://docs.aws.amazon.com/config/latest/developerguide/example-sns-notification.html
+  - title: OpenSSH 9.8 release notes (CVE-2024-6387)
+    url: https://www.openssh.com/txt/release-9.8
+  - title: AWS CDK advisory GHSA-rx28-r23p-2qc3 (CVE-2023-35165)
+    url: https://github.com/aws/aws-cdk/security/advisories/GHSA-rx28-r23p-2qc3
+  - title: AWS security bulletin AWS-2024-003 (CVE-2024-28056)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2024-003/
+  - title: Apache Log4j security vulnerabilities
+    url: https://logging.apache.org/log4j/2.x/security.html
+related:
+  - cloudtrail
+  - aws-security-hub
+  - aws-security-lake
+  - aws-guardduty
+  - azure-activity
+  - gcp-audit

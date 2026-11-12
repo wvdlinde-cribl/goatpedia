@@ -2,9 +2,310 @@
 id: confluent-cloud
 name: Confluent Cloud Audit Logs
 short: Confluent
+aka:
+  - Confluent Cloud
+  - confluent-audit-log-events
+  - Confluent audit log cluster
 vendor: Confluent
 category: saas
-status: stub
-summary: CloudEvents-format audit log of authentication and authorization on Kafka clusters and the Confluent control plane.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - kafka
+  - streaming
+  - cloudevents
+  - rbac
+  - api-keys
+  - oauth
+  - json
+summary: CloudEvents-format audit log of a Confluent Cloud organisation, delivered to the read-only confluent-audit-log-events topic on a dedicated audit-log Kafka cluster. It records authentication (API keys, OAuth/OIDC, SSO sign-in) and authorization decisions on Kafka, Schema Registry, ksqlDB and Flink, plus control-plane requests — API keys, service accounts, role bindings, IP filters, identity providers, cluster lifecycle and Confluent staff access (access transparency).
 sourcetypes:
   - st: confluent_audit
+    desc: Confluent Cloud audit log records (CloudEvents 1.0 JSON) consumed from the confluent-audit-log-events topic
+facts:
+  First released: Confluent Cloud audit logs 2020
+  Delivery model: Managed SaaS (Apache Kafka, Flink, Schema Registry) on AWS, Azure and GCP
+  Coverage: Standard, Enterprise, Dedicated and Freight clusters (not Basic)
+  Log transport: Kafka consumer on the audit-log cluster (SASL_SSL with an audit-log API key) or Cluster Linking mirror
+  Log format: JSON CloudEvents 1.0 — specversion, id, source, type, subject, time, data{…}
+  Retention: 7 days in the audit-log topic; export for longer
+  Typical volume: 100k – 100M events/day; Kafka authentication + authorization dominate
+  Cost: Billed per GB read from the audit-log topic
+  Cribl integration: Cribl Stream Confluent Cloud / Kafka Source (no dedicated Dispensary pack found)
+placement:
+  slots:
+    - cloud
+    - internal
+    - remote
+  items:
+    - slot: cloud
+      title: Confluent Cloud organisation
+      desc: Kafka clusters, Schema Registry, ksqlDB and Flink compute pools in Confluent's cloud. Confluent writes every audit event to a separate audit-log cluster you can only read from.
+    - slot: internal
+      title: Producers, consumers and connectors
+      desc: Applications in your VPCs and data centres connect with API keys or OAuth tokens (identity pools). Their sign-ins and every authorization decision are logged with the client IP and client ID.
+    - slot: cloud
+      title: Collector
+      desc: A Kafka consumer (Cribl Stream Confluent Cloud source, a sink connector or Cluster Linking) reads confluent-audit-log-events and forwards to the SIEM / data lake before the 7-day retention expires.
+    - slot: remote
+      title: Admins
+      desc: Operators use the Cloud Console and the confluent CLI via SSO or local accounts; SignIn and every control-plane request record their identity and IP.
+howItWorks:
+  - title: CloudEvents envelope
+    body: Each record has specversion 1.0, a UUID id, source and subject as Confluent Resource Names (crn://confluent.cloud/organization=…/environment=…/cloud-cluster=lkc-…/topic=…), type and time. The payload in data carries serviceName, methodName, resourceName, authenticationInfo, authorizationInfo, request, requestMetadata and result.
+  - title: Event types
+    body: io.confluent.kafka.server/authentication and /authorization for Kafka; io.confluent.sg.server/*, io.confluent.ksql.server/* and io.confluent.flink.server/* for Schema Registry, ksqlDB and Flink; io.confluent.cloud/request for org operations (CreateAPIKey, CreateServiceAccount, CreateRoleBinding, SignIn…); io.confluent.cloud/authorization for org-level checks like IP filters; io.confluent.cloud/access-transparency for Confluent personnel access.
+  - title: Principals
+    body: authenticationInfo.principal is User:<id> or a structured confluentUser / confluentServiceAccount; principalResourceId (u-…, sa-…) and identity (an identity-pool CRN for OAuth) identify who. metadata.mechanism shows SASL_SSL/PLAIN (API key) vs SASL_SSL/OAUTHBEARER; metadata.identifier holds the API key id.
+  - title: Authorization detail
+    body: authorizationInfo.granted plus operation, resourceType (Cluster, Topic, Group, TransactionalId), resourceName and patternType, and either aclAuthorization (permissionType, host) or rbacAuthorization (role, scope) explain why a request was allowed or denied. Not every allowed read is logged — Confluent logs denies and a subset of successful operations to control volume.
+  - title: Collection
+    body: An OrganizationAdmin creates an API key on the audit-log cluster (max two per cluster; confluent audit-log describe gives cluster, environment and service account). Any Kafka client then consumes the topic; mirroring with Cluster Linking to your own cluster is the usual retention strategy.
+traffic:
+  handles:
+    - Kafka produce / consume / admin (SASL_SSL)
+    - API key and OAuth/OIDC identity-pool authentication
+    - Schema Registry, ksqlDB and Flink requests
+    - Cloud Console and CLI sign-in (SSO / local)
+    - RBAC, ACL, API key and service account management
+    - Cluster linking and connector management
+  flow:
+    - step: Connect
+      desc: Client opens a TLS connection to a cluster endpoint and authenticates (API key PLAIN or OAUTHBEARER token).
+    - step: Authenticate
+      desc: Broker validates the credential → kafka.Authentication event with result SUCCESS / UNAUTHENTICATED.
+    - step: Authorise
+      desc: Each request (CreateTopics, Produce, FetchConsumer, CreateAcls) is checked against RBAC role bindings and ACLs.
+    - step: Audit
+      desc: Denials and selected allows / admin operations are written as authorization events; control-plane calls as io.confluent.cloud/request.
+    - step: Audit-log topic
+      desc: Events land in confluent-audit-log-events on the audit-log cluster (7-day retention).
+    - step: Consume
+      desc: Collector reads the topic with its audit-log API key and forwards the JSON.
+logs:
+  - type: Kafka authentication
+    sourcetype: confluent_audit
+    format: json
+    share: 40–70 %
+    avg: ~1.1 KB
+    desc: Every client sign-in to a Kafka cluster. result.status UNAUTHENTICATED with metadata.identifier shows which API key failed; clientAddress is the source IP.
+    key:
+      - type
+      - data.methodName
+      - data.authenticationInfo.principal
+      - data.authenticationInfo.metadata.mechanism
+      - data.authenticationInfo.metadata.identifier
+      - data.result.status
+      - data.requestMetadata.clientAddress[0].ip
+    noise:
+      - specversion
+      - datacontenttype
+      - data.serviceName
+      - data.requestMetadata.clientAddress[0].port
+      - data.request.remote_logical_cluster_id
+    sample: '{"specversion":"1.0","id":"5d1e2a7c-3f4b-4c8d-9e0a-1b2c3d4e5f60","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authentication","datacontenttype":"application/json","subject":"crn://confluent.cloud/kafka=lkc-a1b2c","time":"2026-11-12T08:14:22.517Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Authentication","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c","authenticationInfo":{"principal":"None:UNKNOWN_USER","metadata":{"mechanism":"SASL_SSL/PLAIN","identifier":"EXAMPLEKEY4ABCD12"}},"request":{"remote_logical_cluster_id":"lkc-a1b2c"},"requestMetadata":{"clientAddress":[{"ip":"203.0.113.77","port":53122}]},"result":{"status":"UNAUTHENTICATED","message":"Authentication failed"}}}'
+  - type: Kafka authorization
+    sourcetype: confluent_audit
+    format: json
+    share: 20–50 %
+    avg: ~1.3 KB
+    desc: Authorization decisions for Kafka operations — denied ones always, plus admin operations such as CreateTopics, CreateAcls, DeleteAcls, AlterConfigs. granted=false on Read/Write tells you a key is probing topics it should not touch.
+    key:
+      - data.methodName
+      - data.authenticationInfo.principal
+      - data.authorizationInfo.granted
+      - data.authorizationInfo.operation
+      - data.authorizationInfo.resourceType
+      - data.authorizationInfo.resourceName
+      - data.request.clientId
+      - data.requestMetadata.clientAddress[0].ip
+    noise:
+      - specversion
+      - datacontenttype
+      - data.serviceName
+      - data.request.correlationId
+    sample: '{"specversion":"1.0","id":"9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authorization","datacontenttype":"application/json","subject":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/environment=env-x1y2z/cloud-cluster=lkc-a1b2c/kafka=lkc-a1b2c/topic=payments","time":"2026-11-12T08:15:03.204Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.FetchConsumer","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c/topic=payments","authenticationInfo":{"principal":"User:sa-q8r7s6","principalResourceId":"sa-q8r7s6"},"authorizationInfo":{"granted":false,"operation":"Read","resourceType":"Topic","resourceName":"payments","patternType":"LITERAL","rbacAuthorization":{"role":"DeveloperRead","scope":{"outerScope":["organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","environment=env-x1y2z","cloud-cluster=lkc-a1b2c"]}}},"request":{"correlationId":"118","clientId":"invoice-processor"},"requestMetadata":{"clientAddress":[{"ip":"10.20.30.44","port":40122}]},"result":{"status":"UNAUTHORIZED"}}}'
+  - type: Organization request (control plane)
+    sourcetype: confluent_audit
+    format: json
+    share: < 5 %
+    avg: ~1.5 KB
+    desc: io.confluent.cloud/request — API key, service account, role binding, identity provider/pool, IP filter, SSO, user and cluster lifecycle operations, and SignIn. Low volume, highest value.
+    key:
+      - type
+      - data.methodName
+      - data.authenticationInfo.principal.confluentUser.resourceId
+      - data.request.data.role_name
+      - data.request.data.target_principal
+      - data.result.status
+      - data.requestMetadata.clientAddress[0].ip
+    noise:
+      - specversion
+      - datacontenttype
+      - data.cloudResources[0].resource.type
+      - data.requestMetadata.requestId[0]
+    sample: '{"specversion":"1.0","id":"bf28a547-b683-4680-9f0e-198a1d2eaac7","source":"crn://confluent.cloud/","type":"io.confluent.cloud/request","datacontenttype":"application/json","subject":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","time":"2026-11-12T09:02:41.088Z","data":{"serviceName":"crn://confluent.cloud/","methodName":"CreateRoleBinding","cloudResources":[{"resource":{"type":"ORGANIZATION","resourceId":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b"}}],"authenticationInfo":{"principal":{"confluentUser":{"resourceId":"User:u-w7r59j"}},"result":"SUCCESS"},"requestMetadata":{"requestId":["529aa2fffcce69634732bcbfd4929361"],"clientAddress":[{"ip":"198.51.100.23"}]},"request":{"data":{"api_version":"iam/v2","display_name":"RoleBinding","role_name":"OrganizationAdmin","target_principal":"u-7z30zp"}},"result":{"status":"SUCCESS"},"resourceName":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b"}}'
+cves:
+  - id: CVE-2026-33557
+    cvss: 9.1
+    year: 2026
+    kev: false
+    scope: device
+    title: Apache Kafka broker OAUTHBEARER DefaultJwtValidator accepts any JWT without signature, issuer or audience checks (self-managed Kafka / Confluent Platform; Confluent Cloud brokers are operated by Confluent)
+    affected: Apache Kafka 4.1.0 and 4.1.1 brokers using SASL/OAUTHBEARER with the default validator
+    fixed: 4.1.2, 4.2.0 (workaround — set BrokerJwtValidator explicitly)
+    detect: kafka.Authentication with mechanism SASL_SSL/OAUTHBEARER succeeding for principals that do not exist in the identity pool, or from IPs never seen for that workload; on mirrored / hybrid clusters compare with IdP token-issue logs.
+    avoid: Upgrade self-managed brokers; pin sasl.oauthbearer.jwt.validator.class to BrokerJwtValidator; restrict identity pools with filters on issuer and claims.
+  - id: CVE-2025-27817
+    cvss: 7.5
+    year: 2025
+    kev: false
+    scope: device
+    title: Apache Kafka client SASL/OAUTHBEARER token/JWKS URL — arbitrary file read and SSRF (the client library used to reach Confluent Cloud)
+    affected: Apache Kafka clients before 3.9.1 / 4.0.0 where an untrusted party can set client configuration (e.g. Kafka Connect REST API)
+    fixed: 3.9.1 (allow-list property, permissive by default), 4.0.0 (allow-list empty by default)
+    detect: Not in Confluent's audit log directly — on self-managed Connect, connector configs pointing sasl.oauthbearer.token.endpoint.url at file:// or internal URLs; in the audit log, CreateConnector / connector updates by unexpected principals.
+    avoid: Upgrade clients; set -Dorg.apache.kafka.sasl.oauthbearer.allowed.urls; lock down who can create connectors.
+  - id: CVE-2023-25194
+    cvss: 8.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Kafka Connect SASL JAAS JndiLoginModule — RCE / DoS via connector client config (self-managed Connect workers)
+    affected: Apache Kafka Connect 2.3.0 – 3.3.2
+    fixed: 3.4.0 (JndiLoginModule disallowed by default)
+    detect: Connector create/update events (and Connect REST logs) whose client override sasl.jaas.config contains JndiLoginModule; outbound LDAP/RMI connections from Connect workers.
+    avoid: Upgrade; set connector.client.config.override.policy=None; validate connector configs; never expose the Connect REST API.
+  - id: CVE-2025-55241
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: Entra ID actor-token cross-tenant impersonation — the IdP behind Confluent SSO and OAuth identity pools (Microsoft cloud CVE)
+    affected: Microsoft Entra ID (legacy Azure AD Graph) before Microsoft's service-side fix
+    fixed: Fixed by Microsoft globally on 17 July 2025; no customer action
+    detect: Confluent SignIn or OAUTHBEARER authentications for Entra identities whose app assignment or group membership changed without a matching admin change ticket; new identity-provider or identity-pool edits (io.confluent.cloud/request on IDENTITY_POOL / IDENTITY_PROVIDER).
+    avoid: Restrict identity pools with tight claim filters; alert on identity-provider and SSO changes in Confluent; monitor Entra audit logs.
+detections:
+  - title: API key brute force or leaked-key use
+    severity: high
+    signals:
+      - type=io.confluent.kafka.server/authentication
+      - result.status=UNAUTHENTICATED
+      - many failures per IP or per metadata.identifier
+    why: Leaked API keys in repos and CI logs are the #1 Kafka compromise path; failed attempts with a valid key id and wrong secret, or many key ids from one IP, mean someone is trying.
+    kql: |-
+      dataset="confluent_logs" type="io.confluent.kafka.server/authentication" data.result.status="UNAUTHENTICATED"
+      | summarize fails=count(), keys=dcount(data.authenticationInfo.metadata.identifier) by data.requestMetadata.clientAddress[0].ip, bin(_time, 10m)
+      | where fails > 50 or keys > 5
+    mitre:
+      - T1110
+      - T1552.001
+  - title: Authorization denials across many topics (reconnaissance)
+    severity: medium
+    signals:
+      - authorizationInfo.granted=false
+      - dcount(resourceName) per principal high
+    why: A stolen key exploring what it can read produces denials on many topics and groups in a short window.
+    kql: |-
+      dataset="confluent_logs" type="io.confluent.kafka.server/authorization" data.authorizationInfo.granted=false
+      | summarize denies=count(), resources=dcount(data.authorizationInfo.resourceName) by data.authenticationInfo.principal, data.requestMetadata.clientAddress[0].ip, bin(_time, 15m)
+      | where resources > 10
+    mitre:
+      - T1580
+      - T1078.004
+  - title: Privileged role binding or new API key for a service account
+    severity: high
+    signals:
+      - methodName in CreateRoleBinding / BindRoleForPrincipal / CreateAPIKey / CreateServiceAccount
+      - role_name OrganizationAdmin / EnvironmentAdmin / CloudClusterAdmin
+    why: Persistence in Confluent Cloud = a new admin binding or a fresh API key on an existing service account.
+    kql: |-
+      dataset="confluent_logs" type="io.confluent.cloud/request"
+      | where data.methodName in ("CreateRoleBinding","BindRoleForPrincipal","CreateAPIKey","CreateServiceAccount")
+      | project _time, data.methodName, data.authenticationInfo.principal, data.request.data.role_name, data.request.data.target_principal, data.requestMetadata.clientAddress[0].ip
+    mitre:
+      - T1098
+      - T1098.001
+      - T1136.003
+  - title: Security controls weakened (IP filter, SSO, identity provider)
+    severity: high
+    signals:
+      - methodName on IP_FILTER / IP_GROUP / SSO_CONNECTION / IDENTITY_PROVIDER / IDENTITY_POOL resources
+      - Delete* or Update*
+    why: Removing an IP filter or adding a permissive identity pool opens the clusters to the internet or to an attacker-controlled IdP.
+    kql: |-
+      dataset="confluent_logs" type="io.confluent.cloud/request"
+      | where tostring(data.cloudResources) has_any ("IP_FILTER","IP_GROUP","SSO_CONNECTION","IDENTITY_PROVIDER","IDENTITY_POOL") and data.methodName matches regex "^(Delete|Update|Create)"
+      | project _time, data.methodName, data.authenticationInfo.principal, data.resourceName, data.requestMetadata.clientAddress[0].ip
+    mitre:
+      - T1562.007
+      - T1556
+  - title: Topic, ACL or cluster deletion
+    severity: medium
+    signals:
+      - methodName kafka.DeleteTopics / kafka.DeleteAcls / DeleteKafkaCluster
+    why: Destructive actions (data destruction, sabotage, or removing guard-rail ACLs) are rare in production and should be attributable to change windows.
+    kql: |-
+      dataset="confluent_logs"
+      | where data.methodName in ("kafka.DeleteTopics","kafka.DeleteAcls","kafka.DeleteGroups","DeleteKafkaCluster")
+      | summarize count() by data.methodName, data.authenticationInfo.principal, data.resourceName
+    mitre:
+      - T1485
+      - T1562
+  - title: Confluent personnel access (access transparency)
+    severity: low
+    signals:
+      - type=io.confluent.cloud/access-transparency
+    why: Vendor staff access to your resources should map to a support case you opened.
+    kql: |-
+      dataset="confluent_logs" type="io.confluent.cloud/access-transparency"
+      | project _time, data.methodName, data.resourceName, data.authenticationInfo.principal
+    mitre:
+      - T1199
+optimizations:
+  - title: Drop envelope constants
+    saving: 10–20 %
+    fn: Eval
+    how: specversion, datacontenttype, serviceName (duplicates source) and the request.remote_logical_cluster_id are constant per cluster. Remove them; keep id, type, time, subject.
+    expr: "remove: specversion, datacontenttype, data.serviceName, data.request.remote_logical_cluster_id"
+  - title: Suppress repeated successful authentications
+    saving: 30–60 %
+    fn: Suppress
+    how: Long-running clients reconnect constantly and log the same successful kafka.Authentication. Keep one per principal + IP + key per 15 minutes with a count; always keep failures.
+    expr: "key: `${data.authenticationInfo.principal}:${data.requestMetadata.clientAddress[0].ip}`  allow 1 / 900s  when data.result.status=='SUCCESS'"
+  - title: Aggregate allowed authorization checks
+    saving: 15–30 %
+    fn: Aggregations
+    how: Successful authorization events for routine operations (Describe, DescribeConfigs, metadata) roll up per principal/resource per 5 minutes; denials and admin operations stay raw.
+    expr: data.authorizationInfo.granted==true && ['Describe','DescribeConfigs'].includes(data.authorizationInfo.operation)
+  - title: Route control-plane events at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: io.confluent.cloud/* and all failures/denials → SIEM; successful data-plane authentication → Lake + metrics. Export within 7 days or lose the records.
+    expr: "type.startsWith('io.confluent.cloud/') || data.result.status!='SUCCESS' → SIEM"
+references:
+  - title: Audit log event schema on Confluent Cloud
+    url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/audit-log-schema.html
+  - title: Audit log event categories on Confluent Cloud
+    url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/cloud-audit-log-categories.html
+  - title: Access and consume audit logs on Confluent Cloud
+    url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/configure.html
+  - title: Organization auditable event methods
+    url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/event-methods/organization-events.html
+  - title: RBAC auditable event methods
+    url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/event-methods/rbac.html
+  - title: Apache Kafka CVE list
+    url: https://kafka.apache.org/community/cve-list/
+  - title: NVD — CVE-2026-33557
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-33557
+related:
+  - aws-security-lake
+  - cloudtrail
+  - gcp-audit
+  - azure-activity
+  - entra-id
+  - okta

@@ -2,10 +2,321 @@
 id: azure-activity
 name: Azure Activity Log
 short: Azure Activity
+aka:
+  - Azure Monitor Activity Log
+  - Azure Resource Manager audit log
+  - AzureActivity
+  - Azure audit log (subscription)
 vendor: Microsoft
 category: cloud
-status: stub
-summary: Subscription-level control-plane log of Azure Resource Manager operations, health and policy events.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - azure
+  - audit
+  - control-plane
+  - arm
+  - rbac
+  - event-hub
+  - json
+summary: The subscription-level log of the Azure control plane. Every Azure Resource Manager write, delete and action (create a VM, assign a role, list storage keys, run a command on a VM), plus Service Health, Resource Health, Policy, Autoscale, Recommendation and Security alert events, recorded with caller, IP, RBAC evidence and result. It is the Azure counterpart of CloudTrail management events and the main source for Azure persistence, privilege-escalation and defence-evasion detections.
 sourcetypes:
   - st: azure_monitor_activity
+    desc: Pack Generator sourcetype for Activity Log records from a diagnostic setting (Event Hub / storage schema)
   - st: mscs_azure_audit
+    desc: Pack Generator sourcetype for Activity Log events from the REST API (Splunk mscs:azure:audit shape)
+  - st: azure:monitor:activity
+    desc: Splunk Add-on for Microsoft Cloud Services sourcetype for Activity Log via Event Hub
+  - st: mscs:azure:audit
+    desc: Splunk Add-on for Microsoft Cloud Services sourcetype for the Azure Audit (Activity Log REST) input
+  - st: AzureActivity
+    desc: Microsoft Sentinel / Log Analytics table populated by the Azure Activity connector
+  - st: AZURE_ACTIVITY
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: 2015 (Azure Resource Manager audit logs, renamed Activity Log 2016)
+  Delivery model: Platform log of every Azure subscription — always on, no agent
+  Event categories: Administrative, Service Health, Resource Health, Alert, Autoscale, Recommendation, Security, Policy
+  Retention: 90 days in the portal / REST API; longer only via a diagnostic setting
+  Log transport: Diagnostic setting to Event Hub, Storage account (hourly JSON blobs), Log Analytics (AzureActivity table) or partner solution; REST API (Microsoft.Insights/eventtypes/management/values)
+  Log format: "JSON — Event Hub/storage wrap records in {\"records\": [...]} with a flat schema; REST API returns the richer value/localizedValue schema"
+  Scope: Subscription and resource-group operations only — no data-plane reads (use resource logs) and no Entra ID events (use Entra audit/sign-in logs)
+  Typical volume: 1k – 1M+ events/day per subscription; Policy audit and automation dominate
+  Cribl Pack: No Activity-Log-specific Dispensary pack found (Azure Audit Logs to OCSF covers Entra audit); collect with the Cribl Azure Event Hubs source
+placement:
+  slots:
+    - cloud
+    - remote
+  items:
+    - slot: cloud
+      title: Subscription / management-group diagnostic setting
+      desc: Each subscription exports its Activity Log (all categories) to a central Event Hub namespace; Cribl's Event Hubs source (Kafka protocol) reads it. Azure Policy can deploy the setting across every subscription.
+    - slot: cloud
+      title: Log Analytics / Sentinel workspace
+      desc: The same export to a workspace populates AzureActivity; Cribl can also forward Activity data into Sentinel through the Logs Ingestion API.
+    - slot: remote
+      title: Admins, pipelines and automation
+      desc: Portal users, Azure CLI/PowerShell, Terraform and DevOps service principals are the callers; their IPs and app IDs are in the claims.
+howItWorks:
+  - title: Azure Resource Manager as the choke point
+    body: Every control-plane request (portal, CLI, SDK, ARM templates) goes to management.azure.com. ARM authenticates the Entra ID token, evaluates RBAC and Azure Policy, forwards to the resource provider and writes an Activity Log event for each write (PUT/PATCH), delete and POST action. GET reads are not logged.
+  - title: Started / Accepted / Succeeded
+    body: Long-running operations produce several events with the same correlationId — Started, Accepted, then Succeeded or Failed. Dedup on correlationId plus final status before counting operations.
+  - title: Identity and authorization evidence
+    body: identity.claims carries the token claims (upn, objectidentifier, appid, ipaddr, authentication methods), and identity.authorization records the action, scope and the role assignment that granted it (evidence.role, principalId, principalType). This shows which role allowed the action.
+  - title: Policy and other categories
+    body: Azure Policy evaluation writes Policy events (audit, deny, deployIfNotExists); Service Health and Resource Health record platform incidents; Security records Defender for Cloud alerts; Autoscale and Recommendation are operational.
+  - title: Two schemas
+    body: The REST API / Splunk mscs:azure:audit format uses nested value/localizedValue objects (operationName.value, status.value) with caller and httpRequest. The diagnostic-setting (Event Hub/storage) format is flatter (operationName string, resultType, resultSignature, callerIpAddress, category = Write/Delete/Action for Administrative). Parsers must handle both.
+traffic:
+  handles:
+    - ARM write / delete / action operations on every resource type
+    - RBAC role assignments and definitions
+    - Key Vault, storage and VM control-plane actions (listKeys, runCommand)
+    - Azure Policy evaluations
+    - Service and resource health events
+    - Defender for Cloud security alerts
+  flow:
+    - step: Request
+      desc: A user, app or pipeline calls management.azure.com with an Entra ID access token.
+    - step: Authenticate
+      desc: ARM validates the token and extracts claims (upn, appid, ipaddr).
+    - step: Authorise
+      desc: RBAC and deny assignments are evaluated; the matching role assignment becomes authorization evidence.
+    - step: Policy
+      desc: Azure Policy can deny or audit the request before it reaches the resource provider.
+    - step: Execute
+      desc: The resource provider performs the operation; Started, Accepted and Succeeded/Failed events are written.
+    - step: Export
+      desc: Diagnostic settings stream the events to Event Hub, Storage or Log Analytics within minutes.
+logs:
+  - type: Administrative (Event Hub schema)
+    sourcetype: azure_monitor_activity
+    format: json
+    share: 60–90 %
+    avg: ~2.5 KB
+    desc: One record per ARM write, delete or action, from a diagnostic setting. category is Write / Delete / Action; resultType and resultSignature give the outcome.
+    key:
+      - operationName
+      - resultType
+      - callerIpAddress
+      - identity.authorization.scope
+      - identity.authorization.evidence.principalId
+      - identity.claims.appid
+      - "identity.claims.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn"
+      - properties.requestbody
+    noise:
+      - identity.claims.iat
+      - identity.claims.nbf
+      - identity.claims.exp
+      - identity.claims.ver
+      - identity.claims.puid
+      - identity.claims.aud
+      - identity.authorization.evidence.roleDefinitionId
+      - properties.serviceRequestId
+    sample: '{"time":"2026-11-12T09:14:26.9792776Z","resourceId":"/SUBSCRIPTIONS/11112222-3333-4444-5555-666677778888/RESOURCEGROUPS/RG-PROD/PROVIDERS/MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/0A1B2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D","operationName":"MICROSOFT.AUTHORIZATION/ROLEASSIGNMENTS/WRITE","category":"Write","resultType":"Success","resultSignature":"Succeeded.Created","durationMs":"1874","callerIpAddress":"203.0.113.45","correlationId":"aaaa6666-bb77-8888-99cc-000000dddddd","identity":{"authorization":{"scope":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Authorization/roleAssignments/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d","action":"Microsoft.Authorization/roleAssignments/write","evidence":{"role":"User Access Administrator","roleAssignmentScope":"/subscriptions/11112222-3333-4444-5555-666677778888","roleAssignmentId":"5f4e3d2c1b0a49388776655443322110","roleDefinitionId":"18d7d88dd35e4fb5a5c37773c20a72d9","principalId":"9a8b7c6d5e4f40312a1b0c9d8e7f6a5b","principalType":"User"}},"claims":{"aud":"https://management.core.windows.net/","iss":"https://sts.windows.net/aaaabbbb-0000-cccc-1111-dddd2222eeee/","iat":"1762938571","nbf":"1762938571","exp":"1762942471","ver":"1.0","http://schemas.microsoft.com/identity/claims/objectidentifier":"9a8b7c6d-5e4f-4031-2a1b-0c9d8e7f6a5b","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn":"jdoe@example.com","http://schemas.microsoft.com/claims/authnmethodsreferences":"pwd,mfa","puid":"10030000A1B2C3D4","name":"John Doe","appid":"04b07795-8ddb-461a-bbee-02f9e1bf7b46","ipaddr":"203.0.113.45"}},"level":"Information","location":"global","properties":{"statusCode":"Created","serviceRequestId":null,"entity":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Authorization/roleAssignments/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d","message":"Microsoft.Authorization/roleAssignments/write","hierarchy":"aaaabbbb-0000-cccc-1111-dddd2222eeee/11112222-3333-4444-5555-666677778888","requestbody":"{\"Id\":\"0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d\",\"Properties\":{\"PrincipalId\":\"7c6b5a49-3827-4615-a0b1-c2d3e4f5a6b7\",\"PrincipalType\":\"ServicePrincipal\",\"RoleDefinitionId\":\"/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635\",\"Scope\":\"/subscriptions/11112222-3333-4444-5555-666677778888\"}}"}}'
+  - type: Administrative (REST API schema)
+    sourcetype: mscs_azure_audit
+    format: json
+    share: (alternative collection path)
+    avg: ~3 KB
+    desc: The same events from the Activity Log REST API, in the value/localizedValue schema with caller, httpRequest and status. This example is a VM Run Command — arbitrary script execution on a VM from the control plane.
+    key:
+      - operationName.value
+      - status.value
+      - caller
+      - httpRequest.clientIpAddress
+      - resourceId
+      - authorization.action
+      - subscriptionId
+    noise:
+      - operationName.localizedValue
+      - status.localizedValue
+      - category.localizedValue
+      - resourceProviderName.localizedValue
+      - resourceType.localizedValue
+      - eventName.localizedValue
+      - subStatus.localizedValue
+      - submissionTimestamp
+    sample: '{"authorization":{"action":"Microsoft.Compute/virtualMachines/runCommand/action","scope":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/web-01"},"caller":"jdoe@example.com","channels":"Operation","claims":{"aud":"https://management.core.windows.net/","appid":"04b07795-8ddb-461a-bbee-02f9e1bf7b46","ipaddr":"198.51.100.77","http://schemas.microsoft.com/claims/authnmethodsreferences":"pwd"},"correlationId":"bbbb1111-cc22-3333-44dd-555555eeeeee","description":"","eventDataId":"cccc2c2c-dd3d-ee4e-ff5f-aaaaaa6a6a6a","eventName":{"value":"EndRequest","localizedValue":"End request"},"category":{"value":"Administrative","localizedValue":"Administrative"},"eventTimestamp":"2026-11-12T09:41:03.112Z","id":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/web-01/events/cccc2c2c-dd3d-ee4e-ff5f-aaaaaa6a6a6a/ticks/638670000631120000","level":"Informational","operationId":"dddd3333-ee44-5555-66ff-777777aaaaaa","operationName":{"value":"Microsoft.Compute/virtualMachines/runCommand/action","localizedValue":"Run Command on Virtual Machine"},"resourceGroupName":"rg-prod","resourceProviderName":{"value":"Microsoft.Compute","localizedValue":"Microsoft.Compute"},"resourceType":{"value":"Microsoft.Compute/virtualMachines","localizedValue":"Microsoft.Compute/virtualMachines"},"resourceId":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/web-01","status":{"value":"Succeeded","localizedValue":"Succeeded"},"subStatus":{"value":"OK","localizedValue":"OK (HTTP Status Code: 200)"},"submissionTimestamp":"2026-11-12T09:42:11.004Z","subscriptionId":"11112222-3333-4444-5555-666677778888","tenantId":"aaaabbbb-0000-cccc-1111-dddd2222eeee","properties":{"statusCode":"OK","serviceRequestId":"eeee4444-ff55-6666-77aa-888888bbbbbb"},"relatedEvents":[],"httpRequest":{"clientRequestId":"ffff5555-aa66-7777-88bb-999999cccccc","clientIpAddress":"198.51.100.77","method":"POST"}}'
+  - type: Policy
+    sourcetype: azure_monitor_activity
+    format: json
+    share: 5–30 %
+    avg: ~2 KB
+    desc: Azure Policy effects — audit, deny, modify, deployIfNotExists — with the assignment and definition that fired. Deny events show blocked attempts; audit events can be very noisy.
+    key:
+      - operationName
+      - resultType
+      - resourceId
+      - properties.policies
+      - "identity.claims.http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn"
+    noise:
+      - properties.hierarchy
+      - correlationId
+      - durationMs
+    sample: '{"time":"2026-11-12T10:02:44.5512345Z","resourceId":"/SUBSCRIPTIONS/11112222-3333-4444-5555-666677778888/RESOURCEGROUPS/RG-PROD/PROVIDERS/MICROSOFT.STORAGE/STORAGEACCOUNTS/EXAMPLEDATA01","operationName":"MICROSOFT.AUTHORIZATION/POLICIES/DENY/ACTION","category":"Action","resultType":"Failure","resultSignature":"","durationMs":"0","callerIpAddress":"203.0.113.45","correlationId":"cccc2222-dd33-4444-55ee-666666ffffff","identity":{"authorization":{"scope":"/subscriptions/11112222-3333-4444-5555-666677778888/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/exampledata01","action":"Microsoft.Storage/storageAccounts/write"},"claims":{"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn":"jdoe@example.com","appid":"04b07795-8ddb-461a-bbee-02f9e1bf7b46","ipaddr":"203.0.113.45"}},"level":"Error","location":"global","properties":{"isComplianceCheck":"False","resourceLocation":"westeurope","ancestors":"aaaabbbb-0000-cccc-1111-dddd2222eeee","policies":"[{\"policyDefinitionId\":\"/providers/Microsoft.Authorization/policyDefinitions/4fa4b6c0-31ca-4c0d-b10d-24b96f62a751\",\"policyDefinitionName\":\"Storage accounts should prevent public access\",\"policyDefinitionEffect\":\"Deny\",\"policyAssignmentName\":\"deny-public-storage\"}]","hierarchy":"aaaabbbb-0000-cccc-1111-dddd2222eeee/11112222-3333-4444-5555-666677778888"}}'
+cves:
+  - id: CVE-2025-55241
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: Entra ID actor-token impersonation via the legacy Azure AD Graph API — a forged Global Admin could then act in Azure; those ARM actions land in the Activity Log
+    affected: Microsoft Entra ID (cloud service) before Microsoft's server-side fix (published September 2025)
+    fixed: Fixed server-side by Microsoft — no customer action
+    detect: The token abuse itself left no tenant logs. Afterwards, look for Microsoft.Authorization/roleAssignments/write or elevateAccess/action by a Global Admin identity with no matching Entra sign-in, or from callerIpAddress values never seen for that upn.
+    avoid: Alert on elevateAccess and Owner / User Access Administrator assignments; Privileged Identity Management for Azure roles; correlate Activity Log callers with Entra sign-in logs.
+  - id: CVE-2021-38647
+    cvss: 9.8
+    year: 2021
+    kev: true
+    scope: traffic
+    title: OMIGOD — unauthenticated RCE as root in the OMI agent that Azure VM extensions install on Linux VMs
+    affected: Open Management Infrastructure (OMI) before 1.6.8-1, deployed by Log Analytics/OMS agent, Azure Diagnostics, Automation and DSC extensions
+    fixed: OMI 1.6.8-1 (OMS Agent for Linux 1.13.40-0)
+    detect: The exploit hits ports 5985/5986/1270 on the VM and is not in the Activity Log. Use it to find exposed VMs (Microsoft.Compute/virtualMachines/extensions/write for OmsAgentForLinux / LinuxDiagnostic) and to spot follow-on control-plane actions from the VM's managed identity.
+    avoid: Update OMI and the extensions; block 5985/5986/1270 from the internet with NSGs; migrate to Azure Monitor Agent.
+  - id: CVE-2023-36052
+    cvss: 8.6
+    year: 2023
+    kev: false
+    scope: traffic
+    title: Azure CLI printed secrets from app settings into CI/CD logs — leaked credentials then used against ARM
+    affected: Azure CLI before 2.53.1 (az webapp / functionapp / logicapp / staticwebapp appsettings set|delete)
+    fixed: Azure CLI 2.53.1
+    detect: Activity Log Microsoft.Web/sites/config/write and listKeys / listsecrets actions from a service principal (appid) outside its pipeline agent IP ranges, or storage listKeys followed by data-plane access.
+    avoid: Upgrade the CLI; mask outputs in pipelines; rotate any secret that appeared in build logs; use Key Vault references and managed identities.
+  - id: CVE-2021-42306
+    cvss: 6.5
+    year: 2021
+    kev: false
+    scope: traffic
+    title: Azure Automation Run As / Azure Migrate private keys readable in Entra app keyCredentials (CredManifest) — allowed takeover of the Run As service principal
+    affected: Azure Automation Run As accounts, Azure Migrate and Azure Site Recovery app registrations created before the November 2021 change
+    fixed: Fixed by Microsoft (November 2021); customers had to rotate affected Run As certificates
+    detect: Activity Log operations by the Automation Run As service principal (identity.claims.appid) from callerIpAddress values outside Azure Automation, especially role assignments or VM runCommand.
+    avoid: Rotate Run As certificates or move to managed identities; scope the Run As SP to least privilege.
+detections:
+  - title: Privileged role assignment created
+    severity: high
+    signals:
+      - operationName=Microsoft.Authorization/roleAssignments/write
+      - requestbody RoleDefinitionId = Owner / Contributor / User Access Administrator
+      - resultType=Success
+    why: Granting Owner or User Access Administrator (often to a new service principal) is the most common Azure privilege-escalation and persistence step.
+    kql: |-
+      dataset="azure_activity" operationName=~"Microsoft.Authorization/roleAssignments/write" resultType="Success"
+      | where properties.requestbody has_any ("8e3af657-a8ff-443c-a75c-2fe8c4bcb635","b24988ac-6180-42a0-ab88-20f7382dd24c","18d7d88d-d35e-4fb5-a5c3-7773c20a72d9")
+      | project _time, callerIpAddress, identity.claims.appid, identity.authorization.scope, properties.requestbody
+    mitre:
+      - T1098.003
+  - title: VM Run Command or script extension
+    severity: high
+    signals:
+      - operationName.value=Microsoft.Compute/virtualMachines/runCommand/action
+      - or virtualMachines/extensions/write with CustomScript
+    why: Run Command executes arbitrary scripts as SYSTEM/root from the control plane — an attacker with Contributor gets code execution on every VM without network access.
+    kql: |-
+      dataset="azure_activity"
+      | where operationName.value in~ ("Microsoft.Compute/virtualMachines/runCommand/action","Microsoft.Compute/virtualMachines/runCommands/write","Microsoft.Compute/virtualMachines/extensions/write") or operationName in~ ("Microsoft.Compute/virtualMachines/runCommand/action","Microsoft.Compute/virtualMachines/extensions/write")
+      | summarize count() by caller, httpRequest.clientIpAddress, resourceId, status.value
+    mitre:
+      - T1651
+  - title: Activity Log export or monitoring disabled
+    severity: critical
+    signals:
+      - operationName in microsoft.insights/diagnosticSettings/delete
+      - Microsoft.Security/pricings/write (Defender plan off)
+      - alertRules / activityLogAlerts delete
+    why: Attackers remove the diagnostic setting (stopping the SIEM feed) or Defender plans before acting.
+    kql: |-
+      dataset="azure_activity"
+      | where operationName in~ ("microsoft.insights/diagnosticSettings/delete","Microsoft.Insights/DiagnosticSettings/Write","Microsoft.Security/pricings/write","microsoft.insights/activityLogAlerts/delete")
+      | project _time, operationName, callerIpAddress, identity.claims.appid, resourceId, resultType
+    mitre:
+      - T1562.008
+  - title: Storage account keys or Key Vault access changed
+    severity: medium
+    signals:
+      - Microsoft.Storage/storageAccounts/listKeys/action
+      - Microsoft.KeyVault/vaults/accessPolicies/write
+      - unusual caller or IP
+    why: Listing storage keys gives full data-plane access outside RBAC; widening a vault access policy exposes secrets, keys and certificates.
+    kql: |-
+      dataset="azure_activity"
+      | where operationName in~ ("Microsoft.Storage/storageAccounts/listKeys/action","Microsoft.KeyVault/vaults/accessPolicies/write","Microsoft.KeyVault/vaults/write")
+      | summarize count(), ips=make_set(callerIpAddress) by operationName, identity.claims.appid, resourceId
+    mitre:
+      - T1555.006
+      - T1552
+  - title: Mass resource deletion
+    severity: high
+    signals:
+      - category=Delete or operationName ends with /delete
+      - many resources per caller in a short window
+    why: Destructive attacks (and ransom of backups) delete resource groups, vaults or disks in bulk from one identity.
+    kql: |-
+      dataset="azure_activity" category="Delete" resultType="Success"
+      | summarize deletes=count(), types=dcount(tostring(split(resourceId,"/PROVIDERS/")[1])) by identity.claims.appid, callerIpAddress, bin(_time, 15m)
+      | where deletes > 25
+    mitre:
+      - T1485
+  - title: Subscription-wide access elevation
+    severity: critical
+    signals:
+      - operationName=Microsoft.Authorization/elevateAccess/action
+    why: A Global Administrator granting themselves User Access Administrator at root scope gains control of every subscription — rare and always worth review.
+    kql: |-
+      dataset="azure_activity" operationName=~"Microsoft.Authorization/elevateAccess/action"
+      | project _time, callerIpAddress, identity.claims.appid, resultType, correlationId
+    mitre:
+      - T1078.004
+      - T1098.003
+optimizations:
+  - title: Keep only final status of each operation
+    saving: 30–50 %
+    fn: Drop
+    how: Long-running operations log Started and Accepted before Succeeded/Failed under one correlationId. Drop the intermediate events (REST schema status.value Started/Accepted; Event Hub resultType Start/Accept).
+    expr: "['Start','Accept','Started','Accepted'].includes(resultType) || ['Started','Accepted'].includes(status && status.value)"
+  - title: Reduce Policy audit noise
+    saving: 10–40 %
+    fn: Suppress
+    how: Policy audit and auditIfNotExists fire on every evaluation of a non-compliant resource. Keep deny events in full; suppress audit duplicates per resource and policy per 24 h.
+    expr: "key: `${resourceId}:${properties.policies}`  allow 1 / 86400s  when /POLICIES\\/AUDIT/i.test(operationName)"
+  - title: Strip token claims and localized duplicates
+    saving: 25–45 %
+    fn: Parser → Serialize
+    how: Keep upn, objectidentifier, appid and ipaddr from the claims; drop iat/nbf/exp/ver/puid/aud and the long schema URIs, and every localizedValue in the REST schema.
+    expr: "remove: identity.claims.(iat|nbf|exp|ver|puid|aud|iss), *.localizedValue, properties.hierarchy"
+  - title: Route operational categories away from the SIEM
+    saving: SIEM licence
+    fn: Routes
+    how: Administrative writes/actions/deletes, Security and Policy deny go to the SIEM; Service Health, Resource Health, Autoscale and Recommendation go to Lake or an ops tool.
+    expr: "category in (Write, Delete, Action, Administrative, Security) → SIEM | else → Lake"
+references:
+  - title: Azure Monitor activity log
+    url: https://learn.microsoft.com/en-us/azure/azure-monitor/platform/activity-log
+  - title: Azure activity log event schema
+    url: https://learn.microsoft.com/en-us/azure/azure-monitor/platform/activity-log-schema
+  - title: Activity Logs - List (REST API)
+    url: https://learn.microsoft.com/en-us/rest/api/monitor/activity-logs/list
+  - title: AzureActivity table reference
+    url: https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/azureactivity
+  - title: MSRC CVE-2021-38647 (OMIGOD)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-38647
+  - title: MSRC CVE-2023-36052 (Azure CLI)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2023-36052
+  - title: MSRC CVE-2025-55241 (Entra ID)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2025-55241
+  - title: "MITRE ATT&CK T1651: Cloud Administration Command"
+    url: https://attack.mitre.org/techniques/T1651/
+related:
+  - entra-id
+  - azure-nsg-flow
+  - mde
+  - o365
+  - cloudtrail
+  - gcp-audit

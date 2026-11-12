@@ -2,9 +2,295 @@
 id: ibm-aix
 name: IBM AIX Audit
 short: AIX
+aka:
+  - AIX
+  - Advanced Interactive eXecutive
+  - AIX audit subsystem
+  - VIOS
 vendor: IBM
 category: mainframe
-status: stub
-summary: AIX audit subsystem events (PROC, FILE, USER, TCPIP) and syslog from IBM Power servers.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - unix
+  - power
+  - audit
+  - syslog
+  - nim
+  - privileged-access
+summary: IBM's UNIX for Power servers. Its kernel audit subsystem records system-call-level events (logins, su, process execution, file access, user changes, TCP/IP) in BIN or STREAM mode; `auditpr` turns them into text that is usually piped to syslogd and on to the SIEM. AIX hosts run core banking, ERP and database workloads, so a small log volume carries high-value privileged-access evidence.
 sourcetypes:
   - st: ibm_aix_audit
+    desc: AIX audit records formatted by auditpr (event, login, status, time, command, tail)
+  - st: syslog
+    desc: AIX syslogd messages (auth|security, sshd, su, cron, errdemon)
+facts:
+  First released: 1986 (IBM RT PC)
+  OS: AIX 7.2 and 7.3 (TL levels); VIOS 3.1 / 4.1 for virtual I/O
+  Platform: IBM Power (POWER9, Power10, Power11) servers and Power Virtual Server
+  Deployment modes: LPAR (PowerVM), WPAR inside an LPAR, VIOS partitions
+  Audit modes: BIN (binary trail via auditbin) and STREAM (/dev/audit via auditstream)
+  Log transport: auditstream | auditpr | logger → syslogd → UDP/TCP 514 to a collector
+  Log format: Text (auditpr columns + tail), BSD syslog
+  Typical volume: 1–50 EPS per LPAR; 10× more with FILE_* or TCP_* events enabled
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: Data-center Power servers
+      desc: AIX LPARs hosting Oracle, Db2, SAP or core-banking workloads, managed from an HMC and installed from a NIM master. Rarely internet-facing; the threat is lateral movement and privileged misuse.
+    - slot: internal
+      title: NIM master and VIOS
+      desc: The Network Installation Management master pushes images and scripts to every client LPAR; VIOS partitions own the physical I/O. Both are high-value control points (CVE-2024-56346).
+    - slot: cloud
+      title: Power Virtual Server
+      desc: AIX LPARs in IBM Cloud Power Virtual Server or other hosted Power capacity, forwarding syslog over a private link or VPN.
+howItWorks:
+  - title: Kernel audit events
+    body: Auditing is defined at the system-call level. One `cat` produces FILE_Open, FILE_Read, PROC_Create, PROC_Execute and PROC_Delete records. Events are grouped into classes (general, objects, SRC, kernel, files, svipc, mail, cron, tcpip) and assigned per user in /etc/security/audit/config.
+  - title: BIN vs STREAM mode
+    body: BIN mode writes binary records to alternating bin files (/audit/bin1, /audit/bin2) that auditbin appends to /audit/trail — best for retention. STREAM mode writes to a circular buffer read through /dev/audit by the commands in /etc/security/audit/streamcmds — best for real-time forwarding. Binary output is about 20–30 % of the size of the text stream.
+  - title: Formatting and forwarding
+    body: "The usual streamcmds pipeline is auditstream | auditselect (drop the pipeline's own events) | auditpr -v | awk (join the two-line output) | logger -p local7.notice -r. auditpr prints event, login, status, time and command; -v adds the event tail (path, euid, tty)."
+  - title: Status values
+    body: Each record carries OK or a failure code — FAIL, FAIL_PRIV, FAIL_AUTH, FAIL_ACCESS, FAIL_DAC. Failures on USER_Login, USER_SU and FILE_* events are the main detection signals.
+  - title: Objects and fullpath
+    body: /etc/security/audit/objects watches specific files (e.g. /etc/security/passwd) for read/write. Setting fullpath = on records the full path name for FILE_* and PROC_Execute events, which is needed to tell /tmp/x from /usr/bin/x.
+  - title: syslogd alongside audit
+    body: sshd, su, login, cron and errdemon also log through syslogd with AIX's facility|priority notation (auth|security:info). Many shops forward both the audit pipeline (local7) and auth syslog.
+traffic:
+  handles:
+    - Interactive logins (SSH, telnet, console via tsm)
+    - su / sudo privilege changes
+    - Process execution (PROC_Execute)
+    - File and object access (FILE_*, objects file)
+    - User and group administration (USER_*, GROUP_*)
+    - TCP/IP socket events (TCPIP_*, TCP_k*)
+    - NIM install and script push
+  flow:
+    - step: System call
+      desc: A process calls exec, open, setuid, connect …
+    - step: Kernel audit
+      desc: If the event is in the user's classes, the kernel writes a record.
+    - step: BIN / STREAM
+      desc: Record lands in a bin file or the /dev/audit stream buffer.
+    - step: auditselect + auditpr
+      desc: Filter out pipeline noise, format to text.
+    - step: logger → syslogd
+      desc: One line per event on local7.notice, with retry (-r).
+    - step: Forward
+      desc: syslogd sends to a syslog collector / Cribl Stream on 514.
+logs:
+  - type: Audit stream
+    sourcetype: ibm_aix_audit
+    format: text
+    share: 85–95 %
+    avg: ~250 B
+    desc: One auditpr record per line — event name, login user, status, time, command, then the event-specific tail (euid, path, tty). PROC_Execute and FILE_* dominate volume.
+    pattern: '^(?<event_action>[A-Z][A-Za-z_]+)\s+(?<user>\S+)\s+(?<result>OK|FAIL\w*)\s+(?<timestamp>\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(?<component>\S+)\s+(?<message>.*)$'
+    key:
+      - event_action
+      - user
+      - result
+      - component
+      - message
+    noise:
+      - timestamp
+    sample: 'PROC_Execute     jdoe     OK       Wed Nov 12 09:14:22 2026 ksh              euid: 0 egid: 0 epriv: ffffffff:ffffffff name /tmp/.x/invscout'
+  - type: Login failure (audit)
+    sourcetype: ibm_aix_audit
+    format: text
+    share: < 1 %
+    avg: ~200 B
+    desc: USER_Login written by tsm/sshd for every logon attempt; FAIL with the user name and the terminal. The primary brute-force signal.
+    pattern: '^(?<event_action>[A-Z][A-Za-z_]+)\s+(?<user>\S+)\s+(?<result>OK|FAIL\w*)\s+(?<timestamp>\w{3}\s+\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(?<component>\S+)\s+(?<message>.*)$'
+    key:
+      - event_action
+      - user
+      - result
+      - message
+    sample: 'USER_Login       root     FAIL     Wed Nov 12 08:02:41 2026 sshd             user: root tty: ssh from 198.51.100.23'
+  - type: Auth syslog
+    sourcetype: syslog
+    format: text
+    share: 5–15 %
+    avg: ~150 B
+    desc: sshd, su and login messages from syslogd, with AIX's facility|priority:level notation.
+    pattern: '^(?<timestamp>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<facility>[\w|]+):(?<level>\w+) (?<program>[\w.-]+)\[(?<pid>\d+)\]: (?<message>.*)$'
+    key:
+      - host
+      - program
+      - message
+    noise:
+      - pid
+      - facility
+    sample: 'Nov 12 08:02:41 aixprd01 auth|security:info sshd[7340110]: Failed password for root from 198.51.100.23 port 51544 ssh2'
+cves:
+  - id: CVE-2024-56346
+    cvss: 10
+    year: 2025
+    kev: false
+    scope: device
+    title: nimesis NIM master service remote command execution (improper process controls)
+    affected: AIX 7.2, 7.3 and VIOS 3.1, 4.1 — bos.sysmgt.nim.master/client and bos.sysmgt.sysbr filesets
+    fixed: APARs IJ53757 (7.2.5 SP10), IJ53923 (7.3.2 SP04), IJ53792 (7.3.3 SP01), IJ53929 (7.3.1 iFix)
+    detect: On the NIM master, PROC_Execute records whose command is a shell or download tool spawned by nimesis; TCP connections to nimesis (1058/1059) from hosts that are not NIM clients.
+    avoid: Apply the nim_fix iFix; restrict nimesis/nimsh ports to known clients; disable NIM services where not used.
+  - id: CVE-2024-56347
+    cvss: 9.6
+    year: 2025
+    kev: false
+    scope: device
+    title: nimsh SSL/TLS protection mechanism bypass leading to command execution
+    affected: AIX 7.2, 7.3 and VIOS 3.1, 4.1 NIM clients running nimsh
+    fixed: Same APARs as CVE-2024-56346 (nim_fix.tar)
+    detect: Unexpected PROC_Execute children of nimsh on client LPARs; nimsh sessions outside NIM maintenance windows.
+    avoid: Patch; use nimsh with SSL only from the legitimate master; firewall port 3901/3902.
+  - id: CVE-2023-28528
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: invscout local command injection — non-privileged user to root
+    affected: AIX 7.1, 7.2, 7.3, VIOS 3.1 — invscout.rte 2.2.0.0 to 2.2.0.23
+    fixed: invscout_fix4 (newer invscout.rte); later invscout flaws CVE-2024-27260 / CVE-2024-47115 need invscout_fix6 / fix7
+    detect: PROC_Execute of invscout by a non-root login followed by FILE_Write/USER_Change as root, or a root shell (ksh, sh) without a USER_SU.
+    avoid: Install the latest invscout.rte; remove the setuid bit on invscout if inventory scouting is not used.
+  - id: CVE-2023-26286
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: errlog()/errdemon command injection via the runtime services library — local root
+    affected: AIX 7.1, 7.2, 7.3, VIOS 3.1 (bos.rte.serv_aid, bos.sysmgt.serv_aid, bos.mp64 filesets)
+    detect: errdemon spawning /usr/bin/sh with a resource name containing ; or |; error-log entries (errpt) with shell metacharacters in the resource field.
+    avoid: Apply the librts iFix and restart errdemon; alert on errdemon child processes.
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: traffic
+    title: OpenSSH "regreSSHion" sshd signal-handler race — the SSH logins AIX records
+    affected: AIX 7.2, 7.3, VIOS 3.1, 4.1 — openssh.base.server 9.2.112.0 to 9.2.112.2400
+    fixed: iFix 9211224a.240708 (openssh_fix17)
+    detect: Bursts of sshd "Timeout before authentication" / unauthenticated connections from one source in auth syslog; no matching USER_Login OK.
+    avoid: Apply the OpenSSH iFix; set LoginGraceTime 0 as a stop-gap; restrict SSH to jump hosts.
+detections:
+  - title: SSH / login brute force
+    severity: high
+    signals:
+      - event_action=USER_Login
+      - result=FAIL*
+      - many failures per source or user
+    why: Repeated USER_Login failures precede password guessing success on root or service accounts, which are rarely MFA-protected on AIX.
+    kql: |-
+      dataset="aix_logs" sourcetype="ibm_aix_audit" event_action="USER_Login"
+      | where result startswith "FAIL"
+      | extract "from (?<src_ip>\\S+)" from message
+      | summarize fails=count(), users=dcount(user) by src_ip, bin(_time, 10m)
+      | where fails > 10 or users > 3
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: Root shell without su (privilege escalation)
+    severity: critical
+    signals:
+      - event_action=PROC_Execute
+      - euid 0 by a non-root login
+      - path under /tmp, /var/tmp or a hidden directory
+    why: invscout (CVE-2023-28528) and errdemon (CVE-2023-26286) exploits give a non-root login an euid 0 process with no USER_SU record.
+    kql: |-
+      dataset="aix_logs" sourcetype="ibm_aix_audit" event_action="PROC_Execute"
+      | where user != "root" and message has "euid: 0"
+      | where message matches regex "name (/tmp|/var/tmp|.*/\\.)"
+      | summarize count() by user, component, message
+    mitre:
+      - T1068
+  - title: su to root by an unexpected user
+    severity: medium
+    signals:
+      - event_action=USER_SU
+      - target root
+      - user not in the admin list
+    why: Shared root passwords are common on AIX; su from a non-admin login is either misuse or a stolen credential.
+    kql: |-
+      dataset="aix_logs" sourcetype="ibm_aix_audit" event_action="USER_SU"
+      | lookup aix_admins on user
+      | where isempty(is_admin)
+      | summarize count() by user, result
+    mitre:
+      - T1078.003
+      - T1548
+  - title: New or changed local account
+    severity: medium
+    signals:
+      - event_action in (USER_Create, USER_Change, PASSWORD_Change, GROUP_Change)
+    why: mkuser/chuser outside change windows is a persistence pattern; adding a user to the system or security group gives admin rights.
+    kql: |-
+      dataset="aix_logs" sourcetype="ibm_aix_audit"
+      | where event_action in ("USER_Create","USER_Change","PASSWORD_Change","GROUP_Change")
+      | summarize count() by user, event_action, message
+    mitre:
+      - T1136.001
+      - T1098
+  - title: Audit subsystem stopped or losing records
+    severity: high
+    signals:
+      - PROC_Execute of audit shutdown / audit off
+      - AUD_Lost_Recs
+      - gap in events per host
+    why: An attacker with root turns off auditing first. Lost-record events also mean the evidence is incomplete.
+    kql: |-
+      dataset="aix_logs" sourcetype="ibm_aix_audit"
+      | where event_action == "AUD_Lost_Recs" or (event_action == "PROC_Execute" and message matches regex "/usr/sbin/audit\\b")
+      | summarize count() by user, event_action, component
+    mitre:
+      - T1562
+optimizations:
+  - title: Drop pipeline self-events and daemon file reads
+    saving: 20–40 %
+    fn: Drop
+    how: auditselect should already exclude logger/auditpr/auditstream; also drop FILE_Read / FILE_Open by monitoring agents and backup daemons that read the same files every few seconds.
+    expr: event_action.startsWith('FILE_Read') && ['nmon','topas','dsmc'].includes(component)
+  - title: Suppress repetitive cron and agent execs
+    saving: 10–25 %
+    fn: Suppress
+    how: Monitoring scripts run the same PROC_Execute every minute. Keep one per user/command/path per 5 minutes with a count.
+    expr: "key: `${user}:${component}:${message}`  allow 1 / 300s  when event_action=='PROC_Execute' && result=='OK'"
+  - title: Parse and keep only useful tail fields
+    saving: 10–20 %
+    fn: Parser → Serialize
+    how: Extract euid, path, tty and source IP from the tail with regex, drop epriv masks and the duplicated time, and send structured JSON.
+    expr: "regex_extract message → euid, name, tty, src_ip; remove: epriv, timestamp"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: USER_*, GROUP_*, PASSWORD_*, AUD_* and any FAIL → SIEM; successful FILE_* and TCP_* → Cribl Lake for investigations.
+    expr: "/^(USER|GROUP|PASSWORD|AUD)_/.test(event_action) || result!='OK' → SIEM  |  else → Lake"
+references:
+  - title: "AIX AUDIT: The Audit Subsystem in AIX"
+    url: https://www.ibm.com/support/pages/aix-audit-audit-subsystem-aix
+  - title: "AIX Audit: Redirecting audit events to the syslogd subsystem"
+    url: https://www.ibm.com/support/pages/aix-audit-redirecting-audit-events-syslogd-subsystem
+  - title: AIX 7.3 audit config file reference
+    url: https://www.ibm.com/docs/en/aix/7.3.0?topic=files-config-file
+  - title: "Security Bulletin: AIX arbitrary command execution (CVE-2024-56346, CVE-2024-56347)"
+    url: https://www.ibm.com/support/pages/security-bulletin-aix-vulnerable-arbitrary-command-execution-cve-2024-56346-cve-2024-56347
+  - title: "Security Bulletin: AIX invscout (CVE-2023-28528)"
+    url: https://www.ibm.com/support/pages/security-bulletin-aix-vulnerable-arbitrary-command-execution-due-invscout-cve-2023-28528
+  - title: "Security Bulletin: AIX errlog (CVE-2023-26286)"
+    url: https://www.ibm.com/support/pages/security-bulletin-aix-vulnerable-arbitrary-command-execution-cve-2023-26286
+  - title: "Security Bulletin: AIX OpenSSH (CVE-2024-6387)"
+    url: https://www.ibm.com/support/pages/security-bulletin-aix-vulnerable-arbitrary-code-execution-cve-2024-6387-due-openssh
+  - title: Talos TALOS-2023-1690 — AIX errlog() command injection
+    url: https://talosintelligence.com/vulnerability_reports/TALOS-2023-1690
+related:
+  - ibm-i
+  - ibm-zos
+  - ibm-db2
+  - linux-auditd
+  - linux-syslog

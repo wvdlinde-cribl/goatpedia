@@ -2,9 +2,359 @@
 id: azure-nsg-flow
 name: Azure NSG / VNet Flow Logs
 short: NSG Flow
+aka:
+  - Network Watcher flow logs
+  - NSG flow logs (retiring)
+  - Virtual network flow logs
+  - NetworkSecurityGroupFlowEvent
+  - FlowLogFlowEvent
 vendor: Microsoft
 category: ndr
-status: stub
-summary: Network Watcher flow logs for network security groups and virtual networks, JSON in a storage account.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - azure
+  - flow
+  - cloud-network
+  - json
+  - storage-blob
+  - nsg
+summary: Azure Network Watcher's record of IP traffic in a virtual network. Every minute the platform writes, per network interface, which NSG or AVNM rule allowed or denied each 5-tuple, the flow state and (v2+) packets and bytes, as nested JSON appended to an hourly PT1H.json blob in a storage account. NSG flow logs are being retired in favour of VNet flow logs, which add encryption status and cover more resources.
 sourcetypes:
   - st: azure_nsg_flowlog_json
+    desc: NSG flow log records (v1/v2) from the insights-logs-networksecuritygroupflowevent container
+  - st: mscs:nsg:flow
+    desc: Splunk Add-on for Microsoft Cloud Services — NSG flow logs read from the storage blob
+  - st: mscs:vnet:flow
+    desc: Splunk Add-on for Microsoft Cloud Services (6.1.0+) — virtual network flow logs
+facts:
+  First released: NSG flow logs with Network Watcher (2017); v2 added flow state and bytes; VNet flow logs are the successor
+  Retirement: NSG flow logs retire on 30 September 2027 and no longer support new creation — migrate to VNet flow logs
+  Delivery: Append-only block blob per NIC per hour (PT1H.json) in an Azure Storage account; optional Traffic Analytics to Log Analytics
+  Collection interval: One minute; records reach storage within a few minutes
+  Log format: "JSON {records:[…]}; each flow is a comma-separated flowTuple string nested 3–4 levels deep"
+  Versions: NSG v1 (decision only), NSG v2 (state + counters); VNet flowLogVersion 4 (encryption state), 5 (PLS / NAT context, limited regions)
+  Typical volume: Tens of MB to GB per busy VM per day; deny-heavy internet-facing NICs are the largest
+  Cribl: Read with the Azure Blob Storage source (Event Grid / queue notifications), then unroll records and tuples; no flow-log Pack verified in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+  items:
+    - slot: cloud
+      title: Per-NIC in every VNet
+      desc: The platform logs at each NIC (NSG) or across the whole virtual network, subnet or NIC (VNet flow logs) — no agent or appliance in the path.
+    - slot: edge
+      title: Internet-facing workloads
+      desc: NICs with public IPs or behind load balancers show inbound scanning and denied connection attempts — usually the bulk of the volume.
+    - slot: internal
+      title: East-west between subnets
+      desc: Traffic between application tiers and to private endpoints is recorded at the source VM, showing lateral movement that never crosses Azure Firewall.
+howItWorks:
+  - title: Enforcement point
+    body: NSG rules (and Azure Virtual Network Manager security admin rules for VNet flow logs) are evaluated in the host's virtual switch. The flow log records the rule that matched each flow — the default rules appear as DefaultRule_DenyAllInBound, DefaultRule_AllowInternetOutBound and so on.
+  - title: Flow tuples
+    body: Each flow is a string such as time,src,dst,sport,dport,proto,direction,state,…,packets,bytes. NSG v2 uses T/U for protocol and A/D for the decision; VNet flow logs use the IANA protocol number and add an encryption field (X / NX …).
+  - title: Flow state
+    body: B marks a flow that began, C a continuing flow (reported every few minutes for long sessions), E the end and D a denied flow. Counters in C and E records are deltas since the previous record, so totals must be summed.
+  - title: Nesting
+    body: records[] → properties.flows[] (per rule) → flows[] (per MAC) → flowTuples[] for NSG; records[] → flowRecords.flows[] (per ACL) → flowGroups[] (per rule) → flowTuples[] for VNet. A collector must unroll all levels to get one event per flow.
+  - title: Storage layout
+    body: Blobs are written under resourceId=/SUBSCRIPTIONS/…/y=/m=/d=/h=/m=00/macAddress=…/PT1H.json and appended every minute, so a reader must handle a growing blob (re-read from the last block) rather than a finished file.
+  - title: Known gaps
+    body: Inbound TCP flows matched by non-default rules can be handled statelessly unless FlowTimeoutInMinutes is set; private endpoint traffic is only seen at the source VM; rotating a customer-managed key on the storage account stops VNet flow logging until it is re-enabled.
+traffic:
+  handles:
+    - IPv4 and IPv6 flows to and from Azure NICs
+    - TCP, UDP and (VNet) any IANA protocol
+    - Allow / deny decision and the matching NSG or AVNM rule
+    - Flow begin, continue, end and deny states
+    - Packets and bytes in each direction (NSG v2, VNet)
+    - Virtual network encryption status (VNet flow logs)
+    - Private Link / SNAT context (VNet v5, limited regions)
+  flow:
+    - step: Packet
+      desc: Traffic reaches a NIC in a VNet with NSG or VNet flow logging enabled.
+    - step: Evaluate
+      desc: The host virtual switch applies AVNM admin rules and NSG rules and records the matching rule.
+    - step: Aggregate
+      desc: Flows are collected for one minute per NIC and rule.
+    - step: Write
+      desc: The minute's records are appended to the NIC's hourly PT1H.json blob.
+    - step: Notify
+      desc: Event Grid or a storage queue signals that the blob changed.
+    - step: Collect and unroll
+      desc: Cribl's Azure Blob Storage source reads the new blocks; Unroll and a CSV parser turn each tuple into one event, then route to Sentinel, Splunk or Lake.
+logs:
+  - type: VNet flow tuple (after unroll)
+    sourcetype: mscs:vnet:flow
+    format: csv
+    share: 60–90 % (new deployments)
+    avg: ~90 B per tuple (~600 B with record context)
+    desc: One flowTuple from a virtual network flow log, split into columns. protocol is the IANA number; flow_state D with zero counters is a denied attempt; encryption NX means the traffic was not encrypted by VNet encryption.
+    fields:
+      - time
+      - src_ip
+      - dest_ip
+      - src_port
+      - dest_port
+      - protocol
+      - direction
+      - flow_state
+      - encryption
+      - packets_src_to_dest
+      - bytes_src_to_dest
+      - packets_dest_to_src
+      - bytes_dest_to_src
+    key:
+      - src_ip
+      - dest_ip
+      - dest_port
+      - protocol
+      - direction
+      - flow_state
+      - bytes_src_to_dest
+    noise:
+      - encryption
+      - packets_src_to_dest
+      - packets_dest_to_src
+    sample: "1762941601205,203.0.113.77,10.1.0.4,51544,22,6,I,D,NX,0,0,0,0"
+  - type: NSG flow tuple v2 (after unroll)
+    sourcetype: azure_nsg_flowlog_json
+    format: csv
+    share: 60–90 % (legacy NSG flow logs)
+    avg: ~80 B per tuple
+    desc: One flowTuple from an NSG v2 flow log. Protocol is T or U, decision A or D; state and counters are empty on B records and on v1 logs.
+    fields:
+      - time
+      - src_ip
+      - dest_ip
+      - src_port
+      - dest_port
+      - protocol
+      - direction
+      - decision
+      - flow_state
+      - packets_src_to_dest
+      - bytes_src_to_dest
+      - packets_dest_to_src
+      - bytes_dest_to_src
+    key:
+      - src_ip
+      - dest_ip
+      - dest_port
+      - protocol
+      - direction
+      - decision
+      - flow_state
+      - bytes_src_to_dest
+    noise:
+      - packets_src_to_dest
+      - packets_dest_to_src
+    sample: "1762941659,10.1.0.4,198.51.100.25,49812,443,T,O,A,E,22,2217,33,32466"
+  - type: NSG flow log record (raw)
+    sourcetype: azure_nsg_flowlog_json
+    format: json
+    share: n/a (container)
+    avg: 2–50 KB per record
+    desc: One element of records[] as written to PT1H.json — one minute for one NSG, grouped by rule and MAC. This is what the blob reader receives before unrolling.
+    key:
+      - time
+      - resourceId
+      - properties.Version
+      - properties.flows[0].rule
+      - properties.flows[0].flows[0].mac
+      - properties.flows[0].flows[0].flowTuples[0]
+    noise:
+      - systemId
+      - operationName
+      - category
+    sample: '{"time":"2026-11-12T10:01:00.0000000Z","systemId":"11111111-2222-3333-4444-555555555555","macAddress":"000D3A1B2C3D","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/EXAMPLE-RG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/WEB01-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3A1B2C3D","flowTuples":["1762941602,203.0.113.77,10.1.0.4,51544,3389,T,I,D,B,,,,","1762941610,198.51.100.9,10.1.0.4,40112,22,T,I,D,B,,,,"]}]},{"rule":"UserRule_AllowHttpsOut","flows":[{"mac":"000D3A1B2C3D","flowTuples":["1762941659,10.1.0.4,198.51.100.25,49812,443,T,O,A,E,22,2217,33,32466"]}]}]}}'
+  - type: VNet flow log record (raw)
+    sourcetype: mscs:vnet:flow
+    format: json
+    share: n/a (container)
+    avg: 2–50 KB per record
+    desc: One element of records[] from a VNet flow log blob. aclID identifies the NSG or AVNM rule set; flowGroups groups tuples by rule.
+    key:
+      - time
+      - flowLogVersion
+      - macAddress
+      - targetResourceID
+      - flowRecords.flows[0].flowGroups[0].rule
+      - flowRecords.flows[0].flowGroups[0].flowTuples[0]
+    noise:
+      - flowLogGUID
+      - flowLogResourceID
+      - category
+      - operationName
+    sample: '{"time":"2026-11-12T10:01:52.5625085Z","flowLogVersion":4,"flowLogGUID":"66aa66aa-bb77-cc88-dd99-00ee00ee00ee","macAddress":"00224871C205","category":"FlowLogFlowEvent","flowLogResourceID":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/NETWORKWATCHERRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKWATCHERS/NETWORKWATCHER_EASTUS/FLOWLOGS/VNET01-FLOWLOG","targetResourceID":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg/providers/Microsoft.Network/virtualNetworks/vnet01","operationName":"FlowLogFlowEvent","flowRecords":{"flows":[{"aclID":"00aa00aa-bb11-cc22-dd33-44ee44ee44ee","flowGroups":[{"rule":"DefaultRule_DenyAllInBound","flowTuples":["1762941601205,203.0.113.77,10.1.0.4,51544,22,6,I,D,NX,0,0,0,0"]},{"rule":"DefaultRule_AllowInternetOutBound","flowTuples":["1762941603599,10.1.0.4,192.0.2.180,23956,443,6,O,B,NX,0,0,0,0","1762941603606,10.1.0.4,192.0.2.180,23956,443,6,O,E,NX,3,767,2,1580"]}]}]}}'
+cves:
+  - id: CVE-2023-36737
+    cvss: 7.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Azure Network Watcher VM Agent elevation of privilege (CNA score)
+    affected: Azure Network Watcher VM extension 1.0.0.0 before 1.4.2798.3
+    fixed: 1.4.2798.3
+    detect: Not visible in flow logs. Inventory extension versions (Azure Resource Graph / Activity log); on the VM, EDR showing the Network Watcher agent creating links or files in unexpected paths.
+    avoid: Let the extension auto-upgrade; remove the Network Watcher extension where packet capture / connection monitor is not used (flow logs do not need it).
+  - id: CVE-2024-38188
+    cvss: 7.1
+    year: 2024
+    kev: false
+    scope: device
+    title: Azure Network Watcher VM Agent elevation of privilege on Windows (CNA score)
+    affected: Azure Network Watcher VM extension 1.4.3320.1 before 1.4.3422.1 (Windows)
+    fixed: 1.4.3422.1
+    detect: Not visible in flow logs. Track extension version through Azure Policy / Resource Graph; EDR alerts on symlink abuse by the agent process.
+    avoid: Upgrade the extension; restrict local logon to VMs that run it.
+  - id: CVE-2022-44699
+    cvss: 5.5
+    year: 2022
+    kev: false
+    scope: device
+    title: Azure Network Watcher Agent security feature bypass — a local user can tamper with the agent
+    affected: Azure Network Watcher VM extension 1.0.0.0 before 1.4.2412.1
+    fixed: 1.4.2412.1
+    detect: Not visible in flow logs. Extension version inventory; unexpected changes to agent configuration on the VM.
+    avoid: Upgrade the extension; limit local admin on VMs.
+  - id: CVE-2021-38647
+    cvss: 9.8
+    year: 2021
+    kev: true
+    scope: traffic
+    title: OMIGOD — unauthenticated root RCE in the OMI agent silently installed on Azure Linux VMs
+    affected: Open Management Infrastructure before 1.6.8-1 (installed by Log Analytics/OMS agent, Azure Diagnostics, Automation, SCOM)
+    fixed: OMI 1.6.8-1
+    detect: Inbound flows allowed to TCP 5985, 5986 or 1270 on Linux VMs from the internet or from unexpected subnets; followed by new outbound flows from the VM (miners, C2).
+    avoid: Update OMI; never allow 5985/5986/1270 inbound in NSGs; use Azure Policy to deny such rules.
+  - id: CVE-2019-0708
+    cvss: 9.8
+    year: 2019
+    kev: true
+    scope: traffic
+    title: BlueKeep — wormable pre-auth RDP RCE; still the classic reason to keep 3389 closed in NSGs
+    affected: Windows XP, Vista, 7, Server 2003, 2008 and 2008 R2 Remote Desktop Services
+    detect: Allowed inbound flows (state B/E, not D) to TCP 3389 from public addresses; a single source opening RDP to many VMs.
+    avoid: Patch; no inbound 3389 from the internet — use Azure Bastion or JIT VM access; enable NLA.
+detections:
+  - title: Management ports allowed from the internet
+    severity: high
+    signals:
+      - direction I, flow allowed (state B/C/E, or decision A)
+      - dest_port 22, 3389, 5985, 5986, 1270
+      - public source address
+    why: A denied scan is noise. An allowed flow means the NSG is open, which is how BlueKeep, OMIGOD and brute-force campaigns get in.
+    kql: |-
+      dataset="azure_flow" sourcetype in ("mscs:vnet:flow","azure_nsg_flowlog_json")
+      | where direction == "I" and not(flow_state == "D" or decision == "D") and dest_port in (22, 3389, 5985, 5986, 1270) and not(ipv4_is_private(src_ip))
+      | summarize flows=count(), sources=dcount(src_ip) by dest_ip, dest_port, bin(_time, 1h)
+    mitre:
+      - T1133
+      - T1021.001
+      - T1190
+  - title: Inbound scan against a VM
+    severity: low
+    signals:
+      - many denied flows (state D / decision D)
+      - one source, many destination ports
+    why: Internet-facing NICs are scanned constantly. Track it to spot a source that later gets an allowed flow.
+    kql: |-
+      dataset="azure_flow"
+      | where direction == "I" and (flow_state == "D" or decision == "D")
+      | summarize ports=dcount(dest_port), attempts=count() by src_ip, dest_ip, bin(_time, 15m)
+      | where ports > 50
+    mitre:
+      - T1046
+      - T1595.001
+  - title: Large outbound transfer from a VM
+    severity: high
+    signals:
+      - direction O
+      - bytes_src_to_dest summed per VM above baseline
+      - external destination
+    why: Data theft from cloud workloads leaves through the NIC. Summing E/C counters per destination shows volume that no app log records.
+    kql: |-
+      dataset="azure_flow"
+      | where direction == "O" and flow_state in ("C","E") and not(ipv4_is_private(dest_ip))
+      | summarize sent=sum(bytes_src_to_dest) by src_ip, dest_ip, bin(_time, 1h)
+      | where sent > 1073741824
+    mitre:
+      - T1048
+      - T1041
+  - title: Lateral movement over SMB/RDP/WinRM between subnets
+    severity: medium
+    signals:
+      - private source and destination
+      - dest_port 445, 3389, 5985, 135
+      - a source that does not normally do this
+    why: After one VM is compromised, attackers move east-west. Flow logs record it even with no firewall between subnets.
+    kql: |-
+      dataset="azure_flow"
+      | where ipv4_is_private(src_ip) and ipv4_is_private(dest_ip) and dest_port in (445, 3389, 5985, 135) and not(flow_state == "D" or decision == "D")
+      | summarize targets=dcount(dest_ip) by src_ip, dest_port, bin(_time, 1h)
+      | where targets > 10
+    mitre:
+      - T1021.002
+      - T1021.006
+  - title: Outbound to mining or C2 ports
+    severity: medium
+    signals:
+      - direction O, allowed
+      - dest_port 3333, 4444, 5555, 14444, 45700
+    why: Cryptominers dropped through exposed services connect out to stratum pools on well-known ports.
+    kql: |-
+      dataset="azure_flow"
+      | where direction == "O" and not(flow_state == "D" or decision == "D") and dest_port in (3333, 4444, 5555, 14444, 45700)
+      | summarize flows=count(), bytes=sum(bytes_src_to_dest) by src_ip, dest_ip, dest_port
+    mitre:
+      - T1496
+      - T1571
+optimizations:
+  - title: Unroll, then drop the envelope
+    saving: 40–70 %
+    fn: Unroll
+    how: Unroll records → flows → flowGroups/flows → flowTuples, parse each tuple with the CSV parser, keep only resourceId/targetResourceID, rule and mac from the envelope, and drop the rest. Without this each event repeats long resource IDs.
+    expr: "unroll: flowRecords.flows → flowGroups → flowTuples; parser: csv on flowTuple"
+  - title: Aggregate denied inbound noise
+    saving: 30–60 %
+    fn: Aggregations
+    how: Denied inbound flows from the internet are the largest and least useful records. Count them per source, destination and port per 5 minutes for the SIEM and keep raw in Lake.
+    expr: (flow_state == 'D' || decision == 'D') && direction == 'I'
+  - title: Drop empty Begin records
+    saving: 15–30 %
+    fn: Drop
+    how: B records with empty or zero counters are followed by C/E records for the same flow. Keep B only for denied or inbound-from-internet flows where the start matters.
+    expr: flow_state == 'B' && direction == 'O' && !bytes_src_to_dest
+  - title: Normalise NSG v2 and VNet tuples
+    saving: n/a (one schema)
+    fn: Eval
+    how: Map T/U to 6/17 and A/D to allowed/blocked so both formats share one model (CIM Network_Traffic, Sentinel ASim NetworkSession).
+    expr: "protocol = protocol == 'T' ? 6 : protocol == 'U' ? 17 : Number(protocol); action = (flow_state == 'D' || decision == 'D') ? 'blocked' : 'allowed'"
+references:
+  - title: Microsoft Learn — Virtual network flow logs overview
+    url: https://learn.microsoft.com/en-us/azure/network-watcher/vnet-flow-logs-overview
+  - title: Microsoft Learn — NSG flow logs overview (retirement, format)
+    url: https://learn.microsoft.com/en-us/azure/network-watcher/nsg-flow-logs-overview
+  - title: Splunk Add-on for Microsoft Cloud Services — release history (mscs:vnet:flow)
+    url: https://splunk.github.io/splunk-add-on-for-microsoft-cloud-services/ReleaseHistory/
+  - title: Splunk blog — Splunking Azure Network Watcher data (mscs:nsg:flow)
+    url: https://www.splunk.com/en_us/blog/tips-and-tricks/splunking-microsoft-azure-network-watcher-data.html
+  - title: NVD API — Azure Network Watcher CVEs (CVE-2022-44699, CVE-2023-36737, CVE-2024-38188)
+    url: https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=Azure%20Network%20Watcher
+  - title: NVD — CVE-2021-38647 (OMIGOD)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2021-38647
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - azure-activity
+  - entra-id
+  - aws-vpc-flow
+  - gcp-vpc
+  - netflow
+  - mde

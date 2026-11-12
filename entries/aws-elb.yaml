@@ -2,11 +2,337 @@
 id: aws-elb
 name: Elastic Load Balancing (ALB / NLB / CLB)
 short: AWS ELB
+aka:
+  - Application Load Balancer
+  - Network Load Balancer
+  - Classic Load Balancer
+  - ALB
+  - NLB
+  - ELB access logs
 vendor: Amazon Web Services
 category: netinfra
-status: stub
-summary: Access logs for Application, Network and Classic Load Balancers, written to S3.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - load-balancer
+  - http
+  - tls
+  - access-log
+  - space-delimited
+  - s3
+summary: AWS's managed load balancers. The Application Load Balancer (layer 7, HTTP/HTTPS/HTTP2/gRPC/WebSockets, with optional WAF and OIDC authentication), the Network Load Balancer (layer 4 TCP/UDP/TLS) and the legacy Classic Load Balancer write per-request (ALB, CLB) or per-TLS-connection (NLB) access logs to S3 every 5 minutes. For internet-facing applications they are often the only record of every request, client IP and status code.
 sourcetypes:
   - st: aws_alb_accesslog
+    desc: Pack Generator sourcetype for Application Load Balancer access logs (space-delimited, quoted fields)
   - st: aws_elb_accesslog
+    desc: Pack Generator sourcetype for Classic Load Balancer access logs
   - st: aws_nlb_accesslog
+    desc: Pack Generator sourcetype for Network Load Balancer TLS listener access logs
+  - st: aws:elb:accesslogs
+    desc: Splunk Add-on for AWS sourcetype for ELB (ALB / CLB / NLB) access logs from S3
+facts:
+  First released: Classic ELB 2009; ALB August 2016; NLB September 2017
+  Delivery model: Managed AWS service per VPC and Region (internet-facing or internal)
+  Listener types: ALB HTTP/HTTPS (HTTP/1.1, HTTP/2, gRPC, WebSockets); NLB TCP, UDP, TLS, TCP_UDP; CLB HTTP/HTTPS/TCP/SSL
+  Integrations: AWS WAF (ALB), ACM certificates, OIDC / Cognito authentication (ALB), Lambda targets
+  Log transport: Gzip log files to an S3 bucket every 5 minutes (CLB 5 or 60 min); collect with S3 + SQS
+  Log format: Space-delimited text with quoted request, user agent and other strings; fields appended over time
+  NLB coverage: Access logs only for TLS listeners — plain TCP/UDP flows are visible only in VPC Flow Logs
+  Typical volume: One line per HTTP request (~500 B – 1.5 KB); a busy ALB writes millions per hour
+  Cribl Pack: No dedicated Dispensary pack found — Cribl's access-log sampling recipe covers aws:elb:accesslogs
+placement:
+  slots:
+    - edge
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: edge
+      title: Internet-facing ALB
+      desc: Public entry point for web apps and APIs in a VPC, often behind CloudFront and with AWS WAF attached. client:port is the real client (or the CDN edge) — the main source for web attack detection.
+    - slot: dmz
+      title: NLB in front of appliances
+      desc: Network Load Balancers expose TLS/TCP services, VPN or firewall appliances (Gateway Load Balancer for inline inspection). Only TLS listeners log.
+    - slot: internal
+      title: Internal load balancers
+      desc: Service-to-service traffic between tiers or microservices; useful for lateral-movement and API-abuse baselines.
+    - slot: cloud
+      title: EKS / ECS ingress
+      desc: The AWS Load Balancer Controller creates ALBs/NLBs for Kubernetes Ingress and Service objects; target is a pod IP.
+howItWorks:
+  - title: Listeners and rules (ALB)
+    body: An HTTPS listener terminates TLS with an ACM certificate (SNI selects among several), then evaluates rules by priority on host, path, header, method, query or source IP. The matched rule's priority and actions (forward, redirect, fixed-response, authenticate-oidc, waf) are logged as matched_rule_priority and actions_executed.
+  - title: Target groups and health checks
+    body: Rules forward to target groups of instances, IPs, Lambda functions or other ALBs. Unhealthy targets are taken out of rotation; 502/503/504 from the ELB itself (elb_status_code with target_status_code -) indicate target or capacity problems.
+  - title: AWS WAF and authentication
+    body: With WAF attached, blocked requests are answered by the ALB (403 or a custom code) with actions_executed waf and target -. The authenticate-oidc/cognito action redirects unauthenticated users and logs error_reason codes such as AuthInvalidIdToken.
+  - title: Desync mitigation
+    body: ALB classifies each request against RFC 7230 (classification Acceptable / Ambiguous / Severe with a reason such as BothTeClPresent). In defensive mode Severe requests are blocked — a direct HTTP request-smuggling signal.
+  - title: NLB
+    body: NLB works at layer 4 with flow hashing and preserves the client IP. For TLS listeners it terminates TLS and logs one record per TLS connection (handshake time, cipher, SNI, ALPN, bytes); TCP and UDP listeners do not produce access logs.
+  - title: Log delivery
+    body: Each load balancer node writes a file every 5 minutes to s3://bucket/prefix/AWSLogs/<account>/elasticloadbalancing/<region>/yyyy/mm/dd/. Entries are best effort and may arrive out of order. New fields are appended at the end, so parsers must tolerate trailing fields.
+traffic:
+  handles:
+    - HTTP/1.1 and HTTP/2 (ALB, CLB)
+    - gRPC and WebSockets (ALB)
+    - TLS termination with SNI (ALB, NLB, CLB)
+    - TCP and UDP (NLB, no access logs)
+    - OIDC / Cognito authentication (ALB)
+    - AWS WAF inspection (ALB)
+    - Lambda and IP targets
+  flow:
+    - step: Client connect
+      desc: The client resolves the ELB name and connects to a node in an Availability Zone.
+    - step: TLS
+      desc: The listener terminates TLS; SNI chooses the certificate, the cipher and protocol are recorded.
+    - step: WAF / desync check
+      desc: ALB classifies the request and, if attached, AWS WAF allows, counts or blocks it.
+    - step: Rule match
+      desc: Listener rules select an action — forward, redirect, fixed response or authenticate.
+    - step: Target
+      desc: The request is sent to a healthy target; processing times and status codes are measured.
+    - step: Response + log
+      desc: The response returns to the client; one access-log line is buffered and written to S3 within 5 minutes.
+logs:
+  - type: ALB request
+    sourcetype: aws_alb_accesslog
+    format: text
+    share: 85–100 %
+    avg: ~900 B
+    desc: One line per HTTP request (per connection for WebSockets). Contains client and target addresses, timings, ELB and target status codes, the full request line, user agent, TLS details, rule priority, actions, error reason and desync classification.
+    pattern: '^(?<type>\S+) (?<time>\S+) (?<elb>\S+) (?<client_ip>\S+):(?<client_port>\d+) (?<target>\S+) (?<request_processing_time>\S+) (?<target_processing_time>\S+) (?<response_processing_time>\S+) (?<elb_status_code>\S+) (?<target_status_code>\S+) (?<received_bytes>\S+) (?<sent_bytes>\S+) "(?<request_method>\S+) (?<request_url>\S+) (?<request_protocol>[^"]*)" "(?<user_agent>[^"]*)" (?<ssl_cipher>\S+) (?<ssl_protocol>\S+) (?<target_group_arn>\S+) "(?<trace_id>[^"]*)" "(?<domain_name>[^"]*)" "(?<chosen_cert_arn>[^"]*)" (?<matched_rule_priority>\S+) (?<request_creation_time>\S+) "(?<actions_executed>[^"]*)" "(?<redirect_url>[^"]*)" "(?<error_reason>[^"]*)" "(?<target_port_list>[^"]*)" "(?<target_status_code_list>[^"]*)" "(?<classification>[^"]*)" "(?<classification_reason>[^"]*)" (?<conn_trace_id>\S+)(?<trailing>.*)$'
+    key:
+      - client_ip
+      - request_method
+      - request_url
+      - elb_status_code
+      - target_status_code
+      - user_agent
+      - actions_executed
+      - classification
+    noise:
+      - trace_id
+      - chosen_cert_arn
+      - target_group_arn
+      - request_creation_time
+      - target_port_list
+      - target_status_code_list
+      - conn_trace_id
+      - trailing
+    sample: 'h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/api/orders?id=42 HTTP/2.0" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -'
+  - type: ALB WAF block / exploit attempt
+    sourcetype: aws_alb_accesslog
+    format: text
+    share: 0.1–5 %
+    avg: ~800 B
+    desc: Requests answered by the ALB itself — WAF blocks (actions_executed waf, target -), redirects to the IdP, fixed responses and 4xx/5xx generated at the load balancer. Exploit payloads in request_url show up here.
+    pattern: '^(?<type>\S+) (?<time>\S+) (?<elb>\S+) (?<client_ip>\S+):(?<client_port>\d+) (?<target>\S+) (?<request_processing_time>\S+) (?<target_processing_time>\S+) (?<response_processing_time>\S+) (?<elb_status_code>\S+) (?<target_status_code>\S+) (?<received_bytes>\S+) (?<sent_bytes>\S+) "(?<request_method>\S+) (?<request_url>\S+) (?<request_protocol>[^"]*)" "(?<user_agent>[^"]*)" (?<ssl_cipher>\S+) (?<ssl_protocol>\S+) (?<target_group_arn>\S+) "(?<trace_id>[^"]*)" "(?<domain_name>[^"]*)" "(?<chosen_cert_arn>[^"]*)" (?<matched_rule_priority>\S+) (?<request_creation_time>\S+) "(?<actions_executed>[^"]*)" "(?<redirect_url>[^"]*)" "(?<error_reason>[^"]*)" "(?<target_port_list>[^"]*)" "(?<target_status_code_list>[^"]*)" "(?<classification>[^"]*)" "(?<classification_reason>[^"]*)" (?<conn_trace_id>\S+)(?<trailing>.*)$'
+    key:
+      - client_ip
+      - request_url
+      - elb_status_code
+      - target
+      - actions_executed
+      - user_agent
+      - classification_reason
+    noise:
+      - trace_id
+      - chosen_cert_arn
+      - target_group_arn
+      - conn_trace_id
+      - trailing
+    sample: 'https 2026-11-12T02:41:09.004211Z app/web-alb/50dc6c495c0c9188 198.51.100.77:40122 - -1 -1 -1 403 - 488 288 "POST https://www.example.com:443/index.php?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input HTTP/1.1" "Mozilla/5.0 zgrab/0.x" TLS_AES_128_GCM_SHA256 TLSv1.3 - "Root=1-67330f45-89abcdef0123456789abcdef" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 0 2026-11-12T02:41:09.001000Z "waf" "-" "-" "-" "-" "-" "-" TID_fedcba9876543210fedcba9876543210 "-" "-" "-" 10.0.2.21 - -'
+  - type: NLB TLS connection
+    sourcetype: aws_nlb_accesslog
+    format: text
+    share: 100 % of NLB TLS logs
+    avg: ~450 B
+    desc: One record per TLS connection on a TLS listener — client and destination, connection and handshake time, bytes, certificate, cipher, protocol, SNI and ALPN. No HTTP detail.
+    pattern: '^(?<type>\S+) (?<version>\S+) (?<time>\S+) (?<elb>\S+) (?<listener>\S+) (?<client_ip>\S+):(?<client_port>\d+) (?<destination_ip>\S+):(?<destination_port>\d+) (?<connection_time>\S+) (?<tls_handshake_time>\S+) (?<received_bytes>\S+) (?<sent_bytes>\S+) (?<incoming_tls_alert>\S+) (?<chosen_cert_arn>\S+) (?<chosen_cert_serial>\S+) (?<tls_cipher>\S+) (?<tls_protocol_version>\S+) (?<tls_named_group>\S+) (?<domain_name>\S+) (?<alpn_fe_protocol>\S+) (?<alpn_be_protocol>\S+) (?<alpn_client_preference_list>\S+) (?<tls_connection_creation_time>\S+)$'
+    key:
+      - client_ip
+      - destination_ip
+      - destination_port
+      - tls_protocol_version
+      - domain_name
+      - received_bytes
+      - sent_bytes
+      - incoming_tls_alert
+    noise:
+      - version
+      - chosen_cert_arn
+      - chosen_cert_serial
+      - tls_named_group
+      - alpn_client_preference_list
+    sample: 'tls 2.0 2026-11-12T09:20:11 net/api-nlb/c6e77e28c25b2234 g3d4b5e8bb8464cd 203.0.113.80:41320 10.20.30.50:443 5012 3 1820 44872 - arn:aws:acm:eu-west-1:111122223333:certificate/2a108f19-aded-46b0-8493-c63eb1ef4a99 - ECDHE-RSA-AES128-GCM-SHA256 tlsv12 - api.example.com h2 h2 "h2","http/1.1" 2026-11-12T09:20:06'
+  - type: Classic ELB request
+    sourcetype: aws_elb_accesslog
+    format: text
+    share: legacy
+    avg: ~350 B
+    desc: The older, shorter CLB format — time, name, client, backend, three timings, ELB and backend status, bytes, request line, user agent, cipher and protocol.
+    pattern: '^(?<time>\S+) (?<elb>\S+) (?<client_ip>\S+):(?<client_port>\d+) (?<backend>\S+) (?<request_processing_time>\S+) (?<backend_processing_time>\S+) (?<response_processing_time>\S+) (?<elb_status_code>\S+) (?<backend_status_code>\S+) (?<received_bytes>\S+) (?<sent_bytes>\S+) "(?<request>[^"]*)" "(?<user_agent>[^"]*)" (?<ssl_cipher>\S+) (?<ssl_protocol>\S+)\s*$'
+    key:
+      - client_ip
+      - request
+      - elb_status_code
+      - backend_status_code
+      - user_agent
+      - ssl_protocol
+    noise:
+      - request_processing_time
+      - response_processing_time
+    sample: '2026-11-12T09:05:43.945958Z legacy-web-elb 203.0.113.60:2817 10.0.0.12:80 0.000073 0.001048 0.000057 200 200 0 2911 "GET https://shop.example.com:443/cart HTTP/1.1" "curl/8.5.0" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2'
+cves:
+  - id: CVE-2023-44487
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: HTTP/2 "Rapid Reset" DoS — AWS mitigated it in ALB, but the HTTP/2 traffic it carries is the attack vector for targets behind NLB/TCP
+    affected: HTTP/2 servers; AWS states ALB/CloudFront were protected, NLB TCP listeners pass HTTP/2 through to targets
+    fixed: AWS-side mitigations for ALB (bulletin AWS-2023-011); patch HTTP/2 servers behind NLB
+    detect: Bursts of type=h2 lines from one client_ip with elb_status_code 000 or 400, near-zero sent_bytes and target_error_code / elb_error_code populated; for NLB TLS, many short connections with tiny received_bytes per client.
+    avoid: Prefer ALB (or CloudFront + WAF rate-based rules) in front of HTTP/2 services; patch target web servers.
+  - id: CVE-2024-4577
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: PHP-CGI argument injection on Windows (soft-hyphen best-fit bypass) — exploit requests are recorded in ALB logs
+    affected: PHP 8.1 before 8.1.29, 8.2 before 8.2.20, 8.3 before 8.3.8 with PHP-CGI on Windows (certain code pages)
+    fixed: 8.1.29, 8.2.20, 8.3.8
+    detect: request_url containing %AD (or %ad) followed by d+allow_url_include / auto_prepend_file, usually POST to a .php path or /php-cgi/php-cgi.exe.
+    avoid: Patch PHP or stop using PHP-CGI; AWS WAF managed rule PHP application rule set; block %AD in query strings.
+  - id: CVE-2022-26134
+    cvss: 9.8
+    year: 2022
+    kev: true
+    scope: traffic
+    title: Confluence OGNL injection — exploited through the load balancers that publish Confluence
+    affected: Confluence Server and Data Center before the June 2022 fixes
+    fixed: 7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1
+    detect: "request_url paths containing ${ or %24%7B (OGNL expressions such as ${@java.lang.Runtime@getRuntime()...}) to the Confluence host, often with 302 responses from the target."
+    avoid: Patch; do not publish Confluence without WAF; Known Bad Inputs managed rule group.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI payloads in the user agent and URL of requests through the ALB
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1) in Java targets
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: "user_agent or request_url containing ${jndi:, ${${ or URL-encoded %24%7Bjndi; correlate with VPC Flow Logs for outbound LDAP/RMI from the target IP."
+    avoid: Patch targets; AWS WAF Log4JRCE rule; egress filtering from target subnets.
+detections:
+  - title: Exploit payloads in request URL or user agent
+    severity: high
+    signals:
+      - request_url contains ${ / %24%7B / %AD / ../
+      - user_agent contains ${jndi
+    why: Known-exploit patterns against apps behind the ALB; a 2xx/3xx from the target (not a WAF 403) means the payload reached the application.
+    kql: |-
+      dataset="aws_elb" type in ("http","https","h2")
+      | where request_url has_any ("${","%24%7B","%ADd","%adD","../","%2e%2e%2f") or user_agent has "${jndi"
+      | summarize hits=count(), reached=countif(target != "-" and target_status_code startswith "2") by client_ip, domain_name, elb_status_code
+    mitre:
+      - T1190
+  - title: Directory brute force / vulnerability scanning
+    severity: medium
+    signals:
+      - many 404 from target per client_ip
+      - many distinct request_url
+    why: Wordlist and vulnerability scanners produce hundreds of distinct paths with mostly 404s from one client in minutes.
+    kql: |-
+      dataset="aws_elb" target_status_code="404"
+      | summarize notfound=count(), paths=dcount(request_url) by client_ip, user_agent, bin(_time, 5m)
+      | where notfound > 200 and paths > 100
+    mitre:
+      - T1595.003
+      - T1595.002
+  - title: HTTP request smuggling attempt (desync)
+    severity: high
+    signals:
+      - classification=Severe or Ambiguous
+      - classification_reason e.g. BothTeClPresent, SuspiciousTeClPresent
+    why: Malformed Transfer-Encoding / Content-Length combinations are how request smuggling and cache poisoning start; legitimate clients almost never send them.
+    kql: |-
+      dataset="aws_elb" classification in ("Severe","Ambiguous")
+      | summarize count() by client_ip, classification, classification_reason, domain_name
+    mitre:
+      - T1190
+  - title: Credential stuffing against a login endpoint
+    severity: high
+    signals:
+      - request_method=POST
+      - request_url contains /login or /oauth/token
+      - many 401/403 per client_ip or per path
+    why: Automated login attempts with breached credentials hit one endpoint at high rate from rotating IPs with similar user agents.
+    kql: |-
+      dataset="aws_elb" request_method="POST"
+      | where request_url has_any ("/login","/signin","/oauth/token","/api/auth")
+      | summarize attempts=count(), fails=countif(target_status_code in ("401","403")), ips=dcount(client_ip) by domain_name, user_agent, bin(_time, 10m)
+      | where fails > 100
+    mitre:
+      - T1110.004
+  - title: Repeated OIDC authentication failures
+    severity: medium
+    signals:
+      - actions_executed contains authenticate
+      - error_reason starts with Auth (AuthInvalidIdToken, AuthInvalidCookie …)
+    why: Forged or replayed session cookies and ID tokens against ALB authentication show up as error_reason codes, not as target responses.
+    kql: |-
+      dataset="aws_elb" actions_executed has "authenticate"
+      | where error_reason startswith "Auth"
+      | summarize count() by client_ip, error_reason, domain_name, bin(_time, 15m)
+    mitre:
+      - T1550.004
+optimizations:
+  - title: Sample successful static and health-check requests
+    saving: 30–70 %
+    fn: Sampling
+    how: 200/304 responses for static assets and load-balancer health probes make up most lines. Sample 10:1; keep every 4xx/5xx, WAF action, authenticate error and desync classification.
+    expr: (elb_status_code=='200' || elb_status_code=='304') && /\.(css|js|png|jpg|svg|woff2?|ico)(\?|$)|\/health/.test(request_url) && classification=='-'
+  - title: Aggregate allowed requests to metrics
+    saving: 50–80 %
+    fn: Aggregations
+    how: Roll 2xx/3xx up to count, bytes and p95 target_processing_time per domain, path template, status and client /24 per minute; raw logs go to Lake for investigations.
+    expr: /^[23]/.test(elb_status_code) && actions_executed=='forward'
+  - title: Drop ARNs, trace IDs and - placeholders
+    saving: 30–45 %
+    fn: Parser → Serialize
+    how: target_group_arn, chosen_cert_arn, trace_id, conn_trace_id and repeated list fields are long and rarely searched. Parse with the regex, drop them and every field equal to -.
+    expr: "remove: target_group_arn, chosen_cert_arn, trace_id, conn_trace_id, target_port_list, target_status_code_list, request_creation_time; drop value=='-'"
+  - title: Route by outcome
+    saving: SIEM licence
+    fn: Routes
+    how: WAF blocks, 4xx/5xx from the ELB, desync classifications and authentication errors to the SIEM; everything else to Lake.
+    expr: actions_executed.includes('waf') || /^[45]/.test(elb_status_code) || classification!='-' || error_reason!='-' → SIEM | else → Lake
+references:
+  - title: Access logs for your Application Load Balancer
+    url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html
+  - title: Access logs for your Network Load Balancer
+    url: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html
+  - title: Access logs for your Classic Load Balancer
+    url: https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html
+  - title: AWS security bulletin AWS-2023-011 (CVE-2023-44487 HTTP/2 Rapid Reset)
+    url: https://aws.amazon.com/security/security-bulletins/AWS-2023-011/
+  - title: PHP advisory GHSA-3qgc-jrrr-25jv (CVE-2024-4577)
+    url: https://github.com/php/php-src/security/advisories/GHSA-3qgc-jrrr-25jv
+  - title: Confluence security advisory 2022-06-02 (CVE-2022-26134)
+    url: https://confluence.atlassian.com/doc/confluence-security-advisory-2022-06-02-1130377146.html
+  - title: Cribl recipe for sampling access logs (Apache, ELB, CDN, S3)
+    url: https://docs.cribl.io/stream/usecase-access-logs/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-waf
+  - aws-cloudfront
+  - aws-vpc-flow
+  - aws-s3-access
+  - nginx
+  - f5-awaf

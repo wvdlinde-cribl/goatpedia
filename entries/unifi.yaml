@@ -2,9 +2,303 @@
 id: unifi
 name: Ubiquiti UniFi
 short: UniFi
+aka:
+  - UniFi Network
+  - UniFi OS
+  - UniFi Dream Machine (UDM)
+  - UniFi Cloud Gateway (UCG)
+  - UniFi Network Application (controller)
 vendor: Ubiquiti
 category: netinfra
-status: stub
-summary: UniFi gateways, switches and access points; stahtd station health and client connection events.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - wifi
+  - wireless
+  - gateway
+  - syslog
+  - cef
+  - stahtd
+  - smb
+summary: Ubiquiti's managed networking line — gateways, switches and Wi-Fi access points run from one UniFi Network controller on a UniFi OS console or a self-hosted server. Devices emit BSD syslog (including the stahtd station-tracker JSON that records every client association), and UniFi Network 9.x exports its activity log to SIEMs as CEF. Common in branch offices and SMB, and a frequent target because consoles are often internet-reachable.
 sourcetypes:
   - st: unifi_stahtd
+    desc: Access-point syslog from the station-tracking daemon — STA_ASSOC_TRACKER JSON per client association, failure, fixup or DNS timeout
+  - st: unifi
+    desc: Generic UniFi syslog (AP, switch and gateway daemons such as mcad, hostapd, kernel) plus the UniFi Network CEF activity-log export
+facts:
+  First released: 2011 (UniFi APs and controller); UniFi OS consoles from 2019
+  OS: UniFi OS (consoles, gateways), Linux-based device firmware on APs/switches
+  Form factors: Consoles/gateways (UDM, UCG, EFG, Cloud Key), APs, switches, self-hosted UniFi Network Application / UniFi OS Server
+  Deployment modes: Console-hosted controller, self-hosted controller (Linux/Windows/Docker), remote management via unifi.ui.com
+  Log transport: Remote syslog UDP/TCP from devices; CEF activity-log export (UniFi Network 9.0+, Control Plane / CyberSecure → Activity Logging); NetFlow/IPFIX from gateways
+  Log format: RFC 3164 syslog with free-text and embedded JSON (stahtd); CEF:0|Ubiquiti|UniFi Network for the activity log
+  Typical EPS: 1–20 per AP (stahtd, mcad); gateways 10–500 with firewall logging
+placement:
+  slots:
+    - edge
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: edge
+      title: Site gateway
+      desc: A UniFi console (UDM / UCG) is the router, firewall, IPS and VPN head-end at small sites. Its admin UI and VPN are often reachable from the internet.
+    - slot: internal
+      title: Wi-Fi and switching
+      desc: Access points and switches across the office. APs log every client association attempt through stahtd — the main per-user wireless audit trail.
+    - slot: remote
+      title: Branch / teleworker sites
+      desc: Many small sites managed from one controller; Site Magic SD-WAN and Teleport/WireGuard VPN connect them back.
+    - slot: cloud
+      title: Cloud management
+      desc: Consoles register with unifi.ui.com for remote access; self-hosted controllers often run on a cloud VM (port 8443 UI, 8080 inform).
+howItWorks:
+  - title: Controller and inform
+    body: Devices are adopted by the UniFi Network application and report state to it over the inform protocol (HTTP, TCP 8080). The controller pushes config and holds the system log; it is a Java application on a UniFi OS console or a self-hosted server.
+  - title: Station tracking (stahtd)
+    body: On each AP the stahtd daemon follows every client through auth, association, WPA handshake, DHCP and first DNS. It writes one STA_ASSOC_TRACKER JSON object per milestone with mac, vap (radio/SSID interface), event_type (failure, soft failure, fixup, dns timeout), assoc_status code and timing deltas.
+  - title: Wireless experience (mcad)
+    body: mcad aggregates radio statistics and logs per-station anomalies (tcp_latency, dns_timeout, high retries) with a satisfaction score. It is also the inform client, so controller reachability errors appear here.
+  - title: Gateway security
+    body: UniFi gateways run zone-based firewalling, IPS/IDS (Suricata-based), content and ad filtering, honeypot and VPN (WireGuard, OpenVPN, IPsec). Rule matches are logged only when a rule's syslog toggle is on.
+  - title: Activity log and CEF export
+    body: UniFi Network 9.x keeps a structured activity log in categories Monitoring, Internet, Power, Security and System, and can export it to a SIEM in CEF with Ubiquiti-specific UNIFI* extension keys (UNIFIadmin, UNIFIclientMac, UNIFIhost…). Per-connection traffic is not in the export; use NetFlow for that.
+traffic:
+  handles:
+    - 802.11 Wi-Fi (WPA2/WPA3, 802.1X/RADIUS, PSK)
+    - Ethernet switching, VLANs, PoE
+    - L3 routing, NAT and zone firewall
+    - IPS/IDS on routed traffic
+    - Site-to-site and remote-access VPN (WireGuard, OpenVPN, IPsec)
+    - Inform/management (TCP 8080, HTTPS 8443/443)
+  flow:
+    - step: Probe / auth
+      desc: Client probes and authenticates to an SSID on an AP radio (vap).
+    - step: Associate
+      desc: 802.11 association and WPA handshake; stahtd logs failure or soft failure if it breaks.
+    - step: IP + DNS
+      desc: DHCP lease and first DNS answer; stahtd logs a fixup (dns_resp_seen, arp_reply_gw_seen) or a dns timeout.
+    - step: Gateway policy
+      desc: Routed traffic hits the gateway firewall and IPS; matches logged if syslog is enabled on the rule.
+    - step: Controller event
+      desc: The controller records client connect/disconnect, admin and config activity in the activity log.
+    - step: Export
+      desc: Device syslog to the remote server; activity log as CEF to the SIEM.
+logs:
+  - type: Station tracker (stahtd)
+    sourcetype: unifi_stahtd
+    format: text
+    share: 30–60 %
+    avg: ~330 B
+    desc: AP syslog line from stahtd with an embedded STA_ASSOC_TRACKER JSON object. The syslog host is the AP name; the tag carries the AP MAC and model/firmware. JSON key order is not fixed, so production parsers should extract the {...} and parse it as JSON.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<ap_mac>[0-9a-f]{12}),(?<ap_model_fw>[^:]+): stahtd: stahtd\[(?<pid>\d+)\]: \[STA-TRACKER\]\.stahtd_dump_event\(\): \{"message_type":"(?<message_type>[^"]+)","mac":"(?<mac>[^"]+)","vap":"(?<vap>[^"]+)","event_type":"(?<event_type>[^"]+)","assoc_status":"(?<assoc_status>\d+)","event_id":"(?<event_id>\d+)","auth_ts":"(?<auth_ts>[^"]+)"\}(?<trailer>.*)$'
+    key:
+      - host
+      - mac
+      - vap
+      - event_type
+      - assoc_status
+      - message_type
+    noise:
+      - pri
+      - pid
+      - auth_ts
+      - event_id
+      - trailer
+    sample: '<30>Nov 12 09:14:00 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: stahtd: stahtd[2385]: [STA-TRACKER].stahtd_dump_event(): {"message_type":"STA_ASSOC_TRACKER","mac":"02:5a:3b:7c:11:9e","vap":"ra0","event_type":"failure","assoc_status":"32","event_id":"1","auth_ts":"11337.56785"} - n2p, flags: 0x20'
+  - type: Activity log (CEF export)
+    sourcetype: unifi
+    format: cef
+    share: 5–20 %
+    avg: ~400 B
+    desc: UniFi Network 9.x activity-log export. Header carries the event class id and name (e.g. 544 Admin Accessed UniFi Network); UNIFIcategory / UNIFIsubCategory classify it; admin, client and device details sit in UNIFI* extension keys.
+    key:
+      - signature_id
+      - name
+      - UNIFIcategory
+      - UNIFIsubCategory
+      - UNIFIadmin
+      - UNIFIaccessMethod
+      - src
+    noise:
+      - cef_version
+      - device_version
+      - msg
+    sample: 'CEF:0|Ubiquiti|UniFi Network|9.3.33|544|Admin Accessed UniFi Network|1|UNIFIcategory=System UNIFIsubCategory=Admin UNIFIhost=HQ UDM Pro UNIFIaccessMethod=web UNIFIadmin=jdoe src=198.51.100.23 msg=jdoe accessed UniFi Network using the web. Source IP: 198.51.100.23'
+  - type: Wireless anomalies (mcad)
+    sourcetype: unifi
+    format: kv
+    share: 10–30 %
+    avg: ~230 B
+    desc: mcad per-station experience record with BSSID, radio, vap, station MAC, satisfaction score and the detected anomaly. Operational rather than security, but useful to explain sudden failure spikes.
+    key:
+      - bssid
+      - vap
+      - sta
+      - satisfaction_now
+      - anomalies
+    noise:
+      - radio
+    sample: '<30>Nov 12 09:14:34 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: mcad: mcad[2777]: wireless_agg_stats.log_sta_anomalies(): bssid=24:5a:4c:1b:2c:3e radio=ra0 vap=ra2 sta=02:5a:3b:7c:11:9e satisfaction_now=60 anomalies=dns_timeout'
+cves:
+  - id: CVE-2026-34908
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: UniFi OS improper access control — unauthenticated system changes
+    affected: UniFi OS on UDM / UDM-Pro / UDM-SE / UDM-Pro-Max / EFG / UDR / UCG and others ≤ 5.0.16, UCK/UCKP ≤ 5.0.17, UniFi OS Server ≤ 5.0.6, UDM-Beast/UNAS ≤ 5.1.8
+    fixed: UniFi OS 5.1.12 (most consoles), UniFi OS Server 5.0.8, UNAS 5.1.10, UDM-Beast 5.1.11
+    detect: Admin or config-change activity-log events with no matching admin login; new admins; UniFi OS settings changed outside change windows; outbound connections from the console itself.
+    avoid: Patch; never expose the console UI to the internet (use UniFi remote access instead); restrict management to an admin VLAN.
+  - id: CVE-2026-34909
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: UniFi OS path traversal to underlying account takeover
+    affected: Same UniFi OS consoles as CVE-2026-34908, plus UniFi Express ≤ 4.0.13
+    fixed: UniFi OS 5.1.12 (most consoles), UniFi OS Server 5.0.8, UNAS 5.1.10, UDM-Beast 5.1.11, Express 4.0.14
+    detect: Web requests with ../ sequences to the console (proxy/WAF/firewall logs in front of it); unexpected admin access events following them.
+    avoid: Patch; block internet access to the console management ports.
+  - id: CVE-2026-34910
+    cvss: 10
+    year: 2026
+    kev: true
+    scope: device
+    title: UniFi OS command injection (exploited to build Mirai-style botnets)
+    affected: Same UniFi OS consoles and versions as CVE-2026-34908
+    fixed: UniFi OS 5.1.12 (most consoles), UniFi OS Server 5.0.8, UNAS 5.1.10, UDM-Beast 5.1.11
+    detect: Console-originated outbound traffic to unknown hosts (NetFlow/firewall), new processes or high CPU, admin access from unknown public src in the activity log.
+    avoid: Patch; isolate management; monitor egress from the console's own IP.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: device
+    title: Log4Shell in the UniFi Network Application (Ubiquiti tracks it as CVE-2021-44530)
+    affected: UniFi Network Application 6.5.53 and earlier
+    fixed: 6.5.54
+    detect: Requests to the controller (8443/8080) containing ${jndi:; outbound LDAP/RMI from the controller host; new admin accounts on the controller.
+    avoid: Upgrade; keep self-hosted controllers off the internet; block controller egress except to Ubiquiti update hosts.
+  - id: CVE-2023-52424
+    cvss: 7.4
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Wi-Fi "SSID Confusion" — IEEE 802.11 design flaw lets a client be tricked onto a different network
+    affected: 802.11 networks where several SSIDs share credentials (WPA3-SAE, 802.1X/EAP, mesh) — standard-level, not UniFi-specific
+    detect: The same client MAC associating to an unexpected vap/SSID, or to BSSIDs not in the AP inventory (rogue AP detection), around the same time as failures on its usual SSID.
+    avoid: Use distinct credentials per SSID; enable beacon protection where supported; enable rogue-AP detection.
+detections:
+  - title: Wi-Fi association failure storm (PSK guessing / deauth)
+    severity: medium
+    signals:
+      - message_type=STA_ASSOC_TRACKER
+      - event_type=failure
+      - many failures per AP or per vap in minutes
+    why: Repeated handshake failures from many (often randomised) MACs against one SSID point to PSK brute force or a deauth attack forcing reconnects.
+    kql: |-
+      dataset="unifi" message_type="STA_ASSOC_TRACKER" event_type="failure"
+      | summarize fails=count(), macs=dcount(mac) by host, vap, bin(_time, 5m)
+      | where fails > 50 or macs > 20
+    mitre:
+      - T1110
+  - title: Console admin access from a public IP
+    severity: high
+    signals:
+      - signature_id=544 (Admin Accessed UniFi Network)
+      - src not RFC 1918
+      - UNIFIaccessMethod=web
+    why: Direct web access from the internet means the console UI is exposed — the precondition for CVE-2026-34908/34909/34910 exploitation.
+    kql: |-
+      dataset="unifi" name="Admin Accessed UniFi Network"
+      | where not(ipv4_is_private(src))
+      | summarize logins=count(), first=min(_time) by UNIFIadmin, src, UNIFIaccessMethod, UNIFIhost
+    mitre:
+      - T1078
+      - T1133
+  - title: Config change without a matching admin login
+    severity: high
+    signals:
+      - name=Admin Made Config Changes
+      - no Admin Accessed event for the same admin in the prior hour
+    why: Changes that appear without a session are a sign of an auth bypass or a stolen API token being used to open firewall rules or port forwards.
+    kql: |-
+      dataset="unifi" UNIFIcategory="System" UNIFIsubCategory="Admin"
+      | summarize logins=countif(name=="Admin Accessed UniFi Network"), changes=countif(name=="Admin Made Config Changes") by UNIFIadmin, bin(_time, 1h)
+      | where changes > 0 and logins == 0
+    mitre:
+      - T1562.004
+      - T1098
+  - title: Honeypot triggered
+    severity: high
+    signals:
+      - UNIFIcategory=Security
+      - name=Honeypot Triggered
+    why: The UniFi honeypot answers on an unused IP in each network; anything touching it is scanning the LAN.
+    kql: |-
+      dataset="unifi" UNIFIcategory="Security" name="Honeypot Triggered"
+      | summarize hits=count() by src, UNIFIhost
+    mitre:
+      - T1046
+  - title: Client MAC hopping across many APs
+    severity: low
+    signals:
+      - same mac on many hosts (APs) in a short window
+      - mixed failure/fixup events
+    why: A MAC seen on APs in different buildings within minutes is either a cloned MAC or an evil-twin/relay setup; legit roaming is between neighbouring APs.
+    kql: |-
+      dataset="unifi" message_type="STA_ASSOC_TRACKER"
+      | summarize aps=dcount(host), events=count() by mac, bin(_time, 10m)
+      | where aps > 5
+    mitre:
+      - T1557
+optimizations:
+  - title: Drop successful fixup records
+    saving: 30–50 % of stahtd
+    fn: Drop
+    how: event_type=fixup with dns_resp_seen=yes means the client joined fine. Keep failures, soft failures and DNS timeouts; the controller's Client Connected event already records the success.
+    expr: /STA_ASSOC_TRACKER/.test(_raw) && /"event_type":"fixup"/.test(_raw) && /"dns_resp_seen":"yes"/.test(_raw)
+  - title: Parse the embedded JSON and drop the wrapper
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Extract the {...} after stahtd_dump_event(), parse it as JSON, drop the repeated tag (AP MAC, model+firmware string) and timing deltas you don't use, then forward as a compact JSON event.
+    expr: "regex: /stahtd_dump_event\\(\\):\\s*(?<j>\\{[^}]+\\})/ → JSON parse j; remove: auth_ts, event_id, ap_model_fw"
+  - title: Aggregate mcad anomalies
+    saving: 60–90 % of mcad
+    fn: Aggregations
+    how: mcad logs the same anomaly per station every few seconds. Roll up to count and min satisfaction per AP/anomaly per 5 minutes.
+    expr: /log_sta_anomalies/.test(_raw)
+  - title: Drop inform and debug chatter
+    saving: 10–20 %
+    fn: Drop
+    how: mcad inform retries, blebrd websocket noise and kernel radio debug lines have no security value; keep them only in Lake.
+    expr: /ace_reporter|blebrd|check_multi_info/.test(_raw)
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: CEF Security and System/Admin categories and stahtd failures → SIEM. Monitoring/Power CEF events and mcad anomalies → Lake or a metrics store.
+    expr: "UNIFIcategory in ('Security','System') || event_type=='failure' → SIEM  |  else → Lake"
+references:
+  - title: UniFi System Logs & SIEM Integration (CEF format and keys)
+    url: https://help.ui.com/hc/en-us/articles/33349041044119-UniFi-System-Logs-SIEM-Integration
+  - title: Ubiquiti Security Advisory Bulletin 064 (CVE-2026-34908/34909/34910)
+    url: https://community.ui.com/releases/Security-Advisory-Bulletin-064-064/84811c09-4cf4-42ab-bd61-cc994445963b
+  - title: Ubiquiti Security Advisory Bulletin 023 (Log4j in UniFi Network)
+    url: https://community.ui.com/releases/Security-Advisory-Bulletin-023-023/808a1db0-5f8e-4b91-9097-9822f3f90207
+  - title: Ubiquiti Community — Deciphering STA_ASSOC_TRACKER messages
+    url: https://community.ui.com/questions/Deciphering-STAASSOCTRACKER-messages/e0dccfe4-1f50-4904-a202-cf09f1706542
+  - title: Security Onion — UniFi (iptables and CEF logs)
+    url: https://docs.securityonion.net/en/3/main/unifi/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-meraki
+  - pfsense
+  - fortigate
+  - sonicwall
+  - netflow

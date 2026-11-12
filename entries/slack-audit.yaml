@@ -2,9 +2,319 @@
 id: slack-audit
 name: Slack Audit Logs
 short: Slack
+aka:
+  - Slack Enterprise Grid
+  - Slack Enterprise Audit Logs API
+  - Slack anomaly events
 vendor: Salesforce (Slack)
 category: saas
-status: stub
-summary: 'Enterprise Grid Audit Logs API: user, workspace, channel, file and app actions.'
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - collaboration
+  - chat
+  - audit
+  - oauth
+  - apps
+  - json
+  - rest-api
+summary: Organisation-wide audit trail of an Enterprise Slack org, pulled as JSON from the Audit Logs API (api.slack.com/audit/v1/logs). Every record is actor → action → entity → context (IP, user agent, session, app) — logins, file downloads and public links, channel and role changes, app installs and scope grants, MCP and AI tool calls, plus Slack's own anomaly detections. It does not contain message content.
 sourcetypes:
   - st: slack_audit
+    desc: Slack Audit Logs API events (one JSON object per entry from GET /audit/v1/logs)
+facts:
+  First released: Audit Logs API 2018 (Enterprise Grid); anomaly events 2022
+  Delivery model: Multi-tenant SaaS (Slack Enterprise plan only)
+  Log transport: REST API pull — GET https://api.slack.com/audit/v1/logs, cursor pagination, ≤ 9,999 entries per call
+  Authentication: User token (xoxp-) with auditlogs:read, installed on the Enterprise org by an Org Owner
+  Log format: JSON — actor, action, entity, context, details
+  Data available: Back to March 2018; filter by oldest/latest, action (≤ 30), actor, entity
+  Typical volume: 1k – 1M events/day; user_login, file_downloaded and channel joins dominate
+  Cribl Pack: Slack Audit Rest Collector (cc-stream-slack-audit-rest-io, Packs Dispensary)
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Slack Enterprise org
+      desc: The audit log lives in Slack's cloud at the org level (all workspaces). A collector polls the API every few minutes with an Org Owner's xoxp token; nothing is pushed.
+    - slot: cloud
+      title: Apps, bots and AI agents
+      desc: Slack apps, Workflow Builder functions, MCP clients and third-party AI agents hold bot/user tokens. Their actions appear with a context.app block — the place to see a stolen or over-scoped token at work.
+    - slot: remote
+      title: Users anywhere
+      desc: Desktop, mobile and browser clients sign in from home, travel and partner networks (Slack Connect). context.ip_address and ua per event show where an action really came from.
+    - slot: endpoint
+      title: Desktop client
+      desc: The Electron desktop app stores session tokens (xoxc/xoxd cookies) on disk — infostealers lift them and replay the session, which shows up as an IP / user-agent change on the same session rather than a new login.
+howItWorks:
+  - title: Actor, action, entity, context
+    body: Every entry has an action string (user_login, file_downloaded, app_installed…), the actor (user ID, name, email; USLACKSECURITY when Slack's security team acted), the entity acted upon (user, channel, file, app, workspace, enterprise, canvas, huddle…) with its own typed object, and context (location = workspace or enterprise, ua, ip_address, session_id, app). Optional details carry previous/new values.
+  - title: Org-scoped collection
+    body: The token must come from installing the app on the Enterprise org, not a workspace. The API is read-only; GET /schemas and GET /actions describe the current object and action catalogue (which keeps growing — new actions appear before they are documented).
+  - title: Anomaly events
+    body: Slack runs its own detections and emits action=anomaly with details.reason codes such as tor, asn, ip_address, user_agent, unexpected_client, excessive_downloads, excessive_file_shares, unexpected_api_call_volume and unexpected_admin_action. Admins can configure an automatic response (session reset) — logged as user_sessions_reset_by_anomaly_event_response.
+  - title: Apps and scopes
+    body: app_installed, app_approved, app_restricted, app_scopes_expanded and app_token_* actions record the integration lifecycle; details.new_scopes vs previous_scopes shows privilege creep. Bot-driven actions carry context.app.scopes_bot.
+  - title: What is not here
+    body: No message bodies (that is the Discovery API / DLP), and only a subset of all Slack events. Workspace-plan (non-Enterprise) customers only get the access logs in the admin UI. Plan for that gap when building detections.
+traffic:
+  handles:
+    - User sign-in (password, SSO/SAML, Sign in with Slack)
+    - Channel and Slack Connect (external) membership
+    - File upload, download, share and public links
+    - App / bot install, scope changes and token use
+    - Admin role and org preference changes
+    - AI, MCP server and Workflow tool calls
+  flow:
+    - step: Client request
+      desc: Desktop, mobile, browser or an app token calls Slack (web socket or Web API).
+    - step: Authenticate
+      desc: Session cookie or token validated; SSO via the IdP on login.
+    - step: Authorise
+      desc: Workspace / org role, channel membership and app scopes decide if the action is allowed.
+    - step: Action
+      desc: The file is downloaded, channel joined, setting changed, app installed…
+    - step: Audit record
+      desc: An entry with actor, action, entity, context (IP, UA, session, app) is written to the org audit log.
+    - step: Anomaly engine
+      desc: Slack scores the event stream; anomalous behaviour emits an extra action=anomaly entry.
+    - step: Collect
+      desc: Collector polls /audit/v1/logs with oldest = last cursor and paginates with response_metadata.next_cursor.
+logs:
+  - type: User login / session
+    sourcetype: slack_audit
+    format: json
+    share: 30–50 %
+    avg: ~700 B
+    desc: user_login, user_login_failed, user_logout and session resets. Watch context.ip_address and context.ua per actor; a login from a hosting ASN or a token replay from a new IP is the most common compromise signal.
+    key:
+      - action
+      - actor.user.email
+      - context.ip_address
+      - context.ua
+      - context.session_id
+      - context.location.domain
+    noise:
+      - entity.type
+      - entity.user.id
+      - entity.user.name
+      - entity.user.email
+      - context.location.type
+      - actor.type
+    sample: '{"id":"7c3a91e2-5b4f-4d8a-9e21-0f6b2d4c8a11","date_create":1794474862,"action":"user_login","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"context":{"location":{"type":"enterprise","id":"E012ABCD3","name":"Example Corp","domain":"examplecorp"},"ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Slack/4.41.105 Chrome/130.0.6723.137 Electron/33.2.1 Safari/537.36 Sonic Slack_SSB/4.41.105","ip_address":"198.51.100.23","session_id":"8472881900921"}}'
+  - type: Anomaly
+    sourcetype: slack_audit
+    format: json
+    share: < 1 %
+    avg: ~1 KB
+    desc: Slack's own detections. details.reason lists why (tor, asn, ip_address, user_agent, unexpected_client, excessive_downloads…); previous_ip_address / previous_ua show the change. Alert-worthy by default.
+    key:
+      - action
+      - actor.user.email
+      - details.reason[0]
+      - details.reason[1]
+      - context.ip_address
+      - details.previous_ip_address
+      - details.action
+    noise:
+      - context.location.type
+      - entity.type
+    sample: '{"id":"a91f20c4-6e3b-4b77-8d0e-5c2a7f1e9b33","date_create":1794476105,"action":"anomaly","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"context":{"location":{"type":"enterprise","id":"E012ABCD3","name":"Example Corp","domain":"examplecorp"},"ua":"python-requests/2.32.3","ip_address":"203.0.113.77","session_id":"8472881900921"},"details":{"action":"file_downloaded","reason":["tor","user_agent"],"previous_ip_address":"198.51.100.23","previous_ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Slack/4.41.105","is_token_based":true,"is_client_blocked":false}}'
+  - type: App install / scope change
+    sourcetype: slack_audit
+    format: json
+    share: < 1 %
+    avg: ~1.1 KB
+    desc: app_installed, app_approved, app_scopes_expanded, app_restricted. entity.app.scopes and details.new_scopes show what the integration can read or post — broad scopes like channels:history, files:read or admin on a non-approved app are high risk.
+    key:
+      - action
+      - actor.user.email
+      - entity.app.name
+      - entity.app.is_directory_approved
+      - details.new_scopes[0]
+      - details.new_scopes[1]
+      - context.ip_address
+    noise:
+      - entity.app.is_workflow_app
+      - details.is_token_rotation_enabled_app
+      - context.location.type
+    sample: '{"id":"f02b6e7d-1c4a-4e9f-b2d8-3a5c7e9f1b20","date_create":1794477320,"action":"app_scopes_expanded","actor":{"type":"user","user":{"id":"W034GHIJKL","name":"asmith","email":"asmith@example.com","team":"E012ABCD3"}},"entity":{"type":"app","app":{"id":"A056MNOPQR","name":"Meeting Notes AI","is_distributed":true,"is_directory_approved":false,"is_workflow_app":false,"scopes":["channels:history","groups:history","files:read","users:read.email"]}},"context":{"location":{"type":"workspace","id":"T078STUVWX","name":"Example Sales","domain":"example-sales"},"ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","ip_address":"192.0.2.44","session_id":"9123004455661"},"details":{"is_internal_integration":false,"new_scopes":["channels:history","groups:history","files:read","users:read.email"],"previous_scopes":["users:read.email"],"granular_bot_token":true,"is_token_rotation_enabled_app":false}}'
+  - type: File public link / download
+    sourcetype: slack_audit
+    format: json
+    share: 20–40 %
+    avg: ~800 B
+    desc: file_downloaded, file_shared, file_public_link_created and file_download_blocked. The public-link action makes a file reachable without a Slack login — a quiet exfiltration path.
+    key:
+      - action
+      - actor.user.email
+      - entity.file.name
+      - entity.file.filetype
+      - context.ip_address
+      - details.team
+    noise:
+      - entity.file.id
+      - context.location.type
+      - context.session_id
+    sample: '{"id":"3d7e5a19-8b2c-4f61-a0e4-9c1b3d5f7a82","date_create":1794478010,"action":"file_public_link_created","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"file","file":{"id":"F09ABCDEF12","name":"customer-pricing-2027.xlsx","filetype":"xlsx","title":"customer-pricing-2027"}},"context":{"location":{"type":"workspace","id":"T078STUVWX","name":"Example Sales","domain":"example-sales"},"ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Slack/4.41.105","ip_address":"203.0.113.77","session_id":"8472881900921"},"details":{"team":"T078STUVWX"}}'
+cves:
+  - id: CVE-2026-28392
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: traffic
+    title: OpenClaw AI agent Slack slash-command handler authorises any DM sender (third-party Slack bot, not Slack itself)
+    affected: OpenClaw before 2026.2.14 with dmPolicy set to open
+    fixed: 2026.2.14
+    detect: The agent acts through its bot token — look for entries with context.app = the agent's app ID performing actions (channel reads, file shares, MCP/tool calls) triggered by users who are not on its allow-list or by external (Slack Connect) users.
+    avoid: Upgrade; never run agents with open DM policy; restrict the bot's scopes and channels; approve apps centrally (app_approved / app_restricted).
+  - id: CVE-2026-118679
+    cvss: 7.5
+    year: 2026
+    kev: false
+    scope: traffic
+    title: n8n Slack Trigger webhook SSRF lets unauthenticated attackers exfiltrate Slack tokens (integration platform, not Slack)
+    affected: n8n before 1.123.83, 2.41.x before 2.41.4, 2.42.x before 2.42.1
+    fixed: 1.123.83, 2.41.4, 2.42.1
+    detect: A stolen n8n app token is used from a new IP — anomaly reason ip_address / asn on the app, or app-context actions from an IP that is not the n8n host.
+    avoid: Upgrade n8n; enable token rotation for the app; IP-restrict app tokens where possible; alert on app token use from unknown IPs.
+  - id: CVE-2024-32881
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Danswer (Onyx) AI assistant exposes GET/SET of Slack bot tokens to anyone with network access (connected app, not Slack)
+    affected: Self-hosted Danswer releases before the fix commits referenced in GHSA-xr9w-3ggr-hr6j (April 2024)
+    detect: Bot token reused outside the Danswer server — app-context events (channel history reads, file_downloaded) from new IPs or user agents for the Danswer app ID.
+    avoid: Upgrade Danswer/Onyx; keep AI connectors off the internet; rotate the bot token after exposure.
+  - id: CVE-2021-26068
+    cvss: 8.8
+    year: 2021
+    kev: false
+    scope: traffic
+    title: Atlassian Jira Server for Slack plugin template injection RCE (Slack integration on a self-hosted server)
+    affected: Jira Server for Slack plugin 0.0.3 – before 2.0.15
+    fixed: 2.0.15
+    detect: Not in Slack logs directly — a compromised Jira host can abuse the integration's Slack token; watch for the Jira app posting to or reading channels outside its normal set.
+    avoid: Upgrade the plugin; scope the Jira app to specific channels; monitor app_scopes_expanded for it.
+detections:
+  - title: Slack anomaly event (Tor, ASN, IP or client change)
+    severity: high
+    signals:
+      - action=anomaly
+      - details.reason has tor / asn / ip_address / unexpected_client
+    why: Slack has already correlated the token's history; tor and in-IOC-list IPs on a user token almost always mean session or token theft (infostealer cookies).
+    kql: |-
+      dataset="slack_logs" action="anomaly"
+      | summarize events=count(), reasons=make_set(details.reason), ips=make_set(context.ip_address) by actor.user.email, bin(_time, 1h)
+    mitre:
+      - T1078.004
+      - T1539
+      - T1090.003
+  - title: Excessive file downloads or public links
+    severity: high
+    signals:
+      - action in file_downloaded / file_public_link_created
+      - count per actor per hour above baseline
+    why: Departing employees and attackers with a stolen session bulk-download files or create public links to exfiltrate without a Slack login.
+    kql: |-
+      dataset="slack_logs" action in ("file_downloaded","file_public_link_created")
+      | summarize downloads=countif(action=="file_downloaded"), public_links=countif(action=="file_public_link_created") by actor.user.email, context.ip_address, bin(_time, 1h)
+      | where downloads > 200 or public_links > 5
+    mitre:
+      - T1213.005
+      - T1567
+  - title: Unapproved app installed or scopes expanded
+    severity: medium
+    signals:
+      - action in app_installed / app_scopes_expanded
+      - entity.app.is_directory_approved=false
+      - history / files / admin scopes
+    why: Malicious or over-privileged apps and AI connectors read channel history and files with a long-lived token; scope creep on an existing app is easy to miss.
+    kql: |-
+      dataset="slack_logs" action in ("app_installed","app_scopes_expanded")
+      | where tostring(entity.app.scopes) has_any ("channels:history","groups:history","im:history","files:read","admin")
+      | project _time, action, actor.user.email, entity.app.name, entity.app.is_directory_approved, details.new_scopes
+    mitre:
+      - T1528
+      - T1098
+  - title: Admin or owner role granted
+    severity: high
+    signals:
+      - action in role_change_to_admin / role_change_to_owner
+    why: Privilege escalation in Slack gives control over SSO settings, apps, exports and session resets.
+    kql: |-
+      dataset="slack_logs" action in ("role_change_to_admin","role_change_to_owner")
+      | project _time, action, actor.user.email, entity.user.email, context.ip_address
+    mitre:
+      - T1098
+  - title: Login failures spread over many users
+    severity: medium
+    signals:
+      - action=user_login_failed
+      - many distinct actors per context.ip_address
+    why: Password spraying against Slack accounts that are not behind SSO.
+    kql: |-
+      dataset="slack_logs" action="user_login_failed"
+      | summarize fails=count(), users=dcount(actor.user.id) by context.ip_address, bin(_time, 15m)
+      | where users > 5
+    mitre:
+      - T1110.003
+  - title: SSO or 2FA setting changed
+    severity: high
+    signals:
+      - action in pref.sso_setting_changed / pref.two_factor_auth_changed / auth_policy_entity_removed
+    why: Weakening authentication (disabling SSO enforcement or 2FA) is a classic persistence step before broader access.
+    kql: |-
+      dataset="slack_logs" action in ("pref.sso_setting_changed","pref.two_factor_auth_changed","auth_policy_entity_removed","pref.session_duration_changed")
+      | project _time, action, actor.user.email, details, context.ip_address
+    mitre:
+      - T1556
+      - T1562
+optimizations:
+  - title: Drop repeated entity copies of the actor
+    saving: 15–25 %
+    fn: Eval
+    how: For user_login / user_logout the entity is the actor itself. Remove entity.user.* when it equals actor.user.*, and drop the constant context.location.type/name (one value per org).
+    expr: "action.startsWith('user_log') && entity.user.id==actor.user.id → remove entity, context.location.name"
+  - title: Aggregate file views and channel joins
+    saving: 20–40 %
+    fn: Aggregations
+    how: file_downloaded (which includes in-client views) and user_channel_join are the bulk of volume. Roll up per actor/IP/action per 10 minutes for the SIEM and keep raw in Cribl Lake for investigations.
+    expr: action in ('file_downloaded','user_channel_join','canvas_opened')
+  - title: Route high-value actions at full fidelity
+    saving: SIEM licence
+    fn: Routes
+    how: anomaly, app_*, role_change_*, pref.*, file_public_link_created and user_login_failed go to the SIEM raw; everything else to Lake + metrics.
+    expr: "action=='anomaly' || /^(app_|role_change|pref\\.|auth_policy)/.test(action) → SIEM"
+  - title: Enrich IPs once
+    saving: Analyst time
+    fn: Lookup
+    how: Add ASN / geo / known-office flags to context.ip_address in Stream so detections don't need per-query enrichment.
+    expr: lookup asn_db on context.ip_address
+references:
+  - title: Using the Audit Logs API (Slack)
+    url: https://docs.slack.dev/admins/audit-logs-api/
+  - title: Audit Logs API methods & actions
+    url: https://docs.slack.dev/reference/audit-logs-api/methods-actions-reference
+  - title: Audit Logs anomalous events
+    url: https://docs.slack.dev/reference/audit-logs-api/anomalous-events-reference
+  - title: Slack Audit Rest Collector pack (cc-stream-slack-audit-rest-io)
+    url: https://github.com/VisiCore/cc-stream-slack-audit-rest-io
+  - title: NVD — CVE-2026-28392
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-28392
+  - title: NVD — CVE-2026-118679
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-118679
+related:
+  - salesforce
+  - google-workspace
+  - o365
+  - okta
+  - n8n
+  - github-audit

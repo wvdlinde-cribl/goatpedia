@@ -2,12 +2,312 @@
 id: ibm-zos
 name: IBM z/OS (SMF & RACF)
 short: z/OS
+aka:
+  - MVS
+  - OS/390
+  - IBM Z mainframe
+  - RACF
+  - SMF
+  - Precisely Ironstream
+  - Syncsort Ironstream
 vendor: IBM
 category: mainframe
-status: stub
-summary: Mainframe System Management Facility records and RACF security events, forwarded by Syncsort/Precisely Ironstream.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - mainframe
+  - smf
+  - racf
+  - ironstream
+  - syslog
+  - json
+  - privileged-access
+summary: IBM's flagship mainframe operating system. System Management Facility (SMF) writes binary records for every job, logon, dataset access and network session; RACF (or ACF2 / Top Secret) writes SMF type 80 security records and ICH408I console messages. Agents such as Precisely (Syncsort) Ironstream decode SMF and the operator SYSLOG into JSON for the SIEM. Banks and insurers keep their systems of record here, so RACF evidence is regulator-grade.
 sourcetypes:
   - st: syncsort_zos_smf
+    desc: Ironstream-decoded SMF records (types 30 job, 119 TCP/IP, 14/15 dataset …) as JSON
   - st: syncsort_zos_smf_racf
+    desc: Ironstream-decoded SMF type 80 RACF security records as JSON
   - st: syncsort_zos_syslog
+    desc: z/OS operator SYSLOG / OPERLOG messages (ICH408I, IRR421I, $HASP) as JSON
   - st: ibm_racf_syslog
+    desc: RACF events sent as BSD syslog with a key=value payload (agent or SIEM-collector format)
+facts:
+  First released: 1964 (OS/360) → MVS 1974 → OS/390 1995 → z/OS 2000
+  OS: z/OS 2.5, 3.1, 3.2
+  Platform: IBM Z (z15, z16, z17) and LinuxONE hardware; LPARs under PR/SM, often in a Parallel Sysplex
+  Security manager: RACF (IBM), CA ACF2 or CA Top Secret (Broadcom) — all write SMF security records
+  Log sources: SMF (binary records by type/subtype), SYSLOG/OPERLOG, z/OS UNIX syslogd
+  Log transport: Ironstream / zSecure / vendor agents → TCP/TLS, HEC or Kafka; z/OS syslogd UDP/TCP
+  Log format: JSON (Ironstream), key=value syslog, CEF/LEEF (zSecure Alert)
+  Typical volume: Millions of SMF records per LPAR per day; type 80 is usually 1–10 % of it
+placement:
+  slots:
+    - internal
+    - cloud
+  items:
+    - slot: internal
+      title: Data-center mainframe
+      desc: z/OS LPARs running CICS, IMS, Db2 and batch for core banking, payments and insurance. Reached through TN3270, FTP, MQ, z/OS Connect APIs and SSH to z/OS UNIX.
+    - slot: internal
+      title: Agent on the LPAR
+      desc: Ironstream (or zSecure Alert / a vendor agent) runs as a started task, reads SMF in real time via the SMF in-memory interface or log streams, and forwards to Cribl or the SIEM.
+    - slot: cloud
+      title: Off-platform analytics
+      desc: Decoded SMF lands in Splunk, Elastic or a data lake; Cribl Stream reduces the volume before it reaches licensed tools.
+howItWorks:
+  - title: SMF record types
+    body: "Every subsystem writes numbered records: type 30 job/step accounting, 14/15 dataset input/output, 17/18 scratch/rename, 80 RACF, 81 RACF init, 83 RACF audit for MLS/dataset names, 92 z/OS UNIX file activity, 110 CICS, 119 TCP/IP (FTP, TN3270, SSH, zERT), 230 ACF2. Records are binary and use EBCDIC strings."
+  - title: RACF type 80 records
+    body: "Each security decision writes SMF80EVT (event code) and SMF80EVQ (qualifier). Event 1 = job initiation / TSO logon (qualifier 1 invalid password, 6 revoked user, 7 user automatically revoked); event 2 = resource access (qualifier 1 insufficient authority); events 8–25 = RACF commands (ADDUSER, ALTUSER, PERMIT, SETROPTS …). Relocate sections carry the resource name, terminal and command keywords."
+  - title: What gets audited
+    body: SETROPTS LOGOPTIONS, AUDIT(class) and profile AUDIT() decide which accesses are recorded; UAUDIT audits a user; SAUDIT audits SPECIAL users. Failures (violations) are logged by default, successful READ of sensitive datasets only when asked.
+  - title: Console messages
+    body: RACF also issues ICH408I to the console for violations and IRR421I when ACEE modification detection (ACEECHK class) finds a changed security control block — the strongest privilege-escalation signal on the platform.
+  - title: Ironstream decoding
+    body: The agent turns bit-level fields into readable name/value pairs (e.g. EVENT_QUALIFIER, SPECIAL authority used = YES) and emits one JSON object per record, so SIEM queries do not need SMF mappings.
+  - title: System integrity process
+    body: IBM handles z/OS integrity flaws through System Integrity APARs (SECINT) published to entitled customers on the IBM Z and LinuxONE Security Portal, not through public bulletins, so few z/OS base-OS CVEs are public.
+traffic:
+  handles:
+    - TSO / TN3270 logons
+    - Batch jobs and JES2/JES3 submission (incl. FTP JES mode)
+    - Dataset and z/OS UNIX file access
+    - CICS / IMS / Db2 transactions
+    - FTP, SFTP/SSH, MQ, z/OS Connect REST
+    - RACF administration commands
+  flow:
+    - step: Request
+      desc: User logs on, submits a job or opens a dataset.
+    - step: SAF call
+      desc: RACROUTE VERIFY / AUTH asks RACF for a decision.
+    - step: RACF decision
+      desc: Profile lookup, access granted or denied, ICH408I on violation.
+    - step: SMF write
+      desc: Type 80 (and 30, 14, 119 …) record written to the SMF log stream.
+    - step: Agent decode
+      desc: Ironstream reads SMF in near real time, decodes to JSON.
+    - step: Forward
+      desc: TCP/TLS, HEC or Kafka to Cribl Stream / SIEM.
+logs:
+  - type: RACF security event (SMF 80)
+    sourcetype: syncsort_zos_smf_racf
+    format: json
+    share: 1–10 % (of SMF)
+    avg: ~800 B
+    desc: One JSON object per SMF type 80 record — event code and qualifier (raw and decoded), user, group, job, terminal, resource and the authority used.
+    key:
+      - EVENT_CODE_DESC
+      - EVENT_QUALIFIER_DESC
+      - USERID
+      - JOBNAME
+      - TERMINAL
+      - RESOURCE_NAME
+      - VIOLATION
+    noise:
+      - SMF_RECORD_TYPE
+      - SMF80VER
+      - RECORD_DATE
+    sample: '{"SMF_RECORD_TYPE":80,"SYSTEM":"SYSA","SYSPLEX":"PLEX1","RECORD_DATE":"2026-11-12","RECORD_TIME":"08:02:41.12","SMF80VER":"7790","EVENT_CODE":1,"EVENT_CODE_DESC":"JOB INITIATION/TSO LOGON/TSO LOGOFF","EVENT_QUALIFIER":1,"EVENT_QUALIFIER_DESC":"INVALID PASSWORD","USERID":"JDOE","GROUP":"PRODUSR","JOBNAME":"JDOE","TERMINAL":"TCP04711","PORT_OF_ENTRY":"TCP04711","RESOURCE_NAME":"","SPECIAL_AUTHORITIES_USED":"NO","VIOLATION":"YES","SOURCE_IP":"198.51.100.23"}'
+  - type: Operator SYSLOG message
+    sourcetype: syncsort_zos_syslog
+    format: json
+    share: 20–40 %
+    avg: ~400 B
+    desc: Console and OPERLOG messages. ICH408I (RACF violation), IRR421I (ACEE modification), $HASP (JES) and IEF (allocation) messages carry security context the SMF record lacks.
+    key:
+      - MSGID
+      - JOBNAME
+      - MESSAGE
+      - SYSTEM
+    noise:
+      - ROUTE_CODES
+      - DESC_CODES
+    sample: '{"SYSTEM":"SYSA","DATE":"2026-11-12","TIME":"08:02:41.15","JOBNAME":"JDOE","JOBID":"TSU04711","MSGID":"ICH408I","ROUTE_CODES":"9,11","DESC_CODES":"4","MESSAGE":"ICH408I USER(JDOE    ) GROUP(PRODUSR ) NAME(JOHN DOE            ) LOGON/JOB INITIATION - INVALID PASSWORD"}'
+  - type: Network session (SMF 119)
+    sourcetype: syncsort_zos_smf
+    format: json
+    share: 10–30 %
+    avg: ~600 B
+    desc: TCP/IP subtype records — FTP server logon and transfer, TN3270 session, SSH, zERT crypto summary. Shows who moved which dataset to which IP.
+    key:
+      - SMF_SUBTYPE_DESC
+      - USERID
+      - REMOTE_IP
+      - DATASET_NAME
+      - BYTES
+    noise:
+      - SMF_RECORD_TYPE
+      - TCPIP_STACK
+    sample: '{"SMF_RECORD_TYPE":119,"SMF_SUBTYPE":70,"SMF_SUBTYPE_DESC":"FTP SERVER TRANSFER COMPLETION","SYSTEM":"SYSA","RECORD_DATE":"2026-11-12","RECORD_TIME":"09:15:03.40","TCPIP_STACK":"TCPIP","USERID":"BATCHFT","REMOTE_IP":"203.0.113.40","REMOTE_PORT":50211,"LOCAL_PORT":21,"COMMAND":"RETR","DATASET_NAME":"PROD.CUSTOMER.MASTER","BYTES":734003200,"TLS":"NO"}'
+  - type: RACF syslog (key=value)
+    sourcetype: ibm_racf_syslog
+    format: kv
+    share: varies
+    avg: ~300 B
+    desc: RACF events reformatted by an agent or collector into BSD syslog with key=value pairs.
+    key:
+      - EVENT
+      - QUAL
+      - USER
+      - RESULT
+      - RESOURCE
+    noise:
+      - header
+    sample: '<86>Nov 12 08:14:09 SYSA RACF: EVENT=ACCESS QUAL=INSAUTH USER=JDOE GROUP=PRODUSR JOBNAME=JDOEJOB1 CLASS=DATASET RESOURCE=SYS1.PARMLIB INTENT=UPDATE ALLOWED=READ RESULT=FAILURE'
+cves:
+  - id: CVE-2024-52899
+    cvss: 8.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Data Virtualization Manager for z/OS — authenticated JDBC URL parameter injection leads to code execution
+    affected: IBM Data Virtualization Manager for z/OS 1.1, 1.2
+    detect: SMF 30 / 92 records of the DVM server address space spawning unexpected z/OS UNIX processes; RACF event 2 violations under the DVM started-task user.
+    avoid: Apply the IBM fix from the bulletin; restrict who can define JDBC data sources; run the started task with least authority.
+  - id: CVE-2025-36014
+    cvss: 6.7
+    year: 2025
+    kev: false
+    scope: device
+    title: IBM Integration Bus for z/OS — code injection by a privileged user with access to the install directory
+    affected: IBM Integration Bus for z/OS 10.1.0.0 – 10.1.0.5
+    fixed: Interim fix for APAR PH65769 on 10.1.0.5
+    detect: SMF 92 / RACF event 2 UPDATE access to the IIB install directory (z/OS UNIX) by users outside the product admin group.
+    avoid: Apply PH65769; protect the install path with RACF/UNIX permissions; audit UPDATE on it.
+  - id: CVE-2023-48795
+    cvss: 5.9
+    year: 2023
+    kev: false
+    scope: traffic
+    title: SSH "Terrapin" prefix truncation — SSH/SFTP sessions to z/OS OpenSSH (based on OpenSSH 8.4p1 in z/OS 3.1)
+    affected: z/OS OpenSSH releases based on OpenSSH before 9.6 that negotiate chacha20-poly1305 or EtM MACs
+    detect: SMF 119 SSH and zERT records showing chacha20-poly1305 or *-etm MACs negotiated; not visible as an attack in z/OS logs.
+    avoid: Disable chacha20-poly1305 and EtM MACs in sshd_config; move to the OpenSSH 10.2p1 level delivered by APAR OA68685; check the IBM Z Security Portal for SECINT fixes.
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell JNDI lookup RCE — Java workloads under z/OS UNIX (Liberty, z/OS Connect, vendor tools)
+    affected: Any Java application on z/OS bundling Log4j 2.0-beta9 to 2.14.1
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6) — and the IBM/vendor product fix
+    detect: SMF 119 outbound connections from Java address spaces to LDAP/RMI ports (389, 1389, 1099) on the internet; z/OS UNIX process creation (SMF 30/92) under the Java started task.
+    avoid: Patch the products; block mainframe egress to the internet; set log4j2.formatMsgNoLookups only as a stop-gap.
+detections:
+  - title: Logon brute force and revocations
+    severity: high
+    signals:
+      - EVENT_CODE=1
+      - EVENT_QUALIFIER 1 (invalid password) or 7 (automatically revoked)
+      - many users from one terminal / IP
+    why: Password guessing on TSO, FTP or z/OS Connect ends in revoked IDs (a denial of service) or a hit on a high-privilege ID.
+    kql: |-
+      dataset="zos_logs" sourcetype="syncsort_zos_smf_racf" EVENT_CODE=1
+      | where EVENT_QUALIFIER in (1, 7)
+      | summarize fails=count(), users=dcount(USERID) by SOURCE_IP, TERMINAL, bin(_time, 15m)
+      | where fails > 10 or users > 3
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: ACEE modification detected (IRR421I)
+    severity: critical
+    signals:
+      - MSGID=IRR421I
+      - ACEEPRIV / SPECIAL turned on in a running address space
+    why: A program changed its own security control block to gain SPECIAL or OPERATIONS — authorised-code abuse or an integrity exploit.
+    kql: |-
+      dataset="zos_logs" sourcetype="syncsort_zos_syslog" MSGID="IRR421I"
+      | summarize count() by SYSTEM, JOBNAME, MESSAGE
+    mitre:
+      - T1068
+  - title: SPECIAL / OPERATIONS granted or used unexpectedly
+    severity: high
+    signals:
+      - EVENT_CODE 13 (ALTUSER) with SPECIAL / OPERATIONS keywords
+      - SPECIAL_AUTHORITIES_USED=YES by a non-admin
+    why: SPECIAL controls the whole RACF database; OPERATIONS reads every dataset. Granting them is the mainframe equivalent of adding Domain Admins.
+    kql: |-
+      dataset="zos_logs" sourcetype="syncsort_zos_smf_racf"
+      | where (EVENT_CODE == 13 and EVENT_CODE_DESC has "ALTUSER") or SPECIAL_AUTHORITIES_USED == "YES"
+      | lookup racf_admins on USERID
+      | where isempty(is_admin)
+      | summarize count() by USERID, JOBNAME, EVENT_CODE_DESC
+    mitre:
+      - T1098
+      - T1078
+  - title: Update attempts on system libraries
+    severity: high
+    signals:
+      - EVENT_CODE=2 resource access violation
+      - resource SYS1.PARMLIB, SYS1.LINKLIB, APF-authorised libraries
+    why: Writing to PARMLIB or an APF library lets an attacker load authorised code at the next IPL or LLA refresh.
+    kql: |-
+      dataset="zos_logs" sourcetype="ibm_racf_syslog" EVENT="ACCESS" RESULT="FAILURE"
+      | where RESOURCE startswith "SYS1." or RESOURCE in ("SYS1.PARMLIB","SYS1.LINKLIB")
+      | summarize count() by USER, RESOURCE
+    mitre:
+      - T1574
+      - T1543
+  - title: Bulk dataset download over FTP
+    severity: medium
+    signals:
+      - SMF 119 FTP transfer completion
+      - large BYTES to an external REMOTE_IP
+      - TLS=NO
+    why: Plain-text FTP RETR of production master files is the most common mainframe exfiltration path.
+    kql: |-
+      dataset="zos_logs" sourcetype="syncsort_zos_smf" SMF_RECORD_TYPE=119 COMMAND="RETR"
+      | where not(ipv4_is_private(REMOTE_IP))
+      | summarize total=sum(BYTES), files=dcount(DATASET_NAME) by USERID, REMOTE_IP, bin(_time, 1h)
+      | where total > 500000000
+    mitre:
+      - T1048.003
+optimizations:
+  - title: Keep only security-relevant SMF types
+    saving: 60–90 %
+    fn: Drop
+    how: Most SMF volume is performance data (types 70–79 RMF, 99, 110 CICS statistics). Filter at the agent if possible, else drop in Stream and keep 30, 80–83, 92, 119 and 230.
+    expr: "![30,80,81,83,92,119,230].includes(SMF_RECORD_TYPE)"
+  - title: Drop successful job-step housekeeping
+    saving: 10–25 %
+    fn: Drop
+    how: Event 1 qualifier 8/12/13 (successful termination, RACINIT create/delete) for batch IDs repeats for every job step. Keep logon successes for interactive users only.
+    expr: SMF_RECORD_TYPE==80 && EVENT_CODE==1 && [8,12,13].includes(EVENT_QUALIFIER) && USERID.startsWith('BATCH')
+  - title: Strip empty and decoded-duplicate fields
+    saving: 20–40 %
+    fn: Parser → Serialize
+    how: Ironstream emits both raw codes and descriptions plus many empty relocate fields. Keep the description, drop empties and version fields.
+    expr: "remove: SMF80VER, RECORD_DATE (use _time), ROUTE_CODES, DESC_CODES; drop empty"
+  - title: Aggregate SMF 119 sessions
+    saving: 10–30 %
+    fn: Aggregations
+    how: TN3270 and internal MQ sessions are rarely searched one by one. Roll up bytes and sessions per user/remote IP per 5 minutes; keep FTP transfers raw.
+    expr: SMF_RECORD_TYPE==119 && SMF_SUBTYPE_DESC !== 'FTP SERVER TRANSFER COMPLETION'
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: RACF violations, command events and ICH408I / IRR421I → SIEM; everything else → Cribl Lake for audit retention (many regulators want years of SMF 80).
+    expr: "VIOLATION=='YES' || (EVENT_CODE>=8 && EVENT_CODE<=25) || ['ICH408I','IRR421I'].includes(MSGID) → SIEM  |  else → Lake"
+references:
+  - title: SMF Type 80 record layout
+    url: https://www.pacsys.com/smf/smf80.htm
+  - title: RACF event code qualifiers (SMF80EVT / SMF80EVQ)
+    url: https://www.ibm.com/docs/en/zvm/7.2.0?topic=racfadu-event-code-qualifiers
+  - title: Precisely — SMF and Splunk field names in SMF 80 records
+    url: https://customer.precisely.com/s/article/Best-Practice-SMF-and-Splunk-field-names-in-SMF-80-recordsAF4FB4DC?language=en_US
+  - title: RACF ACEE modification detection (OA56851)
+    url: https://public.dhe.ibm.com/s390/zos/racf/pdf/oa56851.pdf
+  - title: z/OS OpenSSH (z/OS 3.1)
+    url: https://www.ibm.com/docs/en/zos/3.1.0?topic=zbed-zos-openssh
+  - title: "Security Bulletin: IBM Integration Bus for z/OS (CVE-2025-36014)"
+    url: https://www.ibm.com/support/pages/security-bulletin-ibm-integration-bus-zos-vulnerable-privilege-escalation-attack-cve-2025-36014
+  - title: NVD — CVE-2024-52899 (Data Virtualization Manager for z/OS)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-52899
+related:
+  - ibm-i
+  - ibm-aix
+  - ibm-db2
+  - log4j

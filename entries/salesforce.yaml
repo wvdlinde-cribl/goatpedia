@@ -2,13 +2,426 @@
 id: salesforce
 name: Salesforce
 short: Salesforce
+aka:
+  - Salesforce Platform
+  - Sales Cloud
+  - Service Cloud
+  - Event Monitoring
+  - Salesforce Shield
+  - Force.com
 vendor: Salesforce
 category: saas
-status: stub
-summary: CRM platform; Event Monitoring EventLogFile, LoginHistory and Setup Audit Trail.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - crm
+  - event-monitoring
+  - shield
+  - oauth
+  - connected-apps
+  - api
+  - csv
+  - json
+summary: Multi-tenant CRM platform whose security telemetry comes from three API-pulled sources — the LoginHistory and SetupAuditTrail objects (every org) and Event Monitoring EventLogFile CSVs (Shield add-on) covering REST/SOAP/Bulk API calls, Apex execution, callouts, reports and exports. The prime target of 2025's OAuth-token and vishing data-theft campaigns, where the API logs were the only record of what was taken.
 sourcetypes:
-  - st: salesforce_eventlogfile_callout
-  - st: salesforce_eventlogfile_execution
   - st: salesforce_eventlogfile_restapi
+    desc: EventLogFile RestApi / ApexRestApi CSV rows — one per REST request incl. SOQL queries and rows returned
+  - st: salesforce_eventlogfile_execution
+    desc: EventLogFile ApexExecution CSV rows — Apex entry points, CPU/DB time, SOQL count
+  - st: salesforce_eventlogfile_callout
+    desc: EventLogFile ApexCallout CSV rows — outbound HTTP callouts from Apex to external endpoints
   - st: salesforce_loginhistory
+    desc: LoginHistory object records — every UI, API and OAuth login with IP, country, status and application
   - st: salesforce_setupaudittrail
+    desc: SetupAuditTrail object records — admin configuration changes (users, permissions, connected apps, security settings)
+  - st: sfdc:logfile
+    desc: Splunk Add-on for Salesforce — EventLogFile content
+  - st: sfdc:loginhistory
+    desc: Splunk Add-on for Salesforce — LoginHistory object
+  - st: sfdc:setupaudittrail
+    desc: Splunk Add-on for Salesforce — SetupAuditTrail object
+facts:
+  First released: 1999 (salesforce.com CRM); Event Monitoring 2015 (API v32.0)
+  Delivery model: Multi-tenant SaaS on Salesforce instances / Hyperforce (AWS)
+  Log sources: LoginHistory + SetupAuditTrail (all editions), EventLogFile (Event Monitoring / Shield licence), Real-Time Event Monitoring objects
+  Log transport: REST API pull (SOQL query + sObject Blob GET of LogFile), OAuth connected app
+  Log format: JSON (object records), CSV with header (EventLogFile.LogFile, base64 in the API)
+  Latency: Hourly EventLogFile (hourly interval) or next-day daily files; LoginHistory near real time
+  Retention: EventLogFile 1 day free / 30 days with Shield; SetupAuditTrail 180 days in the org
+  Typical volume: 10k – 50M+ ELF rows/day; RestApi + Api + URI dominate
+  Cribl Pack: Salesforce Rest Collector IO (Packs Dispensary) + native Salesforce Source in Cribl Stream
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Salesforce org (Hyperforce)
+      desc: The org lives on a Salesforce instance. Logs never leave it by themselves — a collector (Cribl Salesforce Source or REST collector) uses an OAuth connected app to query LoginHistory / SetupAuditTrail and download EventLogFile CSVs.
+    - slot: cloud
+      title: Integrations & connected apps
+      desc: Marketing automation, chat (Drift), data loaders, ETL and AI agents hold OAuth refresh tokens. Their API calls land in RestApi / Api / BulkApi ELF rows under the integration user with a CONNECTED_APP_ID.
+    - slot: remote
+      title: Users & admins
+      desc: Browser and mobile app sessions from anywhere; LoginHistory records each login with SourceIp, CountryIso, LoginType and status. Vishing campaigns target these users to approve a rogue connected app.
+    - slot: endpoint
+      title: Developer tooling
+      desc: Salesforce CLI, Workbench, Data Loader and VS Code extensions run on laptops and authenticate with OAuth — a stolen token from a dev machine looks like a normal API client.
+howItWorks:
+  - title: Three log families
+    body: LoginHistory (logins) and SetupAuditTrail (admin changes) are standard sObjects queried with SOQL in every edition. Event Monitoring adds EventLogFile — 70+ event types (RestApi, API, BulkApi2, ApexExecution, ApexCallout, Report, ReportExport, URI, Login, LoginAs, PermissionUpdate…) written as CSV files, one row per event.
+  - title: EventLogFile delivery
+    body: A collector queries EventLogFile records (Id, EventType, LogDate, Interval, LogFileFieldNames) and then GETs /sobjects/EventLogFile/<Id>/LogFile to download the CSV. Hourly files appear within ~3–6 h; daily files the next day. Each EventType has its own column set — the header row (LogFileFieldNames) is the schema.
+  - title: Correlation keys
+    body: REQUEST_ID ties all events in one transaction (an API call that triggers Apex that makes a callout). SESSION_KEY groups a session; LOGIN_KEY ties back to the Login event. USER_ID is 15-char, USER_ID_DERIVED 18-char — join on the derived one.
+  - title: Connected apps & OAuth
+    body: Integrations authenticate through connected apps (OAuth 2.0 web-server, JWT bearer, client credentials, refresh token). A LoginHistory row with LoginType "Remote Access 2.0" and Application = the app name records the token use; every API call then carries CONNECTED_APP_ID and CLIENT_NAME. Revoking the app's tokens is the kill switch.
+  - title: Data access is the attack surface
+    body: Salesforce itself is rarely "hacked" — attackers obtain a valid session or OAuth token (vishing, token theft from a third-party app) and run SOQL / Bulk API exports. ROWS_PROCESSED, URI and ENTITY_NAME in RestApi / BulkApi rows are what tells a normal integration from a mass export.
+  - title: Real-Time Event Monitoring & Transaction Security
+    body: Shield also streams events (LoginEvent, ApiEvent, ReportEvent, BulkApiResultEvent) as Platform Events / storage objects, and Transaction Security Policies can block or require MFA on an action in real time. ELF stays the bulk, cheapest-to-collect history.
+traffic:
+  handles:
+    - HTTPS UI sessions (Lightning / Classic)
+    - REST, SOAP, Bulk 2.0, Composite and Streaming APIs
+    - OAuth 2.0 / OpenID Connect / SAML SSO logins
+    - Apex code execution and outbound callouts
+    - Reports, list views and data exports
+    - Admin setup and permission changes
+  flow:
+    - step: Authenticate
+      desc: User or integration logs in (password+MFA, SAML from the IdP, or an OAuth token via a connected app) → LoginHistory row.
+    - step: Session / token
+      desc: A session ID or access token is issued; LOGIN_KEY and SESSION_KEY are assigned.
+    - step: Request
+      desc: UI page, REST/SOAP/Bulk call or Apex REST endpoint is invoked; sharing, CRUD and field-level security evaluated.
+    - step: Execute
+      desc: SOQL runs, Apex triggers and classes execute, optional callouts to external URLs.
+    - step: Log
+      desc: The platform writes ELF rows (RestApi, ApexExecution, ApexCallout…) keyed by REQUEST_ID; setup changes go to SetupAuditTrail.
+    - step: Collect
+      desc: Collector downloads LogFile CSVs hourly and polls the objects with a time cursor (LoginTime / CreatedDate).
+logs:
+  - type: REST API (EventLogFile RestApi)
+    sourcetype: salesforce_eventlogfile_restapi
+    format: csv
+    share: 30–60 %
+    avg: ~550 B
+    desc: One row per REST API request. URI shows the resource (query, sobjects, composite), ROWS_PROCESSED the records returned and CONNECTED_APP_ID / CLIENT_NAME the integration. The most important table for spotting bulk data theft by a valid token.
+    fields:
+      - EVENT_TYPE
+      - TIMESTAMP
+      - REQUEST_ID
+      - ORGANIZATION_ID
+      - USER_ID
+      - RUN_TIME
+      - CPU_TIME
+      - URI
+      - SESSION_KEY
+      - LOGIN_KEY
+      - USER_TYPE
+      - REQUEST_STATUS
+      - DB_TOTAL_TIME
+      - METHOD
+      - MEDIA_TYPE
+      - STATUS_CODE
+      - USER_AGENT
+      - ROWS_PROCESSED
+      - NUMBER_FIELDS
+      - DB_BLOCKS
+      - DB_CPU_TIME
+      - REQUEST_SIZE
+      - RESPONSE_SIZE
+      - ENTITY_NAME
+      - CONNECTED_APP_ID
+      - CLIENT_NAME
+      - TIMESTAMP_DERIVED
+      - USER_ID_DERIVED
+      - CLIENT_IP
+      - URI_ID_DERIVED
+    key:
+      - USER_ID_DERIVED
+      - CLIENT_IP
+      - URI
+      - ENTITY_NAME
+      - ROWS_PROCESSED
+      - CONNECTED_APP_ID
+      - USER_AGENT
+      - STATUS_CODE
+    noise:
+      - ORGANIZATION_ID
+      - DB_BLOCKS
+      - DB_CPU_TIME
+      - DB_TOTAL_TIME
+      - CPU_TIME
+      - MEDIA_TYPE
+      - USER_ID
+      - URI_ID_DERIVED
+    sample: '"RestApi","20261112081422.517","4nWgxWbDKWWDIk0FKfF5DV","00D5j000000AbCd","0055j000004XyZq","1840","212","/services/data/v64.0/query","Qw8Ep2RtYu6IoP1a","Lk3Jh5Gf7Ds9Az2X","Standard","S","1503","GET","application/json;charset=UTF-8","200","python-requests/2.32.3","2000","14","38211","9","","1843210","Account","0H45j000000Kr0A","","2026-11-12T08:14:22.517Z","0055j000004XyZqAAK","198.51.100.23",""'
+  - type: Login history
+    sourcetype: salesforce_loginhistory
+    format: json
+    share: 5–15 %
+    avg: ~450 B
+    desc: Every login attempt to the org — UI, SAML, API and OAuth ("Remote Access 2.0"). Status is "Success" or a failure reason; Application names the connected app for token logins.
+    key:
+      - UserId
+      - LoginType
+      - Status
+      - SourceIp
+      - CountryIso
+      - Application
+      - LoginUrl
+    noise:
+      - attributes.type
+      - attributes.url
+      - ClientVersion
+      - ApiVersion
+      - Platform
+    sample: '{"attributes":{"type":"LoginHistory","url":"/services/data/v64.0/sobjects/LoginHistory/0Ya5j00000AbCdEFGH"},"Id":"0Ya5j00000AbCdEFGH","LoginTime":"2026-11-12T08:13:58.000+0000","UserId":"0055j000004XyZqAAK","LoginType":"Remote Access 2.0","Status":"Success","Platform":"Unknown","SourceIp":"198.51.100.23","CountryIso":"NL","Browser":"Unknown","Application":"My Data Loader","ClientVersion":"N/A","ApiVersion":"N/A","LoginUrl":"login.salesforce.com","TlsProtocol":"TLS 1.3","CipherSuite":"TLS_AES_256_GCM_SHA384","AuthenticationServiceId":null}'
+  - type: Setup audit trail
+    sourcetype: salesforce_setupaudittrail
+    format: json
+    share: < 1 %
+    avg: ~400 B
+    desc: Administrative changes — users created/frozen, profile and permission-set assignment, connected app and OAuth policy edits, SSO and session settings. Low volume, very high value; Display is the human-readable change.
+    key:
+      - Action
+      - Section
+      - Display
+      - CreatedById
+      - DelegateUser
+      - CreatedDate
+    noise:
+      - attributes.type
+      - attributes.url
+      - ResponsibleNamespacePrefix
+    sample: '{"attributes":{"type":"SetupAuditTrail","url":"/services/data/v64.0/sobjects/SetupAuditTrail/0Ym5j00000QrStUVWX"},"Id":"0Ym5j00000QrStUVWX","Action":"PermSetAssign","Section":"Manage Users","CreatedDate":"2026-11-12T08:20:41.000+0000","CreatedById":"0055j000002AdMnAAC","Display":"Permission set System Admin Full: assigned to user jdoe@example.com","DelegateUser":null,"ResponsibleNamespacePrefix":null}'
+  - type: Apex callout (EventLogFile ApexCallout)
+    sourcetype: salesforce_eventlogfile_callout
+    format: csv
+    share: 1–10 %
+    avg: ~400 B
+    desc: Outbound HTTP requests made by Apex code — to integrations, webhooks or (if code is malicious) an attacker's endpoint. URL, METHOD, SUCCESS and REQUEST/RESPONSE_SIZE show what left the org.
+    fields:
+      - EVENT_TYPE
+      - TIMESTAMP
+      - REQUEST_ID
+      - ORGANIZATION_ID
+      - USER_ID
+      - RUN_TIME
+      - CPU_TIME
+      - URI
+      - SESSION_KEY
+      - LOGIN_KEY
+      - TYPE
+      - METHOD
+      - SUCCESS
+      - TIME
+      - REQUEST_SIZE
+      - RESPONSE_SIZE
+      - URL
+      - TIMESTAMP_DERIVED
+      - USER_ID_DERIVED
+      - CLIENT_IP
+      - URI_ID_DERIVED
+    key:
+      - URL
+      - METHOD
+      - SUCCESS
+      - REQUEST_SIZE
+      - USER_ID_DERIVED
+      - REQUEST_ID
+    noise:
+      - ORGANIZATION_ID
+      - RUN_TIME
+      - USER_ID
+      - URI_ID_DERIVED
+    sample: '"ApexCallout","20261112081505.102","4nWgxWbDKWWDIk0FKfF5DV","00D5j000000AbCd","0055j000004XyZq","","48","/apexrest/sync/v1","Qw8Ep2RtYu6IoP1a","Lk3Jh5Gf7Ds9Az2X","REST","POST","1","312","48211","96","https://hooks.example.org/ingest","2026-11-12T08:15:05.102Z","0055j000004XyZqAAK","Salesforce.com IP",""'
+cves:
+  - id: CVE-2025-43698
+    cvss: 9.1
+    year: 2025
+    kev: false
+    scope: device
+    title: OmniStudio FlexCards SOQL data source bypasses field-level security
+    affected: Salesforce OmniStudio (core and managed package) before Spring '25
+    fixed: Spring '25 release (interim control EnableQueryWithFLS=true)
+    detect: Experience Cloud / guest or low-privilege users (USER_TYPE Guest, CspLitePortal, PowerCustomerSuccess) issuing Aura / Apex REST requests to OmniStudio components with unusually high ROWS_PROCESSED; correlate with ApexExecution ENTRY_POINT on OmniStudio classes.
+    avoid: Upgrade OmniStudio; set EnableQueryWithFLS; review guest-user profile access to OmniUiCard records.
+  - id: CVE-2025-43697
+    cvss: 7.5
+    year: 2025
+    kev: false
+    scope: device
+    title: OmniStudio Data Mapper Extract / Turbo Extract exposes Classic Encrypted fields in plaintext
+    affected: Salesforce OmniStudio before Spring '25
+    fixed: Spring '25 release
+    detect: Data Mapper executions (ApexExecution / Aura rows) by users without "View Encrypted Data" returning records from objects that carry encrypted fields; unexpected exports following such calls.
+    avoid: Upgrade; enable FLS enforcement for Data Mappers; restrict who can run Extract mappers.
+  - id: CVE-2025-9844
+    cvss: 8.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Salesforce CLI on Windows uncontrolled search path — trusted executable replacement
+    affected: Salesforce CLI (sf) on Windows before 2.106.6
+    fixed: 2.106.6
+    detect: Not in the org logs directly — the CLI's OAuth token can then be used from the same host. Watch LoginHistory / RestApi for the CLI's connected app (Salesforce CLI / "sf") from unexpected IPs or at unusual hours; endpoint telemetry for unsigned binaries in the CLI path.
+    avoid: Upgrade the CLI; restrict the Salesforce CLI connected app to admin profiles and IP ranges; short refresh-token lifetime.
+  - id: CVE-2026-35178
+    cvss: 9.8
+    year: 2026
+    kev: false
+    scope: traffic
+    title: Workbench (Force.com API admin tool) RCE via the timezone cookie — a client of the Salesforce APIs, not the platform
+    affected: Workbench before 65.0.0 (self-hosted instances)
+    fixed: 65.0.0
+    detect: A compromised Workbench host holds admins' sessions — look for API logins (LoginType Remote Access / SOAP) with Application or CLIENT_NAME "Workbench" from the Workbench server's IP outside admin working hours, followed by large queries.
+    avoid: Upgrade or retire self-hosted Workbench; restrict API access by profile IP ranges.
+  - id: CVE-2026-25650
+    cvss: 7.5
+    year: 2026
+    kev: false
+    scope: traffic
+    title: MCP Salesforce Connector discloses the Salesforce auth token (AI-agent integration, not the platform)
+    affected: MCP Salesforce Connector before 0.1.10
+    fixed: 0.1.10
+    detect: The leaked token is used from a new client — same USER_ID_DERIVED / CONNECTED_APP_ID suddenly appearing from a new CLIENT_IP or USER_AGENT, often running broad SOQL queries.
+    avoid: Upgrade; give MCP/agent integrations a dedicated least-privilege integration user and IP-restricted connected app; rotate its tokens.
+detections:
+  - title: Mass data export through the API (OAuth token abuse)
+    severity: critical
+    signals:
+      - RestApi / BulkApi rows
+      - URI /query or /queryAll
+      - sum(ROWS_PROCESSED) far above baseline per user/app
+    why: The 2025 Salesloft-Drift and vishing campaigns stole data with valid OAuth tokens — the only evidence was a burst of SOQL queries returning hundreds of thousands of rows (Accounts, Contacts, Cases, Opportunities) from python or unusual clients.
+    kql: |-
+      dataset="salesforce_logs" EVENT_TYPE in ("RestApi","API","BulkApi2")
+      | where URI has "/query"
+      | summarize rows=sum(toint(ROWS_PROCESSED)), calls=count(), objects=dcount(ENTITY_NAME) by USER_ID_DERIVED, CONNECTED_APP_ID, CLIENT_IP, USER_AGENT, bin(_time, 1h)
+      | where rows > 100000 or objects > 10
+    mitre:
+      - T1213
+      - T1530
+      - T1078.004
+  - title: New or renamed connected app authorised (vishing / rogue Data Loader)
+    severity: high
+    signals:
+      - LoginType="Remote Access 2.0"
+      - Application not in known-app list
+      - SetupAuditTrail Section="Connected Apps"
+    why: UNC6040-style vishing gets a user to approve a lookalike "Data Loader" app; its first token login is a Remote Access login with a never-seen Application name, followed by bulk queries.
+    kql: |-
+      dataset="salesforce_logs" LoginType="Remote Access 2.0" Status="Success"
+      | lookup sfdc_known_apps on Application
+      | where isempty(approved)
+      | summarize first=min(_time), ips=make_set(SourceIp), users=dcount(UserId) by Application
+    mitre:
+      - T1566.004
+      - T1528
+      - T1550.001
+  - title: Login password spray / stuffing
+    severity: high
+    signals:
+      - Status != "Success"
+      - many UserId per SourceIp
+    why: Spray against login.salesforce.com or a My Domain; a success from the same IP afterwards is the compromise.
+    kql: |-
+      dataset="salesforce_logs" isnotempty(LoginType) Status!="Success"
+      | summarize fails=count(), users=dcount(UserId) by SourceIp, CountryIso, bin(_time, 15m)
+      | where users > 5 or fails > 30
+    mitre:
+      - T1110.003
+      - T1110.004
+  - title: Privileged permission set or profile granted
+    severity: high
+    signals:
+      - Section="Manage Users"
+      - Action PermSetAssign / profile change
+      - Display mentions admin, Modify All or View All
+    why: Persistence and privilege escalation in Salesforce is a permission-set assignment; "Modify All Data" / "View All Data" / API Enabled on a new user precedes exfiltration.
+    kql: |-
+      dataset="salesforce_logs" Section="Manage Users"
+      | where Action has_any ("PermSetAssign","PermSetGroupAssign","profileChanged") or Display has_any ("System Admin","Modify All","View All")
+      | project _time, CreatedById, DelegateUser, Action, Display
+    mitre:
+      - T1098
+      - T1078.004
+  - title: Apex callout to an unapproved external host
+    severity: medium
+    signals:
+      - EVENT_TYPE=ApexCallout
+      - URL host not in Remote Site / Named Credential allow-list
+      - large REQUEST_SIZE
+    why: Malicious or compromised Apex (from a package or a rogue admin) can push records out via HTTP callouts; REQUEST_SIZE shows how much left.
+    kql: |-
+      dataset="salesforce_logs" EVENT_TYPE="ApexCallout"
+      | extend host=extract("https?://([^/:]+)", 1, URL)
+      | lookup sfdc_callout_allowlist on host
+      | where isempty(owner)
+      | summarize calls=count(), sent=sum(toint(REQUEST_SIZE)) by host, USER_ID_DERIVED
+    mitre:
+      - T1567
+      - T1041
+  - title: API access from scripting clients or new country
+    severity: medium
+    signals:
+      - USER_AGENT python-requests / curl / Go-http-client
+      - CLIENT_IP not seen for this user in 30 d
+    why: Legitimate integrations use stable IPs and SDK user agents; a stolen token replayed from attacker infrastructure usually changes both.
+    kql: |-
+      dataset="salesforce_logs" EVENT_TYPE="RestApi"
+      | where USER_AGENT has_any ("python-requests","curl","Go-http-client","aiohttp")
+      | summarize calls=count(), rows=sum(toint(ROWS_PROCESSED)) by USER_ID_DERIVED, CLIENT_IP, USER_AGENT
+    mitre:
+      - T1078.004
+      - T1550.001
+optimizations:
+  - title: Drop performance-only ELF columns
+    saving: 20–35 %
+    fn: Parser → Serialize
+    how: Parse the CSV and drop DB_BLOCKS, DB_CPU_TIME, DB_TOTAL_TIME, CPU_TIME, RUN_TIME, the 15-char USER_ID (keep USER_ID_DERIVED), ORGANIZATION_ID (one value per org) and empty columns, then serialise as JSON.
+    expr: "remove: DB_*, CPU_TIME, RUN_TIME, USER_ID, ORGANIZATION_ID, URI_ID_DERIVED; drop empty"
+  - title: Route performance event types away from the SIEM
+    saving: 30–60 %
+    fn: Routes
+    how: ApexExecution, ApexTrigger, URI, LightningPageView and UI telemetry event types are performance data. Send them to Cribl Lake / an observability tool; keep RestApi, API, BulkApi*, Login, LoginAs, Report*, PermissionUpdate and ApexCallout in the SIEM.
+    expr: EVENT_TYPE in ('ApexExecution','ApexTrigger','URI','LightningPageView','LightningPerformance') → Lake
+  - title: Aggregate small, repetitive integration calls
+    saving: 10–25 %
+    fn: Aggregations
+    how: Integration users poll the same endpoint thousands of times a day with ROWS_PROCESSED 0–1. Roll up calls, rows and errors per user/app/URI per 5 minutes; keep raw rows where ROWS_PROCESSED > 1000.
+    expr: EVENT_TYPE=='RestApi' && Number(ROWS_PROCESSED) < 1000
+  - title: Enrich user and app IDs
+    saving: Analyst time
+    fn: Lookup
+    how: ELF only carries IDs. Join a periodically exported User (Id → Username, Profile) and ConnectedApplication lookup so detections can read names and privilege.
+    expr: lookup sfdc_users on USER_ID_DERIVED → Username, ProfileName
+references:
+  - title: EventLogFile object reference
+    url: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_eventlogfile.htm
+  - title: REST API event type (EventLogFile)
+    url: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_eventlogfile_restapi.htm
+  - title: EventLogFile supported event types
+    url: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_eventlogfile_supportedeventtypes.htm
+  - title: Salesforce security advisories archive
+    url: https://security.salesforce.com/advisory-archives/
+  - title: OmniStudio Data Mapper and FlexCard CVEs (Salesforce Help)
+    url: https://help.salesforce.com/s/articleView?id=004980323&language=en_US&type=1
+  - title: Cribl Salesforce Rest Collector IO pack
+    url: https://github.com/criblpacks/cribl-salesforce-rest-io
+  - title: NVD — CVE-2025-43698
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-43698
+related:
+  - slack-audit
+  - okta
+  - entra-id
+  - google-workspace
+  - o365
+  - workday
