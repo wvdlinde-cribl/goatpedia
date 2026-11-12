@@ -73,6 +73,12 @@ fs.mkdirSync(path.join(dist, 'schema'), { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'schema/entry.schema.json'), path.join(dist, 'schema/entry.schema.json'));
 const covered = Object.values(cov.sourcetypes).filter((t) => typeof t === 'string').length;
 console.log(`✓ Pack Generator coverage: ${covered} sourcetypes mapped, ${Object.keys(cov.sourcetypes).length - covered} skipped`);
-fs.writeFileSync(path.join(dist, 'library.json'), JSON.stringify({ built: new Date().toISOString(), categories, entries }));
+const built = new Date().toISOString();
+const stamp = built.replace(/\D/g, '');
+for (const rel of ['index.html', 'app.js']) {
+  const p = path.join(dist, rel);
+  fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replaceAll('__BUILD__', stamp));
+}
+fs.writeFileSync(path.join(dist, 'library.json'), JSON.stringify({ built, categories, entries }));
 fs.writeFileSync(path.join(dist, '.nojekyll'), '');
 console.log(`✓ wrote dist/ (library.json ${(fs.statSync(path.join(dist, 'library.json')).size / 1024).toFixed(1)} KB)`);
