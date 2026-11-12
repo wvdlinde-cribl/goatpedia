@@ -2,10 +2,313 @@
 id: netapp-ontap
 name: NetApp ONTAP
 short: NetApp
+aka:
+  - Data ONTAP
+  - Clustered Data ONTAP (cDOT)
+  - ONTAP 7-Mode
+  - AFF / FAS
+  - ONTAP Select
+  - Cloud Volumes ONTAP
+  - Amazon FSx for NetApp ONTAP
 vendor: NetApp
 category: storage
-status: stub
-summary: Storage OS for NetApp filers; EMS syslog and CIFS/NFS file-access auditing.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - storage
+  - nas
+  - smb
+  - nfs
+  - ems
+  - file-audit
+  - ransomware
+summary: NetApp's storage operating system for AFF/FAS arrays, ONTAP Select and cloud ONTAP (incl. FSx for ONTAP). It serves SMB, NFS and block storage from storage VMs (SVMs). Three log streams matter for security. EMS events go to syslog and include Autonomous Ransomware Protection alerts. The management audit log records every CLI, API and System Manager action. NAS auditing writes per-file access records in EVTX or XML.
 sourcetypes:
-  - st: netapp_filer_cfoa
   - st: netapp_filer_syslog
+    desc: EMS event messages (legacy-netapp format TIMESTAMP [node:event.name:severity] MSG) from the node messages log or syslog forwarding
+  - st: netapp_filer_cfoa
+    desc: Weekday-prefixed filer messages-log lines tagged [cfoa:<event>:<severity>], a variant the Cribl Search datatype of the same name recognises
+  - st: ontap:syslog
+    desc: Splunk Add-on for NetApp Data ONTAP syslog input — filer logs incl. forwarded audit.log (kern_audit) entries
+  - st: ontap:ems
+    desc: Splunk Add-on for NetApp Data ONTAP — EMS events collected over the ONTAP API
+  - st: ontap_nas_audit_xml
+    desc: "Generic name used here for ONTAP NAS auditing in XML format (file-ops, cifs-logon-logoff, user-account events); no standard Splunk sourcetype"
+facts:
+  First released: 1992 (Data ONTAP); clustered ONTAP 8.x; unified ONTAP 9 from 2016
+  OS: ONTAP 9.x (9.14.1–9.17.1 current), BSD-derived
+  Form factors: AFF / FAS / ASA arrays, ONTAP Select (VM), Cloud Volumes ONTAP, Amazon FSx for NetApp ONTAP, Azure NetApp Files
+  Deployment modes: HA pairs in a cluster; multi-tenant storage VMs (SVMs) with their own LIFs, SMB servers and NFS exports
+  Log transport: "EMS: syslog UDP/TCP/TLS (event notification destination), SNMP, REST webhook; audit.log: cluster log-forwarding (UDP/TCP/TLS); NAS audit: EVTX/XML files on a volume"
+  Log format: "EMS legacy-netapp or RFC 5424; audit.log :: separated fields; NAS audit Windows-event-style XML/EVTX"
+  Typical EPS: EMS 1–50 per cluster; audit.log < 5; NAS auditing 100–10k+ when file-ops is enabled on busy shares
+placement:
+  slots:
+    - internal
+    - cloud
+    - remote
+  items:
+    - slot: internal
+      title: Data-center NAS / SAN
+      desc: The main file server for home drives, department shares and VMware datastores. Every user share it serves is a ransomware target, so file-level audit and ARP alerts matter.
+    - slot: cloud
+      title: Cloud ONTAP
+      desc: Cloud Volumes ONTAP or FSx for ONTAP in AWS/Azure/GCP for lift-and-shift file shares and DR via SnapMirror.
+    - slot: remote
+      title: Branch / edge filers
+      desc: Smaller FAS or ONTAP Select systems at branches, often replicating back to the data center.
+howItWorks:
+  - title: Clusters, nodes and SVMs
+    body: A cluster is one or more HA pairs. Data is served by storage VMs (SVMs, formerly Vservers), each with its own logical interfaces, name services, SMB server and NFS exports. The cluster admin SVM is managed via SSH CLI, REST/ONTAPI and System Manager.
+  - title: WAFL, Snapshots and SnapLock
+    body: WAFL writes new blocks instead of overwriting, which makes Snapshot copies cheap. Snapshots are the primary ransomware recovery mechanism, and SnapLock makes volumes WORM (write once, read many). Deleting snapshots or snapshot policies is therefore a high-signal admin action.
+  - title: Event Management System (EMS)
+    body: Every subsystem emits named EMS events (wafl.vol.full, secd.*, arw.*, callhome.*) with a severity (EMERGENCY to DEBUG). Event filters select which ones go to syslog, SNMP, email or a REST endpoint.
+  - title: Autonomous Ransomware Protection (ARP)
+    body: ARP learns each volume's normal file-extension and entropy profile. On an anomaly it takes a snapshot and raises callhome.arw.activity.seen. It also logs arw.analytics.* and arw.new.file.extn.seen findings, and arw.volume.state when protection is turned on or off.
+  - title: Management audit log
+    body: audit.log records every set request (and optionally get requests) from the CLI, ONTAPI, REST and System Manager with the session id, application, client IP, user, command and result. It replaced command-history.log in ONTAP 9 and can be forwarded to up to 10 destinations.
+  - title: NAS auditing
+    body: Per SVM, ONTAP stages SMB/NFS audit records and converts them to EVTX or XML files on a volume. Event IDs follow Windows (4656 open/create, 4663 read/write/attribute access, 4660 delete, 4624/4625 logon). ONTAP adds 9999 rename and 9998 unlink. Only the first read and first write per open object are audited.
+traffic:
+  handles:
+    - SMB 2.x/3.x (SMB1 optional)
+    - NFSv3, NFSv4.x
+    - iSCSI, FC, NVMe/TCP, NVMe/FC
+    - S3 (ONTAP S3)
+    - SnapMirror / SnapVault replication (intercluster LIFs)
+    - Management via SSH, HTTPS (REST, ONTAPI, System Manager)
+  flow:
+    - step: Connect
+      desc: Client reaches an SVM data LIF; SMB session authenticates via Kerberos/NTLM to AD (cifs-logon-logoff event).
+    - step: Open
+      desc: File opened or created; SACL/NFSv4 ACL decides whether it is audited (4656).
+    - step: Access
+      desc: Read/write/attribute operations (4663), deletes (4660 / 9998), renames (9999).
+    - step: Analyse
+      desc: ARP scores the write pattern for entropy and extension changes; snapshot + EMS alert on anomaly.
+    - step: Administer
+      desc: Admin commands via CLI/REST land in audit.log; config and health events in EMS.
+    - step: Export
+      desc: EMS and audit.log to syslog; NAS audit files collected from the audit volume or via FPolicy partners.
+logs:
+  - type: EMS event (syslog)
+    sourcetype: netapp_filer_syslog
+    format: text
+    share: 40–70 % (excluding NAS audit)
+    avg: ~250 B
+    desc: ONTAP EMS event forwarded in the default legacy-netapp format with an RFC 3164 timestamp, the node name, the EMS event name and severity, then the event's syslog message text.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) \[(?<node>[^:\]]+):(?<event>[^:\]]+):(?<severity>[^\]]+)\]: (?<message>.*)$'
+    key:
+      - node
+      - event
+      - severity
+      - message
+    noise:
+      - pri
+    sample: '<13>Nov 12 08:14:22 [cluster1-01:arw.volume.state:notice]: Anti-ransomware state was changed to "disabled" on volume "vol_finance" (UUID: "8c3f2a10-5d6e-11ef-9a1b-005056a1b2c3") in Vserver "svm_cifs" (UUID: "1f2e3d4c-5d6e-11ef-9a1b-005056a1b2c3").'
+  - type: Management audit (audit.log)
+    sourcetype: ontap:syslog
+    format: text
+    share: 5–20 %
+    avg: ~200 B
+    desc: 'Forwarded audit.log entry, fields separated by " :: " — session id, cluster:application (ssh, console, ontapi, http), client IP:port, cluster:user, the command or API call, and the result (Pending, Success, Error).'
+    pattern: '^(?<timestamp>\w{3} \w{3} \d{2} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}) \[(?<module>\w+):(?<level>\w+):(?<thread>\d+)\] (?<session_id>\S+) :: (?<cluster>[^:]+):(?<application>\S+) :: (?<src_ip>\S+):(?<src_port>\w+) :: (?<user_scope>[^:]+):(?<user>\S+) :: (?<command>.+?) :: (?<result>[\w-]+):?$'
+    key:
+      - application
+      - src_ip
+      - user
+      - command
+      - result
+    noise:
+      - thread
+      - session_id
+      - module
+    sample: 'Wed Nov 12 2026 09:21:28 +00:00 [kern_audit:info:3646] 8003ec000029102a:8003ec000029102b :: cluster1:ssh :: 198.51.100.23:51045 :: cluster1:admin :: volume snapshot delete -vserver svm_cifs -volume vol_finance -snapshot * :: Success'
+  - type: NAS file audit (XML)
+    sourcetype: ontap_nas_audit_xml
+    format: xml
+    share: high when file-ops auditing is enabled
+    avg: ~900 B
+    desc: One XML Event per audited SMB/NFS operation, provider NetApp-Security-Auditing. The System block carries EventID/EventName, protocol Source and Result. EventData has the client IP, user, domain, object type, handle and path relative to the volume as (volume);/path.
+    key:
+      - EventID
+      - EventName
+      - Result
+      - SubjectIP
+      - SubjectUserName
+      - ObjectName
+    noise:
+      - Level
+      - Opcode
+      - Version
+      - ObjectServer
+      - Channel
+    sample: '<Event><System><Provider Name="NetApp-Security-Auditing"/><EventID>4663</EventID><EventName>Write Object</EventName><Version>101.1</Version><Source>CIFS</Source><Level>0</Level><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><Result>Audit Success</Result><TimeCreated SystemTime="2026-11-12T08:15:02.418937000Z"/><Channel>Security</Channel><Computer>cluster1/svm_cifs</Computer></System><EventData><Data Name="SubjectIP">10.20.30.44</Data><Data Name="SubjectHostName">ws-0142.corp.example.com</Data><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserIsLocal">false</Data><Data Name="SubjectDomainName">CORP</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="ObjectServer">Security</Data><Data Name="ObjectType">File</Data><Data Name="HandleID">00000000000453;00;00000060;0001c2a1</Data><Data Name="ObjectName">(vol_finance);/budget/2027_plan.xlsx.locked</Data><Data Name="WriteOffset">0</Data><Data Name="WriteCount">65536</Data></EventData></Event>'
+cves:
+  - id: CVE-2026-22049
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: WebAuthn MFA bypass via Relying Party ID handling
+    affected: ONTAP 9.16.1 and later with WebAuthn MFA configured for System Manager
+    detect: audit.log logins (application http) for an account that should require WebAuthn, from new src_ip, without the usual MFA step; admin actions shortly after.
+    avoid: Apply the fixed release from NTAP-20260722-0001; restrict management LIFs to an admin network; use SSH keys + MFA for CLI.
+  - id: CVE-2024-21985
+    cvss: 7.6
+    year: 2024
+    kev: false
+    scope: device
+    title: REST API privilege boundary bypass for users with several remote accounts/roles
+    affected: ONTAP 9 before 9.9.1P18, 9.10.1P16, 9.11.1P13, 9.12.1P10, 9.13.1P4
+    fixed: 9.9.1P18, 9.10.1P16, 9.11.1P13, 9.12.1P10, 9.13.1P4
+    detect: audit.log REST (application http/ontapi) set requests by a read-only or limited role succeeding (result Success) on settings that role should not change.
+    avoid: Patch; avoid mapping one person to several remote accounts with different roles; review role assignments.
+  - id: CVE-2022-23241
+    cvss: 8.1
+    year: 2022
+    kev: false
+    scope: device
+    title: SnapLock WORM data modify/delete before retention expiry on FlexGroups
+    affected: ONTAP 9.11.1 through 9.11.1P2 with SnapLock-configured FlexGroups
+    detect: NAS audit 4660/9998 deletes or 4663 writes on SnapLock volumes before retention; EMS snaplock.* events.
+    avoid: Upgrade past 9.11.1P2 per NTAP-20221017-0001; keep a second, independent immutable copy (SnapVault / cloud object lock).
+  - id: CVE-2023-27314
+    cvss: 7.5
+    year: 2023
+    kev: false
+    scope: device
+    title: Unauthenticated remote crash of the HTTP (management) service
+    affected: ONTAP 9 before 9.8P19, 9.9.1P16, 9.10.1P12, 9.11.1P8, 9.12.1P2, 9.13.1
+    fixed: 9.8P19, 9.9.1P16, 9.10.1P12, 9.11.1P8, 9.12.1P2, 9.13.1
+    detect: EMS events for the management web service restarting or failing; gaps in System Manager / REST availability correlated with inbound HTTP from unusual sources.
+    avoid: Patch; firewall management LIFs (443) to admin networks only.
+  - id: CVE-2017-0144
+    cvss: 8.8
+    year: 2017
+    kev: true
+    scope: traffic
+    title: EternalBlue SMBv1 RCE — Windows clients and servers that mount ONTAP shares (WannaCry-style share encryption)
+    affected: Unpatched Windows SMBv1 hosts on the same network as the filer; ONTAP is the victim's file store, not the vulnerable code
+    detect: NAS audit bursts of 4663 writes + 9999 renames to new extensions from one SubjectIP; ARP callhome.arw.activity.seen; SMB1 sessions in cifs-logon-logoff events.
+    avoid: Disable SMB1 on SVMs and clients; patch MS17-010; enable ARP and snapshot schedules with locked (tamper-proof) snapshots.
+detections:
+  - title: Ransomware activity detected by ARP
+    severity: critical
+    signals:
+      - event=callhome.arw.activity.seen
+      - event=arw.analytics.probability / arw.analytics.high.entropy
+    why: ONTAP's own model saw encryption-like writes and has already taken a snapshot. Respond before the snapshot reserve or retention runs out.
+    kql: |-
+      dataset="netapp_ontap" event in ("callhome.arw.activity.seen","arw.analytics.probability","arw.analytics.high.entropy","arw.new.file.extn.seen")
+      | extract "[Vv]olume:? \"(?<volume>[^\"]+)\"" from message
+      | summarize alerts=count(), events=make_set(event), first=min(_time) by node, volume
+    mitre:
+      - T1486
+  - title: Ransomware protection turned off
+    severity: high
+    signals:
+      - event=arw.volume.state / arw.vserver.state
+      - message contains "disabled"
+    why: Operators who deploy ransomware disable protections first. Disabling ARP on a production volume should be rare and tied to a change ticket.
+    kql: |-
+      dataset="netapp_ontap" event in ("arw.volume.state","arw.vserver.state")
+      | where message has "\"disabled\"" or message has "\"dry-run\""
+      | project _time, node, event, message
+    mitre:
+      - T1562.001
+      - T1490
+  - title: Snapshot deletion or policy weakening
+    severity: high
+    signals:
+      - audit.log command contains "volume snapshot delete" / "snapshot policy"
+      - wildcard snapshot names
+      - result=Success
+    why: Deleting snapshots removes the recovery point. It is a standard pre-encryption step, done through the CLI or REST with a stolen admin account.
+    kql: |-
+      dataset="netapp_ontap" module="kern_audit"
+      | where command has "snapshot delete" or command has "snapshot policy modify" or command has "snapshot policy delete" or command has "snaplock"
+      | summarize cmds=make_set(command), n=count() by user, src_ip, application, bin(_time, 1h)
+    mitre:
+      - T1490
+      - T1485
+  - title: Mass file rename/write from one client
+    severity: high
+    signals:
+      - NAS audit EventID 4663 Write / 9999 Rename
+      - many distinct ObjectName per SubjectIP in minutes
+      - new extensions (.locked, .encrypted)
+    why: Encryption from a compromised workstation appears as one user touching thousands of files quickly. It catches attacks on volumes without ARP.
+    kql: |-
+      dataset="netapp_ontap" EventID in ("4663","9999","4660","9998")
+      | summarize files=dcount(ObjectName), ops=count() by SubjectIP, SubjectUserName, bin(_time, 5m)
+      | where files > 500
+    mitre:
+      - T1486
+      - T1485
+  - title: Admin login from unexpected source
+    severity: medium
+    signals:
+      - audit.log command="Logging in"
+      - src_ip not in admin network
+      - application in ssh, http, ontapi
+    why: Cluster admin rights mean full control of all data and snapshots, so admin sessions should come only from jump hosts.
+    kql: |-
+      dataset="netapp_ontap" module="kern_audit" command="Logging in"
+      | lookup admin_networks on src_ip
+      | where isempty(admin_net)
+      | summarize logins=count(), results=make_set(result) by user, src_ip, application
+    mitre:
+      - T1078
+      - T1021.004
+optimizations:
+  - title: Filter NAS audit to what you detect on
+    saving: 50–90 % of NAS audit
+    fn: Drop
+    how: Get-attribute and read-directory records (4663 Get Object Attributes / Read Directory) dominate volume. Keep writes, deletes, renames, permission changes and logon failures.
+    expr: EventID=='4663' && /Get Object Attributes|Read Directory/.test(EventName)
+  - title: Flatten the audit XML
+    saving: 40–60 % of NAS audit
+    fn: Parser → Serialize
+    how: Convert each XML Event to a compact JSON/KV record (EventID, EventName, Result, SubjectIP, SubjectUserName, ObjectName, ObjectType) and drop constant fields such as Level, Opcode, Channel, ObjectServer and Version.
+    expr: "keep: EventID, EventName, Result, SubjectIP, SubjectUserName, SubjectDomainName, ObjectName, ObjectType, TimeCreated"
+  - title: Aggregate read activity
+    saving: 30–70 % of remaining NAS audit
+    fn: Aggregations
+    how: Roll successful reads up to counts per user, client IP and top-level folder per 5 minutes. Keep raw writes and deletes.
+    expr: EventID=='4663' && EventName=='Read Object' && Result=='Audit Success'
+  - title: Drop low-severity EMS chatter
+    saving: 20–50 % of EMS
+    fn: Drop
+    how: Use an EMS filter on the cluster or a Stream Drop for informational/debug events (performance counters, AutoSupport transmit notices). Never drop arw.*, callhome.*, secd.* or anything at error or above.
+    expr: /^(informational|debug)$/i.test(severity) && !/^(arw|callhome|secd|snaplock)\./.test(event)
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: ARP/EMS alerts and audit.log → SIEM in full. Filtered NAS audit → SIEM; full NAS audit → Cribl Lake for investigations and compliance.
+    expr: "sourcetype=='ontap_nas_audit_xml' → Lake + SIEM(filtered)  |  else → SIEM"
+references:
+  - title: ONTAP — event notification destination create (syslog formats)
+    url: https://docs.netapp.com/us-en/ontap-cli/event-notification-destination-create.html
+  - title: ONTAP — Audit logging (audit.log and log forwarding)
+    url: https://docs.netapp.com/us-en/ontap/pdfs/sidebar/Audit_logging.pdf
+  - title: ONTAP Auditing Schema Reference (NAS audit XML)
+    url: https://docs.netapp.com/p/ontap/9x/Auditing-Schema-Reference.pdf
+  - title: ONTAP EMS reference — callhome.arw events
+    url: https://docs.netapp.com/us-en/ontap-ems/callhome-arw-events.html
+  - title: ONTAP EMS reference — arw.volume events
+    url: https://docs.netapp.com/us-en/ontap-ems/arw-volume-events.html
+  - title: NetApp advisory NTAP-20260722-0001 (CVE-2026-22049)
+    url: https://security.netapp.com/advisory/NTAP-20260722-0001/
+  - title: NetApp advisory NTAP-20221017-0001 (CVE-2022-23241)
+    url: https://security.netapp.com/advisory/ntap-20221017-0001/
+  - title: Splunk Add-on for NetApp Data ONTAP — source types
+    url: https://docs.splunk.com/Documentation/AddOns/released/NetApp/Sourcetypes
+related:
+  - active-directory
+  - win-security
+  - crushftp
+  - vmware-esxi

@@ -2,9 +2,304 @@
 id: crushftp
 name: CrushFTP
 short: CrushFTP
+aka:
+  - CrushFTP Server
+  - CrushFTP Enterprise
+  - CrushFTP DMZ
 vendor: CrushFTP LLC
 category: storage
-status: stub
-summary: Multi-protocol managed file transfer server (FTP/SFTP/HTTPS); session logs per connection.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - mft
+  - file-transfer
+  - ftp
+  - sftp
+  - https
+  - as2
+  - internet-facing
+summary: Java-based managed file transfer (MFT) server that speaks FTP/FTPS, SFTP, HTTP/HTTPS (WebInterface), WebDAV, AS2 and S3 from one service. It is usually internet-facing and holds partner data, which made it a repeated target of mass exploitation (2024–2025 auth bypass and VFS escape zero-days). Every connection is logged line by line, with each request READ and response WROTE, in CrushFTP.log and per-session logs.
 sourcetypes:
   - st: crushftp_sessionlogs
+    desc: "CrushFTP session log lines (logs/session_logs/ and CrushFTP.log): TYPE|MM/dd/yyyy HH:mm:ss.SSS|[PROTOCOL:session:user:client] READ/WROTE: *payload*"
+facts:
+  First released: 1999 (CrushFTP 1); current major line CrushFTP 11
+  Platform: Java (runs on Windows, Linux, macOS); built-in web admin and end-user WebInterface
+  Protocols: FTP, FTPS, SFTP, SCP, HTTP/HTTPS, WebDAV, AS2, S3-compatible API
+  Deployment modes: Single server; Enterprise DMZ instance (protocol-translating proxy) in front of an internal main server; clustering/replication
+  Default admin: crushadmin (created at install); admin via WebInterface over the same HTTP(S) listener
+  Log transport: "Local files (CrushFTP.log, rolled to logs/, per-connection logs/session_logs/); optional syslog forwarding in Preferences → Logging"
+  Log format: "Pipe-delimited TYPE|timestamp|[connection] text; READ = client request line or header, WROTE = server response"
+  Typical EPS: 1–20 per active session; verbose logging (level 2) multiplies volume 5–10×
+placement:
+  slots:
+    - dmz
+    - internal
+    - cloud
+  items:
+    - slot: dmz
+      title: Internet-facing MFT
+      desc: Partner and customer file exchange over HTTPS and SFTP. Most installs expose the WebInterface directly, the attack surface for every 2024–2025 KEV entry.
+    - slot: internal
+      title: Main server behind a DMZ instance
+      desc: Enterprise pattern where a DMZ CrushFTP translates protocols and the main server with users and VFS stays internal. That design blocked CVE-2025-31161 and CVE-2025-54309.
+    - slot: cloud
+      title: Cloud VM
+      desc: Self-hosted on IaaS VMs with storage backed by S3, Azure Blob or SMB shares through the VFS.
+howItWorks:
+  - title: One listener, many protocols
+    body: Each port (21, 22, 443, 8080 …) is a server item bound to a protocol. HTTP(S) serves both the end-user WebInterface and the admin dashboard, so a WebInterface bug is an admin bug.
+  - title: Users and the VFS
+    body: Users (MainUsers/default inherits to all) map to a virtual file system (VFS) of local folders, SMB shares or cloud buckets, with per-item permissions. Escaping the VFS sandbox (CVE-2024-4040) exposes server files such as sessions.obj and users.xml.
+  - title: Sessions and logging
+    body: Every connection gets a session id (e.g. 21_56874) and a log line per protocol exchange. READ lines carry the client's request line and headers (passwords are masked with asterisks), and WROTE lines carry the response status. A session ends with *Disconnected:*.
+  - title: Authentication paths
+    body: Form login (currentAuth cookie), basic auth, S3 AWS4-HMAC signatures, SSH keys and SSO plugins all end in the same login_user_pass flow. CVE-2025-31161 abused the S3 path with a known username such as crushadmin.
+  - title: DMZ instance
+    body: An Enterprise DMZ CrushFTP accepts client protocols and talks to the internal server over a private channel. It does not forward raw HTTP, so bugs in the main server's HTTP handling are often not reachable through it.
+  - title: Events and jobs
+    body: Event triggers (upload, download, login) run actions such as email, scripts and Jobs (scheduled transfers). Attackers have used them for persistence after gaining admin access.
+traffic:
+  handles:
+    - HTTPS WebInterface and admin dashboard (443/8443)
+    - HTTP (8080, often left enabled)
+    - SFTP / SCP (22 or 2222)
+    - FTP / FTPS explicit and implicit (21, 990)
+    - WebDAV over HTTP(S)
+    - AS2 B2B messages over HTTP(S)
+    - S3-compatible API (AWS4-HMAC-SHA256 auth)
+  flow:
+    - step: Accept
+      desc: Listener accepts the TCP connection and assigns a session id ("Accepting connection from IP:port").
+    - step: Authenticate
+      desc: User logs in by password, key, cookie or S3 signature; the response line shows success (230 Password OK / HTTP 200) or failure (530 Access denied).
+    - step: Request
+      desc: Each command or HTTP request line and its headers are logged as READ.
+    - step: Authorise
+      desc: VFS permissions decide what the user may list, download, upload, rename or delete.
+    - step: Transfer
+      desc: Data moves between client and VFS backend; upload and download stats go to reports.
+    - step: Respond
+      desc: Server response codes and headers are logged as WROTE; session ends with Disconnected.
+logs:
+  - type: Client request (READ)
+    sourcetype: crushftp_sessionlogs
+    format: text
+    share: 50–70 %
+    avg: ~150 B
+    desc: Request line, header or form parameter sent by the client in an HTTP(S), FTP or SFTP session. The bracket holds protocol, session id, user (anonymous before login) and client IP, and the payload is wrapped in asterisks.
+    pattern: '^(?<log_type>[A-Z]+)\|(?<timestamp>\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}\.\d{3})\|\[(?<protocol>[A-Z0-9]+):(?<session_id>[^:\]]+):(?<user>[^:\]]*):(?<src_ip>[^\]]+)\] (?<direction>READ|WROTE): \*(?<payload>.*)\*$'
+    key:
+      - protocol
+      - user
+      - src_ip
+      - direction
+      - payload
+    noise:
+      - log_type
+      - session_id
+    sample: 'SESSION|11/12/2026 09:14:07.512|[HTTPS:412_51834_kQz:anonymous:203.0.113.45] READ: *POST /WebInterface/function/ HTTP/1.1*'
+  - type: Server response (WROTE)
+    sourcetype: crushftp_sessionlogs
+    format: text
+    share: 25–40 %
+    avg: ~120 B
+    desc: Response status or header the server sent back. Login outcome lines such as 230 Password OK. Connected. or 530 Access denied. are the key authentication evidence.
+    pattern: '^(?<log_type>[A-Z]+)\|(?<timestamp>\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}\.\d{3})\|\[(?<protocol>[A-Z0-9]+):(?<session_id>[^:\]]+):(?<user>[^:\]]*):(?<src_ip>[^\]]+)\] (?<direction>READ|WROTE): \*(?<payload>.*)\*$'
+    key:
+      - protocol
+      - user
+      - src_ip
+      - payload
+    noise:
+      - log_type
+      - session_id
+      - direction
+    sample: 'SESSION|11/12/2026 09:14:08.031|[HTTPS:412_51834:jdoe:203.0.113.45] WROTE: *230 Password OK. Connected.*'
+  - type: Connection accept
+    sourcetype: crushftp_sessionlogs
+    format: text
+    share: 2–10 %
+    avg: ~110 B
+    desc: One line per new TCP connection. The bracket user is the placeholder "lookup" and the last bracket field is the listener port; the client IP and port follow in the text.
+    pattern: '^(?<log_type>[A-Z]+)\|(?<timestamp>\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}\.\d{3})\|\[(?<protocol>[A-Z0-9]+):(?<session_id>[^:\]]+):lookup:(?<listen_port>\d+)\] Accepting connection from: (?<src_ip>[^:\s]+):(?<src_port>\d+)$'
+    key:
+      - protocol
+      - listen_port
+      - src_ip
+    noise:
+      - log_type
+      - session_id
+      - src_port
+    sample: 'SESSION|11/12/2026 09:14:07.498|[HTTPS:412_51834:lookup:443] Accepting connection from: 203.0.113.45:51834'
+cves:
+  - id: CVE-2025-54309
+    cvss: 9.8
+    year: 2025
+    kev: true
+    scope: device
+    title: AS2 validation flaw gives unauthenticated admin access over HTTPS (exploited July 2025)
+    affected: CrushFTP 10 before 10.8.5 and 11 before 11.3.4_23, when no DMZ proxy instance is used
+    fixed: 10.8.5, 11.3.4_23 (11.3.5+)
+    detect: New admin users or long random user ids; the default user gaining admin rights; HTTPS POSTs to /WebInterface/function/ with AS2 headers from unknown IPs followed by admin actions.
+    avoid: Update; front the main server with a DMZ instance; restrict admin to allow-listed IPs; validate file hashes on the About tab.
+  - id: CVE-2025-31161
+    cvss: 9.8
+    year: 2025
+    kev: true
+    scope: device
+    title: Authentication bypass via S3 AWS4-HMAC authorization (crushadmin takeover)
+    affected: CrushFTP 10 before 10.8.4 and 11 before 11.3.1, unless a DMZ proxy instance is used
+    fixed: 10.8.4, 11.3.1
+    detect: "READ lines with Authorization: AWS4-HMAC-SHA256 Credential=<user>/ and no currentAuth cookie; sessions for crushadmin from unfamiliar IPs; Disconnected: Range [...] out of bounds errors."
+    avoid: Update; DMZ instance; disable S3 on the HTTP listener if unused; rename or restrict the crushadmin account.
+  - id: CVE-2024-4040
+    cvss: 10
+    year: 2024
+    kev: true
+    scope: device
+    title: Server-side template injection — VFS sandbox escape, auth bypass and RCE
+    affected: CrushFTP before 10.7.1 and 11.1.0
+    fixed: 10.7.1, 11.1.0
+    detect: READ payloads containing <INCLUDE>, {, }, < or > (e.g. path:<INCLUDE>/…/sessions.obj</INCLUDE>), especially in command=zip / exists requests by anonymous.
+    avoid: Update; a DMZ instance only partially protects; rotate sessions and credentials after exposure.
+  - id: CVE-2024-53552
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Password-reset link abuse leads to account takeover
+    affected: CrushFTP 10 before 10.8.3 and 11 before 11.2.3
+    fixed: 10.8.3, 11.2.3
+    detect: Password-reset requests followed by logins from a new IP for the same user; reset URLs pointing at non-company domains.
+    avoid: Update, then set an allow-list of reset URL domains (a bare * is no longer accepted in v11).
+  - id: CVE-2023-43177
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: Unauthenticated object-attribute modification (mass assignment) leading to RCE
+    affected: CrushFTP before 10.5.1
+    detect: Anonymous HTTP(S) requests setting session or user properties, followed by admin-only function calls in the same session.
+    avoid: Update to the current 10.8.x/11.x release; restrict WebInterface exposure.
+  - id: CVE-2023-48795
+    cvss: 5.9
+    year: 2023
+    kev: false
+    scope: traffic
+    title: Terrapin SSH prefix-truncation downgrade affecting SFTP sessions
+    affected: SSH implementations negotiating ChaCha20-Poly1305 or CBC-EtM without strict key exchange, on either the client or server side of SFTP transfers
+    detect: Not visible in session logs; scan SFTP listeners for vulnerable cipher/MAC offers.
+    avoid: Use SSH clients and servers with strict-kex; disable chacha20-poly1305 and *-etm CBC MACs where unsupported.
+detections:
+  - title: Template injection payload in request
+    severity: critical
+    signals:
+      - direction=READ
+      - payload contains <INCLUDE> or { } < >
+      - user=anonymous
+    why: Rapid7 calls READ values containing those characters the primary indicator of CVE-2024-4040 exploitation. Normal clients don't send them.
+    kql: |-
+      dataset="crushftp" direction="READ"
+      | where payload has "<INCLUDE>" or payload matches regex "[{}<>]"
+      | summarize hits=count(), payloads=make_set(payload, 10) by src_ip, user, protocol
+    mitre:
+      - T1190
+      - T1005
+  - title: S3 signature login as an admin user
+    severity: critical
+    signals:
+      - payload contains "AWS4-HMAC-SHA256 Credential=crushadmin/"
+      - no currentAuth cookie in the session
+    why: The CVE-2025-31161 bypass uses the S3 Authorization header with a known username. A legitimate crushadmin user rarely uses the S3 API.
+    kql: |-
+      dataset="crushftp" direction="READ" payload has "AWS4-HMAC-SHA256 Credential="
+      | extract "Credential=(?<s3_user>[^/]+)/" from payload
+      | where s3_user in ("crushadmin","admin") or s3_user == user
+      | summarize n=count() by s3_user, src_ip, session_id
+    mitre:
+      - T1190
+      - T1078.001
+  - title: Admin session from a new IP
+    severity: high
+    signals:
+      - user=crushadmin or other admin users
+      - "WROTE: 230 Password OK / HTTP 200"
+      - src_ip not in admin allow-list
+    why: Every 2025 exploit ends with an attacker acting as an admin. Admin logins should only come from known management networks.
+    kql: |-
+      dataset="crushftp" user in ("crushadmin") direction="WROTE"
+      | lookup admin_networks on src_ip
+      | where isempty(admin_net)
+      | summarize first=min(_time), last=max(_time), n=count() by user, src_ip, protocol
+    mitre:
+      - T1078
+      - T1133
+  - title: Password spraying against the WebInterface or SFTP
+    severity: medium
+    signals:
+      - "WROTE: 530 Access denied"
+      - many users from one src_ip
+    why: Internet-facing MFT servers attract steady credential spraying. A spike from one IP across many users is a spray, not a forgotten password.
+    kql: |-
+      dataset="crushftp" direction="WROTE" payload has "530"
+      | summarize fails=count(), users=dcount(user) by src_ip, bin(_time, 10m)
+      | where users > 5 or fails > 30
+    mitre:
+      - T1110.003
+  - title: Admin-function calls via WebInterface
+    severity: high
+    signals:
+      - payload contains /WebInterface/function/ with command=setUserItem / setServerItem
+      - non-admin or unknown user
+    why: Creating users, changing the default user or adding Jobs through the admin API is how attackers gained persistence after the July 2025 compromise.
+    kql: |-
+      dataset="crushftp" direction="READ"
+      | where payload has "command=setUserItem" or payload has "command=setServerItem" or payload has "command:setUserItem"
+      | summarize calls=count(), cmds=make_set(payload, 10) by user, src_ip
+    mitre:
+      - T1136.001
+      - T1098
+optimizations:
+  - title: Drop routine response headers
+    saving: 30–50 %
+    fn: Drop
+    how: WROTE lines for standard headers (Content-Type, Vary, Transfer-Encoding, Date, Cache-Control) carry no security value. Keep status lines and anything with Location or Set-Cookie.
+    expr: direction=='WROTE' && /^(Content-|Vary|Transfer-Encoding|Date|Cache-Control|Connection|Keep-Alive|Server|X-)/i.test(payload)
+  - title: Drop static WebInterface asset requests
+    saving: 15–35 %
+    fn: Drop
+    how: GETs for .js, .css, images and fonts under /WebInterface/ are page loads, not actions. Keep function/ calls and uploads.
+    expr: direction=='READ' && /^GET \/WebInterface\/.*\.(js|css|png|gif|svg|woff2?|ico)(\?| )/.test(payload)
+  - title: Collapse each session to one summary event
+    saving: 60–80 %
+    fn: Aggregations
+    how: Group by session_id with first/last time, user, src_ip, protocol, request count and last status. Keep raw lines only for sessions that hit /WebInterface/function/ or failed authentication.
+    expr: "group by session_id, user, src_ip, protocol; window 5m"
+  - title: Archive full verbose logs to Lake
+    saving: SIEM licence
+    fn: Routes
+    how: Send detection-relevant lines (function calls, auth results, suspicious characters) to the SIEM and every raw line to Cribl Lake for incident response.
+    expr: "/function\\/|Password|530|AWS4-HMAC|[{}<>]/.test(payload) → SIEM  |  all → Lake"
+references:
+  - title: CrushFTP wiki — Update and vulnerability info
+    url: https://www.crushftp.com/crush11wiki/Wiki.jsp?page=Update
+  - title: CrushFTP wiki — CVE-2025-54309 compromise July 2025
+    url: https://www.crushftp.com/crush11wiki/Wiki.jsp?page=CompromiseJuly2025
+  - title: Rapid7 analysis — CVE-2024-4040 (log IOCs)
+    url: https://www.rapid7.com/blog/post/ra-cve-2024-4040-analysis/
+  - title: Rapid7 analysis — CVE-2025-2825 / CVE-2025-31161
+    url: https://www.rapid7.com/blog/post/ra-cve-2025-2825-analysis/
+  - title: Huntress — CrushFTP CVE-2025-31161 auth bypass and post-exploitation
+    url: https://www.huntress.com/blog/crushftp-cve-2025-31161-auth-bypass-and-post-exploitation
+  - title: ReliaQuest — dissecting CVE-2025-54309
+    url: https://reliaquest.com/blog/threat-spotlight-cve-2025-54309-crushftp-exploit/
+  - title: Splunk attack_data — CrushFTP 11 session log
+    url: https://media.githubusercontent.com/media/splunk/attack_data/master/datasets/attack_techniques/T1190/crushftp/crushftp11_session.log
+related:
+  - netapp-ontap
+  - apache-httpd
+  - linux-syslog
+  - win-security
