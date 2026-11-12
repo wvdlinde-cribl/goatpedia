@@ -307,8 +307,6 @@ optimizations:
     how: shell, vobd, auth and hostd security events → SIEM; vmkernel, vsan, vmkwarning performance lines → Cribl Lake for troubleshooting.
     expr: "['shell','vobd','sshd'].includes(program) || /login|Rejected|Permission/.test(message) → SIEM  |  else → Lake"
 references:
-  - title: ESXi log file locations (vSphere 8.0 Security)
-    url: https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/vsphere/8-0/vsphere-security/securing-esxi-hosts/managing-esxi-log-files/collecting-log-files.html
   - title: ESXi log file formats introduced in vSphere 8.0
     url: https://knowledge.broadcom.com/external/article/421596/esxi-log-file-formats-introduced-from-vs.html
   - title: Configuring syslog on ESXi
