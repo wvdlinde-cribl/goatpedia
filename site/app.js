@@ -230,6 +230,6 @@
   $('#mq').onkeydown = (ev) => { if (ev.key === 'Enter') location.hash = '#/?q=' + encodeURIComponent(ev.target.value); };
   addEventListener('keydown', (ev) => { if (ev.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { ev.preventDefault(); ($('#q') || $('#mq')).focus(); } });
   addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
-  fetch('library.json').then((r) => r.json()).then((lib) => { LIB = lib; CATS = lib.categories; ENTRIES = lib.entries; route(); })
+  fetch('library.json?v=__BUILD__', { cache: 'no-store' }).then((r) => r.json()).then((lib) => { LIB = lib; CATS = lib.categories; ENTRIES = lib.entries; route(); })
     .catch((x) => { app.innerHTML = `<div class="page"><h1>Could not load the library</h1><p>${esc(x.message)}</p></div>`; });
 })();
