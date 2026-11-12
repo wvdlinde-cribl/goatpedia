@@ -2,16 +2,343 @@
 id: entra-id
 name: Microsoft Entra ID (Azure AD)
 short: Entra ID
+aka:
+  - Azure Active Directory
+  - Azure AD
+  - AAD
+  - Microsoft Entra
+  - Entra ID Protection
 vendor: Microsoft
 category: idp
-status: stub
-summary: Microsoft cloud identity provider; sign-in, audit and directory objects via Azure Monitor and Microsoft Graph.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - identity
+  - sso
+  - mfa
+  - conditional access
+  - oauth
+  - microsoft graph
+  - azure monitor
+  - json
+summary: Microsoft's cloud identity provider behind Microsoft 365, Azure and thousands of SaaS apps. Sign-in logs (interactive, non-interactive, service principal, managed identity), directory audit logs and Identity Protection risk detections are exported as JSON through Azure Monitor diagnostic settings (Event Hub / Log Analytics / Storage) or pulled from Microsoft Graph — the core telemetry for spray, token theft, consent phishing and tenant takeover.
 sourcetypes:
   - st: azure_graph_alerts
+    desc: Microsoft Graph security alerts (Identity Protection / Defender) pulled by the Cribl Graph collector
   - st: azure_graph_devices
+    desc: Microsoft Graph device objects (Entra-joined / registered devices, compliance state)
   - st: azure_graph_directory_audits
+    desc: Microsoft Graph /auditLogs/directoryAudits — directory change audit records
   - st: azure_graph_signins
+    desc: Microsoft Graph /auditLogs/signIns — user sign-in records
   - st: azure_graph_user_registration
+    desc: Microsoft Graph authentication-method registration details per user (MFA / SSPR registration)
   - st: azure_graph_users
+    desc: Microsoft Graph user objects (directory inventory for enrichment)
   - st: azure_monitor_aad
+    desc: Entra ID logs streamed via Azure Monitor diagnostic settings to Event Hub (Splunk azure:monitor:aad)
   - st: azure_signin
+    desc: Entra ID sign-in events (generic name)
+  - st: azure:monitor:aad
+    desc: Splunk Add-on for Microsoft Cloud Services — Entra ID logs from Event Hub
+  - st: SigninLogs
+    desc: Microsoft Sentinel / Log Analytics table for interactive user sign-ins
+  - st: AADNonInteractiveUserSignInLogs
+    desc: Sentinel table for non-interactive (token refresh, app-on-behalf) sign-ins — the largest by volume
+  - st: AuditLogs
+    desc: Sentinel table for Entra ID directory audit events
+  - st: AZURE_AD
+    desc: Google SecOps (Chronicle) log type for Entra ID sign-ins
+facts:
+  First released: 2013 (Windows Azure Active Directory GA); renamed Microsoft Entra ID in 2023
+  Delivery model: Multi-tenant SaaS, one tenant per organisation
+  Licensing that affects logs: Free (7-day log retention, no Graph export of sign-ins), P1 (30 days, diagnostic export), P2 (Identity Protection risk data)
+  Log types: Interactive, non-interactive, service principal and managed identity sign-ins; audit; provisioning; risky users / risk detections; Graph activity
+  Log transport: Azure Monitor diagnostic settings → Event Hub / Log Analytics / Storage; Microsoft Graph API (auditLogs/signIns, directoryAudits)
+  Log format: JSON (Azure Monitor envelope with properties.*, or Graph resource objects)
+  Typical volume: Non-interactive sign-ins 5–20× interactive; 2–5 KB per sign-in record
+  Cribl integration: Azure Event Hub Source; Microsoft Graph REST collectors (azure_graph_*)
+placement:
+  slots:
+    - cloud
+    - remote
+    - internal
+    - endpoint
+  items:
+    - slot: cloud
+      title: Tenant identity plane
+      desc: The Entra tenant authenticates users and workloads for Microsoft 365, Azure and federated SaaS. All sign-in and audit logs are generated in the cloud and exported via diagnostic settings — nothing on-prem is required to collect them.
+    - slot: remote
+      title: Users anywhere
+      desc: login.microsoftonline.com is public. Every remote user, attacker spray and AiTM phishing proxy terminates here, governed by Conditional Access.
+    - slot: internal
+      title: Hybrid identity (Entra Connect / Cloud Sync)
+      desc: Entra Connect Sync or Cloud Sync agents on-prem synchronise users and password hashes from Active Directory; pass-through authentication agents and AD FS federation also sit here. Compromise of these servers is a path to the tenant.
+    - slot: endpoint
+      title: Entra-joined devices
+      desc: Windows/macOS devices joined or registered to Entra obtain a Primary Refresh Token (PRT); device compliance from Intune feeds Conditional Access and shows up in deviceDetail on every sign-in.
+howItWorks:
+  - title: Token service (eSTS)
+    body: The security token service handles OAuth 2.0 / OpenID Connect, SAML and WS-Fed. A user authenticates once, receives a refresh token (or PRT on joined devices) and then silently obtains access tokens per resource — those silent token grants are the non-interactive sign-ins, which is why that log dwarfs the interactive one.
+  - title: Conditional Access
+    body: After primary authentication every sign-in is evaluated against Conditional Access policies (user/group, app, location, device compliance, client app, sign-in and user risk). Each policy's result (success, failure, notApplied, reportOnly*) is written to appliedConditionalAccessPolicies, and conditionalAccessStatus summarises it.
+  - title: MFA and authentication methods
+    body: Microsoft Authenticator push/number matching, passkeys/FIDO2, Windows Hello, certificate-based auth, SMS/voice and TOTP. authenticationDetails and authenticationRequirement show which methods ran and whether MFA was required; error 500121 means the MFA step failed or was denied.
+  - title: Identity Protection
+    body: With P2, machine-learning risk detections (unfamiliar sign-in properties, anonymous IP, leaked credentials, token anomalies, password spray) set riskLevelDuringSignIn and riskEventTypes_v2 on the sign-in and raise risk detections and alerts surfaced through Microsoft Graph.
+  - title: Directory and audit
+    body: Every change to users, groups, roles, applications, service principals, policies and domains is recorded in the audit log with activityDisplayName, initiatedBy (user or app), targetResources with modifiedProperties (old/new values) and loggedByService (Core Directory, PIM, SSPR …).
+  - title: Export paths
+    body: Diagnostic settings stream each log category (SignInLogs, NonInteractiveUserSignInLogs, ServicePrincipalSignInLogs, ManagedIdentitySignInLogs, AuditLogs, RiskyUsers, UserRiskEvents …) to Event Hub within minutes; Cribl Stream consumes the Event Hub with its Azure Event Hubs Source. Graph API pulls give the same data in the Graph schema.
+traffic:
+  handles:
+    - OAuth 2.0 / OpenID Connect (auth code, client credentials, device code, ROPC)
+    - SAML 2.0 and WS-Federation SSO
+    - Primary Refresh Token (PRT) on Entra-joined devices
+    - Legacy auth (IMAP, POP, SMTP AUTH, EAS) where not blocked
+    - MFA (Authenticator, FIDO2/passkeys, Windows Hello, CBA)
+    - Federation to AD FS / third-party IdPs
+    - SCIM / Entra provisioning to SaaS apps
+  flow:
+    - step: Request
+      desc: Client redirects to login.microsoftonline.com (or calls the token endpoint) for a resource/app.
+    - step: Primary auth
+      desc: Password (cloud, PHS, PTA), federated IdP, FIDO2, Windows Hello or certificate.
+    - step: Conditional Access
+      desc: Policies evaluated on user, app, IP/location, device compliance and risk; may require MFA or block (53003).
+    - step: MFA
+      desc: Strong authentication challenge if required; result recorded in authenticationDetails.
+    - step: Token issued
+      desc: ID/access/refresh tokens issued; later silent refreshes are non-interactive sign-ins.
+    - step: Audit record
+      desc: Sign-in record per attempt and audit record per directory change, exported via diagnostic settings or Graph.
+logs:
+  - type: Sign-in (SignInLogs)
+    sourcetype: azure_monitor_aad
+    format: json
+    share: 70–90 % (incl. non-interactive)
+    avg: ~3 KB
+    desc: One record per sign-in attempt in the Azure Monitor envelope. resultType is the AADSTS error code (0 = success, 50126 bad password, 50053 locked, 500121 MFA failed, 53003 blocked by Conditional Access); the detail lives under properties.
+    key:
+      - properties.userPrincipalName
+      - callerIpAddress
+      - resultType
+      - properties.appDisplayName
+      - properties.clientAppUsed
+      - properties.conditionalAccessStatus
+      - properties.riskLevelDuringSignIn
+      - properties.location.countryOrRegion
+    noise:
+      - resourceId
+      - operationVersion
+      - Level
+      - durationMs
+      - properties.deviceDetail.deviceId
+      - properties.location.geoCoordinates.latitude
+      - properties.location.geoCoordinates.longitude
+      - properties.processingTimeInMilliseconds
+    sample: '{"time":"2026-11-12T08:21:40.3376521Z","resourceId":"/tenants/0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e/providers/Microsoft.aadiam","operationName":"Sign-in activity","operationVersion":"1.0","category":"SignInLogs","tenantId":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","resultType":"50126","resultSignature":"None","resultDescription":"Error validating credentials due to invalid username or password.","durationMs":0,"callerIpAddress":"198.51.100.61","correlationId":"6a7b8c9d-0e1f-4a2b-9c3d-4e5f6a7b8c9d","identity":"John Doe","Level":4,"location":"NL","properties":{"id":"1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b","createdDateTime":"2026-11-12T08:21:40.3376521+00:00","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.61","status":{"errorCode":50126,"failureReason":"Error validating credentials due to invalid username or password."},"clientAppUsed":"Browser","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","deviceDetail":{"deviceId":"","operatingSystem":"Windows10","browser":"Chrome 130.0.0","isCompliant":false,"isManaged":false},"location":{"city":"Amsterdam","state":"Noord-Holland","countryOrRegion":"NL","geoCoordinates":{"latitude":52.37,"longitude":4.89}},"conditionalAccessStatus":"notApplied","authenticationRequirement":"singleFactorAuthentication","isInteractive":true,"riskLevelDuringSignIn":"medium","riskState":"atRisk","riskEventTypes_v2":["unfamiliarFeatures"],"authenticationProtocol":"none","processingTimeInMilliseconds":112,"userType":"Member","tokenIssuerType":"AzureAD"}}'
+  - type: Directory audit
+    sourcetype: azure_graph_directory_audits
+    format: json
+    share: 3–10 %
+    avg: ~2 KB
+    desc: Graph directoryAudit record for every directory change — role assignments, app/service principal credentials, consent grants, Conditional Access and domain federation changes. Low volume, highest value per byte.
+    key:
+      - activityDisplayName
+      - category
+      - initiatedBy.user.userPrincipalName
+      - initiatedBy.user.ipAddress
+      - targetResources[0].userPrincipalName
+      - targetResources[0].modifiedProperties[0].newValue
+      - result
+      - loggedByService
+    noise:
+      - targetResources[0].modifiedProperties[0].oldValue
+      - additionalDetails[0].key
+      - additionalDetails[0].value
+    sample: '{"id":"Directory_4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e7f_ABCDE_12345678","category":"RoleManagement","correlationId":"4c5d6e7f-8a9b-4c0d-9e1f-2a3b4c5d6e7f","result":"success","resultReason":"","activityDisplayName":"Add member to role","activityDateTime":"2026-11-12T09:05:12.4410213Z","loggedByService":"Core Directory","operationType":"Assign","initiatedBy":{"user":{"id":"3a4b5c6d-7e8f-4091-a2b3-c4d5e6f7a8b9","displayName":"Alice Smith","userPrincipalName":"asmith@example.com","ipAddress":"203.0.113.45"}},"targetResources":[{"id":"7b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d0e","displayName":"svc-sync","type":"User","userPrincipalName":"svc-sync@example.com","modifiedProperties":[{"displayName":"Role.DisplayName","oldValue":"","newValue":"\"Global Administrator\""}]}],"additionalDetails":[{"key":"User-Agent","value":"python-requests/2.32"}]}'
+  - type: Identity Protection alert
+    sourcetype: azure_graph_alerts
+    format: json
+    share: < 1 %
+    avg: ~2.5 KB
+    desc: Microsoft Graph security alert raised by Entra ID Protection (provider IPC) or other Microsoft security products. Carries the affected user, logon IP, severity and alert category.
+    key:
+      - title
+      - severity
+      - category
+      - status
+      - userStates[0].userPrincipalName
+      - userStates[0].logonIp
+      - vendorInformation.provider
+    noise:
+      - azureSubscriptionId
+      - activityGroupName
+      - assignedTo
+      - closedDateTime
+      - feedback
+    sample: '{"id":"a1b2c3d4e5f60718293a4b5c6d7e8f90","azureTenantId":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","azureSubscriptionId":"","activityGroupName":null,"assignedTo":null,"category":"AnonymousLogin","closedDateTime":null,"createdDateTime":"2026-11-12T08:25:03.1200000Z","description":"Sign-in from an anonymous IP address (e.g. Tor browser, anonymizer VPNs)","eventDateTime":"2026-11-12T08:21:40.3376521Z","feedback":null,"severity":"medium","status":"newAlert","title":"Anonymous IP address","userStates":[{"userPrincipalName":"jdoe@example.com","logonIp":"198.51.100.61","logonLocation":"Amsterdam, Noord-Holland, NL","riskScore":"medium"}],"vendorInformation":{"provider":"IPC","vendor":"Microsoft"}}'
+cves:
+  - id: CVE-2025-55241
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Entra ID cross-tenant elevation of privilege via undocumented "Actor tokens" and the legacy Azure AD Graph API
+    affected: Microsoft Entra ID (service-side; all tenants until Microsoft's fix in July 2025)
+    fixed: Mitigated service-side by Microsoft — no customer action
+    detect: Actor-token requests were NOT logged in the victim tenant, and reads via graph.windows.net left no API logs. Only writes surface — directory audit records whose initiatedBy shows a Microsoft service display name (e.g. Office 365 Exchange Online) paired with an impersonated user's UPN, or admin changes with no matching sign-in from that admin.
+    avoid: Service-side fix. Monitor AuditLogs for admin changes without a corresponding SigninLogs record; migrate apps off Azure AD Graph.
+  - id: CVE-2026-83941
+    cvss: 8.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Entra ID missing-authorization flaw letting a low-privileged user elevate to a higher directory role
+    affected: Microsoft Entra ID (exclusively hosted service)
+    fixed: Mitigated service-side by Microsoft — no customer action
+    detect: Directory audit "Add member to role" / "Add eligible member to role" or app-role assignments initiated by users who hold no admin role themselves; role changes outside PIM (loggedByService ≠ PIM).
+    avoid: Service fix is automatic. Alert on every privileged role assignment, require PIM activation for admin roles, review assignments made before September 2026.
+  - id: CVE-2026-65673
+    cvss: 7.8
+    year: 2026
+    kev: false
+    scope: device
+    title: Microsoft Entra Connect Sync incorrect authorization (SQL injection) — elevation of privilege on the hybrid sync server
+    affected: Microsoft Entra Connect 1.0.0 to before 2.6.84.0
+    fixed: 2.6.84.0
+    detect: Entra Connect's sync account (Sync_* / On-Premises Directory Synchronization Service Account) performing directory audit actions outside normal sync — role changes, credential additions, password resets on cloud-only admins.
+    avoid: Upgrade Entra Connect; treat the sync server as Tier 0; alert on any non-sync activity by the sync service account.
+  - id: CVE-2026-56155
+    cvss: 7.8
+    year: 2026
+    kev: true
+    scope: traffic
+    title: "AD FS insufficient access-control granularity — local privilege escalation on the federation server that Entra trusts"
+    affected: Active Directory Federation Services on supported Windows Server versions (see MSRC advisory)
+    detect: Federated sign-ins (tokenIssuerType=ADFederationServices) for users or from locations that never used AD FS before; directory audit "Set domain authentication" or federation-setting changes; AD FS token-signing certificate changes.
+    avoid: Apply the July 2026 update; Microsoft recommends migrating from AD FS to cloud authentication (decommission guide); alert on federation configuration changes.
+detections:
+  - title: Password spray against the tenant
+    severity: high
+    signals:
+      - category=SignInLogs
+      - resultType=50126
+      - many distinct users per callerIpAddress
+    why: Spray tries one password across many accounts to dodge Smart Lockout. Entra's public endpoint is the first target for M365 compromise.
+    kql: |-
+      dataset="entra_logs" category="SignInLogs" resultType="50126"
+      | summarize fails=count(), users=dcount(properties.userPrincipalName) by callerIpAddress, bin(_time, 15m)
+      | where users > 10
+    mitre:
+      - T1110.003
+  - title: MFA fatigue / repeated MFA failures
+    severity: high
+    signals:
+      - resultType=500121
+      - repeated for one user in a short window
+      - followed by resultType=0
+    why: An attacker holding the password keeps triggering Authenticator prompts; a burst of 500121 then a success suggests the user gave in.
+    kql: |-
+      dataset="entra_logs" category="SignInLogs" resultType in ("500121","0")
+      | summarize mfa_fail=countif(resultType=="500121"), ok=countif(resultType=="0"), ips=dcount(callerIpAddress) by properties.userPrincipalName, bin(_time, 30m)
+      | where mfa_fail >= 5 and ok > 0
+    mitre:
+      - T1621
+  - title: Device-code phishing sign-in
+    severity: high
+    signals:
+      - properties.authenticationProtocol=deviceCode
+      - user rarely or never uses device code
+      - sign-in IP differs from the user's normal IPs
+    why: Device-code phishing (Storm-2372 and others) tricks users into entering a code at microsoft.com/devicelogin, handing the attacker refresh tokens without touching the password.
+    kql: |-
+      dataset="entra_logs" category="SignInLogs" properties.authenticationProtocol="deviceCode" resultType="0"
+      | summarize n=count(), ips=make_set(callerIpAddress) by properties.userPrincipalName, properties.appDisplayName
+    mitre:
+      - T1528
+      - T1566.002
+  - title: Privileged role assigned
+    severity: high
+    signals:
+      - activityDisplayName in (Add member to role, Add eligible member to role)
+      - newValue contains Global Administrator / Privileged Role Administrator
+    why: Granting Global Administrator is the persistence step of almost every tenant takeover. Assignments outside PIM or by an unusual initiator deserve a page.
+    kql: |-
+      dataset="entra_logs" category="RoleManagement" activityDisplayName has "member to role"
+      | where targetResources[0].modifiedProperties[0].newValue has_any ("Global Administrator","Privileged Role Administrator","Application Administrator")
+      | project _time, initiatedBy.user.userPrincipalName, initiatedBy.user.ipAddress, targetResources[0].userPrincipalName, loggedByService
+    mitre:
+      - T1098.003
+  - title: Credentials added to an application or service principal
+    severity: high
+    signals:
+      - activityDisplayName in (Add service principal credentials, Update application – Certificates and secrets management)
+      - initiator is not the app owner / pipeline identity
+    why: Adding a secret or certificate to an existing high-privilege app gives durable, MFA-free access (seen in the Midnight Blizzard and SolarWinds intrusions).
+    kql: |-
+      dataset="entra_logs" category="ApplicationManagement"
+      | where activityDisplayName in ("Add service principal credentials","Update application – Certificates and secrets management")
+      | project _time, activityDisplayName, initiatedBy.user.userPrincipalName, targetResources[0].userPrincipalName, result
+    mitre:
+      - T1098.001
+  - title: Illicit OAuth consent or new federated domain
+    severity: medium
+    signals:
+      - activityDisplayName=Consent to application
+      - activityDisplayName in (Set domain authentication, Set federation settings on domain)
+    why: Consent phishing grants an attacker app mailbox/file scopes; adding or changing a federated domain lets an attacker mint tokens for any user of that domain.
+    kql: |-
+      dataset="entra_logs" activityDisplayName in ("Consent to application","Set domain authentication","Set federation settings on domain")
+      | project _time, activityDisplayName, initiatedBy.user.userPrincipalName, initiatedBy.user.ipAddress, targetResources[0].userPrincipalName
+    mitre:
+      - T1528
+      - T1484.002
+optimizations:
+  - title: Aggregate non-interactive sign-ins
+    saving: 30–60 %
+    fn: Aggregations
+    how: NonInteractiveUserSignInLogs repeat the same user/app/IP every few minutes as tokens refresh. Keep failures raw; roll successes up to count per user, app, IP and resultType per 15 minutes, raw copy to Lake.
+    expr: category=='NonInteractiveUserSignInLogs' && resultType=='0'
+  - title: Trim heavy nested arrays
+    saving: 20–40 %
+    fn: Eval
+    how: appliedConditionalAccessPolicies lists every policy, including notApplied ones, and authenticationProcessingDetails / networkLocationDetails are verbose. Keep only policies whose result is success/failure, drop processing detail and geoCoordinates.
+    expr: "properties.appliedConditionalAccessPolicies = filter(result in ('success','failure')); remove properties.authenticationProcessingDetails, properties.location.geoCoordinates"
+  - title: Drop envelope duplicates
+    saving: 5–10 %
+    fn: Eval
+    how: The Azure Monitor envelope repeats values found under properties (identity, location, callerIpAddress vs properties.ipAddress, resultDescription vs status.failureReason). Remove one copy before the SIEM.
+    expr: "remove: resourceId, operationVersion, Level, durationMs, identity, resultSignature"
+  - title: Route by category
+    saving: SIEM licence
+    fn: Routes
+    how: SignInLogs, AuditLogs, RiskyUsers, UserRiskEvents and ServicePrincipalSignInLogs → SIEM at full fidelity; aggregated NonInteractive and ManagedIdentity sign-ins → SIEM, raw → Lake for investigations.
+    expr: category in ('SignInLogs','AuditLogs','RiskyUsers','UserRiskEvents','ServicePrincipalSignInLogs') → SIEM
+references:
+  - title: Sign-in logs in Microsoft Entra ID
+    url: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins
+  - title: Microsoft Entra activity log schemas
+    url: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/reference-azure-monitor-sign-ins-log-schema
+  - title: Microsoft Graph directoryAudit resource type
+    url: https://learn.microsoft.com/en-us/graph/api/resources/directoryaudit?view=graph-rest-1.0
+  - title: Microsoft Sentinel tables and connectors reference
+    url: https://learn.microsoft.com/en-us/azure/sentinel/sentinel-tables-connectors-reference
+  - title: NVD — CVE-2026-83941 (Entra ID elevation of privilege)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-83941
+  - title: Dirk-jan Mollema — Actor tokens (CVE-2025-55241) write-up and disclosure timeline
+    url: https://dirkjanm.io/obtaining-global-admin-in-every-entra-id-tenant-with-actor-tokens/
+  - title: EUVD — CVE-2026-65673 Entra Connect elevation of privilege (affected/fixed versions)
+    url: https://euvd.enisa.europa.eu/vulnerability/EUVD-2026-56724
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - o365
+  - azure-activity
+  - active-directory
+  - okta
+  - mde
+  - win-security

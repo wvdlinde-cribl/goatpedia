@@ -2,21 +2,334 @@
 id: okta
 name: Okta Workforce Identity
 short: Okta
+aka:
+  - Okta Workforce Identity Cloud
+  - Okta Identity Engine (OIE)
+  - Okta Classic Engine
+  - Okta SSO
+  - Okta Verify
 vendor: Okta
 category: idp
-status: stub
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
 tags:
   - sso
   - mfa
   - system log
   - api
+  - saml
+  - oidc
+  - json
+  - identity
+summary: Cloud identity provider for workforce SSO, MFA (Okta Verify, FastPass) and user lifecycle. Every sign-in, factor challenge, policy decision and admin change lands in the Okta System Log, a JSON audit trail pulled via REST API or pushed by Log Streaming — the primary record for credential attacks, MFA fatigue and session hijacking.
 sourcetypes:
   - st: OktaIM2:log
+    desc: Splunk Add-on for Okta Identity Cloud — System Log events
   - st: okta_system
-    desc: Pack Generator sourcetype
+    desc: Okta System Log events (generic Pack Generator name)
   - st: okta_system_log
-    desc: Pack Generator sourcetype
+    desc: Okta System Log LogEvent objects from /api/v1/logs
   - st: oktaim2_log
-    desc: Pack Generator sourcetype
-summary: Cloud IdP; System Log pulled via REST API.
-cveIds: []
+    desc: Lower-cased alias of the Splunk OktaIM2:log sourcetype
+  - st: OktaV2_CL
+    desc: Microsoft Sentinel table written by the Okta Single Sign-On (Codeless Connector Framework) connector
+  - st: OKTA
+    desc: Google SecOps (Chronicle) log type for Okta System Log
+facts:
+  First released: 2009 (Okta founded); Identity Engine (OIE) is the current platform, Classic Engine legacy
+  Delivery model: Multi-tenant SaaS (org per customer, hosted in regional cells)
+  Components: Universal Directory, SSO (SAML/OIDC/WS-Fed), MFA (Okta Verify, FastPass, WebAuthn), Lifecycle Management, AD/LDAP/RADIUS agents, Okta Access Gateway (on-prem)
+  Log transport: System Log API (GET /api/v1/logs, polling with since/after cursor), Log Streaming (AWS EventBridge, Splunk Cloud)
+  Log format: JSON LogEvent objects (one per event)
+  Retention in Okta: 90 days in the System Log
+  Typical volume: 10–60 events per user per day, ~2–3 KB each
+  Cribl Pack: Okta REST Collector IO (cribl-okta-rest-io, Packs Dispensary)
+placement:
+  slots:
+    - cloud
+    - remote
+    - internal
+    - endpoint
+  items:
+    - slot: cloud
+      title: SaaS identity plane
+      desc: The Okta org itself. Every app integration (SAML/OIDC), policy and admin console lives here, and the System Log is generated here — there is nothing to install to get logs, only an API token or OAuth service app.
+    - slot: remote
+      title: Remote users
+      desc: Users sign in from anywhere through the Okta-hosted sign-in widget. Sign-ins are internet-facing by design, so password spray and phishing proxies (AiTM) hit Okta directly.
+    - slot: internal
+      title: AD / LDAP / RADIUS agents
+      desc: Lightweight agents on member servers sync users from Active Directory, delegate authentication (AD agent) and front VPNs over RADIUS. Their actions appear as system.agent.* and user.authentication.* events.
+    - slot: endpoint
+      title: Okta Verify on devices
+      desc: The Okta Verify app (mobile and desktop) provides push MFA, FastPass device-bound authentication and Desktop MFA for Windows/macOS logon. Device posture is reported into the sign-on policy and the log.
+howItWorks:
+  - title: Sign-on policy engine
+    body: Identity Engine evaluates a global session policy and then a per-app authentication policy for each request. Rules match on group, network zone, device state, risk and authenticator. Every evaluation can emit policy.evaluate_sign_on, and the outcome (ALLOW, DENY, CHALLENGE) is recorded on the related events.
+  - title: Authenticators and factors
+    body: Password, Okta Verify push/TOTP, FastPass (device-bound, phishing-resistant), WebAuthn/FIDO2, SMS, voice and email. Each challenge produces user.authentication.auth_via_mfa (OIE) with authenticationContext and outcome.reason, so factor type and failure reason are visible per attempt.
+  - title: Sessions and tokens
+    body: A successful sign-in creates an Okta session cookie (idx/sid) identified by authenticationContext.externalSessionId. SSO to apps issues SAML assertions (user.authentication.sso) or OIDC/OAuth tokens (app.oauth2.*). A stolen session cookie replays from a new IP/ASN — Okta flags this as security.session.detect_client_roaming.
+  - title: ThreatInsight and risk
+    body: ThreatInsight scores source IPs across all Okta tenants and logs security.threat.detected for credential-stuffing or spray sources (log or log-and-enforce mode). Behavior detection (new device, new geo, velocity) and risk scoring populate debugContext.debugData.behaviors and risk on sign-in events.
+  - title: System Log data model
+    body: Each LogEvent has uuid, published, eventType, severity, displayMessage, an actor (who), client (IP, user agent, geo, zone), outcome (result + reason), target[] (users, apps, groups touched), transaction, authenticationContext, securityContext (ASN, ISP, proxy flag) and a free-form debugContext.debugData map.
+  - title: Getting the data out
+    body: The /api/v1/logs endpoint is polled with a since timestamp and follows the Link rel=next cursor; it is rate-limited per org. Log Streaming pushes the same JSON to AWS EventBridge or Splunk Cloud in near real time. Cribl Stream typically uses a REST Collector (or the Okta REST Collector IO Pack) or an EventBridge → S3/SQS path.
+traffic:
+  handles:
+    - SAML 2.0 and WS-Federation SSO
+    - OpenID Connect / OAuth 2.0 (authorization code, client credentials, device)
+    - Okta Verify push, TOTP, FastPass
+    - WebAuthn / FIDO2 passkeys
+    - RADIUS (via RADIUS agent) for VPN MFA
+    - AD / LDAP delegated authentication
+    - SCIM provisioning to downstream apps
+    - Okta Management API (admin automation)
+  flow:
+    - step: Request
+      desc: User or app hits the Okta sign-in endpoint or an app redirects to Okta (SAML AuthnRequest / OIDC authorize).
+    - step: Policy
+      desc: Global session policy and the app authentication policy are evaluated (network zone, device, risk, group).
+    - step: Authenticate
+      desc: Password and/or authenticators are challenged; ThreatInsight may block or rate-limit the source IP.
+    - step: Session
+      desc: On success an Okta session is created (externalSessionId); user.session.start records the attempt.
+    - step: SSO
+      desc: Okta issues a SAML assertion or OIDC/OAuth tokens to the target app (user.authentication.sso, app.oauth2.*).
+    - step: Audit record
+      desc: Each step writes a LogEvent to the System Log, readable via API within seconds or pushed by Log Streaming.
+logs:
+  - type: Sign-in (user.session.start)
+    sourcetype: okta_system_log
+    format: json
+    share: 50–70 %
+    avg: ~2.5 KB
+    desc: "Authentication attempts and session creation. Carries the user (actor), source IP, geo, ASN, user agent, outcome and failure reason. Note: SUCCESS can still be followed by an MFA failure or policy deny — correlate on authenticationContext.externalSessionId."
+    key:
+      - eventType
+      - actor.alternateId
+      - client.ipAddress
+      - outcome.result
+      - outcome.reason
+      - securityContext.asOrg
+      - client.geographicalContext.country
+      - authenticationContext.externalSessionId
+    noise:
+      - version
+      - legacyEventType
+      - transaction.detail.requestApiTokenId
+      - client.zone
+      - client.device
+      - request.ipChain[0].ip
+      - request.ipChain[0].geographicalContext.city
+      - request.ipChain[0].version
+    sample: '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"user.session.start","version":"0","severity":"INFO","legacyEventType":"core.user_auth.login_failed","displayMessage":"User login to Okta","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"FAILURE","reason":"INVALID_CREDENTIALS"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location, New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+  - type: Admin / lifecycle change
+    sourcetype: okta_system_log
+    format: json
+    share: 5–15 %
+    avg: ~2 KB
+    desc: Administrator and lifecycle actions — role grants, policy and IdP changes, factor resets, API token creation, user/group changes. Low volume, very high value; target[] names the object that changed.
+    key:
+      - eventType
+      - actor.alternateId
+      - target[0].alternateId
+      - target[0].type
+      - debugContext.debugData.privilegeGranted
+      - client.ipAddress
+      - outcome.result
+    noise:
+      - version
+      - legacyEventType
+      - transaction.type
+    sample: '{"uuid":"7a1b2c3d-9b7e-11ef-a1b2-3c4d5e6f7a8b","published":"2026-11-12T09:02:41.088Z","eventType":"user.account.privilege.grant","version":"0","severity":"INFO","legacyEventType":"core.user.admin_privilege.granted","displayMessage":"Grant user privilege","actor":{"id":"00u9zyxwVUTSrqpo0x7","type":"User","alternateId":"asmith@example.com","displayName":"Alice Smith"},"client":{"ipAddress":"203.0.113.45","geographicalContext":{"city":"London","country":"United Kingdom"}},"outcome":{"result":"SUCCESS"},"target":[{"id":"00u5mnopQRSTuvwx0x7","type":"User","alternateId":"svc-backup@example.com","displayName":"svc-backup"}],"transaction":{"type":"WEB","id":"Yk2LmN8pQ4rS6tU0vW3x"},"debugContext":{"debugData":{"privilegeGranted":"Super administrator","requestUri":"/api/internal/administrators/00u5mnopQRSTuvwx0x7"}},"authenticationContext":{"externalSessionId":"102ZyXwVuTsRqPoNmLkJiH"}}'
+  - type: ThreatInsight detection
+    sourcetype: okta_system_log
+    format: json
+    share: 1–10 % (spikes during attacks)
+    avg: ~1.8 KB
+    desc: security.threat.detected — a request from an IP that ThreatInsight considers malicious (spray, credential stuffing). outcome.result is ALLOW (log mode), DENY or RATE_LIMIT (enforce mode); outcome.reason explains why.
+    key:
+      - eventType
+      - client.ipAddress
+      - outcome.result
+      - outcome.reason
+      - debugContext.debugData.threatDetections
+      - securityContext.isProxy
+    noise:
+      - version
+      - legacyEventType
+    sample: '{"uuid":"2e4f6a8c-9b7f-11ef-b2c4-5d6e7f8a9b0c","published":"2026-11-12T03:47:09.311Z","eventType":"security.threat.detected","version":"0","severity":"WARN","legacyEventType":"security.threat.detected","displayMessage":"Request from suspicious actor","actor":{"id":"unknown","type":"PublicClientApp","alternateId":"unknown","displayName":"unknown"},"client":{"ipAddress":"192.0.2.77","geographicalContext":{"country":"Netherlands"}},"outcome":{"result":"DENY","reason":"Password Spray"},"target":[],"debugContext":{"debugData":{"threatDetections":"{\"Password Spray\":\"HIGH\"}","requestUri":"/api/v1/authn","threatSuspected":"true"}},"securityContext":{"asNumber":64501,"asOrg":"example vps llc","isProxy":true}}'
+cves:
+  - id: CVE-2026-115546
+    cvss: 8.1
+    year: 2026
+    kev: false
+    scope: device
+    title: Okta Access Gateway authentication-source parameter tampering grants Admin Console SAML assertion
+    affected: Okta Access Gateway (on-prem appliance) before 2026.10.2
+    fixed: 2026.10.2
+    detect: Okta System Log shows the gateway SSO app issuing user.authentication.sso to the OAG Admin Console for users who are not OAG admins; unexpected admin sessions on the gateway itself.
+    avoid: Upgrade OAG; restrict Admin Console access to an admin network zone; review which users hold sessions on any OAG authentication source.
+  - id: CVE-2024-9191
+    cvss: 7.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Okta Verify Desktop MFA for Windows — passwordless login password retrieval via OktaDeviceAccessPipe
+    affected: Okta Verify for Windows 5.0.2 – 5.3.2 with Desktop MFA passwordless login enabled
+    fixed: 5.3.3
+    detect: Not visible in the System Log directly — look for Desktop MFA sign-ins (credentialType / interface showing Okta Device Access) followed by sign-ins for the same user from a different device or IP; on the host, unexpected processes connecting to the named pipe.
+    avoid: Upgrade Okta Verify; inventory the Okta Verify version per device (device assurance policy minimum version).
+  - id: CVE-2024-0980
+    cvss: 7.1
+    year: 2024
+    kev: false
+    scope: device
+    title: Okta Verify for Windows auto-update service flaws allowing arbitrary code execution
+    affected: Okta Verify for Windows before 4.10.7 (including hosts that ever had a pre-4.10.7 version installed)
+    fixed: 4.10.7
+    detect: Endpoint telemetry rather than the System Log — child processes or DLL loads from the Okta Verify update service path; System Log device events showing outdated Okta Verify versions.
+    avoid: Upgrade; enforce a minimum Okta Verify version in device assurance policies.
+  - id: CVE-2024-45409
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: traffic
+    title: "ruby-saml signature verification bypass (SAML apps that trust Okta assertions — e.g. GitLab)"
+    affected: ruby-saml <= 1.12.2 and 1.13.0 – 1.16.0; omniauth-saml <= 2.1.0 (service providers, not Okta itself)
+    fixed: ruby-saml 1.12.3 / 1.17.0; omniauth-saml 1.10.5 / 2.2.0
+    detect: A forged assertion never touches Okta — the tell is an SP session for a user with NO matching user.authentication.sso event for that app in the System Log at that time.
+    avoid: Patch SP SAML libraries; reconcile SP logins against Okta SSO events; require signed and encrypted assertions.
+  - id: CVE-2025-25291
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: traffic
+    title: ruby-saml parser-differential (REXML vs Nokogiri) SAML authentication bypass for Okta-federated apps
+    affected: ruby-saml before 1.12.4 and 1.13.0 – 1.17.x (service providers)
+    fixed: ruby-saml 1.12.4 / 1.18.0
+    detect: Same reconciliation as CVE-2024-45409 — app logins without a corresponding Okta user.authentication.sso for the user/app/time window.
+    avoid: Patch; monitor SP logs for logins of privileged users that Okta never brokered.
+detections:
+  - title: Password spray against Okta
+    severity: high
+    signals:
+      - eventType=user.session.start
+      - outcome.result=FAILURE
+      - many distinct actor.alternateId per client.ipAddress
+    why: Spray uses one or two passwords across many accounts from a small set of IPs to stay under per-user lockout. Okta is internet-facing, so it is the first place a spray lands.
+    kql: |-
+      dataset="okta_logs" eventType="user.session.start" outcome.result="FAILURE"
+      | summarize fails=count(), users=dcount(actor.alternateId) by client.ipAddress, securityContext.asOrg, bin(_time, 15m)
+      | where users > 10
+    mitre:
+      - T1110.003
+  - title: MFA push fatigue
+    severity: high
+    signals:
+      - eventType=user.authentication.auth_via_mfa or user.mfa.okta_verify.deny_push
+      - outcome.result=FAILURE
+      - repeated per user in a short window
+    why: Attackers with a valid password spam push requests until the user accepts. A burst of rejected or timed-out pushes followed by one SUCCESS is the classic pattern.
+    kql: |-
+      dataset="okta_logs" eventType in ("user.authentication.auth_via_mfa","user.mfa.okta_verify.deny_push")
+      | summarize fails=countif(outcome.result=="FAILURE"), ok=countif(outcome.result=="SUCCESS") by actor.alternateId, bin(_time, 10m)
+      | where fails >= 5
+    mitre:
+      - T1621
+  - title: Session cookie replayed from a new network (session hijack)
+    severity: critical
+    signals:
+      - eventType=security.session.detect_client_roaming
+      - same authenticationContext.externalSessionId from several IPs / ASNs
+    why: AiTM phishing kits steal the Okta session cookie and replay it from attacker infrastructure, bypassing MFA entirely. One session seen from two ASNs within minutes is rarely legitimate.
+    kql: |-
+      dataset="okta_logs" isnotempty(authenticationContext.externalSessionId)
+      | summarize ips=dcount(client.ipAddress), asns=dcount(securityContext.asOrg), roam=countif(eventType=="security.session.detect_client_roaming") by authenticationContext.externalSessionId, actor.alternateId
+      | where asns > 1 or roam > 0
+    mitre:
+      - T1539
+      - T1550.004
+  - title: Admin role granted (especially Super administrator)
+    severity: high
+    signals:
+      - eventType=user.account.privilege.grant
+      - debugContext.debugData.privilegeGranted contains Super
+    why: Granting admin roles is the persistence step in most Okta tenant takeovers (2023 help-desk social-engineering campaigns). Should map to a change ticket.
+    kql: |-
+      dataset="okta_logs" eventType in ("user.account.privilege.grant","group.privilege.grant")
+      | project _time, actor.alternateId, target[0].alternateId, debugContext.debugData.privilegeGranted, client.ipAddress
+    mitre:
+      - T1098.003
+  - title: New identity provider added (cross-tenant impersonation)
+    severity: critical
+    signals:
+      - eventType=system.idp.lifecycle.create or system.idp.lifecycle.update
+    why: A rogue inbound-federation IdP lets an attacker sign in as any user without their credentials. Used in the 2023 Okta super-admin attacks; should be extremely rare.
+    kql: |-
+      dataset="okta_logs" eventType startswith "system.idp.lifecycle"
+      | project _time, eventType, actor.alternateId, client.ipAddress, displayMessage
+    mitre:
+      - T1484.002
+  - title: MFA factor reset followed by sign-in from a new IP
+    severity: medium
+    signals:
+      - eventType=user.mfa.factor.deactivate (actor ≠ target)
+      - user.session.start SUCCESS for target user shortly after
+    why: Help-desk social engineering resets the victim's MFA so the attacker can enrol their own device. The reset alone is common; reset + new-geo sign-in within an hour is not.
+    kql: |-
+      dataset="okta_logs" eventType in ("user.mfa.factor.deactivate","user.mfa.factor.reset_all","user.session.start")
+      | extend user=iff(eventType=="user.session.start", actor.alternateId, target[0].alternateId)
+      | summarize resets=countif(eventType startswith "user.mfa.factor"), logins=countif(eventType=="user.session.start" and outcome.result=="SUCCESS"), ips=dcount(client.ipAddress) by user, bin(_time, 1h)
+      | where resets > 0 and logins > 0
+    mitre:
+      - T1556.006
+      - T1078.004
+optimizations:
+  - title: Remove null and empty nested fields
+    saving: 15–30 %
+    fn: Eval / Parser → Serialize
+    how: System Log JSON carries many explicit nulls (client.device, client.zone, target, request.ipChain duplicates of client geo). Drop null/empty values and request.ipChain when it has a single hop equal to client.ipAddress. The Okta REST Collector IO Pack ships this step.
+    expr: "remove nulls; remove request.ipChain when request.ipChain.length==1"
+  - title: Sample or drop policy evaluation events
+    saving: 10–30 %
+    fn: Sampling / Drop
+    how: policy.evaluate_sign_on fires on every policy evaluation and duplicates the decision already on the sign-in event. Sample 1:10 (or drop) unless outcome.result is DENY.
+    expr: eventType=='policy.evaluate_sign_on' && outcome.result!='DENY'
+  - title: Strip legacy and low-value keys
+    saving: 5–15 %
+    fn: Eval
+    how: legacyEventType, version, transaction.detail and the long rawUserAgent (keep parsed os/browser) are rarely searched. Remove before the SIEM, keep the full event in Lake.
+    expr: "remove: legacyEventType, version, transaction.detail, client.userAgent.rawUserAgent"
+  - title: Route by event family
+    saving: SIEM licence
+    fn: Routes
+    how: user.session.*, user.authentication.*, security.*, user.account.privilege.*, system.* and policy changes → SIEM at full fidelity. app.oauth2 token refreshes, user.session.access_admin_app and other high-volume informational events → Lake only, replay on demand.
+    expr: /^(user\.(session|authentication|account|mfa)|security|system|policy\.lifecycle)\./.test(eventType) → SIEM
+references:
+  - title: Okta System Log API
+    url: https://developer.okta.com/docs/reference/api/system-log/
+  - title: Okta Event Types catalog
+    url: https://developer.okta.com/docs/reference/api/event-types/
+  - title: Okta security advisories
+    url: https://trust.okta.com/security-advisories
+  - title: Okta Access Gateway CVE-2026-115546 advisory
+    url: https://trust.okta.com/security-advisories/authentication-source-verification-issue-in-okta-access-gateway-cve-2026-115546
+  - title: Okta Verify Desktop MFA CVE-2024-9191 advisory
+    url: https://trust.okta.com/security-advisories/okta-verify-desktop-mfa-for-windows-passwordless-login-cve-2024-9191/
+  - title: ruby-saml GHSA-jw9c-mfg7-9rx2 (CVE-2024-45409)
+    url: https://github.com/SAML-Toolkits/ruby-saml/security/advisories/GHSA-jw9c-mfg7-9rx2
+  - title: Cribl — Okta REST Collector IO Pack
+    url: https://docs.cribl.io/stream/pack-usecase-okta-rest-collector/
+  - title: MITRE ATT&CK T1621 Multi-Factor Authentication Request Generation
+    url: https://attack.mitre.org/techniques/T1621/
+related:
+  - entra-id
+  - duo
+  - active-directory
+  - google-workspace
+  - o365

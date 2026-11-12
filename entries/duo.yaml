@@ -2,11 +2,308 @@
 id: duo
 name: Cisco Duo
 short: Duo
+aka:
+  - Duo Security
+  - Duo MFA
+  - Duo Single Sign-On
+  - Duo Authentication Proxy
+  - Duo Push
 vendor: Cisco
 category: idp
-status: stub
-summary: MFA and SSO service; Admin API exposes authentication, administrator and telephony logs as JSON.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - mfa
+  - sso
+  - push
+  - radius
+  - admin api
+  - json
+  - identity
+summary: Cloud MFA, device-trust and SSO service. Duo Push, passcodes and passkeys protect web apps, VPNs (via the on-prem Authentication Proxy over RADIUS/LDAP), Windows/macOS logon and SSO. The Admin API exposes authentication, activity, administrator and telephony logs as JSON — the record of push harassment, fraud reports, bypass codes and MFA policy tampering.
 sourcetypes:
   - st: cisco_duo_activity
+    desc: Duo Activity log v2 (/admin/v2/logs/activity) — actor/action/target records for admin and user activity
   - st: cisco_duo_administrator
+    desc: Duo Administrator log (/admin/v1/logs/administrator) — admin console and API changes
   - st: duo_security
+    desc: Duo authentication log v2 (/admin/v2/logs/authentication) — one record per MFA attempt
+  - st: cisco:duo:authentication
+    desc: Cisco Security Cloud app for Splunk — Duo authentication logs
+  - st: cisco:duo:activity
+    desc: Cisco Security Cloud app for Splunk — Duo activity logs
+  - st: cisco:duo:administrator
+    desc: Cisco Security Cloud app for Splunk — Duo administrator logs
+facts:
+  First released: 2010 (Duo Security; acquired by Cisco in 2018)
+  Delivery model: Multi-tenant SaaS (api-XXXXXXXX.duosecurity.com per account) plus on-prem connectors
+  On-prem components: Duo Authentication Proxy (RADIUS/LDAP for VPN, firewalls), Windows Logon & RDP, macOS logon, AD FS/OWA plugins, Duo Desktop (device health)
+  Factors: Duo Push / Verified Push, passkeys and WebAuthn, passcodes, hardware tokens, SMS, phone call, bypass codes
+  Log transport: Admin API polling (mintime/maxtime, next_offset paging, 2-minute availability delay, ~1 request/min recommended)
+  Log format: JSON (default) or OCSF Authentication class (formatter=1, beta)
+  Retention: 180 days queryable via API
+  Typical volume: 2–10 authentication events per user per day, ~1.5–3 KB each
+placement:
+  slots:
+    - cloud
+    - internal
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Duo cloud service
+      desc: Policy evaluation, push delivery, SSO and all logging happen in the Duo cloud. Every protected app calls the Duo API; the Admin API is where logs are pulled from.
+    - slot: internal
+      title: Authentication Proxy
+      desc: On-prem service (Windows/Linux) that sits between a VPN, firewall or appliance and the directory. It does primary auth against AD/RADIUS and then calls Duo for the second factor — the RADIUS hop that Blast-RADIUS targets.
+    - slot: remote
+      title: Remote access MFA
+      desc: VPN concentrators (ASA/FTD, Palo Alto GlobalProtect, Fortinet) and web apps prompt for Duo; push requests go to users' phones wherever they are.
+    - slot: endpoint
+      title: Logon and device health
+      desc: Duo for Windows Logon/RDP and macOS add MFA at OS sign-in (with offline access), and Duo Desktop reports disk encryption, firewall and OS version for trusted-endpoint policies.
+howItWorks:
+  - title: Two-step flow
+    body: The protected application or Authentication Proxy first performs primary authentication (directory password, SAML IdP) and then calls the Duo Auth API with the username. Duo evaluates policy, challenges the user with an allowed factor and returns allow/deny. Duo never sees the primary password unless Duo SSO is the IdP.
+  - title: Policy engine
+    body: Global, application and group policies decide new-user behaviour (enroll, allow, deny), allowed factors, authorised networks, remembered devices, device health requirements, OS/browser versions and user location. The resulting decision and its reason (user_approved, denied_by_policy, location_restricted …) land in the authentication log.
+  - title: Push and Verified Push
+    body: Duo Push sends an approve/deny prompt to Duo Mobile; Verified Push requires the user to type a code from the login screen, which defeats blind push-fatigue approval. Users can report a push as fraud (result fraud, reason user_marked_fraud).
+  - title: Risk-based authentication
+    body: Duo Premier/Advantage add risk-based factor selection and remembered devices. Detections such as push harassment, novel ASN, unrealistic travel, country code mismatch and credential stuffing are written to adaptive_trust_assessments and can step a user up to a stronger factor.
+  - title: Two devices per event
+    body: Every authentication carries access_device (the computer/browser requesting access, with IP, OS, browser and Duo Desktop health) and auth_device (the phone or key that approved it, with its own IP and location). A mismatch between the two locations is a strong signal of a relayed or phished login.
+  - title: Admin API logs
+    body: Authentication (v2), activity (v2), administrator (v1, being replaced by activity), telephony (v2) and offline-enrollment endpoints are polled with HMAC-signed requests. Results are available two minutes after the event and paged with next_offset; Cribl Stream typically uses a REST Collector per endpoint.
+traffic:
+  handles:
+    - Duo Auth API / Web SDK (Universal Prompt) over HTTPS
+    - RADIUS (PAP/MSCHAPv2 pass-through) via Authentication Proxy
+    - LDAP / LDAPS proxying via Authentication Proxy
+    - SAML 2.0 / OIDC (Duo Single Sign-On)
+    - Push notifications to Duo Mobile (APNs / FCM)
+    - WebAuthn / FIDO2 passkeys and security keys
+    - SMS and voice telephony factors
+  flow:
+    - step: Access request
+      desc: User reaches a protected app, VPN or OS logon.
+    - step: Primary auth
+      desc: Password checked against AD/LDAP/RADIUS or the SAML IdP (by the app or Authentication Proxy).
+    - step: Duo preauth
+      desc: App calls Duo with the username and client context; Duo applies policy (enrolled? allowed network? device health?).
+    - step: Second factor
+      desc: Push, Verified Push, passkey, passcode or phone; the user approves, denies or reports fraud.
+    - step: Decision
+      desc: Duo returns allow/deny with a reason; the app or proxy completes or rejects the login.
+    - step: Audit record
+      desc: Authentication log written with access_device, auth_device, factor, result and reason; available via Admin API after two minutes.
+logs:
+  - type: Authentication
+    sourcetype: duo_security
+    format: json
+    share: 85–95 %
+    avg: ~2 KB
+    desc: One record per Duo authentication or inline enrollment. result is success, denied, failure, error or fraud; reason explains why (user_approved, no_response, user_mistake, user_marked_fraud, denied_by_policy, location_restricted …).
+    key:
+      - user.name
+      - application.name
+      - factor
+      - result
+      - reason
+      - access_device.ip
+      - auth_device.ip
+      - access_device.location.country
+    noise:
+      - access_device.flash_version
+      - access_device.java_version
+      - adaptive_trust_assessments.more_secure_auth.features_version
+      - adaptive_trust_assessments.more_secure_auth.model_version
+      - passport_assessment.reason
+      - ood_software
+      - alias
+    sample: '{"access_device":{"browser":"Chrome","browser_version":"130.0.0.0","epkey":"EPA1B2C3D4E5F6G7H8I9","flash_version":"uninstalled","hostname":null,"ip":"198.51.100.88","is_encryption_enabled":"unknown","is_firewall_enabled":"unknown","is_password_set":"unknown","java_version":"uninstalled","location":{"city":"Bucharest","country":"Romania","state":"Bucuresti"},"os":"Windows","os_version":"10"},"adaptive_trust_assessments":{"more_secure_auth":{"detected_attack_detectors":["PUSH_HARASSMENT"],"features_version":"3.0","model_version":"2026.09.01.001","policy_enabled":true,"reason":"Low level of trust; detection of one or more known attack patterns","trust_level":"LOW"}},"alias":"","application":{"key":"DIA1B2C3D4E5F6G7H8I9","name":"Corp VPN (RADIUS)"},"auth_device":{"ip":"203.0.113.17","key":"DPA1B2C3D4E5F6G7H8I9","location":{"city":"Utrecht","country":"Netherlands","state":"Utrecht"},"name":"iPhone (+31 6 0000 0000)"},"email":"jdoe@example.com","event_type":"authentication","factor":"duo_push","isotimestamp":"2026-11-12T07:58:31.204118+00:00","ood_software":null,"passport_assessment":{"is_supported":false,"reason":"absent_health_report"},"reason":"user_mistake","result":"denied","timestamp":1762934311,"trusted_endpoint_status":"unknown","txid":"5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b","user":{"groups":["Duo Users","VPN Users"],"key":"DUA1B2C3D4E5F6G7H8I9","name":"jdoe"}}'
+  - type: Activity
+    sourcetype: cisco_duo_activity
+    format: json
+    share: 3–10 %
+    avg: ~1.5 KB
+    desc: Activity log v2 — actor (admin, user, adminapi, sync, system), action name, target and old_target, outcome. Covers admin logins, bypass codes, phone and passkey enrolment, policy and integration changes.
+    key:
+      - action.name
+      - actor.name
+      - actor.type
+      - target.name
+      - target.type
+      - outcome.result
+      - access_device.ip.address
+    noise:
+      - akey
+      - old_target
+      - actor.details
+    sample: '{"access_device":{"browser":"Firefox","browser_version":"132.0","ip":{"address":"203.0.113.45"},"location":{"city":"London","country":"GB","state":"England"},"os":"Mac OS X","os_version":"14.6"},"action":{"details":"{\"count\": 1, \"valid_secs\": 3600, \"remaining_uses\": 10}","name":"bypass_create"},"activity_id":"0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d","actor":{"details":"{\"status\": \"Active\"}","key":"DEA1B2C3D4E5F6G7H8I9","name":"asmith@example.com","type":"admin"},"akey":"DAA1B2C3D4E5F6G7H8I9","application":{"key":"","name":"Admin Panel","type":"admin_panel"},"old_target":null,"outcome":{"result":"SUCCESS"},"target":{"details":null,"key":"DUA1B2C3D4E5F6G7H8I9","name":"jdoe","type":"user"},"ts":"2026-11-12T08:04:12.118274+00:00"}'
+  - type: Administrator
+    sourcetype: cisco_duo_administrator
+    format: json
+    share: < 2 %
+    avg: ~500 B
+    desc: Legacy administrator log (v1) — admin action, object acted on, admin name (or API / System / AD Sync) and a JSON description of the change. Being superseded by the activity log but still widely collected.
+    key:
+      - action
+      - username
+      - object
+      - description
+      - isotimestamp
+    noise:
+      - timestamp
+      - host
+    sample: '{"action":"integration_skey_view","description":"{\"name\": \"Corp VPN (RADIUS)\", \"integration_key\": \"DIA1B2C3D4E5F6G7H8I9\"}","isotimestamp":"2026-11-12T08:11:47+00:00","object":"Corp VPN (RADIUS)","timestamp":1762935107,"username":"Alice Smith","host":"api-0a1b2c3d.duosecurity.com"}'
+cves:
+  - id: CVE-2024-20301
+    cvss: 6.2
+    year: 2024
+    kev: false
+    scope: device
+    title: Duo Authentication for Windows Logon and RDP — trusted sessions not invalidated after reboot (MFA bypass with primary credentials)
+    affected: Duo Authentication for Windows Logon and RDP 4.2.0 – 4.2.2
+    fixed: 4.3.0
+    detect: Windows logons (4624 type 2/10) on Duo-protected hosts without a matching Duo authentication event for that user and host around the same time; Duo agent version inventory.
+    avoid: Upgrade to 4.3.0+; Cisco recommends migrating to a new application instance (new ikey/skey); disable "remember me" trusted sessions where not needed.
+  - id: CVE-2023-20123
+    cvss: 4.6
+    year: 2023
+    kev: false
+    scope: device
+    title: Duo for macOS / Windows Logon offline access mode allows replay of valid session credentials (physical access)
+    affected: Duo Two-Factor Authentication for macOS and Duo Authentication for Windows Logon and RDP with offline access enabled (see Cisco advisory for versions)
+    detect: Offline-mode logons appear in the offline enrollment / authentication log with factor Offline Duo Mobile Passcode; a logon on a host that was reported lost or stolen.
+    avoid: Upgrade the logon agents; restrict offline access to the groups that need it; limit offline login count.
+  - id: CVE-2024-3596
+    cvss: 9
+    year: 2024
+    kev: false
+    scope: traffic
+    title: Blast-RADIUS — MD5 chosen-prefix forgery of RADIUS responses between a VPN/NAS and the Duo Authentication Proxy
+    affected: RADIUS/UDP (RFC 2865) deployments without Message-Authenticator enforcement, including Duo Authentication Proxy RADIUS server sections
+    fixed: Duo Authentication Proxy 6.4.2 adds force_message_authenticator; 6.6.0+ supports RadSec
+    detect: A VPN login accepted by the NAS with NO corresponding Duo authentication record for that user/application at that time; RADIUS traffic to the proxy crossing untrusted network segments.
+    avoid: Set force_message_authenticator=true on radius_server sections, require Message-Authenticator on the NAS, prefer RadSec, keep RADIUS off untrusted networks.
+  - id: CVE-2023-20269
+    cvss: 9.1
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Cisco ASA/FTD remote-access VPN brute force and clientless session (used by Akira/LockBit) — the VPNs Duo most often protects
+    affected: Cisco ASA and FTD software with remote-access VPN (see Cisco advisory for trains)
+    detect: Bursts of Duo authentication requests for many usernames from the VPN application with reason no_response or deny_unenrolled_user — or VPN logins that never reach Duo (tunnel group without the Duo AAA server).
+    avoid: Patch ASA/FTD; ensure every tunnel group and the DefaultWEBVPNGroup require Duo; deny unenrolled users; enable Verified Push.
+detections:
+  - title: Push harassment (MFA fatigue)
+    severity: high
+    signals:
+      - factor=duo_push
+      - result=denied with reason in (no_response, user_mistake, user_cancelled)
+      - ≥ 5 per user in 10 minutes
+      - detected_attack_detectors contains PUSH_HARASSMENT
+    why: An attacker who holds the password spams pushes hoping the user approves one. A run of denials followed by a success is a likely compromise.
+    kql: |-
+      dataset="duo_logs" event_type="authentication" factor="duo_push"
+      | summarize denied=countif(result=="denied"), ok=countif(result=="success"), ips=dcount(access_device.ip) by user.name, bin(_time, 10m)
+      | where denied >= 5
+    mitre:
+      - T1621
+  - title: User reported a push as fraud
+    severity: high
+    signals:
+      - result=fraud
+      - reason=user_marked_fraud
+    why: The user's password is almost certainly known to an attacker — the push was triggered by someone else. Reset the password and check other logins from the same access_device.ip.
+    kql: |-
+      dataset="duo_logs" result="fraud"
+      | project _time, user.name, application.name, access_device.ip, access_device.location.country, auth_device.name
+    mitre:
+      - T1621
+      - T1078
+  - title: Access and approval devices in different countries
+    severity: medium
+    signals:
+      - access_device.location.country ≠ auth_device.location.country
+      - result=success
+    why: Users normally approve from a phone near their computer. A successful login where the requesting browser is in another country than the approving phone suggests a relayed, phished or proxied session.
+    kql: |-
+      dataset="duo_logs" result="success" isnotempty(access_device.location.country)
+      | where access_device.location.country != auth_device.location.country
+      | summarize n=count() by user.name, access_device.location.country, auth_device.location.country, application.name
+    mitre:
+      - T1078
+  - title: Bypass code created or viewed
+    severity: high
+    signals:
+      - action.name in (bypass_create, bypass_view)
+      - or administrator action bypass_create
+    why: Bypass codes skip MFA entirely. Help-desk social engineering ("I lost my phone") ends with a bypass code — correlate with the target user's next logins.
+    kql: |-
+      dataset="duo_logs" action.name in ("bypass_create","bypass_view")
+      | project _time, actor.name, actor.type, target.name, access_device.ip.address, outcome.result
+    mitre:
+      - T1556.006
+  - title: New phone or passkey enrolled after denied pushes
+    severity: medium
+    signals:
+      - action.name in (phone_create, phone_associate, webauthncredential_create)
+      - or event_type=enrollment
+      - preceded by denied authentications for the same user
+    why: Attackers who get past MFA once register their own device for persistence. New device enrolment right after a fatigue burst is a takeover pattern.
+    kql: |-
+      dataset="duo_logs" action.name in ("phone_create","phone_associate","webauthncredential_create")
+      | project _time, actor.name, actor.type, target.name, target.type, access_device.ip.address
+    mitre:
+      - T1098.005
+  - title: Integration secret key viewed
+    severity: medium
+    signals:
+      - action=integration_skey_view or integration_skey_bulk_view
+    why: The ikey/skey pair lets anyone call the Duo API as that application (and forge Auth Proxy calls). Viewing it outside of a deployment change is suspicious.
+    kql: |-
+      dataset="duo_logs" action in ("integration_skey_view","integration_skey_bulk_view")
+      | project _time, username, object, description
+    mitre:
+      - T1552
+optimizations:
+  - title: Drop deprecated and empty device fields
+    saving: 10–20 %
+    fn: Eval
+    how: access_device.flash_version / java_version are almost always "uninstalled", ood_software and alias are usually empty, and model/features versions never change. Remove them and null values.
+    expr: "remove: access_device.flash_version, access_device.java_version, ood_software, alias, *.features_version, *.model_version"
+  - title: Aggregate remembered-device and trusted-network successes
+    saving: 15–35 %
+    fn: Aggregations
+    how: Successes with reason remembered_device or trusted_network involve no user challenge and repeat all day. Roll them up to count per user, application and access IP per hour; keep every denial, fraud and push event raw.
+    expr: result=='success' && ['remembered_device','trusted_network'].includes(reason)
+  - title: Route by log type
+    saving: SIEM licence
+    fn: Routes
+    how: Fraud, denied, activity and administrator events → SIEM at full fidelity; aggregated routine successes → SIEM; full raw authentication log and telephony → Lake for investigations and billing review.
+    expr: result!='success' || __collector=='activity' || __collector=='administrator' → SIEM
+references:
+  - title: Duo Admin API (authentication, activity, administrator, telephony logs)
+    url: https://duo.com/docs/adminapi
+  - title: Cisco Duo security advisories list
+    url: https://www.cisco.com/c/en/us/support/security/duo/products-security-advisories-list.html
+  - title: Cisco advisory — Duo Windows Logon and RDP authentication bypass (CVE-2024-20301)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-duo-win-bypass-pn42KKBm
+  - title: Duo — Are Duo applications impacted by Blast-RADIUS?
+    url: https://help.duo.com/s/article/8932?language=en_US
+  - title: Duo Authentication Proxy release notes
+    url: https://duo.com/docs/authproxy-notes
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - title: MITRE ATT&CK T1621 Multi-Factor Authentication Request Generation
+    url: https://attack.mitre.org/techniques/T1621/
+related:
+  - okta
+  - entra-id
+  - cisco-asa
+  - cisco-ftd
+  - active-directory
