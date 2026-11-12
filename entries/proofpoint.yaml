@@ -2,14 +2,350 @@
 id: proofpoint
 name: Proofpoint Email Protection & TAP
 short: Proofpoint
+aka:
+  - Proofpoint Protection Server (PPS)
+  - Proofpoint on Demand (PoD)
+  - Proofpoint Enterprise Protection
+  - Targeted Attack Protection (TAP)
+  - URL Defense
+  - TAP SIEM API
 vendor: Proofpoint
 category: email
-status: stub
-summary: Secure email gateway (PPS) and Targeted Attack Protection; message, filter and URL-click events.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - email
+  - secure-email-gateway
+  - phishing
+  - url-defense
+  - sandbox
+  - syslog
+  - json
+  - rest-api
+summary: Proofpoint Enterprise Protection (PPS on-premises, or Proofpoint on Demand in the cloud) is a secure email gateway that filters inbound and outbound mail for spam, malware, phishing and impostor (BEC) messages. Targeted Attack Protection (TAP) adds attachment sandboxing and URL rewriting (URL Defense), and reports delivered threats and user clicks through the TAP SIEM API. Together they show which threats reached which users, and who clicked.
 sourcetypes:
   - st: proofpoint_pps_log
+    desc: PPS filter syslog — rprt lines per message with s= (session), m=, x= ids and mod= / cmd= module results
   - st: proofpoint_pps_module
+    desc: PPS module log lines (spam, virus, URL Defense, DLP, dispatcher) with module scores and actions
   - st: proofpoint_pps_sendmail
-  - st: proofpoint_tap_clicks
+    desc: PPS MTA (sendmail) log — from=, to=, relay, size, delivery stat= per queue id
   - st: proofpoint_tap_messages
+    desc: TAP SIEM API JSON message events — messagesDelivered and messagesBlocked with threatsInfoMap and scores
+  - st: proofpoint_tap_clicks
+    desc: TAP SIEM API JSON click events — clicksPermitted and clicksBlocked with clickIP, url and threat
   - st: proofpoint_tap_rfc5424
+    desc: TAP SIEM API in syslog format (RFC 5424, all data in structured data tapmsg@21139 / tapclk@21139; MSGID MSGDLV, MSGBLK, CLKPER, CLKBLK)
+  - st: pps_filter_log
+    desc: Splunk Proofpoint Email Security add-on name for PPS filter logs
+  - st: pps_mail_log
+    desc: Splunk Proofpoint Email Security add-on name for PPS sendmail logs
+  - st: proofpoint:tap:siem
+    desc: Common Splunk name for TAP SIEM API events
+facts:
+  First released: 2002 (Proofpoint Protection Server); TAP 2013
+  Platform: PPS on Linux appliances or VMs; Proofpoint on Demand (PoD) as SaaS
+  Delivery model: MX-record gateway in front of Exchange, M365 or Google Workspace; inline for inbound and outbound mail
+  Log transport: PPS remote syslog (filter and MTA logs); PoD Log API (websocket); TAP SIEM API (HTTPS, JSON or syslog format)
+  Log format: PPS key=value lines in syslog; TAP JSON objects or RFC 5424 structured data
+  TAP API limits: Max 1 hour per request, 7 days back, no paging
+  Typical volume: 5–20 PPS lines per message; TAP only for threats (tens to thousands per day)
+  Cribl Pack: No Dispensary pack found; Cribl collector-templates has a proofpoint_tap REST collector
+placement:
+  slots:
+    - edge
+    - cloud
+    - endpoint
+  items:
+    - slot: edge
+      title: Email perimeter (MX)
+      desc: The domain's MX points to PPS or PoD. All inbound mail is filtered before reaching the mail server; outbound mail is routed back through it for DLP and encryption.
+    - slot: cloud
+      title: Proofpoint on Demand and TAP cloud
+      desc: PoD runs the gateway as a service. TAP sandboxes attachments and URLs in Proofpoint's cloud and exposes results through the SIEM API.
+    - slot: endpoint
+      title: User click time
+      desc: URLs are rewritten to urldefense.com. When a user clicks, URL Defense checks the target at that moment and the click is logged with the user's IP.
+howItWorks:
+  - title: MTA and filter pipeline
+    body: The sendmail-based MTA accepts the SMTP session (logged with a queue id), then hands the message to the filter instance. Each processing step logs a rprt line with s= (session id), m= (message number) and x= (unique id), so one message can be followed across lines.
+  - title: Modules
+    body: Policy routes decide which modules run — connection reputation, spam (MLX machine learning, scores 0–100), virus, impostor/BEC detection, DLP, encryption, URL Defense rewrite and TAP attachment defense. Each module writes mod=<name> lines with its score and action (quarantine, discard, deliver).
+  - title: TAP attachment and URL sandboxing
+    body: Unknown attachments and URLs are detonated in Proofpoint's sandbox. A verdict can arrive after delivery; the message is then reported as a delivered threat and can be pulled from mailboxes (TRAP / Threat Response).
+  - title: URL Defense
+    body: URLs in messages are rewritten to a Proofpoint redirector. At click time the destination is checked again, so a link that turns malicious after delivery is blocked, and every click on a known threat appears as clicksPermitted or clicksBlocked.
+  - title: TAP SIEM API
+    body: The collector polls /v2/siem/all (or messages/clicks endpoints) with sinceSeconds or an interval of at most one hour. Events are returned by creation time, not by message time — a condemnation days after delivery produces a new event then.
+traffic:
+  handles:
+    - Inbound SMTP mail (MX)
+    - Outbound and internal mail relay
+    - Attachments (sandboxing)
+    - URLs in mail (URL Defense rewrite and click-time check)
+    - Impostor / BEC messages
+    - DLP and encryption of outbound mail
+  flow:
+    - step: SMTP connection
+      desc: Sending server connects; IP reputation and SPF/DKIM/DMARC checks run in the MTA.
+    - step: Accept and queue
+      desc: The message is received and given a queue id (sendmail log).
+    - step: Policy routes
+      desc: Inbound or outbound route, sender and recipient groups select the module policy.
+    - step: Module scanning
+      desc: Spam, virus, impostor, DLP and URL Defense rewrite run; scores and actions logged (rprt lines).
+    - step: TAP analysis
+      desc: Attachments and URLs go to the sandbox; malicious messages are quarantined or reported later.
+    - step: Deliver or quarantine
+      desc: The message is delivered to the mail server or held in a quarantine folder.
+    - step: Click
+      desc: The user clicks a rewritten URL; URL Defense allows or blocks and logs the click.
+logs:
+  - type: TAP message event
+    sourcetype: proofpoint_tap_messages
+    format: json
+    share: 30–50 % of TAP
+    avg: ~2.5 KB
+    desc: One event per message with a threat, from messagesDelivered or messagesBlocked. threatsInfoMap lists each condemned artifact (URL, attachment hash or impostor sender) with classification.
+    key:
+      - recipient[0]
+      - sender
+      - senderIP
+      - subject
+      - phishScore
+      - threatsInfoMap[0].classification
+      - threatsInfoMap[0].threat
+      - threatsInfoMap[0].threatStatus
+    noise:
+      - clusterId
+      - modulesRun[0]
+      - modulesRun[1]
+      - policyRoutes[0]
+      - messageParts[0].md5
+      - threatsInfoMap[0].threatUrl
+    sample: '{"GUID":"c26dbea0-0000-463b-b93c-4e8b708219ce","QID":"r2FNwRHF004109","ccAddresses":[],"clusterId":"example_hosted","completelyRewritten":"true","fromAddress":["billing@example.org"],"headerFrom":"Billing <billing@example.org>","impostorScore":0,"malwareScore":0,"messageID":"<20261112091145.62086.mail@example.org>","messageParts":[{"contentType":"text/html","disposition":"inline","filename":"text.html","md5":"00000000000000000000000000000000","sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"messageTime":"2026-11-12T09:11:45.000Z","modulesRun":["spam","urldefense"],"phishScore":91,"policyRoutes":["default_inbound"],"quarantineFolder":null,"recipient":["jdoe@example.com"],"sender":"billing@example.org","senderIP":"203.0.113.77","spamScore":4,"subject":"Invoice 11111 overdue","threatsInfoMap":[{"campaignID":null,"classification":"phish","threat":"http://login.example.net/o365","threatID":"2fab740f143fc1aa4c1cd0146d334c5593b1428f6d062b2c406e5efe8abe95ca","threatStatus":"active","threatTime":"2026-11-12T09:30:02.000Z","threatType":"url","threatUrl":"https://threatinsight.proofpoint.com/#/00000000-0000-0000-0000-000000000000/threat/u/2fab740f"}]}'
+  - type: TAP click event
+    sourcetype: proofpoint_tap_clicks
+    format: json
+    share: 10–30 % of TAP
+    avg: ~1 KB
+    desc: One event per click on a URL that TAP classifies as a threat, permitted (clicksPermitted) or blocked (clicksBlocked).
+    key:
+      - recipient
+      - clickIP
+      - url
+      - classification
+      - threatStatus
+      - userAgent
+    noise:
+      - campaignId
+      - threatUrl
+      - id
+    sample: '{"url":"http://login.example.net/o365","classification":"phish","clickTime":"2026-11-12T09:40:11.000Z","threatTime":"2026-11-12T09:30:02.000Z","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","campaignId":null,"id":"ae66ef1f-0000-4f63-a1b8-ef7e15b73f84","clickIP":"198.51.100.23","sender":"billing@example.org","recipient":"jdoe@example.com","senderIP":"203.0.113.77","GUID":"c26dbea0-0000-463b-b93c-4e8b708219ce","threatID":"2fab740f143fc1aa4c1cd0146d334c5593b1428f6d062b2c406e5efe8abe95ca","threatUrl":"https://threatinsight.proofpoint.com/#/00000000-0000-0000-0000-000000000000/threat/u/2fab740f","threatStatus":"active","messageID":"<20261112091145.62086.mail@example.org>"}'
+  - type: PPS filter log
+    sourcetype: proofpoint_pps_log
+    format: kv
+    share: 70–85 % of PPS
+    avg: ~350 B
+    desc: Per-module report lines from the filter instance. s= ties all lines of one SMTP session, x= one message. mod=spam lines carry the MLX scores; mod=dispatch / mod=mail lines the final action.
+    key:
+      - s
+      - x
+      - mod
+      - cmd
+      - rule
+      - policy
+      - score
+      - phishscore
+    noise:
+      - header
+      - m
+      - ndrscore
+      - adultscore
+      - bulkscore
+    sample: '<14>Nov 12 09:11:46 pps01 filter_instance1[2145]: rprt s=3nabc12def m=1 x=3nabc12def-1 mod=spam cmd=run rule=phish policy=default_inbound score=100 ndrscore=0 ipscore=0 suspectscore=0 phishscore=91 bulkscore=0 spamscore=4 adultscore=0 classifier=phish adjust=0 reason=mlx scancategory=phish engine=8.19.0-2311070000 definitions=2026-11-12_04'
+  - type: PPS sendmail (MTA)
+    sourcetype: proofpoint_pps_sendmail
+    format: text
+    share: 15–30 % of PPS
+    avg: ~250 B
+    desc: Classic sendmail lines per queue id — from= with size and relay on receipt, to= with stat= on delivery.
+    pattern: '^(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<host>\S+) sendmail\[(?<pid>\d+)\]: (?<qid>\w+): from=<(?<from>[^>]*)>, size=(?<size>\d+), class=(?<class>\d+), nrcpts=(?<nrcpts>\d+), msgid=<(?<msgid>[^>]*)>, proto=(?<proto>\w+), daemon=(?<daemon>\w+), relay=(?<relay>\S+) \[(?<relay_ip>[^\]]+)\]$'
+    key:
+      - qid
+      - from
+      - size
+      - nrcpts
+      - relay
+      - relay_ip
+    noise:
+      - pid
+      - class
+      - daemon
+    sample: 'Nov 12 09:11:45 pps01 sendmail[30981]: 4ACAEKxQ030981: from=<billing@example.org>, size=6733, class=0, nrcpts=1, msgid=<20261112091145.62086.mail@example.org>, proto=ESMTPS, daemon=MTA, relay=mail.example.org [203.0.113.77]'
+cves:
+  - id: CVE-2023-0090
+    cvss: 9.8
+    year: 2023
+    kev: false
+    scope: device
+    title: PPS webservices unauthenticated RCE via Perl eval injection (with authenticated sibling CVE-2023-0089)
+    affected: Proofpoint Enterprise Protection (PPS/PoD) 8.20.0 and below; exploitable only when the webservices API is reachable (non-standard)
+    fixed: 8.20.0 patch 4583, 8.18.6 patch 4582, 8.18.4 patch 4580, 8.13.22 patch 4603; PoD fixed by Proofpoint
+    detect: Requests to the PPS webservices API from hosts outside the admin network on firewall/proxy logs; new processes or outbound connections from the PPS host; unexpected admin changes.
+    avoid: Patch; never expose the webservices API or admin interface; restrict to an admin allow-list.
+  - id: CVE-2022-46332
+    cvss: 9.6
+    year: 2022
+    kev: false
+    scope: device
+    title: Stored XSS in Admin Smart Search via attachment names — an anonymous sender gains admin rights when an admin views the message
+    affected: Proofpoint Enterprise Protection (PPS/PoD) 8.19.0 and below
+    fixed: 8.19.0 patch 4546, 8.18.6 patch 4545, 8.18.4 patch 4544, 8.13.22 patch 4543; PoD fixed by Proofpoint
+    detect: Inbound messages whose attachment filename contains HTML or script tags (messageParts[].filename in TAP, filename in PPS logs); admin-session changes right after a Smart Search.
+    avoid: Patch; alert on attachment names with < or > characters; least-privilege admin roles.
+  - id: CVE-2024-3676
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: device
+    title: Proofpoint Encryption endpoint lets an unauthenticated attacker create encryption accounts that can send spoofed mail into the protected domains
+    affected: Proofpoint Encryption in Proofpoint Enterprise Protection
+    detect: New encryption user accounts that no admin created; mail from encryption-portal accounts to internal users with internal display names.
+    avoid: Apply the Proofpoint patch (PFPT-SA-2024-0002); review encryption user accounts; restrict the encryption portal.
+  - id: CVE-2024-21413
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Outlook "MonikerLink" RCE via a file:// link with an exclamation mark — delivered by mail through the gateway
+    affected: Microsoft Office 2016, 2019, LTSC 2021, Microsoft 365 Apps
+    fixed: Microsoft February 13, 2024 security updates
+    detect: TAP or PPS URL logs with file:// or \\host\share!something links in message bodies; delivered messages (messagesDelivered) to users who later show outbound SMB on the firewall.
+    avoid: Patch Office; block file:// and UNC links in a PPS content rule; block outbound SMB at the perimeter.
+  - id: CVE-2023-36884
+    cvss: 7.5
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Office and Windows HTML RCE through crafted Office documents (Storm-0978 / RomCom phishing)
+    affected: Microsoft Office and Windows (multiple versions)
+    detect: TAP attachment threats (threatType attachment, classification malware) for .docx/.rtf from external senders; sandbox verdicts linked to RomCom campaigns.
+    avoid: Patch Windows and Office; block Office macros and MOTW-less attachments from the internet; keep TAP attachment defense on.
+detections:
+  - title: User clicked a phishing link that was permitted
+    severity: high
+    signals:
+      - clicksPermitted
+      - classification=phish or malware
+      - threatStatus=active
+    why: The user reached a known-malicious page — likely credential entry or malware download. Reset credentials and check sign-ins from clickIP onward.
+    kql: |-
+      dataset="proofpoint_tap" classification in ("phish","malware") threatStatus="active"
+      | where isnotempty(clickIP)
+      | summarize clicks=count(), first=min(clickTime) by recipient, url, clickIP
+    mitre:
+      - T1566.002
+      - T1204.001
+  - title: Threat delivered and condemned after delivery
+    severity: high
+    signals:
+      - messagesDelivered
+      - threatsInfoMap[].threatTime after messageTime
+    why: The message reached the inbox before TAP condemned it — it must be pulled from mailboxes and recipients checked.
+    kql: |-
+      dataset="proofpoint_tap" isnotempty(messageTime)
+      | where threatsInfoMap[0].threatStatus == "active" and isempty(quarantineFolder)
+      | summarize recipients=dcount(recipient[0]) by sender, subject, threatsInfoMap[0].threat
+    mitre:
+      - T1566.001
+      - T1566.002
+  - title: Impostor / BEC message delivered
+    severity: high
+    signals:
+      - impostorScore high
+      - threatsInfoMap classification impostor
+      - reply-to differs from from
+    why: Business email compromise has no payload — only a convincing request for payment or data. High impostorScore on delivered mail needs review.
+    kql: |-
+      dataset="proofpoint_tap" impostorScore > 80
+      | where isempty(quarantineFolder)
+      | summarize count() by sender, headerFrom, recipient[0], subject
+    mitre:
+      - T1566
+      - T1656
+  - title: One sender campaign across many recipients
+    severity: medium
+    signals:
+      - PPS mod=spam
+      - classifier=phish
+      - same sender or relay_ip, many x= ids
+    why: A targeted wave against the organisation; even if most are blocked, the delivered remainder needs follow-up.
+    kql: |-
+      dataset="proofpoint_pps" mod="spam" classifier="phish"
+      | summarize msgs=dcount(x) by policy, rule, bin(_time, 1h)
+      | where msgs > 20
+    mitre:
+      - T1566
+  - title: Click from an unexpected location
+    severity: medium
+    signals:
+      - clickIP not in corporate egress ranges
+      - any classification
+    why: Clicks from unusual IPs on threat URLs can mean mail forwarding to a personal device or an attacker using the victim's link.
+    kql: |-
+      dataset="proofpoint_tap" isnotempty(clickIP)
+      | lookup corp_egress_ips on clickIP
+      | where isempty(site)
+      | summarize count() by recipient, clickIP, userAgent
+    mitre:
+      - T1204.001
+optimizations:
+  - title: Collapse PPS lines per message
+    saving: 40–70 % of PPS
+    fn: Aggregations
+    how: One message produces 5–20 rprt lines. Aggregate by x= into one record with sender, recipients, module scores and final action, then drop the per-line records (keep raw in Lake).
+    expr: "group by: x  window: 60s  fields: mod, cmd, score, phishscore, rule, action"
+  - title: Drop clean-mail module chatter
+    saving: 20–40 % of PPS
+    fn: Drop
+    how: For messages scoring 0 on spam, phish and virus, module run lines add little. Keep the session summary and the final delivery line only.
+    expr: mod=='spam' && score=='0' && phishscore=='0'
+  - title: Strip TAP envelope arrays
+    saving: 15–30 % of TAP
+    fn: Eval
+    how: messageParts hashes for benign inline parts, modulesRun, policyRoutes and threatUrl links add size but little detection value; keep threatsInfoMap and message identity.
+    expr: "remove: messageParts[*].md5, modulesRun, clusterId; keep: threatsInfoMap"
+  - title: Join clicks to messages
+    saving: 0 % (quality)
+    fn: Lookup
+    how: Store message events by GUID in a lookup (or Lake) and enrich click events with subject and sender so analysts see the full chain in one event.
+    expr: "lookup tap_messages on GUID → subject, senderIP, threatsInfoMap"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: TAP messages and clicks → SIEM at full fidelity (low volume, high value). PPS filter and sendmail lines → Lake, with aggregated per-message summaries to the SIEM.
+    expr: sourcetype.startsWith('proofpoint_tap') → SIEM  |  proofpoint_pps_* → Lake + SIEM(aggregated)
+references:
+  - title: Proofpoint TAP SIEM API documentation
+    url: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation/SIEM_API
+  - title: Proofpoint Email Protection
+    url: https://www.proofpoint.com/us/products/email-security-and-protection/email-protection
+  - title: Cribl collector templates — proofpoint_tap
+    url: https://github.com/criblio/collector-templates/tree/main/collectors/rest
+  - title: PFPT-SA-2023-0001 (CVE-2023-0089 / CVE-2023-0090)
+    url: https://www.proofpoint.com/us/security/security-advisories/pfpt-sa-2023-0001
+  - title: PFPT-SA-2022-0002 (CVE-2022-46332)
+    url: https://www.proofpoint.com/us/security/security-advisories/pfpt-sa-2022-0002
+  - title: Proofpoint security advisories
+    url: https://www.proofpoint.com/us/security/security-advisories
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-esa
+  - o365
+  - google-workspace
+  - zscaler-zia
+  - umbrella

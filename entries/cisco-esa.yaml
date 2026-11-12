@@ -2,9 +2,339 @@
 id: cisco-esa
 name: Cisco Secure Email Gateway (ESA)
 short: Cisco ESA
+aka:
+  - Cisco Email Security Appliance
+  - IronPort
+  - Cisco Secure Email Cloud Gateway (CES)
+  - AsyncOS for Email
+  - C-Series / C100V
 vendor: Cisco
 category: email
-status: stub
-summary: AsyncOS email security appliance; mail, consolidated event and AMP logs.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - email
+  - secure-email-gateway
+  - mta
+  - anti-spam
+  - amp
+  - syslog
+  - cef
+  - text
+summary: Cisco Secure Email Gateway (formerly IronPort / Email Security Appliance) is an AsyncOS-based mail transfer agent that sits in front of the mail server and filters inbound and outbound mail with sender reputation, anti-spam, anti-virus, Secure Endpoint (AMP) file reputation and sandboxing, content filters, DLP and DMARC. Its text mail logs trace every connection (ICID), message (MID) and delivery (DCID); Consolidated Event Logs summarise each message in one CEF line for the SIEM.
 sourcetypes:
   - st: cisco_esa
+    desc: AsyncOS text mail logs (mail_logs) — ICID / MID / DCID lines for connection, message, verdict and delivery
+  - st: cisco:esa:textmail
+    desc: Splunk Add-on for Cisco ESA name for text mail logs
+  - st: cisco:esa:cef
+    desc: Splunk Add-on for Cisco ESA name for Consolidated Event Logs (one CEF line per message)
+  - st: cisco:esa:amp
+    desc: Splunk Add-on for Cisco ESA name for AMP engine logs (file reputation and file analysis)
+  - st: cisco:esa:authentication
+    desc: Splunk Add-on for Cisco ESA name for admin authentication logs
+  - st: cisco:esa:http
+    desc: Splunk Add-on for Cisco ESA name for HTTP (GUI) logs — sessions and pages accessed
+facts:
+  First released: 2003 (IronPort C-Series); Cisco acquired IronPort in 2007
+  OS: AsyncOS for Email (current trains 15.5 / 16.0)
+  Form factors: Hardware C-Series, virtual C100V–C600V (VMware, KVM, Hyper-V, AWS, Azure), Cisco Secure Email Cloud Gateway (hosted)
+  Deployment modes: Inbound MX gateway, outbound relay, or both; one or two listeners; clustered management
+  Central mgmt: Cisco Secure Email and Web Manager (formerly SMA)
+  Log transport: Log subscriptions pushed by syslog (UDP/TCP), FTP push, SCP push, or polled by FTP
+  Log format: Text mail logs (one line per step), Consolidated Event Logs (CEF, AsyncOS 14.0+), qmail, binary delivery logs
+  Typical volume: 8–20 text mail log lines per message; one consolidated line per message
+  Cribl Pack: No dedicated Cribl Pack found in the Dispensary
+placement:
+  slots:
+    - dmz
+    - edge
+    - cloud
+    - internal
+  items:
+    - slot: dmz
+      title: Inbound MX gateway
+      desc: Most common. The public MX record points to the ESA in the DMZ; it accepts SMTP from the internet and relays clean mail to Exchange or Microsoft 365.
+    - slot: edge
+      title: Outbound relay
+      desc: Internal mail servers send outbound mail through the ESA for DLP, encryption, DKIM signing and reputation protection.
+    - slot: cloud
+      title: Cisco Secure Email Cloud Gateway
+      desc: Same AsyncOS appliances hosted by Cisco; logs are pulled or pushed from the cloud instances.
+    - slot: internal
+      title: Spam quarantine and management
+      desc: End users and admins reach the spam quarantine and web UI on a separate interface. That interface must not face the internet (CVE-2025-20393).
+howItWorks:
+  - title: Listeners and host access table
+    body: A listener accepts SMTP on an interface. The host access table (HAT) puts each connecting IP into a sender group by SenderBase reputation score (SBRS) and applies a mail flow policy — ACCEPT, RELAY, THROTTLE, REJECT or TCPREFUSE — before any message is received.
+  - title: ICID, MID, RID, DCID
+    body: Every inbound connection gets an ICID, every message an MID, every recipient an RID and every outbound delivery connection a DCID. Text mail logs write one line per step, so a single message is reconstructed by joining on MID (and ICID/DCID).
+  - title: Work queue
+    body: Accepted messages pass message filters, anti-spam (IronPort Anti-Spam / Intelligent Multi-Scan), anti-virus (Sophos / McAfee), AMP file reputation and file analysis, graymail, content filters, outbreak filters and DLP. Each engine logs its verdict.
+  - title: Mail policies and quarantines
+    body: Incoming and outgoing mail policies select the engines and actions per sender or recipient group. Messages can be delivered, dropped, bounced or held in the spam, policy, virus or outbreak quarantine.
+  - title: Retrospective verdicts
+    body: When AMP or URL reputation later convicts a file or URL that was already delivered, the ESA logs a retrospective verdict and can use Mailbox Auto-Remediation to delete or move the message from Microsoft 365 or Exchange mailboxes.
+  - title: Consolidated Event Logs
+    body: Since AsyncOS 14.0, a log subscription can emit one CEF line per message with the chosen fields (sender, recipients, subject, SBRS, SPF/DKIM/DMARC, every engine verdict, final action), designed for SIEM ingestion.
+traffic:
+  handles:
+    - Inbound SMTP from the internet (MX)
+    - Outbound SMTP relay
+    - TLS / DANE for SMTP
+    - Attachments (AV, AMP file reputation and sandboxing)
+    - URLs in messages (URL reputation and rewriting)
+    - SPF, DKIM and DMARC verification
+    - DLP and encryption of outbound mail
+  flow:
+    - step: Connection
+      desc: Remote MTA connects; ICID assigned; reverse DNS and SBRS looked up.
+    - step: HAT / mail flow policy
+      desc: Sender group decides accept, throttle or reject before the message body.
+    - step: Envelope and data
+      desc: MID assigned; From, To (RID), Message-ID, Subject and size logged.
+    - step: Security engines
+      desc: Anti-spam, anti-virus, AMP, graymail, content and outbreak filters, DLP — each logs a verdict.
+    - step: Policy action
+      desc: Deliver, quarantine, drop or bounce according to the mail policy.
+    - step: Delivery
+      desc: DCID opened to the next hop; delivery success or bounce logged; consolidated event written.
+logs:
+  - type: Text mail log
+    sourcetype: cisco_esa
+    format: text
+    share: 70–90 %
+    avg: ~150 B
+    desc: One line per processing step, pushed by syslog with the log subscription name as tag. Join on mid to rebuild a message — connection, envelope, subject, verdicts, delivery.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<log_name>\S+): (?<level>\w+): (?:MID (?<mid>\d+) )?(?:ICID (?<icid>\d+) )?(?:RID (?<rid>\d+) )?(?<message>.*)$'
+    key:
+      - mid
+      - icid
+      - rid
+      - message
+      - level
+    noise:
+      - pri
+      - log_name
+    sample: '<22>Nov 12 09:14:22 mail_logs: Info: MID 200257070 ICID 282204970 RID 0 To: <jdoe@example.com>'
+  - type: Consolidated Event Log
+    sourcetype: cisco:esa:cef
+    format: cef
+    share: 1 line per message
+    avg: ~1.5 KB
+    desc: One CEF line per message with sender, recipients, subject, SBRS, authentication results and every engine verdict plus the final action (act).
+    key:
+      - src
+      - suser
+      - duser
+      - msg
+      - act
+      - ESAASVerdict
+      - ESAAMPVerdict
+      - ESADMARCVerdict
+    noise:
+      - deviceExternalId
+      - cfp1Label
+      - cs1Label
+      - cs4Label
+      - cs6Label
+      - ESAGMVerdict
+    sample: "<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257070 ESAICID=282204970 ESAAMPVerdict=MALICIOUS ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=NEGATIVE ESACFVerdict=NO MATCH ESADMARCVerdict=PermFailure ESADKIMVerdict=None start=Wed Nov 12 09:14:21 2026 end=Wed Nov 12 09:14:29 2026 dvc=192.0.2.10 deviceInboundInterface=Incomingmail deviceDirection=0 ESAMailFlowPolicy=ACCEPT ESASenderGroup=UNKNOWNLIST suser=billing@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=QUARANTINED ESAFinalActionDetails=To AMP cs4Label=ExternalMsgID cs4='<20261112091421.40490.18684@mail.example.org>' ESAMsgSize=48211 cfp1Label=SBRSScore cfp1=-2.1 cs6Label=SDRRepScore cs6=Tainted shost=mail.example.org src=203.0.113.77 msg='Invoice 11111 overdue'"
+  - type: AMP engine log
+    sourcetype: cisco:esa:amp
+    format: text
+    share: 1–5 %
+    avg: ~350 B
+    desc: File reputation and file analysis results per attachment — file name, MID, disposition, malware name, reputation score and SHA-256.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<log_name>\S+): (?<level>\w+): Response received for file reputation query from (?<source>\w+)\. File Name = ''(?<file_name>[^'']*)'', MID = (?<mid>\d+), Disposition = (?<disposition>\w+), Malware = (?<malware>\S+), Reputation Score = (?<reputation_score>\d+), sha256 = (?<sha256>[0-9a-f]{64}), upload_action = (?<upload_action>\d+)$'
+    key:
+      - mid
+      - file_name
+      - disposition
+      - malware
+      - sha256
+    noise:
+      - pri
+      - upload_action
+      - source
+    sample: "<22>Nov 12 09:14:25 amp_logs: Info: Response received for file reputation query from Cloud. File Name = 'invoice_11111.exe', MID = 200257070, Disposition = MALICIOUS, Malware = W32.Example-100.SBX.TG, Reputation Score = 73, sha256 = 061def69b5c100e9979610fa5675bd19258b19a7ff538b5c2d230b467c312f19, upload_action = 2"
+  - type: Authentication log
+    sourcetype: cisco:esa:authentication
+    format: text
+    share: < 1 %
+    avg: ~90 B
+    desc: Admin logins to the web UI and CLI — success and failure per user.
+    pattern: '^<(?<pri>\d+)>(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<log_name>\S+): (?<level>\w+): User (?<user>\S+) (?<result>was authenticated successfully|failed authentication)\.$'
+    key:
+      - user
+      - result
+      - timestamp
+    noise:
+      - pri
+      - log_name
+    sample: '<38>Nov 12 09:20:11 authentication_logs: Info: User admin failed authentication.'
+cves:
+  - id: CVE-2025-20393
+    cvss: 10
+    year: 2025
+    kev: true
+    scope: device
+    title: AsyncOS Spam Quarantine unauthenticated root command execution (exploited by UAT-9686, persistent implant)
+    affected: Secure Email Gateway and Secure Email and Web Manager (physical and virtual) with Spam Quarantine enabled and reachable from the internet
+    fixed: "ESA: 15.0.5-016, 15.5.4-012, 16.0.4-016; SMA: 15.0.2-007, 15.5.4-007, 16.0.4-010"
+    detect: HTTP and Spam Quarantine GUI logs with requests from internet addresses to the quarantine port (default 82/83); unexpected processes or outbound connections from the appliance on firewall logs; gaps in log forwarding.
+    avoid: Upgrade (the fix also removes the known persistence); never expose Spam Quarantine or the admin UI to the internet; separate mail and management interfaces; send logs off-box.
+  - id: CVE-2024-20401
+    cvss: 9.8
+    year: 2024
+    kev: false
+    scope: device
+    title: Arbitrary file overwrite via a crafted attachment when file analysis or content filters are enabled
+    affected: Secure Email Gateway with AMP file analysis or content filters on an incoming policy and Content Scanner Tools earlier than 23.3.0.4823
+    fixed: Content Scanner Tools 23.3.0.4823 (included in AsyncOS 15.5.1-055 and later)
+    detect: Messages whose attachments cause scanner errors or unscannable verdicts (ESAAVVerdict / ESAAMPVerdict UNSCANNABLE) from one sender; new admin users in the configuration history log; appliance instability.
+    avoid: Enable automatic Content Scanner updates; check the version with contentscannerstatus; alert on new local users.
+  - id: CVE-2022-20798
+    cvss: 9.8
+    year: 2022
+    kev: false
+    scope: device
+    title: Web UI authentication bypass when LDAP external authentication is used
+    affected: ESA and Secure Email and Web Manager with external LDAP authentication enabled (not default)
+    fixed: "ESA: 13.0.5-001, 14.0.1-033; SMA: 13.0.0-277, 13.6.2-090, 13.8.1-090, 14.0.0-418, 14.1.0-250"
+    detect: Authentication log successes for users without a matching LDAP bind on the directory server; GUI sessions from unusual source IPs in HTTP logs.
+    avoid: Upgrade; disable anonymous binds on the LDAP server (Cisco workaround); restrict management access.
+  - id: CVE-2024-21413
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Outlook "MonikerLink" RCE and NTLM leak via a file:// link — arrives as mail through the gateway
+    affected: Microsoft Office 2016, 2019, LTSC 2021, Microsoft 365 Apps
+    fixed: Microsoft February 13, 2024 security updates
+    detect: URL details (ESAURLDetails) or content filter matches on file:// links containing an exclamation mark; delivered messages to users who then show outbound SMB on the firewall.
+    avoid: Patch Office; add a content filter that quarantines file:// and UNC links; block outbound SMB.
+  - id: CVE-2023-23397
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Outlook zero-click NTLM leak through a calendar or task item with a UNC reminder sound
+    affected: Microsoft Outlook for Windows (all supported versions)
+    fixed: Microsoft March 14, 2023 security updates
+    detect: Inbound .ics or meeting-request messages from external senders with UNC paths (content filter match); followed by SMB from the recipient's host to an internet address.
+    avoid: Patch Outlook; content filter for PidLidReminderFileParameter UNC values; block outbound SMB; Protected Users group.
+detections:
+  - title: Malicious attachment delivered (AMP disposition)
+    severity: high
+    signals:
+      - ESAAMPVerdict=MALICIOUS
+      - act=DELIVERED
+      - or a retrospective verdict after delivery
+    why: Malware reached a mailbox — the recipient's endpoint must be checked and the message removed.
+    kql: |-
+      dataset="cisco_esa" ESAAMPVerdict="MALICIOUS"
+      | where act == "DELIVERED"
+      | summarize count() by suser, duser, msg, src
+    mitre:
+      - T1566.001
+  - title: Spoofed sender failing DMARC but delivered
+    severity: medium
+    signals:
+      - ESADMARCVerdict=PermFailure or Reject
+      - act=DELIVERED
+      - suser in own domain or lookalike
+    why: Impersonation of your own or a partner's domain that passed policy is the core of BEC and invoice fraud.
+    kql: |-
+      dataset="cisco_esa" ESADMARCVerdict in ("PermFailure","Reject")
+      | where act == "DELIVERED"
+      | summarize recipients=dcount(duser) by suser, src, msg
+    mitre:
+      - T1566
+      - T1656
+  - title: Directory harvest or recipient enumeration
+    severity: medium
+    signals:
+      - many RID To lines with rejected recipients per ICID
+      - ESADHASource set
+    why: Senders probing for valid addresses prepare spam or phishing campaigns and password spraying lists.
+    kql: |-
+      dataset="cisco_esa" message startswith "To:" and message contains "Rejected by LDAPACCEPT"
+      | summarize rejects=count() by icid, bin(_time, 10m)
+      | where rejects > 50
+    mitre:
+      - T1589.002
+  - title: Admin login failures on the appliance
+    severity: high
+    signals:
+      - result=failed authentication
+      - many failures per user
+      - success after failures
+    why: Brute force against the ESA admin UI precedes takeover of the gateway; the appliance has root-level access to all mail.
+    kql: |-
+      dataset="cisco_esa_auth"
+      | summarize fails=countif(result=="failed authentication"), ok=countif(result=="was authenticated successfully") by user, bin(_time, 1h)
+      | where fails > 10
+    mitre:
+      - T1110
+      - T1078
+  - title: Outbound mail burst from one internal sender
+    severity: medium
+    signals:
+      - deviceDirection=1
+      - one suser, many duser
+      - ESAASVerdict=POSITIVE on outbound
+    why: A compromised internal account or host sending spam or phishing damages the domain's reputation and spreads the attack.
+    kql: |-
+      dataset="cisco_esa" deviceDirection="1"
+      | summarize recipients=dcount(duser), spam=countif(ESAASVerdict=="POSITIVE") by suser, bin(_time, 15m)
+      | where recipients > 200 or spam > 10
+    mitre:
+      - T1534
+optimizations:
+  - title: Use Consolidated Event Logs instead of text mail logs for the SIEM
+    saving: 60–80 %
+    fn: Routes
+    how: Text mail logs write 8–20 lines per message; the consolidated log writes one line with all verdicts. Send consolidated events to the SIEM, text mail logs to Lake for deep investigations.
+    expr: sourcetype=='cisco:esa:cef' → SIEM  |  sourcetype=='cisco_esa' → Lake
+  - title: Aggregate text mail lines per MID
+    saving: 40–70 % (if only text logs exist)
+    fn: Aggregations
+    how: Where consolidated logs are not available, join lines by mid into one event (ICID, From, To, Subject, verdicts, delivery status) and drop the per-step lines.
+    expr: "group by: mid  window: 120s"
+  - title: Drop housekeeping lines
+    saving: 10–25 %
+    fn: Drop
+    how: "Lines such as 'ICID n close', 'Delivery start', 'queued for delivery', TLS negotiation details and 'Message finished' add little once the message summary exists."
+    expr: /^(ICID \d+ close|Delivery start|queued for delivery|Message finished)/.test(message)
+  - title: Remove CEF label fields
+    saving: 10–15 % of CEF
+    fn: Eval
+    how: Rename cs1/cs4/cs6/cfp1 to their labels (mail_policy, message_id, sdr_reputation, sbrs) and drop the *Label fields and deviceExternalId.
+    expr: "rename cs1→mail_policy, cs4→message_id, cfp1→sbrs; remove: *Label, deviceExternalId"
+  - title: Suppress clean bulk and graymail
+    saving: 5–15 %
+    fn: Sampling
+    how: Graymail and marketing mail with negative spam and virus verdicts are rarely investigated individually — sample them for the SIEM, keep all in Lake.
+    expr: ESAGMVerdict=='POSITIVE' && ESAAMPVerdict!='MALICIOUS' && act=='DELIVERED'
+references:
+  - title: AsyncOS 16.5 for Secure Email Gateway — Logging
+    url: https://www.cisco.com/c/en/us/td/docs/security/esa/esa16-5_MD/user_guide/b_ESA_Admin_Guide_16-5_MD/b_ESA_Admin_Guide_12_1_chapter_0100111.html
+  - title: Cisco advisory cisco-sa-sma-attack-N9bf4 (CVE-2025-20393)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sma-attack-N9bf4
+  - title: Cisco advisory cisco-sa-esa-afw-bGG2UsjH (CVE-2024-20401)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-esa-afw-bGG2UsjH
+  - title: Cisco advisory cisco-sa-sma-esa-auth-bypass-66kEcxQD (CVE-2022-20798)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sma-esa-auth-bypass-66kEcxQD
+  - title: Elastic integration for Cisco Secure Email Gateway (log types)
+    url: https://www.elastic.co/docs/reference/integrations/cisco_secure_email_gateway
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - proofpoint
+  - o365
+  - cisco-asa
+  - cisco-ftd
+  - umbrella

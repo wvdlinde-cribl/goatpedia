@@ -2,11 +2,360 @@
 id: o365
 name: Microsoft 365 (Office 365) Audit
 short: M365
+aka:
+  - Office 365
+  - O365
+  - Microsoft Purview Audit
+  - Unified Audit Log (UAL)
+  - Office 365 Management Activity API
+  - Exchange Online Message Trace
 vendor: Microsoft
 category: saas
-status: stub
-summary: Unified audit log for Exchange, SharePoint, OneDrive, Teams and Entra via the Management Activity API, plus message trace.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - saas
+  - audit
+  - exchange-online
+  - sharepoint
+  - onedrive
+  - teams
+  - entra-id
+  - json
+  - bec
+summary: The Microsoft 365 Unified Audit Log records user and admin activity across Exchange Online, SharePoint, OneDrive, Teams, Entra ID and Purview, pulled as JSON through the Office 365 Management Activity API. Message trace (mail flow) and Microsoft Graph sign-in data complete the picture. It is the main evidence source for business email compromise, OAuth consent abuse and cloud data theft.
 sourcetypes:
   - st: o365_management_activity
+    desc: Unified Audit Log records from the Management Activity API (Audit.Exchange, Audit.SharePoint, Audit.AzureActiveDirectory, Audit.General, DLP.All)
   - st: o365_graph_api
+    desc: Microsoft Graph API pulls such as Entra sign-in logs (auditLogs/signIns) and Copilot/app access records
   - st: o365_reporting_messagetrace
+    desc: Exchange Online message trace, one record per message per recipient (sender, recipient, status, IPs)
+  - st: o365:management:activity
+    desc: Splunk Add-on for Microsoft Office 365 name for the Unified Audit Log
+  - st: o365:reporting:messagetrace
+    desc: Splunk Add-on for Microsoft Office 365 name for message trace
+  - st: o365:graph:api
+    desc: Splunk Add-on for Microsoft Office 365 name for Graph API inputs
+  - st: OfficeActivity
+    desc: Microsoft Sentinel table for the Office 365 connector (Exchange, SharePoint, OneDrive, Teams)
+facts:
+  First released: 2015 (Office 365 Management Activity API, general availability 2016)
+  Platform: Microsoft 365 SaaS (Exchange Online, SharePoint Online, OneDrive, Teams, Entra ID)
+  Delivery model: Cloud service; audit records pulled over HTTPS REST, no agent
+  Log transport: Management Activity API (subscribe → list content blobs → fetch JSON), Microsoft Graph, Reporting / message trace API
+  Log format: JSON arrays of records, one object per audit event
+  Latency: Typically 30 min to several hours (Microsoft gives no SLA; up to 24 h for some workloads)
+  Retention: 180 days (Audit Standard), 1 year+ with Audit Premium
+  Typical volume: 50–500 events per user per day; Exchange mailbox and SharePoint file events dominate
+  Cribl source: Office 365 Activity, Office 365 Message Trace and Office 365 Services sources (Cribl Stream)
+  Cribl Pack: O365 Rest Collector (cribl-o365-rest, message trace) in the Packs Dispensary
+placement:
+  slots:
+    - cloud
+    - remote
+    - endpoint
+  items:
+    - slot: cloud
+      title: Microsoft 365 tenant
+      desc: All workloads write to the tenant's Unified Audit Log. A collector (Cribl Stream, a SIEM connector) authenticates as an Entra app with ActivityFeed.Read and polls the content blobs.
+    - slot: remote
+      title: Users anywhere
+      desc: Users sign in from home, mobile and travel networks. ClientIP in each record is the user's public address, which makes impossible-travel and anonymising-proxy checks possible.
+    - slot: endpoint
+      title: Outlook, Teams and OneDrive clients
+      desc: Desktop and mobile clients generate the mailbox, file-sync and Teams events. The client app and user agent are recorded in many record types.
+howItWorks:
+  - title: Unified Audit Log
+    body: Each workload (Exchange, SharePoint, Entra ID, Teams, Power Platform, Purview DLP) emits records into one tenant-wide log. Every record shares a common schema (CreationTime, Id, Operation, OrganizationId, RecordType, ResultStatus, UserKey, UserType, Workload, ClientIP, ObjectId, UserId) and adds workload-specific properties.
+  - title: Management Activity API
+    body: A collector starts a subscription per content type (Audit.Exchange, Audit.SharePoint, Audit.AzureActiveDirectory, Audit.General, DLP.All). The API publishes content blobs as records become available; the collector lists them by time window and downloads each blob, a JSON array of records. Blobs can arrive out of order, so de-duplicate on Id.
+  - title: Mailbox auditing
+    body: Exchange Online records owner, delegate and admin mailbox actions (Send, SoftDelete, HardDelete, MoveToDeletedItems, New-InboxRule). MailItemsAccessed, which shows which mail an attacker read, is on by default for Audit Premium and since 2023 for Audit Standard too, but volume is high.
+  - title: Message trace
+    body: A separate reporting API that returns mail-flow records per message and recipient. It shows who sent what to whom, delivery status and connecting IPs, but no message content. It answers "who received the phishing mail" and "what did the compromised account send out".
+  - title: Graph sign-ins
+    body: Entra ID interactive and non-interactive sign-ins come from Microsoft Graph (auditLogs/signIns), with Conditional Access result, MFA detail and risk level. The Audit.AzureActiveDirectory feed also carries UserLoggedIn / UserLoginFailed, but with less detail.
+traffic:
+  handles:
+    - Exchange Online mailbox and admin actions
+    - SharePoint Online and OneDrive file access and sharing
+    - Teams membership, chat and meeting activity
+    - Entra ID sign-ins, app consents and role changes
+    - Purview DLP policy matches
+    - Mail flow (message trace)
+    - Copilot interactions
+  flow:
+    - step: User action
+      desc: A user or admin reads mail, shares a file, adds an inbox rule or grants an app consent.
+    - step: Authentication
+      desc: Entra ID issues the token. The sign-in is logged in Entra and, as UserLoggedIn, in the audit feed.
+    - step: Workload executes
+      desc: Exchange, SharePoint or Teams performs the action and writes an audit record with Operation, ObjectId and ClientIP.
+    - step: Unified Audit Log
+      desc: The record is indexed into the tenant's audit store and becomes searchable in Purview.
+    - step: Content blob
+      desc: The Management Activity API publishes the records in a content blob for the matching content type.
+    - step: Collector pull
+      desc: Cribl Stream lists and downloads the blobs, splits the JSON array into events and forwards them.
+logs:
+  - type: Unified Audit Log (Exchange)
+    sourcetype: o365_management_activity
+    format: json
+    share: 85–95 %
+    avg: ~1.5 KB
+    desc: One JSON record per user or admin action. Example is New-InboxRule, the classic business email compromise step that hides or forwards mail. Parameters arrive as a Name/Value array.
+    key:
+      - Operation
+      - UserId
+      - ClientIP
+      - Workload
+      - ResultStatus
+      - ObjectId
+      - Parameters[1].Value
+      - Parameters[2].Value
+    noise:
+      - OrganizationId
+      - UserKey
+      - OrganizationName
+      - OriginatingServer
+      - RecordType
+      - Version
+    sample: '{"CreationTime":"2026-11-12T09:14:22","Id":"6f2e1c4a-8b3d-4e1f-9a2c-1d5e7f9b0a11","Operation":"New-InboxRule","OrganizationId":"00000000-1111-2222-3333-444444444444","RecordType":1,"ResultStatus":"True","UserKey":"10032001A2B3C4D5","UserType":0,"Version":1,"Workload":"Exchange","ClientIP":"198.51.100.23:51544","ObjectId":"jdoe@example.com\\RSS Feeds","UserId":"jdoe@example.com","AppId":"","ClientAppId":"","ExternalAccess":false,"OrganizationName":"example.onmicrosoft.com","OriginatingServer":"AM0PR01MB1234 (15.20.8000.000)","Parameters":[{"Name":"Name","Value":"."},{"Name":"From","Value":"payroll@example.com"},{"Name":"MoveToFolder","Value":"RSS Feeds"},{"Name":"MarkAsRead","Value":"True"},{"Name":"StopProcessingRules","Value":"True"}],"SessionId":"a1b2c3d4-0000-4e5f-8a9b-112233445566"}'
+  - type: Unified Audit Log (SharePoint / OneDrive)
+    sourcetype: o365_management_activity
+    format: json
+    share: incl. above
+    avg: ~1.8 KB
+    desc: File operations (FileAccessed, FileDownloaded, FileModified, AnonymousLinkCreated, SharingSet). Bulk downloads and anonymous sharing links are the key exfiltration signals.
+    key:
+      - Operation
+      - UserId
+      - ClientIP
+      - SourceFileName
+      - SiteUrl
+      - UserAgent
+    noise:
+      - OrganizationId
+      - UserKey
+      - ListId
+      - ListItemUniqueId
+      - WebId
+      - Version
+      - EventSource
+    sample: '{"CreationTime":"2026-11-12T09:31:05","Id":"b7c9d1e3-2f4a-4b6c-8d0e-ffeeddccbbaa","Operation":"FileDownloaded","OrganizationId":"00000000-1111-2222-3333-444444444444","RecordType":6,"UserKey":"i:0h.f|membership|10032001a2b3c4d5@live.com","UserType":0,"Version":1,"Workload":"OneDrive","ClientIP":"198.51.100.23","ObjectId":"https://example-my.sharepoint.com/personal/jdoe_example_com/Documents/Finance/payroll-2026.xlsx","UserId":"jdoe@example.com","EventSource":"SharePoint","ItemType":"File","ListId":"5e6f7a8b-1234-4cde-9f01-23456789abcd","ListItemUniqueId":"9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d","Site":"3c4d5e6f-7a8b-4c9d-0e1f-a2b3c4d5e6f7","UserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","WebId":"7f8e9d0c-1b2a-4c3d-8e5f-6a7b8c9d0e1f","SourceFileExtension":"xlsx","SiteUrl":"https://example-my.sharepoint.com/personal/jdoe_example_com/","SourceFileName":"payroll-2026.xlsx","SourceRelativeUrl":"Documents/Finance"}'
+  - type: Message trace
+    sourcetype: o365_reporting_messagetrace
+    format: json
+    share: 5–15 %
+    avg: ~600 B
+    desc: One record per message and recipient from the Exchange Online reporting API. Status is Delivered, FilteredAsSpam, Quarantined, Failed, Expanded or GettingStatus.
+    key:
+      - SenderAddress
+      - RecipientAddress
+      - Subject
+      - Status
+      - FromIP
+      - Size
+    noise:
+      - Organization
+      - MessageTraceId
+      - StartDate
+      - EndDate
+      - Index
+    sample: '{"Organization":"example.onmicrosoft.com","MessageId":"<AM0PR01MB1234ABCD@AM0PR01MB1234.eurprd01.prod.outlook.com>","Received":"2026-11-12T09:40:11.5321","SenderAddress":"jdoe@example.com","RecipientAddress":"billing@example.org","Subject":"Updated bank details","Status":"Delivered","ToIP":"203.0.113.45","FromIP":"198.51.100.23","Size":28734,"MessageTraceId":"3c1d9e7a-55aa-4b2c-9d0e-08dd31aa0001","StartDate":"2026-11-12T09:00:00Z","EndDate":"2026-11-12T10:00:00Z","Index":0}'
+  - type: Graph sign-in
+    sourcetype: o365_graph_api
+    format: json
+    share: 5–10 %
+    avg: ~3 KB
+    desc: Entra ID sign-in from Microsoft Graph auditLogs/signIns. status.errorCode 0 = success; 50126 = bad password; 50074/50076 = MFA required.
+    key:
+      - userPrincipalName
+      - appDisplayName
+      - ipAddress
+      - clientAppUsed
+      - status.errorCode
+      - conditionalAccessStatus
+      - riskLevelDuringSignIn
+      - location.countryOrRegion
+    noise:
+      - correlationId
+      - resourceId
+      - deviceDetail.deviceId
+    sample: '{"id":"7fbc0a97-0000-4cc8-9377-dc94d2ad1e00","createdDateTime":"2026-11-12T09:12:58Z","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"bfb8c366-0000-41a5-b3e3-328f4a3b4484","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.23","clientAppUsed":"Browser","correlationId":"8fe7aa9b-0000-b52e-c6f2-8e4dfc07996b","conditionalAccessStatus":"success","isInteractive":true,"riskLevelDuringSignIn":"medium","resourceDisplayName":"Office 365 Exchange Online","resourceId":"00000002-0000-0ff1-ce00-000000000000","status":{"errorCode":0,"failureReason":"Other."},"deviceDetail":{"deviceId":"","operatingSystem":"Windows10","browser":"Chrome 130.0.0"},"location":{"city":"Amsterdam","countryOrRegion":"NL"}}'
+cves:
+  - id: CVE-2025-55241
+    cvss: 9.8
+    year: 2025
+    kev: false
+    scope: device
+    title: Entra ID cross-tenant impersonation via Actor tokens and legacy Azure AD Graph
+    affected: Microsoft Entra ID (all tenants) via the legacy Azure AD Graph API
+    fixed: Fixed service-side by Microsoft on 2025-07-17; no customer action
+    detect: Token requests left no logs. Writes made with an impersonated Global Admin appear in Audit.AzureActiveDirectory as changes by that admin with an unusual user agent and no matching sign-in in the Graph sign-in log.
+    avoid: Nothing to patch. Correlate directory changes with sign-ins and alert on admin changes that have no preceding interactive sign-in.
+  - id: CVE-2024-21413
+    cvss: 9.8
+    year: 2024
+    kev: true
+    scope: traffic
+    title: Outlook "MonikerLink" RCE and NTLM leak from a crafted file:// link in mail
+    affected: Microsoft Office 2016, Office 2019, LTSC 2021, Microsoft 365 Apps for Enterprise
+    fixed: February 13, 2024 security updates
+    detect: Message trace shows the lure being delivered. Exchange mailbox audit has no direct marker; look for outbound SMB (TCP 445) from clients on firewall or EDR right after the mail is opened.
+    avoid: Patch Office; block outbound SMB at the perimeter; add users to the Protected Users group.
+  - id: CVE-2023-23397
+    cvss: 9.8
+    year: 2023
+    kev: true
+    scope: traffic
+    title: Outlook zero-click NTLM hash leak via a reminder sound UNC path
+    affected: Microsoft Outlook for Windows (all supported versions)
+    fixed: March 14, 2023 security updates
+    detect: Calendar or task items whose PidLidReminderFileParameter points to a UNC path (Microsoft's audit script for Exchange Online finds them). Followed by sign-ins for the same user from a new IP.
+    avoid: Patch Outlook; block outbound SMB; Protected Users group; run Microsoft's CVE-2023-23397 audit script against mailboxes.
+  - id: CVE-2025-53770
+    cvss: 9.8
+    year: 2025
+    kev: true
+    scope: traffic
+    title: SharePoint Server "ToolShell" deserialization RCE (on-premises only, not SharePoint Online)
+    affected: SharePoint Server Subscription Edition, 2019 and 2016 (on-premises)
+    detect: Not visible in the M365 audit log. Relevant for hybrid tenants that sync to on-prem SharePoint; watch IIS logs for POST /_layouts/15/ToolPane.aspx and new spinstall0.aspx files.
+    avoid: Apply Microsoft's July 2025 SharePoint updates, rotate ASP.NET machine keys, enable AMSI; move workloads to SharePoint Online.
+detections:
+  - title: Suspicious inbox rule (hide or forward mail)
+    severity: high
+    signals:
+      - Operation=New-InboxRule or Set-InboxRule
+      - MoveToFolder RSS Feeds / Archive, DeleteMessage, ForwardTo
+      - rule name of one or two characters
+    why: Business email compromise actors hide replies from the victim and forward finance mail. One of the most reliable compromise indicators in M365.
+    kql: |-
+      dataset="o365_audit" Workload="Exchange"
+      | where Operation in ("New-InboxRule","Set-InboxRule","UpdateInboxRules")
+      | where Parameters has_any ("ForwardTo","RedirectTo","DeleteMessage","RSS Feeds","Conversation History")
+      | summarize rules=count() by UserId, ClientIP, Operation
+    mitre:
+      - T1564.008
+      - T1114.003
+  - title: Password spray against Entra ID
+    severity: high
+    signals:
+      - status.errorCode=50126
+      - many distinct users per ipAddress
+      - short time window
+    why: Spraying common passwords across many accounts is the top initial-access technique against M365.
+    kql: |-
+      dataset="o365_graph" status.errorCode=50126
+      | summarize fails=count(), users=dcount(userPrincipalName) by ipAddress, bin(_time, 30m)
+      | where users > 10
+    mitre:
+      - T1110.003
+  - title: Illicit OAuth consent grant
+    severity: high
+    signals:
+      - Operation=Consent to application.
+      - Workload=AzureActiveDirectory
+      - delegated mail or file permissions
+    why: A consented malicious app keeps mailbox and file access through refresh tokens even after the password is reset.
+    kql: |-
+      dataset="o365_audit" Workload="AzureActiveDirectory"
+      | where Operation in ("Consent to application.","Add delegated permission grant.","Add app role assignment to service principal.")
+      | summarize count() by UserId, ObjectId, ClientIP
+    mitre:
+      - T1528
+      - T1098.003
+  - title: Bulk file download from OneDrive or SharePoint
+    severity: medium
+    signals:
+      - Operation=FileDownloaded or FileSyncDownloadedFull
+      - distinct files per user per hour
+    why: Data theft before departure or after account takeover. Compare with the user's own baseline.
+    kql: |-
+      dataset="o365_audit" Operation in ("FileDownloaded","FileSyncDownloadedFull")
+      | summarize files=dcount(SourceFileName), sites=dcount(SiteUrl) by UserId, ClientIP, bin(_time, 1h)
+      | where files > 200
+    mitre:
+      - T1530
+      - T1213.002
+  - title: Mailbox delegation added
+    severity: medium
+    signals:
+      - Operation=Add-MailboxPermission or Add-RecipientPermission
+      - FullAccess or SendAs
+    why: Attackers grant a controlled account access to an executive mailbox for persistent mail collection.
+    kql: |-
+      dataset="o365_audit" Workload="Exchange"
+      | where Operation in ("Add-MailboxPermission","Add-RecipientPermission","Set-Mailbox")
+      | summarize count() by UserId, ObjectId, Operation
+    mitre:
+      - T1098.002
+  - title: Compromised account sending external mail burst
+    severity: medium
+    signals:
+      - message trace
+      - one sender, many external recipients
+      - short window
+    why: After takeover, accounts are used to send internal and external phishing from a trusted domain.
+    kql: |-
+      dataset="o365_messagetrace" Status="Delivered"
+      | where SenderAddress endswith "@example.com" and not(RecipientAddress endswith "@example.com")
+      | summarize recipients=dcount(RecipientAddress) by SenderAddress, bin(_time, 15m)
+      | where recipients > 50
+    mitre:
+      - T1534
+      - T1566.002
+optimizations:
+  - title: Drop or sample MailItemsAccessed and FileAccessed noise
+    saving: 20–40 %
+    fn: Drop / Sampling
+    how: MailItemsAccessed (sync and bind) and FileAccessed from sync clients are the largest record types. Keep them in Cribl Lake for investigations, send only a sample or none to the SIEM.
+    expr: Operation=='MailItemsAccessed' || (Operation=='FileAccessed' && UserAgent.includes('OneDrive'))
+  - title: Remove constant tenant fields
+    saving: 10–20 %
+    fn: Eval
+    how: OrganizationId, OrganizationName, OriginatingServer, Version and UserKey repeat on every record and add nothing to detection.
+    expr: "remove: OrganizationId, OrganizationName, OriginatingServer, Version, UserKey"
+  - title: De-duplicate overlapping content blobs
+    saving: 1–10 %
+    fn: Suppress
+    how: Polling overlapping windows or restarting a collector re-delivers records. Suppress on the record Id for a few hours.
+    expr: "key: Id  allow 1 / 6h"
+  - title: Flatten Parameters arrays
+    saving: 5–10 %
+    fn: Eval / Code
+    how: Turn the Exchange Parameters Name/Value array into top-level fields (param_ForwardTo, param_MoveToFolder) so detections and SIEM parsers can index them directly, then drop the array.
+    expr: Parameters && Workload=='Exchange'
+  - title: Route by workload
+    saving: SIEM licence
+    fn: Routes
+    how: AzureActiveDirectory, Exchange admin and SecurityComplianceCenter records → SIEM at full fidelity. High-volume SharePoint/OneDrive access records → Lake, with only sharing and download operations to the SIEM.
+    expr: Workload in ('AzureActiveDirectory','SecurityComplianceCenter') || Operation.startsWith('New-') || Operation.startsWith('Set-')
+references:
+  - title: Office 365 Management Activity API schema
+    url: https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema
+  - title: Office 365 Management Activity API reference
+    url: https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-reference
+  - title: Audit log activities (Microsoft Purview)
+    url: https://learn.microsoft.com/en-us/purview/audit-log-activities
+  - title: Microsoft Graph signIn resource
+    url: https://learn.microsoft.com/en-us/graph/api/resources/signin
+  - title: Cribl Office 365 Message Trace source
+    url: https://docs.cribl.io/stream/sources-office365-msg-trace/
+  - title: CVE-2024-21413 (MSRC)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2024-21413
+  - title: CVE-2025-55241 write-up (Dirk-jan Mollema)
+    url: https://dirkjanm.io/obtaining-global-admin-in-every-entra-id-tenant-with-actor-tokens/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - entra-id
+  - google-workspace
+  - proofpoint
+  - mde
+  - okta
+  - cisco-esa

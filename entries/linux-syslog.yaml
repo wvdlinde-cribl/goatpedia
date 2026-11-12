@@ -2,12 +2,327 @@
 id: linux-syslog
 name: Linux Syslog (messages / secure / auth)
 short: Linux syslog
+aka:
+  - /var/log/messages
+  - /var/log/secure
+  - /var/log/auth.log
+  - /var/log/syslog
+  - rsyslog
+  - syslog-ng
+  - systemd-journald
 vendor: Linux distributions
 category: os
-status: stub
-summary: rsyslog/journald system logs including sshd, sudo and PAM authentication in secure/auth.log.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - linux
+  - syslog
+  - sshd
+  - sudo
+  - pam
+  - rsyslog
+  - journald
+  - text
+summary: Every Linux host writes system and authentication messages through journald and rsyslog (or syslog-ng) into /var/log/messages or syslog, and /var/log/secure or auth.log. sshd, sudo, su, PAM, cron, systemd and the kernel all log here as free-text lines with a syslog header. It is the baseline Linux security source — SSH logins, sudo use and service changes — and is often forwarded to a central syslog server or, on AWS, to CloudWatch Logs.
 sourcetypes:
-  - st: linux_messages_syslog
   - st: linux_secure
+    desc: Authentication log (/var/log/secure on RHEL, /var/log/auth.log on Debian/Ubuntu) — sshd, sudo, su, PAM, useradd
+  - st: linux_messages_syslog
+    desc: General system log (/var/log/messages on RHEL, /var/log/syslog on Debian/Ubuntu) — kernel, systemd, cron, daemons
   - st: linux_syslog
+    desc: Linux syslog received over the network (RFC 3164 or RFC 5424) from rsyslog, syslog-ng or journald forwarding
   - st: aws_ec2
+    desc: Syslog and secure logs from EC2 instances shipped to CloudWatch Logs by the CloudWatch agent (log group per file, log stream per instance id), read back via subscription or export
+  - st: syslog
+    desc: Splunk default sourcetype for generic syslog files and network syslog
+  - st: Syslog
+    desc: Microsoft Sentinel table for syslog from the Azure Monitor Agent (Facility, SeverityLevel, ProcessName, SyslogMessage)
+facts:
+  First released: 1980s (BSD syslog); RFC 3164 (2001), RFC 5424 (2009); rsyslog 2004, journald 2011
+  Platform: All Linux distributions (RHEL, Ubuntu, Debian, SUSE, Amazon Linux)
+  Delivery model: Built into the OS — journald plus rsyslog or syslog-ng on every host
+  Log transport: Local files, syslog UDP/TCP 514, TLS 6514, RELP; agents (Cribl Edge, Universal Forwarder); CloudWatch agent to CloudWatch Logs on AWS
+  Log format: Free text with syslog header (RFC 3164 BSD style by default, RFC 5424 optional); JSON from journalctl -o json
+  Typical volume: 1–20 MB per host per day; secure/auth.log is small but internet-facing SSH can add millions of failed-login lines
+  Timestamps: RFC 3164 has no year or time zone — the collector must add them
+  Cribl Pack: Cribl Pack for Syslog Input (cribl-syslog-input) in the Packs Dispensary
+placement:
+  slots:
+    - endpoint
+    - internal
+    - cloud
+    - dmz
+  items:
+    - slot: endpoint
+      title: Every Linux host
+      desc: journald collects messages from all processes; rsyslog writes them to files by facility and priority and can forward a copy.
+    - slot: internal
+      title: Central syslog relay
+      desc: Hosts forward to a syslog server or Cribl Stream syslog source on 514/6514. A common place for Cribl to reduce and route.
+    - slot: cloud
+      title: Cloud instances (EC2 / CloudWatch)
+      desc: The CloudWatch agent ships /var/log/messages and /var/log/secure to CloudWatch Logs. Cribl reads them through a subscription to Kinesis/Firehose or an S3 export.
+    - slot: dmz
+      title: Internet-facing servers
+      desc: Bastion, web and mail hosts with SSH exposed — their auth log carries brute-force and exploitation traces.
+howItWorks:
+  - title: journald and rsyslog
+    body: On systemd distributions, journald receives all messages (syslog(3), stdout of services, kernel kmsg) and stores them in a binary journal. rsyslog reads from journald (imjournal) or its socket and writes text files using rules by facility and priority.
+  - title: Facilities and files
+    body: authpriv (sshd, sudo, su, PAM) goes to /var/log/secure (RHEL) or /var/log/auth.log (Debian/Ubuntu). Most other facilities go to /var/log/messages or /var/log/syslog. cron, mail and kern may have their own files.
+  - title: Message structure
+    body: An RFC 3164 line is timestamp, hostname, tag (program[pid]) and free-text message. The meaning is in the text — "Accepted publickey for", "Failed password for invalid user", "COMMAND=" — so parsing is per program.
+  - title: sshd and PAM
+    body: sshd logs every connection, authentication method and result, and disconnects. PAM modules log session open and close, and pam_faillock logs lockouts. Together they give login success, failure, method and source IP.
+  - title: sudo
+    body: sudo logs one line per command with the invoking user, TTY, working directory, target user and full command, plus failures such as "user NOT in sudoers" or "incorrect password attempts".
+  - title: Forwarding and CloudWatch
+    body: rsyslog forwards with omfwd (UDP/TCP) or omrelp, optionally with TLS and a disk queue. On EC2, the CloudWatch agent tails the files into log groups; a subscription filter delivers batches as gzip JSON (logEvents[]) to Kinesis or Firehose.
+traffic:
+  handles:
+    - SSH logins and failures (sshd)
+    - Privilege use (sudo, su)
+    - PAM session and account events
+    - User and group changes (useradd, usermod, groupadd)
+    - Service start, stop and crash (systemd)
+    - Kernel messages (OOM, segfaults, firewall drops)
+    - Scheduled jobs (cron)
+  flow:
+    - step: Program logs
+      desc: sshd, sudo or the kernel calls syslog() or writes to stdout under systemd.
+    - step: journald
+      desc: The message is stamped with time, host, unit, pid and stored in the journal.
+    - step: rsyslog rules
+      desc: rsyslog reads the journal and writes to secure/auth.log or messages by facility.
+    - step: Forward or tail
+      desc: rsyslog forwards over TCP/TLS, or an agent (Cribl Edge, CloudWatch agent) tails the file.
+    - step: Ingest
+      desc: Cribl Stream syslog source or CloudWatch subscription receives the lines; the year and time zone are added.
+    - step: Parse and route
+      desc: Per-program regex extracts user, source IP and action; noise is dropped before the SIEM.
+logs:
+  - type: sshd authentication
+    sourcetype: linux_secure
+    format: text
+    share: 30–70 % of secure
+    avg: ~120 B
+    desc: One line per authentication attempt. Accepted (password or publickey), Failed password, Invalid user and Disconnected lines carry user, source IP and port.
+    pattern: '^(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<process>sshd)\[(?<pid>\d+)\]: (?<action>Failed|Accepted) (?<method>\S+) for (?:invalid user )?(?<user>\S+) from (?<src>\S+) port (?<src_port>\d+) (?<proto>\S+)$'
+    key:
+      - host
+      - action
+      - method
+      - user
+      - src
+    noise:
+      - pid
+      - proto
+    sample: 'Nov 12 09:14:22 bastion01 sshd[2245]: Failed password for invalid user admin from 198.51.100.23 port 51544 ssh2'
+  - type: sudo command
+    sourcetype: linux_secure
+    format: text
+    share: 5–20 % of secure
+    avg: ~150 B
+    desc: One line per sudo command — invoking user, TTY, working directory, target user and full command line.
+    pattern: '^(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<process>sudo)(?:\[(?<pid>\d+)\])?:\s+(?<user>\S+) : (?:(?<reason>[^;]+?) ; )?TTY=(?<tty>\S+) ; PWD=(?<pwd>\S+) ; USER=(?<target_user>\S+) ; COMMAND=(?<command>.+)$'
+    key:
+      - host
+      - user
+      - target_user
+      - command
+      - reason
+    noise:
+      - tty
+      - pwd
+    sample: 'Nov 12 09:20:01 bastion01 sudo:     jdoe : TTY=pts/0 ; PWD=/home/jdoe ; USER=root ; COMMAND=/usr/bin/cat /etc/shadow'
+  - type: System messages
+    sourcetype: linux_messages_syslog
+    format: text
+    share: 60–80 % of all syslog
+    avg: ~110 B
+    desc: Kernel, systemd, cron and daemon messages. Mostly operational; security value in service changes, segfaults, OOM kills and firewall drops.
+    pattern: '^(?<timestamp>\w{3}\s+\d+ \d{2}:\d{2}:\d{2}) (?<host>\S+) (?<process>[^\[:\s]+)(?:\[(?<pid>\d+)\])?: (?<message>.*)$'
+    key:
+      - host
+      - process
+      - message
+    noise:
+      - pid
+    sample: 'Nov 12 09:25:44 web01 systemd[1]: Started cron-update.service - Update helper.'
+  - type: EC2 syslog via CloudWatch Logs
+    sourcetype: aws_ec2
+    format: json
+    share: n/a (AWS only)
+    avg: ~400 B per event batch entry
+    desc: CloudWatch Logs subscription payload. logGroup is the file (/var/log/secure), logStream the instance id, and each logEvents[] entry holds one original syslog line in message.
+    key:
+      - logGroup
+      - logStream
+      - logEvents[0].message
+      - logEvents[0].timestamp
+    noise:
+      - messageType
+      - owner
+      - subscriptionFilters[0]
+      - logEvents[0].id
+    sample: '{"messageType":"DATA_MESSAGE","owner":"111122223333","logGroup":"/var/log/secure","logStream":"i-0abc1234def567890","subscriptionFilters":["to-cribl"],"logEvents":[{"id":"38162523472345678901234567890123456789012345678901234567","timestamp":1731403200000,"message":"Nov 12 09:20:00 ip-10-0-1-25 sshd[3112]: Accepted publickey for ec2-user from 203.0.113.80 port 50122 ssh2: RSA SHA256:AbCdEf0123456789"}]}'
+cves:
+  - id: CVE-2024-6387
+    cvss: 8.1
+    year: 2024
+    kev: false
+    scope: device
+    title: OpenSSH "regreSSHion" signal-handler race — unauthenticated remote code execution as root on glibc Linux
+    affected: OpenSSH 8.5p1 – 9.7p1 (and versions before 4.4p1) on glibc-based Linux
+    fixed: OpenSSH 9.8p1 (and distribution backports)
+    detect: Exploitation takes thousands of connections. In auth.log/secure, a burst of "Timeout before authentication for <ip>" lines and repeated sshd crashes or "fatal" from one source.
+    avoid: Patch sshd; as a stop-gap set LoginGraceTime 0 (risk of DoS); restrict SSH exposure; rate-limit with MaxStartups and a firewall.
+  - id: CVE-2021-3156
+    cvss: 7.8
+    year: 2021
+    kev: true
+    scope: device
+    title: sudo "Baron Samedit" heap overflow — any local user to root via sudoedit -s
+    affected: sudo 1.8.2 – 1.8.31p2 and 1.9.0 – 1.9.5p1
+    fixed: sudo 1.9.5p2
+    detect: sudoedit -s lines (often ending in a backslash) by users not in sudoers; segfaults of sudo in messages; a root shell for that user with no matching sudo COMMAND= line.
+    avoid: Update sudo; alert on sudoedit with -s; restrict local shell access.
+  - id: CVE-2022-24903
+    cvss: 8.1
+    year: 2022
+    kev: false
+    scope: device
+    title: rsyslog TCP receiver heap overflow with octet-counted framing (affects the log relay itself)
+    affected: rsyslog before 8.2204.1 with imtcp, imptcp, imgssapi or imhttp receivers enabled
+    fixed: rsyslog 8.2204.1
+    detect: rsyslogd crashes or restarts in messages on the central relay; gaps in forwarded logs; unexpected TCP 514 senders.
+    avoid: Patch rsyslog on relays; accept syslog only from known hosts (firewall, TLS with client certificates); prefer Cribl Stream as the network receiver.
+  - id: CVE-2023-48795
+    cvss: 5.9
+    year: 2023
+    kev: false
+    scope: traffic
+    title: SSH "Terrapin" prefix-truncation attack on the SSH protocol itself
+    affected: SSH clients and servers using ChaCha20-Poly1305 or CBC with Encrypt-then-MAC, including OpenSSH before 9.6
+    fixed: OpenSSH 9.6 (strict key exchange; both sides must support it)
+    detect: Not visible in auth.log — the downgrade happens inside the encrypted handshake. Track sshd versions per host (sshd -V or the banner) and the ciphers in "Accepted … ssh2" lines at debug level.
+    avoid: Upgrade both server and clients; disable chacha20-poly1305@openssh.com and *-etm MACs until patched.
+detections:
+  - title: SSH brute force and password spray
+    severity: medium
+    signals:
+      - action=Failed
+      - many attempts per src
+      - many distinct users per src
+    why: Internet-facing SSH is constantly attacked; volume alone is noise, but many users from one source or a later success is not.
+    kql: |-
+      dataset="linux_secure" process="sshd" action="Failed"
+      | summarize fails=count(), users=dcount(user) by src, bin(_time, 10m)
+      | where fails > 30 or users > 10
+    mitre:
+      - T1110.001
+      - T1110.003
+  - title: Successful SSH login after failures
+    severity: high
+    signals:
+      - action=Failed then Accepted
+      - same src
+      - same user
+    why: A success after a burst of failures from the same source is the most direct sign of a guessed password.
+    kql: |-
+      dataset="linux_secure" process="sshd" action in ("Failed","Accepted")
+      | summarize fails=countif(action=="Failed"), ok=countif(action=="Accepted") by src, user, host, bin(_time, 1h)
+      | where fails > 10 and ok > 0
+    mitre:
+      - T1110
+      - T1078.003
+  - title: Sensitive command through sudo
+    severity: high
+    signals:
+      - process=sudo
+      - command touches /etc/shadow, sudoers, useradd, or a shell
+    why: Reading credential files, editing sudoers or spawning a root shell via sudo is privilege abuse or post-exploitation.
+    kql: |-
+      dataset="linux_secure" process="sudo"
+      | where command has_any ("/etc/shadow","/etc/sudoers","useradd","usermod","visudo","/bin/bash","/bin/sh","chmod +s")
+      | summarize count() by host, user, target_user, command
+    mitre:
+      - T1548.003
+      - T1003.008
+  - title: sudo failure — user not in sudoers
+    severity: medium
+    signals:
+      - process=sudo
+      - reason contains NOT in sudoers or incorrect password attempts
+    why: An account probing for privilege it does not have — common right after a compromise of a normal user.
+    kql: |-
+      dataset="linux_secure" process="sudo"
+      | where reason contains "NOT in sudoers" or reason contains "incorrect password"
+      | summarize count() by host, user
+    mitre:
+      - T1548.003
+  - title: Root login over SSH from outside
+    severity: high
+    signals:
+      - action=Accepted
+      - user=root
+      - src not in admin networks
+    why: Direct root login should be disabled (PermitRootLogin no); any external success is policy failure or compromise.
+    kql: |-
+      dataset="linux_secure" process="sshd" action="Accepted" user="root"
+      | where not(ipv4_is_private(src))
+      | summarize count() by host, src, method
+    mitre:
+      - T1078.003
+      - T1021.004
+optimizations:
+  - title: Drop routine daemon chatter
+    saving: 30–60 %
+    fn: Drop
+    how: systemd session scopes ("Started Session N of user"), cron "CMD" lines for monitoring jobs, NetworkManager and dhclient renewals make up most of /var/log/messages. Drop by process and message pattern; keep secure/auth.log whole.
+    expr: process=='systemd' && /Started Session|Removed slice|Created slice/.test(message)
+  - title: Suppress SSH background noise
+    saving: 20–50 % of secure
+    fn: Suppress
+    how: Internet scanning produces thousands of identical failures. Keep one per src per 5 minutes with a count; never suppress Accepted lines.
+    expr: "key: `${src}:${action}`  allow 1 / 300s  when action=='Failed'"
+  - title: Strip the redundant syslog header
+    saving: 10–20 %
+    fn: Parser → Serialize / Eval
+    how: The text timestamp and host duplicate _time and host metadata. Parse once, keep the extracted fields and message, and drop the header — the Syslog Input pack does this for network syslog.
+    expr: "remove: timestamp; keep: host, process, pid, message"
+  - title: Unwrap CloudWatch batches
+    saving: 10–30 % (aws_ec2)
+    fn: Unroll / Eval
+    how: Split logEvents[] into one event per syslog line, copy logGroup and logStream (instance id) onto each and drop the batch envelope (messageType, owner, subscriptionFilters).
+    expr: messageType=='DATA_MESSAGE' && Array.isArray(logEvents)
+  - title: Route secure vs messages
+    saving: SIEM licence
+    fn: Routes
+    how: secure/auth.log → SIEM at full fidelity. messages/syslog → Lake, with only kernel errors, segfaults, OOM and service changes sent to the SIEM.
+    expr: sourcetype=='linux_secure' || /segfault|Out of memory|Started|Stopped/.test(message)
+references:
+  - title: RFC 3164 — The BSD syslog protocol
+    url: https://www.rfc-editor.org/rfc/rfc3164
+  - title: RFC 5424 — The Syslog Protocol
+    url: https://www.rfc-editor.org/rfc/rfc5424
+  - title: journald.conf(5) manual page
+    url: https://man7.org/linux/man-pages/man5/journald.conf.5.html
+  - title: Installing the CloudWatch agent (AWS)
+    url: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html
+  - title: Cribl Pack for Syslog Input
+    url: https://packs.cribl.io/packs/cribl-syslog-input
+  - title: Qualys regreSSHion advisory (CVE-2024-6387)
+    url: https://www.qualys.com/2024/07/01/cve-2024-6387/regresshion.txt
+  - title: sudo Baron Samedit advisory (CVE-2021-3156)
+    url: https://www.sudo.ws/security/advisories/unescape_overflow/
+  - title: rsyslog advisory GHSA-ggw7-xr6h-mmr8 (CVE-2022-24903)
+    url: https://github.com/rsyslog/rsyslog/security/advisories/GHSA-ggw7-xr6h-mmr8
+related:
+  - linux-auditd
+  - osquery
+  - falco
+  - cloudtrail
+  - ibm-aix
