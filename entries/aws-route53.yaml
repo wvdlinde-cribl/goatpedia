@@ -2,10 +2,304 @@
 id: aws-route53
 name: Amazon Route 53 Query Logs
 short: Route 53
+aka:
+  - Route 53 public DNS query logging
+  - Route 53 Resolver query logs
+  - VPC Resolver query logs
+  - Route 53 Resolver DNS Firewall
 vendor: Amazon Web Services
 category: dns
-status: stub
-summary: Public hosted-zone query logs and Resolver query logs for VPC DNS.
+status: full
+updated: "2026-11-12"
+contributors:
+  - wlinde
+tags:
+  - aws
+  - dns
+  - resolver
+  - dns-firewall
+  - cloudwatch
+  - s3
+  - firehose
+  - json
+summary: "Two separate DNS logs from AWS's DNS service. Public hosted-zone query logs record the queries that internet resolvers send to Route 53 for your domains — one space-separated line per query, CloudWatch Logs only. Resolver (VPC) query logs record every lookup that workloads in your VPCs make through the AmazonProvidedDNS resolver as JSON, including DNS Firewall verdicts. Flow logs never capture traffic to the Amazon resolver, so Resolver logs are the only DNS visibility inside a VPC."
 sourcetypes:
   - st: aws_route53_public
+    desc: Pack Generator sourcetype for public hosted-zone query logs (space-separated, version 1.0)
   - st: aws_route53_resolver
+    desc: Pack Generator sourcetype for Route 53 Resolver (VPC) query logs (JSON, incl. DNS Firewall fields)
+  - st: aws:route53
+    desc: Common Splunk sourcetype for Route 53 query logs read from CloudWatch Logs / Firehose
+  - st: AWSRoute53Resolver
+    desc: Microsoft Sentinel table for Resolver query logs (Amazon Web Services S3 connector)
+  - st: AWS_ROUTE_53
+    desc: Google SecOps (Chronicle) log type
+facts:
+  First released: Route 53 December 2010; public query logging 2017; Resolver query logging 2020
+  Delivery model: Managed global DNS (public zones) and per-VPC Resolver at the VPC +2 address
+  Log types: Public hosted-zone query logs; Resolver query logs (VPC, Resolver endpoints, Route 53 Profiles)
+  Log transport: "Public: CloudWatch Logs only (log group in us-east-1). Resolver: CloudWatch Logs, S3 or Kinesis Data Firehose, shareable via AWS RAM"
+  Log format: "Public: space-separated text, version 1.0. Resolver: JSON, one object per query (version 1.1)"
+  DNS Firewall: Block / alert / allow on domain lists (AWS-managed threat lists or your own); verdict logged in firewall_rule_action
+  Caching caveat: Public logs show only queries that reach Route 53 — cached answers at internet resolvers are invisible
+  Typical volume: Resolver — 10–100 queries per second per busy instance; public — proportional to unique-resolver traffic and TTLs
+  Cribl Pack: None found in the Packs Dispensary (collect with the S3, Amazon SQS or Firehose/HTTP sources)
+placement:
+  slots:
+    - cloud
+    - edge
+    - internal
+  items:
+    - slot: cloud
+      title: VPC Resolver (AmazonProvidedDNS)
+      desc: Every EC2 instance, container and Lambda ENI resolves through the VPC +2 resolver by default. A query logging configuration associated with each VPC (or a Route 53 Profile) records all of them, centrally delivered to S3 or Firehose.
+    - slot: edge
+      title: Public hosted zones
+      desc: Authoritative DNS for your internet domains, answered from AWS edge locations. Logs show which resolvers ask for which names — useful for reconnaissance and abuse of your domains, not for user activity.
+    - slot: internal
+      title: Hybrid Resolver endpoints
+      desc: Inbound endpoints let on-premises clients resolve private zones; outbound endpoints forward VPC queries to on-prem AD DNS. srcids.resolver_endpoint shows which path a query took.
+howItWorks:
+  - title: Two different services
+    body: Public hosted zones are authoritative servers for your domains on the internet; Route 53 Resolver is the recursive resolver inside each VPC. They log separately, in different formats, with different delivery options. Do not expect a VPC instance's lookups in public query logs or vice versa.
+  - title: Resolver query logging
+    body: A query logging configuration is associated with VPCs (or a Route 53 Profile) and a destination. Every query through the resolver produces a JSON record with the VPC, source IP and port, source instance or resolver endpoint, the query, rcode and the full answers[] list. Logs are batched to S3 every few minutes or streamed through Firehose.
+  - title: DNS Firewall
+    body: Rule groups attached to VPCs match the query name against domain lists, including AWS-managed lists for malware, botnet C2 and aggregated threat domains, and the DNS Firewall Advanced detections for DGA and DNS tunnelling. Matching rules ALERT, BLOCK (NXDOMAIN, NODATA or an override answer) or ALLOW. Alert and block matches populate firewall_rule_action, firewall_rule_group_id and firewall_domain_list_id.
+  - title: Public query logging
+    body: "Each Route 53 edge location publishes lines to a CloudWatch Logs log group in us-east-1 (log stream per hosted zone and edge location). Fields: version, timestamp, hosted zone id, query name, type, response code, protocol, edge location, resolver IP and the EDNS client subnet when the resolver sends one."
+  - title: What DNS logs reveal
+    body: DNS is used before almost every connection, so Resolver logs show C2 domains, DGA, tunnelling, mining pools, out-of-band exploit callbacks (Log4Shell, SSRF tests) and data exfiltration over long subdomains, all attributed to an instance even when the traffic is encrypted.
+traffic:
+  handles:
+    - Recursive DNS for VPC workloads (EC2, ECS/EKS, Lambda in VPC)
+    - Private hosted zones and forwarding rules
+    - Hybrid DNS through inbound / outbound Resolver endpoints
+    - DNS Firewall alert / block decisions
+    - Authoritative DNS for public hosted zones
+    - UDP and TCP queries, DNSSEC validation (when enabled)
+  flow:
+    - step: Query
+      desc: A workload asks the VPC +2 resolver (or an internet resolver asks a Route 53 name server) for a name.
+    - step: DNS Firewall
+      desc: For VPC queries, attached rule groups are evaluated in priority order; a BLOCK returns the configured response.
+    - step: Resolve
+      desc: Resolver answers from private zones, forwarding rules (outbound endpoint) or public recursion; public zones answer authoritatively.
+    - step: Record
+      desc: A query log entry is created with the query, rcode, answers and source identifiers.
+    - step: Deliver
+      desc: Resolver logs go to S3, CloudWatch Logs or Firehose; public logs to CloudWatch Logs in us-east-1.
+    - step: Collect
+      desc: Cribl reads S3 via SQS, receives Firehose over HTTP, or takes a CloudWatch subscription stream (unwrap the logEvents[] envelope).
+logs:
+  - type: Resolver query log
+    sourcetype: aws_route53_resolver
+    format: json
+    share: 90–99 %
+    avg: ~450 B
+    desc: One record per VPC DNS query. srcids.instance attributes the query to a workload; answers[] carries the resolved records.
+    key:
+      - query_name
+      - query_type
+      - rcode
+      - srcaddr
+      - srcids.instance
+      - vpc_id
+      - answers[0].Rdata
+    noise:
+      - version
+      - query_class
+      - answers[0].Class
+      - srcport
+      - region
+    sample: '{"version":"1.100000","account_id":"111122223333","region":"us-east-1","vpc_id":"vpc-0123abcd4567ef890","query_timestamp":"2026-11-12T09:14:22Z","query_name":"api.example.com.","query_type":"A","query_class":"IN","rcode":"NOERROR","answers":[{"Rdata":"203.0.113.10","Type":"A","Class":"IN"}],"srcaddr":"10.40.12.7","srcport":"48701","transport":"UDP","srcids":{"instance":"i-0abc123def4567890"}}'
+  - type: DNS Firewall match
+    sourcetype: aws_route53_resolver
+    format: json
+    share: < 1 %
+    avg: ~600 B
+    desc: Same record shape plus firewall_rule_action (ALERT or BLOCK), firewall_rule_group_id and firewall_domain_list_id. A BLOCK with NXDOMAIN response returns no answers.
+    key:
+      - query_name
+      - firewall_rule_action
+      - firewall_domain_list_id
+      - firewall_rule_group_id
+      - srcids.instance
+      - srcaddr
+      - rcode
+    noise:
+      - version
+      - query_class
+      - srcport
+    sample: '{"version":"1.100000","account_id":"111122223333","region":"us-east-1","vpc_id":"vpc-0123abcd4567ef890","query_timestamp":"2026-11-12T09:20:41Z","query_name":"c2.malicious.example.org.","query_type":"A","query_class":"IN","rcode":"NXDOMAIN","answers":[],"srcaddr":"10.40.12.7","srcport":"53122","transport":"UDP","srcids":{"instance":"i-0abc123def4567890"},"firewall_rule_action":"BLOCK","firewall_rule_group_id":"rslvr-frg-0123456789abcdef","firewall_domain_list_id":"rslvr-fdl-fedcba9876543210"}'
+  - type: Public hosted-zone query log
+    sourcetype: aws_route53_public
+    format: text
+    share: Separate stream
+    avg: ~110 B
+    desc: One space-separated line per query that reached a Route 53 name server. resolver_ip is the recursive resolver, not the end user; edns_client_subnet is '-' unless the resolver sends ECS.
+    pattern: ^(?<version>\S+) (?<query_timestamp>\S+) (?<hosted_zone_id>\S+) (?<query_name>\S+) (?<query_type>\S+) (?<response_code>\S+) (?<protocol>\S+) (?<edge_location>\S+) (?<resolver_ip>\S+) (?<edns_client_subnet>\S+)$
+    key:
+      - query_name
+      - query_type
+      - response_code
+      - resolver_ip
+      - edns_client_subnet
+      - hosted_zone_id
+    noise:
+      - version
+      - edge_location
+      - protocol
+    sample: 1.0 2026-11-12T09:14:22.130Z Z0123456789EXAMPLE www.example.com A NOERROR UDP FRA56-P3 198.51.100.53 203.0.113.0/24
+cves:
+  - id: CVE-2021-44228
+    cvss: 10
+    year: 2021
+    kev: true
+    scope: traffic
+    title: Log4Shell — JNDI exploitation triggers DNS lookups that Resolver logs record
+    affected: Apache Log4j 2.0-beta9 – 2.15.0 (excluding 2.12.2, 2.12.3, 2.3.1)
+    fixed: Log4j 2.17.1 (Java 8), 2.12.4 (Java 7), 2.3.2 (Java 6)
+    detect: A Java workload's srcids.instance resolving unique random subdomains of out-of-band testing domains (interactsh / oast / dnslog / burpcollaborator) or of attacker domains, just before an outbound LDAP connection in VPC Flow Logs.
+    avoid: Patch; DNS Firewall block on OAST and threat-list domains; restrict egress so callbacks fail.
+  - id: CVE-2020-1350
+    cvss: 10
+    year: 2020
+    kev: true
+    scope: traffic
+    title: SIGRed — wormable RCE in Windows DNS Server, reachable through outbound Resolver forwarding to AD DNS
+    affected: Windows Server 2008 – 2019 and Server Core (versions 1903–2004) running the DNS Server role
+    fixed: July 2020 Microsoft security updates (workaround TcpReceivePacketSize 0xFF00)
+    detect: Queries for SIG/RRSIG records of unknown external domains forwarded through outbound endpoints (srcids.resolver_endpoint) toward on-premises DNS, and unusual TCP transport for those queries.
+    avoid: Patch Windows DNS servers; apply the TcpReceivePacketSize workaround; limit which domains forwarding rules send on-prem.
+  - id: CVE-2023-50387
+    cvss: 7.5
+    year: 2024
+    kev: false
+    scope: traffic
+    title: KeyTrap — DNSSEC validation CPU exhaustion in recursive resolvers
+    affected: DNSSEC-validating resolvers before the February 2024 fixes (Unbound, PowerDNS Recursor, dnsmasq, Knot Resolver, BIND, …)
+    fixed: Unbound 1.19.1, PowerDNS Recursor 4.8.6 / 4.9.3 / 5.0.2, dnsmasq 2.90
+    detect: Bursts of SERVFAIL rcode for names under a few crafted DNSSEC zones, from one srcaddr; on self-managed resolvers in EC2, resolver latency spikes.
+    avoid: Patch self-hosted resolvers; AWS-managed Resolver is patched by AWS; rate-limit queries per client.
+detections:
+  - title: DNS Firewall block or alert
+    severity: high
+    signals:
+      - firewall_rule_action in BLOCK / ALERT
+      - AWS-managed threat domain list
+    why: A workload asked for a domain on a malware, botnet or C2 list. Even blocked lookups mean something on the instance tried to call out.
+    kql: |-
+      dataset="aws_route53" isnotempty(firewall_rule_action)
+      | summarize lookups=count(), domains=make_set(query_name) by srcids.instance, srcaddr, firewall_rule_action, firewall_domain_list_id
+    mitre:
+      - T1071.004
+  - title: DNS tunnelling / exfiltration over long subdomains
+    severity: high
+    signals:
+      - strlen(query_name) > 60
+      - many unique subdomains of one parent
+      - TXT / NULL / CNAME query types
+    why: Tunnelling tools encode data in labels and generate thousands of unique names under one domain — the volume and entropy stand out against normal workload DNS.
+    kql: |-
+      dataset="aws_route53"
+      | extend parent=extract("([^.]+\\.[^.]+)\\.$", 1, query_name)
+      | where strlen(query_name) > 60
+      | summarize uniq=dcount(query_name), types=make_set(query_type) by srcids.instance, parent, bin(_time, 15m)
+      | where uniq > 200
+    mitre:
+      - T1071.004
+      - T1048.003
+      - T1572
+  - title: Out-of-band exploit callbacks (OAST domains)
+    severity: high
+    signals:
+      - query_name ends with interactsh / oast / dnslog / burpcollaborator domains
+    why: Log4Shell, SSRF and blind-injection exploits are often confirmed by a DNS lookup from the vulnerable server. A production workload has no reason to resolve these.
+    kql: |-
+      dataset="aws_route53"
+      | where query_name has_any ("interact.sh","oast.fun","oast.pro","oast.live","dnslog.cn","burpcollaborator.net","oastify.com")
+      | summarize count(), first=min(_time) by srcids.instance, srcaddr, query_name
+    mitre:
+      - T1190
+      - T1071.004
+  - title: DGA-like NXDOMAIN storm from an instance
+    severity: medium
+    signals:
+      - rcode=NXDOMAIN
+      - high distinct query_name per instance
+    why: Malware with a domain-generation algorithm tries hundreds of random names until one resolves; legitimate workloads produce few NXDOMAINs.
+    kql: |-
+      dataset="aws_route53" rcode="NXDOMAIN"
+      | summarize nx=count(), names=dcount(query_name) by srcids.instance, bin(_time, 10m)
+      | where names > 100
+    mitre:
+      - T1568.002
+  - title: Crypto-mining pool lookups
+    severity: medium
+    signals:
+      - query_name contains pool / mining / stratum / xmr / nanopool
+    why: Mining pool resolution from a server is a near-certain sign of a compromised instance or container.
+    kql: |-
+      dataset="aws_route53"
+      | where query_name matches regex "(xmr|monero|nanopool|minexmr|stratum|supportxmr|2miners)"
+      | summarize count() by srcids.instance, query_name
+    mitre:
+      - T1496
+  - title: Reconnaissance against public zones
+    severity: low
+    signals:
+      - response_code=NXDOMAIN on hosted zone
+      - many distinct query_name from one resolver_ip
+      - query_type=ANY
+    why: Subdomain brute force maps your attack surface; ANY queries are typical of amplification reflection attempts.
+    kql: |-
+      dataset="aws_route53_public"
+      | summarize names=dcount(query_name), nx=countif(response_code=="NXDOMAIN"), any=countif(query_type=="ANY") by resolver_ip, hosted_zone_id, bin(_time, 1h)
+      | where nx > 500 or any > 1000
+    mitre:
+      - T1590.002
+      - T1498.002
+optimizations:
+  - title: Drop AWS-internal and reverse lookups
+    saving: 30–60 %
+    fn: Drop
+    how: "Workloads constantly resolve AWS service endpoints (*.amazonaws.com), EC2 internal names (*.ec2.internal, *.compute.internal) and PTR records. Drop or send to Lake only — but never drop records carrying firewall_rule_action."
+    expr: "!firewall_rule_action && (/\\.(amazonaws\\.com|ec2\\.internal|compute\\.internal|in-addr\\.arpa)\\.$/.test(query_name))"
+  - title: Suppress repeated identical queries
+    saving: 20–50 %
+    fn: Suppress
+    how: Applications without local caching resolve the same name many times a minute. Keep one record per instance + name + type + rcode per 5 minutes with a count.
+    expr: "key: `${srcids && srcids.instance}:${query_name}:${query_type}:${rcode}`  allow 1 / 300s"
+  - title: Flatten answers and strip constants
+    saving: 15–30 %
+    fn: Parser → Serialize
+    how: Replace answers[] with a comma-joined answer_ips string; remove version, query_class, answers[].Class, account_id and region (constant per object, add back as metadata).
+    expr: "answer_ips = answers.map(a => a.Rdata).join(',') (in a Code function); remove: version, query_class, account_id, region"
+  - title: Unwrap CloudWatch Logs subscription envelopes
+    saving: 5–15 %
+    fn: Unroll → Eval
+    how: Via a CloudWatch subscription each event is wrapped in {messageType, owner, logGroup, logStream, logEvents[]}. Unroll logEvents and parse message so both delivery paths share one schema.
+    expr: "unroll: logEvents → evt; _raw = evt.message; remove: messageType, owner, subscriptionFilters"
+references:
+  - title: Public DNS query logging
+    url: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/query-logs.html
+  - title: Resolver query logging
+    url: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver-query-logs.html
+  - title: Values that appear in Resolver query logs
+    url: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver-query-logs-format.html
+  - title: Route 53 Resolver DNS Firewall
+    url: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver-dns-firewall.html
+  - title: Microsoft advisory CVE-2020-1350 (SIGRed)
+    url: https://msrc.microsoft.com/update-guide/vulnerability/CVE-2020-1350
+  - title: "MITRE ATT&CK T1071.004: Application Layer Protocol — DNS"
+    url: https://attack.mitre.org/techniques/T1071/004/
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - aws-vpc-flow
+  - aws-guardduty
+  - infoblox
+  - umbrella
+  - ms-dns-dhcp
+  - isc-bind
