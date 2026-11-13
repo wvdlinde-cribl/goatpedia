@@ -80,5 +80,19 @@ for (const rel of ['index.html', 'app.js']) {
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replaceAll('__BUILD__', stamp));
 }
 fs.writeFileSync(path.join(dist, 'library.json'), JSON.stringify({ built, categories, entries }));
+// Load only what is needed: index.json carries what browse, search and the two index pages
+// use (a few hundred KB, not the whole library); e/<id>.json holds one full article, fetched
+// when it is opened. library.json stays for readers that still load everything at once.
+const searchText = (e) => [...(e.howItWorks || []).map((h) => `${h.title} ${h.body}`), ...(e.detections || []).map((d) => `${d.title} ${d.signals.join(' ')}`)].join(' ');
+const card = (e) => ({
+  id: e.id, name: e.name, short: e.short, aka: e.aka, vendor: e.vendor, category: e.category, status: e.status,
+  summary: e.summary, tags: e.tags, updated: e.updated, sourcetypes: e.sourcetypes,
+  cves: e.cves && e.cves.map(({ id, cvss, kev, title, scope }) => ({ id, cvss, kev, title, scope })),
+  cveIds: e.cveIds, text: searchText(e),
+});
+fs.writeFileSync(path.join(dist, 'index.json'), JSON.stringify({ built, categories, entries: entries.map(card) }));
+fs.mkdirSync(path.join(dist, 'e'), { recursive: true });
+for (const e of entries) fs.writeFileSync(path.join(dist, 'e', `${e.id}.json`), JSON.stringify(e));
 fs.writeFileSync(path.join(dist, '.nojekyll'), '');
-console.log(`✓ wrote dist/ (library.json ${(fs.statSync(path.join(dist, 'library.json')).size / 1024).toFixed(1)} KB)`);
+const kb = (f) => (fs.statSync(path.join(dist, f)).size / 1024).toFixed(1);
+console.log(`✓ wrote dist/ (index.json ${kb('index.json')} KB, ${entries.length} articles in e/, library.json ${kb('library.json')} KB)`);

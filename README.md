@@ -16,8 +16,9 @@
 
 ## How it works
 ```
-entries/*.yaml ──► scripts/build.js (validate + merge) ──► dist/library.json + site/ ──► GitHub Pages
+entries/*.yaml ──► scripts/build.js (validate + merge) ──► dist/index.json + dist/e/<id>.json + site/ ──► GitHub Pages
 ```
+- **Published files:** `index.json` holds what browse, search and the Sourcetype and CVE indexes need. `e/<id>.json` holds one full article, which is fetched only when that article opens. Browse shows 24 cards per page, and the index tables show 100 rows per page. `library.json` (everything in one file) is still published for readers that load it all at once.
 - **Content:** one YAML file per device in `entries/`, with categories in `categories.yaml`.
 - **Validation:** JSON Schema (`schema/entry.schema.json`) plus cross-checks. The checks run on every PR.
 - **Site:** a static single-page app in `site/`. Search, routing and the diagrams all run in the browser, with no backend.

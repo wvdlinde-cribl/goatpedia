@@ -49,7 +49,8 @@
         category: ((CATS[e.category]?.label || '') + ' ' + e.category).toLowerCase(),
         tag: (e.tags || []).join(' ').toLowerCase(),
         cve: cveIds(e).join(' ').toLowerCase(),
-        text: [e.summary, ...(e.howItWorks || []).map((h) => h.title + ' ' + h.body), ...(e.detections || []).map((d) => d.title + ' ' + d.signals.join(' '))].join(' ').toLowerCase(),
+        // index.json carries the how-it-works and detection words pre-joined as e.text.
+        text: [e.summary, e.text != null ? e.text : [...(e.howItWorks || []).map((h) => h.title + ' ' + h.body), ...(e.detections || []).map((d) => d.title + ' ' + d.signals.join(' '))].join(' ')].join(' ').toLowerCase(),
       };
       let score = 0, all = true;
       for (const t of toks) {
@@ -97,35 +98,74 @@
     const r = parts[0] || '';
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === (r === 'e' ? 'x' : r)));
     $('#mini').hidden = r === '';
-    if (r === 'e' && byId(parts[1])) return article(byId(parts[1]), parts[2] || 'overview', +(parts[3] || 0));
-    if (r === 'sourcetypes') return sourcetypes();
-    if (r === 'cves') return cves();
-    home(params.get('q') || '', params.get('cat'));
+    const page = Math.max(1, parseInt(params.get('p'), 10) || 1);
+    if (r === 'e' && byId(parts[1])) return openArticle(parts[1], parts[2] || 'overview', +(parts[3] || 0));
+    if (r === 'sourcetypes') return sourcetypes(page);
+    if (r === 'cves') return cves(page);
+    home(params.get('q') || '', params.get('cat'), page);
+  }
+
+  // ---------- paging ----------
+  // Only one page is drawn at a time: 24 cards on Browse, 100 rows on the index tables.
+  const PAGE = 24, ROWS = 100;
+  const pageCount = (total, size) => Math.max(1, Math.ceil(total / size));
+  function pager(total, size, page) {
+    const n = pageCount(total, size);
+    if (n <= 1) return '';
+    const want = new Set([1, n, page - 2, page - 1, page, page + 1, page + 2].filter((x) => x >= 1 && x <= n));
+    const nums = [...want].sort((a, b) => a - b);
+    let out = '', prev = 0;
+    for (const x of nums) {
+      if (x - prev > 1) out += '<span class="gap">…</span>';
+      out += `<button type="button" data-p="${x}" class="${x === page ? 'on' : ''}"${x === page ? ' aria-current="page"' : ''}>${x}</button>`;
+      prev = x;
+    }
+    return `<nav class="pager" aria-label="Pages"><button type="button" data-p="${page - 1}"${page <= 1 ? ' disabled' : ''}>‹ Previous</button>${out}<button type="button" data-p="${page + 1}"${page >= n ? ' disabled' : ''}>Next ›</button></nav>`;
+  }
+  const wirePager = (root, go) => root.querySelectorAll('.pager [data-p]').forEach((b) => (b.onclick = () => go(+b.dataset.p)));
+  const range = (total, size, page) => `${(page - 1) * size + 1}–${Math.min(total, page * size)}`;
+  const setPageParam = (p, page) => { if (page > 1) p.set('p', page); else p.delete('p'); };
+
+  // ---------- article loading ----------
+  // Browse needs only index.json; a full article is fetched when it is opened and kept.
+  const FULL = new Map();
+  function openArticle(id, tab, logi) {
+    if (FULL.has(id)) return article(FULL.get(id), tab, logi);
+    app.innerHTML = '<div class="page"><p>Loading article…</p></div>';
+    fetch(`e/${encodeURIComponent(id)}.json?v=__BUILD__`).then((r) => { if (!r.ok) throw new Error(`The article responded ${r.status}`); return r.json(); })
+      .then((e) => { FULL.set(id, e); if (parseHash().parts[1] === id) route(); })
+      .catch((x) => { app.innerHTML = `<div class="page"><h1>Could not load this article</h1><p>${esc(x.message)}</p><p><a href="#/">Back to the library</a></p></div>`; });
   }
 
   // ---------- home ----------
-  function home(q, cat) {
+  function home(q, cat, page = 1) {
     const icon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
     app.innerHTML = `<div class="hero"><h1>What's generating that log?</h1>
       <p>Search ${ENTRIES.length} security devices by name, vendor, sourcetype, CVE or behaviour.</p>
       <div class="big">${icon}<input id="q" value="${esc(q)}" placeholder="Try “pan:threat”, “CVE-2024-3400”, “waf”, “globalprotect”…" aria-label="Search"></div>
       <div class="chips">${Object.entries(CATS).map(([k, c]) => `<span class="chip ${cat === k ? 'on' : ''}" data-c="${k}">${c.icon} ${esc(c.label)}</span>`).join('')}</div></div>
-      <div class="content"><div class="count" id="count"></div><div class="grid" id="grid"></div></div>`;
+      <div class="content"><div class="count" id="count"></div><div class="grid" id="grid"></div><div id="pages"></div></div>`;
     const input = $('#q');
-    const sync = () => {
-      const p = new URLSearchParams(); if (input.value) p.set('q', input.value); if (cat) p.set('cat', cat);
+    // A new search or category starts again at page 1; the page number lives in the URL.
+    const sync = (toPage = 1) => {
+      page = toPage;
+      const p = new URLSearchParams(); if (input.value) p.set('q', input.value); if (cat) p.set('cat', cat); setPageParam(p, page);
       history.replaceState(null, '', '#/' + (p.toString() ? '?' + p : ''));
-      results(input.value, cat);
+      results(input.value, cat, page, sync);
     };
-    input.oninput = sync;
-    app.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { cat = cat === c.dataset.c ? null : c.dataset.c; app.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x.dataset.c === cat)); sync(); }));
+    input.oninput = () => sync(1);
+    app.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { cat = cat === c.dataset.c ? null : c.dataset.c; app.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x.dataset.c === cat)); sync(1); }));
     input.focus(); input.setSelectionRange(q.length, q.length);
-    results(q, cat);
+    results(q, cat, page, sync);
   }
-  function results(q, cat) {
+  function results(q, cat, page, go) {
     const r = search(q).filter((x) => !cat || x.e.category === cat);
-    $('#count').textContent = `${r.length} device${r.length === 1 ? '' : 's'}${q ? ` matching “${q}”` : ''}${cat ? ` in ${CATS[cat].label}` : ''}`;
-    $('#grid').innerHTML = r.length ? r.map(({ e }) => {
+    page = Math.min(page, pageCount(r.length, PAGE));
+    const shown = r.slice((page - 1) * PAGE, page * PAGE);
+    $('#count').textContent = `${r.length} device${r.length === 1 ? '' : 's'}${q ? ` matching “${q}”` : ''}${cat ? ` in ${CATS[cat].label}` : ''}${r.length > PAGE ? ` · showing ${range(r.length, PAGE, page)}` : ''}`;
+    $('#pages').innerHTML = pager(r.length, PAGE, page);
+    wirePager($('#pages'), (to) => { go(to); $('#count').scrollIntoView({ block: 'start' }); });
+    $('#grid').innerHTML = shown.length ? shown.map(({ e }) => {
       const c = CATS[e.category], cv = cveIds(e);
       return `<a class="card" href="#/e/${e.id}"><div class="cat" style="color:${c.color}">${c.icon} ${esc(c.label)}</div>
         <h3>${mark(e.name, q)}</h3><div class="v">${mark(e.vendor, q)}</div><p>${mark(e.summary, q)}</p>
@@ -207,22 +247,28 @@
   }
 
   // ---------- indexes ----------
-  function sourcetypes() {
+  // Draw one page of an index table; the pager moves through the URL (#/<name>?p=N).
+  function indexPage(name, page, total, render) {
+    page = Math.min(page, pageCount(total, ROWS));
+    app.innerHTML = render(page, pager(total, ROWS, page), total > ROWS ? ` · showing ${range(total, ROWS, page)}` : '');
+    wirePager(app, (to) => { const p = new URLSearchParams(); setPageParam(p, to); location.hash = `#/${name}` + (p.toString() ? '?' + p : ''); });
+  }
+  function sourcetypes(page = 1) {
     document.title = 'Sourcetypes — Goatpedia';
     const rows = ENTRIES.flatMap((e) => e.sourcetypes.map((s) => ({ s, e }))).sort((a, b) => a.s.st.localeCompare(b.s.st));
-    app.innerHTML = `<div class="page"><h1>Sourcetype index</h1><div class="sub">${rows.length} sourcetypes across ${ENTRIES.length} devices</div>
+    indexPage('sourcetypes', page, rows.length, (pg, nav, showing) => `<div class="page"><h1>Sourcetype index</h1><div class="sub">${rows.length} sourcetypes across ${ENTRIES.length} devices${showing}</div>
       <div class="box"><table class="ftable"><tr><th>Sourcetype</th><th>Device</th><th>Category</th><th>Description</th></tr>
-      ${rows.map(({ s, e }) => `<tr><td><span class="st">${esc(s.st)}</span></td><td><a href="#/e/${e.id}">${esc(e.name)}</a></td><td>${esc(CATS[e.category].label)}</td><td>${esc(s.desc || '')}</td></tr>`).join('')}</table></div></div>`;
+      ${rows.slice((pg - 1) * ROWS, pg * ROWS).map(({ s, e }) => `<tr><td><span class="st">${esc(s.st)}</span></td><td><a href="#/e/${e.id}">${esc(e.name)}</a></td><td>${esc(CATS[e.category].label)}</td><td>${esc(s.desc || '')}</td></tr>`).join('')}</table></div>${nav}</div>`);
   }
-  function cves() {
+  function cves(page = 1) {
     document.title = 'CVEs — Goatpedia';
     const rows = ENTRIES.flatMap((e) => (e.cves || cveIds(e).map((id) => ({ id }))).map((v) => ({ v, e })))
       .sort((a, b) => (b.v.cvss ?? -1) - (a.v.cvss ?? -1) || b.v.id.localeCompare(a.v.id));
-    app.innerHTML = `<div class="page"><h1>CVE index</h1><div class="sub">${rows.length} CVEs · ${rows.filter((r) => r.v.kev).length} in CISA KEV</div>
+    indexPage('cves', page, rows.length, (pg, nav, showing) => `<div class="page"><h1>CVE index</h1><div class="sub">${rows.length} CVEs · ${rows.filter((r) => r.v.kev).length} in CISA KEV${showing}</div>
       <div class="box"><table class="ftable"><tr><th>CVE</th><th>CVSS</th><th>Device</th><th>Scope</th><th>Title</th></tr>
-      ${rows.map(({ v, e }) => `<tr><td><a href="https://nvd.nist.gov/vuln/detail/${v.id}" target="_blank" rel="noopener">${v.id}</a>${v.kev ? ' <span class="b" style="background:#fee2e2;color:#b91c1c;font-size:10.5px">KEV</span>' : ''}</td>
+      ${rows.slice((pg - 1) * ROWS, pg * ROWS).map(({ v, e }) => `<tr><td><a href="https://nvd.nist.gov/vuln/detail/${v.id}" target="_blank" rel="noopener">${v.id}</a>${v.kev ? ' <span class="b" style="background:#fee2e2;color:#b91c1c;font-size:10.5px">KEV</span>' : ''}</td>
         <td>${v.cvss != null ? `<b style="color:${cvssColor(v.cvss)}">${v.cvss.toFixed(1)}</b>` : '—'}</td><td><a href="#/e/${e.id}${v.cvss != null ? '/cves' : ''}">${esc(e.name)}</a></td>
-        <td>${esc(v.scope || '—')}</td><td>${esc(v.title || 'Details not yet written')}</td></tr>`).join('')}</table></div></div>`;
+        <td>${esc(v.scope || '—')}</td><td>${esc(v.title || 'Details not yet written')}</td></tr>`).join('')}</table></div>${nav}</div>`);
   }
 
   // ---------- boot ----------
@@ -230,6 +276,6 @@
   $('#mq').onkeydown = (ev) => { if (ev.key === 'Enter') location.hash = '#/?q=' + encodeURIComponent(ev.target.value); };
   addEventListener('keydown', (ev) => { if (ev.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { ev.preventDefault(); ($('#q') || $('#mq')).focus(); } });
   addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
-  fetch('library.json?v=__BUILD__', { cache: 'no-store' }).then((r) => r.json()).then((lib) => { LIB = lib; CATS = lib.categories; ENTRIES = lib.entries; route(); })
+  fetch('index.json?v=__BUILD__', { cache: 'no-store' }).then((r) => r.json()).then((lib) => { LIB = lib; CATS = lib.categories; ENTRIES = lib.entries; route(); })
     .catch((x) => { app.innerHTML = `<div class="page"><h1>Could not load the library</h1><p>${esc(x.message)}</p></div>`; });
 })();
