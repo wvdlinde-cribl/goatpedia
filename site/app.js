@@ -3,7 +3,7 @@
             #/e/<id>[/<tab>[/<n>]]   article, tab, log index
             #/sourcetypes  #/cves    indexes                                        */
 (() => {
-  const REPO = 'https://github.com/wvdlinde-cribl/secpedia';
+  const REPO = 'https://github.com/wvdlinde-cribl/goatpedia';
   const $ = (s, r = document) => r.querySelector(s);
   const app = $('#app');
   let LIB = null, CATS = {}, ENTRIES = [];
