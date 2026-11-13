@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads apache_tomcat and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Access
     sourcetype: apache_tomcat_access

@@ -1,4 +1,4 @@
-/* Secpedia — static single-page site. Data: library.json (built from entries/*.yaml).
+/* Goatpedia — static single-page site. Data: library.json (built from entries/*.yaml).
    Routes:  #/                       browse + search   (#/?q=…&cat=…)
             #/e/<id>[/<tab>[/<n>]]   article, tab, log index
             #/sourcetypes  #/cves    indexes                                        */
@@ -131,7 +131,7 @@
         <h3>${mark(e.name, q)}</h3><div class="v">${mark(e.vendor, q)}</div><p>${mark(e.summary, q)}</p>
         <div>${e.sourcetypes.slice(0, 3).map((s) => `<span class="st">${mark(s.st, q)}</span>`).join('')}</div>
         <div class="badges">${cv.length ? `<span class="b" style="background:#fee2e2;color:#b91c1c">${cv.length} CVE${cv.length > 1 ? 's' : ''}</span>` : ''}${e.status === 'full' ? '<span class="b" style="background:#dcfce7;color:#166534">full article</span>' : '<span class="b" style="background:#fef3c7;color:#92400e">stub</span>'}</div></a>`;
-    }).join('') : `<div class="empty">Nothing matches. <a href="${newUrl}" target="_blank" rel="noopener">Add this device to Secpedia</a></div>`;
+    }).join('') : `<div class="empty">Nothing matches. <a href="${newUrl}" target="_blank" rel="noopener">Add this device to Goatpedia</a></div>`;
   }
 
   // ---------- article ----------
@@ -141,9 +141,9 @@
     if (!full) tab = 'overview';
     const kev = (e.cves || []).filter((x) => x.kev).length;
     const traffic = (e.logs || [])[0];
-    document.title = `${e.name} — Secpedia`;
+    document.title = `${e.name} — Goatpedia`;
     app.innerHTML = `<div class="ahead"><div class="in">
-      <div class="crumb"><a href="#/">Secpedia</a> › <a href="#/?cat=${e.category}">${esc(c.label)}</a> › <span>${esc(e.vendor)}</span>
+      <div class="crumb"><a href="#/">Goatpedia</a> › <a href="#/?cat=${e.category}">${esc(c.label)}</a> › <span>${esc(e.vendor)}</span>
         <a class="edit" href="${editUrl(e.id)}" target="_blank" rel="noopener">✎ Edit on GitHub</a></div>
       <div class="title"><div class="ico" style="background:${c.color}22">${c.icon}</div><div><h1>${esc(e.name)}</h1>
         <div class="v">${esc(e.vendor)} · ${esc(c.label)}${e.aka ? ' · aka ' + e.aka.map(esc).join(', ') : ''}</div></div></div>
@@ -208,14 +208,14 @@
 
   // ---------- indexes ----------
   function sourcetypes() {
-    document.title = 'Sourcetypes — Secpedia';
+    document.title = 'Sourcetypes — Goatpedia';
     const rows = ENTRIES.flatMap((e) => e.sourcetypes.map((s) => ({ s, e }))).sort((a, b) => a.s.st.localeCompare(b.s.st));
     app.innerHTML = `<div class="page"><h1>Sourcetype index</h1><div class="sub">${rows.length} sourcetypes across ${ENTRIES.length} devices</div>
       <div class="box"><table class="ftable"><tr><th>Sourcetype</th><th>Device</th><th>Category</th><th>Description</th></tr>
       ${rows.map(({ s, e }) => `<tr><td><span class="st">${esc(s.st)}</span></td><td><a href="#/e/${e.id}">${esc(e.name)}</a></td><td>${esc(CATS[e.category].label)}</td><td>${esc(s.desc || '')}</td></tr>`).join('')}</table></div></div>`;
   }
   function cves() {
-    document.title = 'CVEs — Secpedia';
+    document.title = 'CVEs — Goatpedia';
     const rows = ENTRIES.flatMap((e) => (e.cves || cveIds(e).map((id) => ({ id }))).map((v) => ({ v, e })))
       .sort((a, b) => (b.v.cvss ?? -1) - (a.v.cvss ?? -1) || b.v.id.localeCompare(a.v.id));
     app.innerHTML = `<div class="page"><h1>CVE index</h1><div class="sub">${rows.length} CVEs · ${rows.filter((r) => r.v.kev).length} in CISA KEV</div>

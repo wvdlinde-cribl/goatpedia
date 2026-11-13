@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads forescout and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv / json.
+      desc: Goatpedia reads the fixture as kv / json.
 logs:
   - type: Event
     sourcetype: forescout

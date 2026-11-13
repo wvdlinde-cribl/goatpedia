@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads barracuda and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text / kv.
+      desc: Goatpedia reads the fixture as text / kv.
 logs:
   - type: WAF
     sourcetype: barracuda_waf

@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads aws_bedrock_agentcore and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Gateway Application Logs
     sourcetype: aws_bedrock_agentcore_gateway_application_logs

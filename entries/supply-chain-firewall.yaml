@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads supply_chain_firewall and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Supply Chain Firewall
     sourcetype: supply_chain_firewall

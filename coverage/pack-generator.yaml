@@ -1,5 +1,5 @@
 # Every sourcetype in the Pack Generator wizard catalog (getSupportedSourcetypeCatalog, 303 names)
-# maps to the Secpedia entry that documents it, or is skipped with a reason. scripts/build.js enforces this.
+# maps to the Goatpedia entry that documents it, or is skipped with a reason. scripts/build.js enforces this.
 sourcetypes:
   activedirectory: active-directory
   adventofcodev2:

@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads juniper_srx_firewall and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Juniper Srx Firewall
     sourcetype: juniper_srx_firewall

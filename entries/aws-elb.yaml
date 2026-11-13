@@ -1,4 +1,4 @@
-# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: aws-elb
 name: Elastic Load Balancing (ALB / NLB / CLB)
 short: AWS ELB

@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads azure_functions and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Functionapplogs
     sourcetype: azure_functions_functionapplogs

@@ -1,4 +1,4 @@
-# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: win-security
 name: Windows Security Event Log
 short: WinSec

@@ -51,7 +51,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads tenable_io and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Tenable Io
     sourcetype: tenable_io

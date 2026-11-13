@@ -1,4 +1,4 @@
-# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: aws-route53
 name: Amazon Route 53 Query Logs
 short: Route 53

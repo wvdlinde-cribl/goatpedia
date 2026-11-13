@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads istio and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json / text.
+      desc: Goatpedia reads the fixture as json / text.
 logs:
   - type: Istio
     sourcetype: istio

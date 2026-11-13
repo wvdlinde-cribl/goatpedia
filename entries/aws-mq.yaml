@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads aws_mq and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Rabbitmq General Logs
     sourcetype: aws_mq_rabbitmq_general_logs

@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads rapid7_insightvm and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Asset
     sourcetype: rapid7_insightvm_asset

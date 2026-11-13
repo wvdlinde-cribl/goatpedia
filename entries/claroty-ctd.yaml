@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads claroty_ctd and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as cef / json.
+      desc: Goatpedia reads the fixture as cef / json.
 logs:
   - type: Event
     sourcetype: claroty_ctd

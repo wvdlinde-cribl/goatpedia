@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-extras package reads sym and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Sym
     sourcetype: sym

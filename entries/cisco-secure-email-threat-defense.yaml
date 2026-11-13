@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads cisco_secure_email_threat_defense and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Cisco Secure Email Threat Defense
     sourcetype: cisco_secure_email_threat_defense

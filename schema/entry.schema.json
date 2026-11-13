@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://wvdlinde-cribl.github.io/secpedia/schema/entry.schema.json",
-  "title": "Secpedia entry",
+  "title": "Goatpedia entry",
   "description": "One security device or software that produces logs. Stubs need only the basics; status: full requires every section.",
   "type": "object",
   "additionalProperties": false,

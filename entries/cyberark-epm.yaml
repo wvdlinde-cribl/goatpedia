@@ -49,7 +49,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads cyberark_epm and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Admin Audit
     sourcetype: cyberark_epm_admin_audit

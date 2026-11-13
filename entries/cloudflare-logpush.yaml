@@ -81,7 +81,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads cloudflare_logpush and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Access Request
     sourcetype: cloudflare_logpush_access_request

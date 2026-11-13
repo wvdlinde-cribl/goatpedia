@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads microsoft_exchange_server and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Imap4 Pop3
     sourcetype: microsoft_exchange_server_imap4_pop3

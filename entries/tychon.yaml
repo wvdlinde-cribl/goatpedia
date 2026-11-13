@@ -77,7 +77,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads tychon and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Arp
     sourcetype: tychon_arp

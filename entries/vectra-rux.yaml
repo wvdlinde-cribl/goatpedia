@@ -49,7 +49,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads vectra_rux and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Audit
     sourcetype: vectra_rux_audit

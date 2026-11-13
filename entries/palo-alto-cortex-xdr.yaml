@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads palo_alto_cortex_xdr and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Palo Alto Cortex Xdr
     sourcetype: palo_alto_cortex_xdr

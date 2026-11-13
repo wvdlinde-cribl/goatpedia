@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads lumos and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Activity Logs
     sourcetype: lumos_activity_logs

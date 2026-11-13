@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads trend_micro_vision_one_xdr and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Trend Micro Vision One Xdr
     sourcetype: trend_micro_vision_one_xdr

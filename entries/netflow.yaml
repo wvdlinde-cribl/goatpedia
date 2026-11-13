@@ -1,4 +1,4 @@
-# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: netflow
 name: Cisco NetFlow v9 / IPFIX
 short: NetFlow

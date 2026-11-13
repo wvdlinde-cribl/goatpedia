@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads nginx_ingress_controller and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Nginx Ingress Controller
     sourcetype: nginx_ingress_controller

@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-extras package reads jfrog_platform_self_hosted and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Jfrog Platform Self Hosted
     sourcetype: jfrog_platform_self_hosted

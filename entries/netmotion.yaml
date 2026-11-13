@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads netmotion and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Netmotion Mobility
     sourcetype: netmotion_mobility

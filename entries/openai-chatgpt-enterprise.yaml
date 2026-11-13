@@ -55,7 +55,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads openai_chatgpt_enterprise and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: App Auth Log
     sourcetype: openai_chatgpt_enterprise_app_auth_log

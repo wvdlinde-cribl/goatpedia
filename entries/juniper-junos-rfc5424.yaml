@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads juniper_junos_rfc5424 and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Juniper Junos Aamw Structured
     sourcetype: juniper_junos_aamw_structured

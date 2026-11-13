@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads atlassian_confluence and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Audit
     sourcetype: atlassian_confluence_audit

@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads palo_alto_networks_cortex_xsoar and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Palo Alto Networks Cortex Xsoar
     sourcetype: palo_alto_networks_cortex_xsoar
