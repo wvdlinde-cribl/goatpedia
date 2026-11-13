@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads kaspersky and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv / cef.
+      desc: Goatpedia reads the fixture as kv / cef.
 logs:
   - type: Kaspersky Es
     sourcetype: kaspersky_es

@@ -1,4 +1,4 @@
-/* Secpedia log-sample parser, shared by the site (browser) and scripts/build.js (Node).
+/* Goatpedia log-sample parser, shared by the site (browser) and scripts/build.js (Node).
    parseLog(log) → [{ i, name, value, text }] where `text` is the slice shown in the raw view.
    Formats:
      csv / tsv  column split; names come from log.fields

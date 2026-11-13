@@ -49,7 +49,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads island_browser and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Admin Actions
     sourcetype: island_browser_admin_actions

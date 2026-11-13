@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads microsoft_exchange_online_message_trace and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Log
     sourcetype: microsoft_exchange_online_message_trace

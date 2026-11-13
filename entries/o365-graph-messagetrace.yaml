@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk attack_data package reads o365_graph_messagetrace and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Microsoft 365 Graph Messagetrace
     sourcetype: o365_graph_messagetrace

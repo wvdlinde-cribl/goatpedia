@@ -1,4 +1,4 @@
-# Secpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: gcp-vpc
 name: Google Cloud VPC Flow & Firewall Logs
 short: GCP VPC

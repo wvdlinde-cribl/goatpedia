@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads thycotic_ss and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as cef.
+      desc: Goatpedia reads the fixture as cef.
 logs:
   - type: Logs
     sourcetype: thycotic_ss

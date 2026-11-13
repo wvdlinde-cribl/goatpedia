@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads gcp and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: DNS
     sourcetype: gcp_dns

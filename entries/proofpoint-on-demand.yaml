@@ -45,7 +45,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads proofpoint_on_demand and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Proofpoint On Demand
     sourcetype: proofpoint_on_demand

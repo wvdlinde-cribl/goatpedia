@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads ivanti_connect_secure and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Ivanti Connect Secure
     sourcetype: ivanti_connect_secure

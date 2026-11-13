@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-extras package reads f5-distributed-cloud and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: F5 Distributed Cloud
     sourcetype: f5_distributed_cloud

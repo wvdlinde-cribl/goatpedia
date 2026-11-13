@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads stealthbits and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Netwrix Stealthintercept
     sourcetype: netwrix_stealthintercept

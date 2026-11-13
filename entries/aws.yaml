@@ -57,7 +57,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads aws and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json / text.
+      desc: Goatpedia reads the fixture as json / text.
 logs:
   - type: Apigateway Logs
     sourcetype: aws_apigateway_logs

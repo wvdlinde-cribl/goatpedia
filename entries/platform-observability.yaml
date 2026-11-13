@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads platform_observability and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Kibana Audit
     sourcetype: platform_observability_kibana_audit

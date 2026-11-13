@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk attack_data package reads msexchange_management and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Msexchange Management
     sourcetype: msexchange_management

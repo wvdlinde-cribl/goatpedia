@@ -1,8 +1,8 @@
 {
-  "name": "secpedia",
+  "name": "goatpedia",
   "version": "0.1.0",
   "private": true,
-  "description": "Secpedia — a searchable library of security devices and the logs they produce",
+  "description": "Goatpedia — a searchable library of security devices and the logs they produce",
   "type": "module",
   "scripts": {
     "validate": "node scripts/build.js --check",

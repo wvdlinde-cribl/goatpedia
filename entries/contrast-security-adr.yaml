@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-extras package reads contrast_security_adr and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Contrast Security Adr
     sourcetype: contrast_security_adr

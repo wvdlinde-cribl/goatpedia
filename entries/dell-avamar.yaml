@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads dell_avamar and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Dell Avamar Msc
     sourcetype: dell_avamar_msc

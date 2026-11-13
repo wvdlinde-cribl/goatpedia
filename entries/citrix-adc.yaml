@@ -47,7 +47,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads citrix_adc and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text / json.
+      desc: Goatpedia reads the fixture as text / json.
 logs:
   - type: Log
     sourcetype: citrix_adc

@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk attack_data package reads aws_cloudtrail_lake and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: AWS Cloudtrail Lake
     sourcetype: aws_cloudtrail_lake

@@ -55,7 +55,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads trellix_epo_on_prem and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as json.
+      desc: Goatpedia reads the fixture as json.
 logs:
   - type: Audit
     sourcetype: trellix_epo_on_prem_audit

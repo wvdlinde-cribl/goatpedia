@@ -47,7 +47,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads windows and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as xml / text.
+      desc: Goatpedia reads the fixture as xml / text.
 logs:
   - type: Forwarded
     sourcetype: windows_forwarded

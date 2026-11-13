@@ -41,7 +41,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads vormetric and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as kv.
+      desc: Goatpedia reads the fixture as kv.
 logs:
   - type: Thales Vormetric
     sourcetype: thales_vormetric

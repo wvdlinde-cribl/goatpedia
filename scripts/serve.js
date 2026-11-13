@@ -17,4 +17,4 @@ http.createServer((req, res) => {
   if (!fs.existsSync(f)) { res.writeHead(404).end('not found'); return; }
   res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' });
   fs.createReadStream(f).pipe(res);
-}).listen(PORT, () => console.log(`Secpedia preview → http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Goatpedia preview → http://localhost:${PORT}`));

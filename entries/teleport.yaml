@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Datadog integrations-core package reads teleport and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text / json.
+      desc: Goatpedia reads the fixture as text / json.
 logs:
   - type: Teleport
     sourcetype: teleport

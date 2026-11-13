@@ -1,6 +1,6 @@
-# Contributing to Secpedia
+# Contributing to Goatpedia
 
-Every device is one YAML file in [`entries/`](entries/). Editing Secpedia means opening a pull request.
+Every device is one YAML file in [`entries/`](entries/). Editing Goatpedia means opening a pull request.
 
 ## Quick edit (browser)
 1. On any article, click **✎ Edit on GitHub**. Or use **+ Add device**, then paste [`templates/entry.yaml`](templates/entry.yaml).

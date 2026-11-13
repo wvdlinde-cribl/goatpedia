@@ -43,7 +43,7 @@ traffic:
     - step: Collect
       desc: The Elastic integrations package reads hid_bravura_monitor and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as text.
+      desc: Goatpedia reads the fixture as text.
 logs:
   - type: Log
     sourcetype: hid_bravura_monitor

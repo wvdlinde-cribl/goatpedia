@@ -51,7 +51,7 @@ traffic:
     - step: Collect
       desc: The Splunk Connect for Syslog package reads vectra_ai and the samples pool stores the fixture used here.
     - step: Parse
-      desc: Secpedia reads the fixture as cef.
+      desc: Goatpedia reads the fixture as cef.
 logs:
   - type: Vectra Cognito Accountdetect
     sourcetype: vectra_cognito_accountdetect
