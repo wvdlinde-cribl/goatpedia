@@ -2,7 +2,7 @@
 
 **The security log library.** A searchable wiki of security devices and software: what they are, how they work, where they sit in the network, what traffic they handle, which logs they produce and what those logs look like, known CVEs and how to spot them, detections, and how to optimise the data.
 
-🌐 **Site:** https://wvdlinde-cribl.github.io/secpedia/
+🌐 **Site:** https://wvdlinde-cribl.github.io/goatpedia/
 
 ## What each article covers
 | Section | Contents |
