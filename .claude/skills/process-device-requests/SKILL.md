@@ -12,6 +12,7 @@ You turn a request into a full article and open a PR. The admin reviews it, merg
 ## Hard rules
 - **Never close, comment on, or relabel issues.** In the PR body, refer to the request with `Requested in #<n>`, not `Closes #<n>`. The admin closes requests.
 - **The repo is public.** Samples must be synthetic: documentation IPs (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24), fake hosts, users and serials. Never copy a requester's pasted sample verbatim if it might be real. Rebuild it synthetically with the same structure.
+- **A request flagged `⚠ privacy`** by `npm run requests` holds data the form would have refused. Don't copy any of it into the entry. Use only the device facts, and tell the admin so they can redact or delete the issue.
 - **One PR per request,** on branch `request/<n>-<id>`, so each one can be reviewed and merged on its own.
 - **Facts must be sourced.** Take field names and formats from vendor documentation. Take CVEs from the vendor advisory or NVD. If you can't confirm a CVE's fixed version, leave `fixed` out (see CONTRIBUTING.md).
 
