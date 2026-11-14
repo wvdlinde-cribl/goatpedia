@@ -1,0 +1,66 @@
+# Device request: anyone with a GitHub account asks for a device or sourcetype that is not
+# in Goatpedia yet. The site's "Request a device" popup opens this form pre-filled (field ids
+# below are the query-parameter names). Admins list and process requests with
+# `npm run requests` and the process-device-requests Claude Code skill (see README).
+name: Request a device
+description: Ask for a device, product or sourcetype that is missing from Goatpedia.
+title: "[Device request] "
+labels: ["device-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what to add. Only the first field is required; anything else you know helps the article come out right.
+        **This repository is public.** Don't paste real customer data, internal hostnames, IP addresses or credentials.
+  - type: input
+    id: device
+    attributes:
+      label: Device or sourcetype
+      description: The product name, or the sourcetype you see in your data.
+      placeholder: "e.g. Palo Alto Networks NGFW, or pan:traffic"
+    validations:
+      required: true
+  - type: input
+    id: vendor
+    attributes:
+      label: Vendor
+      placeholder: "e.g. Palo Alto Networks"
+  - type: input
+    id: category
+    attributes:
+      label: Category
+      description: "One of the library's categories, e.g. Firewall / NGFW, EDR / XDR, Identity / IdP, Cloud Audit. Leave empty if unsure."
+  - type: textarea
+    id: sourcetypes
+    attributes:
+      label: Sourcetypes
+      description: One per line, if you know them.
+      placeholder: "pan:traffic\npan:threat"
+  - type: input
+    id: format
+    attributes:
+      label: Log format and transport
+      placeholder: "e.g. CSV over syslog, JSON via HTTPS API, CEF"
+  - type: textarea
+    id: links
+    attributes:
+      label: Vendor documentation
+      description: Links to the vendor's log or field reference, one per line.
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample event
+      description: A synthetic or fully redacted event. Never paste real customer data.
+      render: text
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Versions, use case, detections or savings you are interested in.
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Public repository
+      options:
+        - label: This request contains no customer data, credentials or internal details.
+          required: true

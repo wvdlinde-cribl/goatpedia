@@ -2,12 +2,14 @@
   "name": "goatpedia",
   "version": "0.1.0",
   "private": true,
-  "description": "Goatpedia — a searchable library of security devices and the logs they produce",
+  "description": "Goatpedia \u2014 a searchable library of security devices and the logs they produce",
   "type": "module",
   "scripts": {
     "validate": "node scripts/build.js --check",
     "build": "node scripts/build.js",
-    "dev": "node scripts/build.js && node scripts/serve.js"
+    "dev": "node scripts/build.js && node scripts/serve.js",
+    "requests": "node scripts/requests.mjs list",
+    "test": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

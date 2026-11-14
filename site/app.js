@@ -171,7 +171,8 @@
         <h3>${mark(e.name, q)}</h3><div class="v">${mark(e.vendor, q)}</div><p>${mark(e.summary, q)}</p>
         <div>${e.sourcetypes.slice(0, 3).map((s) => `<span class="st">${mark(s.st, q)}</span>`).join('')}</div>
         <div class="badges">${cv.length ? `<span class="b" style="background:#fee2e2;color:#b91c1c">${cv.length} CVE${cv.length > 1 ? 's' : ''}</span>` : ''}${e.status === 'full' ? '<span class="b" style="background:#dcfce7;color:#166534">full article</span>' : '<span class="b" style="background:#fef3c7;color:#92400e">stub</span>'}</div></a>`;
-    }).join('') : `<div class="empty">Nothing matches. <a href="${newUrl}" target="_blank" rel="noopener">Add this device to Goatpedia</a></div>`;
+    }).join('') : `<div class="empty">Nothing matches. <button type="button" class="linkish" id="req-empty">Request this device</button>, or <a href="${newUrl}" target="_blank" rel="noopener">add it yourself</a>.</div>`;
+    const re = $('#req-empty'); if (re) re.onclick = () => openRequest(q);
   }
 
   // ---------- article ----------
@@ -271,8 +272,76 @@
         <td>${esc(v.scope || '—')}</td><td>${esc(v.title || 'Details not yet written')}</td></tr>`).join('')}</table></div>${nav}</div>`);
   }
 
+  // ---------- request a device ----------
+  // The popup fills the GitHub issue form .github/ISSUE_TEMPLATE/device-request.yml through
+  // query parameters (one per field id). The requester signs in on GitHub to submit, so
+  // GitHub knows who asked and keeps robots out; no email is collected. Admins work the
+  // queue with `npm run requests` and the process-device-requests skill (README).
+  const REQUEST_FIELDS = [
+    ['device', 'Device or sourcetype', 'input', 'e.g. Palo Alto Networks NGFW, or pan:traffic', true],
+    ['vendor', 'Vendor', 'input', 'e.g. Palo Alto Networks'],
+    ['category', 'Category', 'select'],
+    ['sourcetypes', 'Sourcetypes', 'textarea', 'One per line, if you know them'],
+    ['format', 'Log format and transport', 'input', 'e.g. CSV over syslog, JSON via HTTPS API, CEF'],
+    ['links', 'Vendor documentation', 'textarea', 'Links to the log or field reference, one per line'],
+    ['sample', 'Sample event', 'textarea', 'Synthetic or fully redacted only'],
+    ['notes', 'Anything else', 'textarea', 'Versions, use case, detections or savings you care about'],
+  ];
+  const requestUrl = (v) => {
+    const p = new URLSearchParams({ template: 'device-request.yml', title: `[Device request] ${v.device}` });
+    for (const [id] of REQUEST_FIELDS) if (v[id]) p.set(id, v[id]);
+    return `${REPO}/issues/new?${p}`;
+  };
+  function openRequest(prefill = '') {
+    $('#req-modal')?.remove();
+    const field = ([id, label, kind, ph, req]) => {
+      const attrs = `id="rq-${id}" name="${id}"${ph ? ` placeholder="${esc(ph)}"` : ''}${req ? ' required' : ''}`;
+      const ctl = kind === 'textarea' ? `<textarea ${attrs} rows="${id === 'sample' ? 3 : 2}"></textarea>`
+        : kind === 'select' ? `<select ${attrs}><option value="">Not sure</option>${Object.values(CATS).map((c) => `<option>${esc(c.label)}</option>`).join('')}</select>`
+          : `<input ${attrs} autocomplete="off">`;
+      return `<label class="rq-f${id === 'device' ? ' wide' : ''}"><span>${esc(label)}${req ? ' <b>*</b>' : ''}</span>${ctl}</label>`;
+    };
+    document.body.insertAdjacentHTML('beforeend', `<div class="req-modal" id="req-modal" role="dialog" aria-modal="true" aria-labelledby="rq-h">
+      <form class="req-card" id="rq-form" novalidate>
+        <button type="button" class="rq-x" aria-label="Close">×</button>
+        <h2 id="rq-h">Request a device</h2>
+        <p class="rq-sub">Missing a device or sourcetype? Tell us what you know; only the first field is required.</p>
+        <div class="rq-grid">${REQUEST_FIELDS.map(field).join('')}</div>
+        <div class="rq-dup" id="rq-dup" hidden></div>
+        <p class="rq-note"><b>Submit opens GitHub</b> with this request filled in. Sign in there and click <i>Create</i>; your GitHub name shows on the request, which also keeps robots out. The repository is public: no customer data, internal names, IPs or credentials.</p>
+        <div class="rq-actions"><button type="button" class="rq-cancel">Cancel</button><button type="submit" class="rq-go">Continue on GitHub ↗</button></div>
+      </form></div>`);
+    const modal = $('#req-modal'), form = $('#rq-form'), device = $('#rq-device'), dup = $('#rq-dup');
+    const close = () => { modal.remove(); removeEventListener('keydown', onKey); };
+    const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+    addEventListener('keydown', onKey);
+    modal.onclick = (ev) => { if (ev.target === modal) close(); };
+    modal.querySelector('.rq-x').onclick = close;
+    modal.querySelector('.rq-cancel').onclick = close;
+    // Already in the library? Shown while typing, so nobody requests what exists.
+    const check = () => {
+      const terms = [device.value, ...$('#rq-sourcetypes').value.split(/[\n,]+/)].map((s) => s.trim()).filter((s) => s.length > 2);
+      const hits = new Map();
+      for (const t of terms) for (const { e } of search(t).slice(0, 3)) hits.set(e.id, e);
+      dup.hidden = !hits.size;
+      dup.innerHTML = hits.size ? `Already in Goatpedia? ${[...hits.values()].slice(0, 4).map((e) => `<a href="#/e/${e.id}">${esc(e.name)}</a>`).join(' · ')}` : '';
+      dup.querySelectorAll('a').forEach((a) => (a.onclick = close));
+    };
+    device.oninput = check; $('#rq-sourcetypes').oninput = check;
+    device.value = prefill; check();
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      const v = Object.fromEntries(REQUEST_FIELDS.map(([id]) => [id, $(`#rq-${id}`).value.trim()]));
+      if (!v.device) { device.classList.add('bad'); device.focus(); return; }
+      window.open(requestUrl(v), '_blank', 'noopener');
+      close();
+    };
+    device.focus();
+  }
+
   // ---------- boot ----------
   $('#contrib').href = newUrl; $('#repo').href = REPO;
+  $('#request').onclick = () => openRequest();
   $('#mq').onkeydown = (ev) => { if (ev.key === 'Enter') location.hash = '#/?q=' + encodeURIComponent(ev.target.value); };
   addEventListener('keydown', (ev) => { if (ev.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { ev.preventDefault(); ($('#q') || $('#mq')).focus(); } });
   addEventListener('hashchange', () => { route(); scrollTo(0, 0); });

@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - name: Validate entries
         run: npm run validate
+      - name: Test scripts
+        run: npm test
       - name: Build site
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
