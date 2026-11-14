@@ -15,6 +15,9 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
+import '../site/privacy.js';
+
+const { scan } = globalThis.GoatpediaPrivacy;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const LABEL = 'device-request';
@@ -92,6 +95,8 @@ function describe(issue, entries, prs) {
   return {
     number: issue.number, url: issue.url, title: issue.title, requestedBy: issue.author?.login || null,
     createdAt: issue.createdAt, ...req, inLibrary: libraryMatches(req, entries), pr: prs.get(issue.number)?.url || null,
+    // Requests made on GitHub directly skip the popup's check: flag what it would have refused.
+    privacy: [...new Set(scan(issue.body).map((f) => f.kind))],
   };
 }
 
@@ -106,7 +111,7 @@ function main() {
     if (!rows.length) return console.log('No open device requests.');
     for (const r of rows) {
       const state = r.pr ? `PR open ${r.pr}` : r.inLibrary.length ? `already in library: ${r.inLibrary.map((m) => m.id).join(', ')}` : 'new';
-      console.log(`#${r.number}  ${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''}  · by ${r.requestedBy || '?'} · ${r.createdAt.slice(0, 10)} · ${state}`);
+      console.log(`#${r.number}  ${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''}  · by ${r.requestedBy || '?'} · ${r.createdAt.slice(0, 10)} · ${state}${r.privacy.length ? ` · ⚠ privacy: ${r.privacy.join(', ')}` : ''}`);
     }
     return console.log(`\n${rows.length} open request(s). Process them with the process-device-requests skill in Claude Code.`);
   }

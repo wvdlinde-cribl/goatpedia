@@ -308,7 +308,9 @@
         <p class="rq-sub">Missing a device or sourcetype? Tell us what you know; only the first field is required.</p>
         <div class="rq-grid">${REQUEST_FIELDS.map(field).join('')}</div>
         <div class="rq-dup" id="rq-dup" hidden></div>
-        <p class="rq-note"><b>Submit opens GitHub</b> with this request filled in. Sign in there and click <i>Create</i>; your GitHub name shows on the request, which also keeps robots out. The repository is public: no customer data, internal names, IPs or credentials.</p>
+        <div class="rq-priv" id="rq-priv" hidden role="alert"></div>
+        <label class="rq-ok"><input type="checkbox" id="rq-public"> This request contains no customer data, credentials or internal details. The repository is public.</label>
+        <p class="rq-note"><b>Submit opens GitHub</b> with this request filled in. Sign in there and click <i>Create</i>; your GitHub name shows on the request, which also keeps robots out. Use documentation IPs (192.0.2.x, 198.51.100.x, 203.0.113.x) and example.com names in samples.</p>
         <div class="rq-actions"><button type="button" class="rq-cancel">Cancel</button><button type="submit" class="rq-go">Continue on GitHub ↗</button></div>
       </form></div>`);
     const modal = $('#req-modal'), form = $('#rq-form'), device = $('#rq-device'), dup = $('#rq-dup');
@@ -327,12 +329,27 @@
       dup.innerHTML = hits.size ? `Already in Goatpedia? ${[...hits.values()].slice(0, 4).map((e) => `<a href="#/e/${e.id}">${esc(e.name)}</a>`).join(' · ')}` : '';
       dup.querySelectorAll('a').forEach((a) => (a.onclick = close));
     };
+    // Privacy: every field is scanned as it changes (site/privacy.js). Findings name the field
+    // and a masked value, and Submit stays off until they are gone and the box is ticked.
+    const go = modal.querySelector('.rq-go'), priv = $('#rq-priv'), ok = $('#rq-public');
+    const findings = () => REQUEST_FIELDS.flatMap(([id, label]) => window.GoatpediaPrivacy.scan($(`#rq-${id}`).value).map((f) => ({ ...f, id, field: label })));
+    const guard = () => {
+      const f = findings();
+      REQUEST_FIELDS.forEach(([id]) => $(`#rq-${id}`).classList.toggle('bad', f.some((x) => x.id === id)));
+      priv.hidden = !f.length;
+      priv.innerHTML = f.length ? `<b>Remove before you submit</b> (the repository is public):<ul>${f.slice(0, 8).map((x) => `<li>${esc(x.field)}: ${esc(x.label)} <code>${esc(window.GoatpediaPrivacy.mask(x.match))}</code></li>`).join('')}</ul>${f.length > 8 ? `<p>…and ${f.length - 8} more.</p>` : ''}` : '';
+      go.disabled = !!f.length || !ok.checked;
+      return f;
+    };
+    REQUEST_FIELDS.forEach(([id]) => $(`#rq-${id}`).addEventListener('input', guard));
+    ok.onchange = guard;
     device.oninput = check; $('#rq-sourcetypes').oninput = check;
-    device.value = prefill; check();
+    device.value = prefill; check(); guard();
     form.onsubmit = (ev) => {
       ev.preventDefault();
       const v = Object.fromEntries(REQUEST_FIELDS.map(([id]) => [id, $(`#rq-${id}`).value.trim()]));
       if (!v.device) { device.classList.add('bad'); device.focus(); return; }
+      if (guard().length || !ok.checked) return;
       window.open(requestUrl(v), '_blank', 'noopener');
       close();
     };
