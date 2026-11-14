@@ -76,3 +76,23 @@ footer{text-align:center;font-size:12.5px;color:var(--muted);padding:20px 20px 4
 .pager button.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700;cursor:default}
 .pager button:disabled{opacity:.45;cursor:default}
 .pager .gap{color:var(--muted);padding:0 2px}
+.top .req-btn{font:inherit;font-size:13.5px;font-weight:700;color:var(--navy);background:#5eead4;border:0;border-radius:8px;padding:6px 12px;cursor:pointer}
+.top .req-btn:hover{background:#99f6e4}
+.linkish{font:inherit;color:var(--teal2);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+.req-modal{position:fixed;inset:0;z-index:50;background:rgba(15,37,56,.55);display:grid;place-items:center;padding:20px;overflow:auto}
+.req-card{position:relative;background:var(--card);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.3);padding:24px 26px 20px;width:min(680px,100%);max-height:calc(100vh - 40px);overflow:auto}
+.req-card h2{margin:0 0 4px;font-size:21px}.rq-sub{margin:0 0 16px;color:var(--muted);font-size:14px}
+.rq-x{position:absolute;top:12px;right:14px;font-size:24px;line-height:1;border:0;background:none;color:var(--muted);cursor:pointer}
+.rq-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.rq-f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--ink)}.rq-f.wide{grid-column:1/-1}
+.rq-f b{color:#b91c1c}
+.rq-f input,.rq-f select,.rq-f textarea{font:inherit;font-size:14px;font-weight:400;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink);resize:vertical}
+.rq-f input:focus,.rq-f select:focus,.rq-f textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px #ccfbf1}
+.rq-f .bad{border-color:#dc2626}
+.rq-dup{margin-top:12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 12px;font-size:13.5px}
+.rq-note{margin:14px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.rq-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.rq-actions button{font:inherit;font-size:14px;font-weight:600;border-radius:8px;padding:9px 16px;cursor:pointer}
+.rq-cancel{border:1px solid var(--line);background:#fff;color:var(--ink)}.rq-go{border:0;background:var(--teal);color:#fff}.rq-go:hover{background:var(--teal2)}
+@media (max-width:640px){.rq-grid{grid-template-columns:1fr}}
+@media (max-width:800px){.top nav{display:flex}.top nav a{display:none}}
