@@ -9,7 +9,7 @@
     "build": "node scripts/build.js",
     "dev": "node scripts/build.js && node scripts/serve.js",
     "requests": "node scripts/requests.mjs list",
-    "test": "node --test scripts/"
+    "test": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
