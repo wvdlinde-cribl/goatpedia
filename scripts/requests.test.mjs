@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
-import { FIELDS, LABEL, libraryMatches, loadEntries, parseRequestBody } from './requests.mjs';
+import { FIELDS, LABEL, checkRequest, libraryMatches, loadEntries, parseRequestBody } from './requests.mjs';
 
 const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -47,4 +47,33 @@ test('the request flow never collects an email address', () => {
   const app = read('site/app.js');
   const popup = app.slice(app.indexOf('request a device ---'), app.indexOf('// ---------- boot'));
   assert.doesNotMatch(popup, /type="email"|\bemail\b.*input/i);
+});
+
+test('the existence check: exists, possible (typo or variant) or new, with a reason', () => {
+  const entries = loadEntries();
+  const check = (r) => checkRequest(r, entries);
+  let c = check({ device: 'Palo Alto Networks NGFW' });
+  assert.equal(c.verdict, 'exists'); assert.equal(c.matches[0].id, 'pan-ngfw'); assert.match(c.matches[0].reason, /same name/);
+  c = check({ device: 'pan:traffic' });
+  assert.equal(c.verdict, 'exists'); assert.match(c.matches[0].reason, /sourcetype pan:traffic/);
+  c = check({ device: 'Cisco ICE', vendor: 'Cisco' });
+  assert.equal(c.verdict, 'possible', 'a one-letter typo of an existing product');
+  assert.equal(c.matches[0].id, 'cisco-ise'); assert.match(c.matches[0].reason, /"ice" is close to "ise"/);
+  c = check({ device: 'Fortigte', vendor: 'Fortinet' });
+  assert.equal(c.verdict, 'possible'); assert.equal(c.matches[0].id, 'fortigate');
+  c = check({ device: 'cisco:asa:extra' });
+  assert.deepEqual(c.matches.map((m) => m.id), ['cisco-asa'], 'a sourcetype variant beats look-alike spellings');
+  assert.equal(check({ device: 'Acme SecureGate 9000', vendor: 'Acme' }).verdict, 'new');
+});
+
+test('both skills run the check first, and processing asks before touching a match', () => {
+  const proc = read('.claude/skills/process-device-requests/SKILL.md');
+  const chk = read('.claude/skills/check-device-requests/SKILL.md');
+  assert.match(chk, /node scripts\/requests\.mjs check/);
+  assert.match(chk, /only reports/);
+  assert.match(proc, /## Step 2 — Existence check \(always\)/);
+  assert.match(proc, /AskUserQuestion/);
+  for (const opt of ['Improve <id>', 'Create a new article', 'Skip']) assert.ok(proc.includes(`**${opt}:**`), `offers ${opt}`);
+  assert.match(proc, /A request with no answer is not processed/);
+  assert.match(proc, /never `Closes #<n>`/);
 });
