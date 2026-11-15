@@ -190,7 +190,7 @@
     document.title = `${e.name} — Goatpedia`;
     app.innerHTML = `<div class="ahead"><div class="in">
       <div class="crumb"><a href="#/">Goatpedia</a> › <a href="#/?cat=${e.category}">${esc(c.label)}</a> › <span>${esc(e.vendor)}</span>
-        <a class="edit" href="${editUrl(e.id)}" target="_blank" rel="noopener">✎ Edit on GitHub</a></div>
+        <span class="crumb-actions"><button type="button" class="req-change" id="req-change">Request a change</button><a class="edit" href="${editUrl(e.id)}" target="_blank" rel="noopener">✎ Edit on GitHub</a></span></div>
       <div class="title">${e.logo ? `<div class="ico logo-ico">${logoImg(e)}</div>` : `<div class="ico" style="background:${c.color}22">${c.icon}</div>`}<div><h1>${esc(e.name)}</h1>
         <div class="v">${esc(e.vendor)} · ${esc(c.label)}${e.aka ? ' · aka ' + e.aka.map(esc).join(', ') : ''}</div></div></div>
       <div class="lede">${esc(e.summary)}</div>
@@ -203,6 +203,7 @@
     ${full ? `<div class="tabwrap"><div class="tabs">${TABS.map(([k, l, n]) => `<a href="#/e/${e.id}/${k}" class="${tab === k ? 'on' : ''}">${l}${n && e[n].length ? `<span class="n">${e[n].length}</span>` : ''}</a>`).join('')}</div></div>` : ''}
     <div class="body">${full ? (TAB[tab] || TAB.overview)(e, logi) : stub(e)}</div>`;
     if (full && tab === 'logs') wireLogs(e, logi);
+    $('#req-change').onclick = () => openChange(e);
     app.querySelectorAll('.copy').forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.closest('.box').querySelector('pre').textContent); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy KQL'), 1200); }));
   }
   const stub = (e) => `<div class="box"><h2>Sourcetypes</h2>${e.sourcetypes.map((s) => `<span class="st">${esc(s.st)}</span>`).join('')}</div>
@@ -361,8 +362,107 @@
     device.focus();
   }
 
+  // ---------- request a change ----------
+  // On every article. The requester ticks the parts that are wrong (the article's own
+  // sections, logs, CVEs, detections and optimizations by name), says what is wrong in each
+  // and, optionally, what it should be. The popup fills .github/ISSUE_TEMPLATE/change-request.yml
+  // (fields article, parts, changes, sources); the same privacy check as device requests
+  // applies. Admins work the queue with the process-change-requests skill (README).
+  function changeParts(e) {
+    const g = (group, items) => items.length ? [{ group, items }] : [];
+    return [
+      ...g('Article', ['Summary', 'Name and aliases', 'Vendor', 'Category', 'Logo']),
+      ...g('Overview', ['Sourcetypes', 'Key facts', 'How it works']),
+      ...g('Network & traffic', e.placement ? ['Network placement', 'Traffic it handles', 'Packet flow'] : []),
+      ...g('Logs', (e.logs || []).map((l) => `Logs › ${l.type}`)),
+      ...g('Vulnerabilities', [...(e.cves || []).map((v) => `CVE › ${v.id}`), 'Vulnerabilities › a CVE is missing']),
+      ...g('Detect', [...(e.detections || []).map((d) => `Detection › ${d.title}`), 'Detections › a detection is missing']),
+      ...g('Optimize', (e.optimizations || []).map((o) => `Optimization › ${o.title}`)),
+      ...g('Other', ['References', 'Something else']),
+    ];
+  }
+  const MAX_URL = 7800; // GitHub rejects much longer issue links
+  const changeUrl = (v) => {
+    const p = new URLSearchParams({ template: 'change-request.yml', title: `[Change request] ${v.name}: ${v.parts.slice(0, 3).join(', ')}${v.parts.length > 3 ? ` +${v.parts.length - 3}` : ''}`, article: v.id, parts: v.parts.join('\n'), changes: v.changes });
+    if (v.sources) p.set('sources', v.sources);
+    return `${REPO}/issues/new?${p}`;
+  };
+  function openChange(e) {
+    $('#req-modal')?.remove();
+    const parts = changeParts(e);
+    let n = 0;
+    const list = parts.map(({ group, items }) => `<div class="cq-g"><b>${esc(group)}</b>${items.map((it) => `<label class="cq-p"><input type="checkbox" value="${esc(it)}" data-i="${n++}"> ${esc(it.replace(/^[^›]+› /, ''))}</label>`).join('')}</div>`).join('');
+    document.body.insertAdjacentHTML('beforeend', `<div class="req-modal" id="req-modal" role="dialog" aria-modal="true" aria-labelledby="cq-h">
+      <form class="req-card cq-card" id="cq-form" novalidate>
+        <button type="button" class="rq-x" aria-label="Close">×</button>
+        <h2 id="cq-h">Request a change</h2>
+        <p class="rq-sub">Something not right in <b>${esc(e.name)}</b>? Tick every part that needs a change, then say what is wrong. What it should be is optional but helps.</p>
+        <div class="cq-parts" id="cq-parts">${list}</div>
+        <div id="cq-blocks"><p class="cq-none">Tick one or more parts above.</p></div>
+        <label class="rq-f wide cq-src"><span>Sources</span><textarea id="cq-sources" rows="2" placeholder="Links that show the right content (vendor docs, advisories), one per line"></textarea></label>
+        <div class="rq-priv" id="rq-priv" hidden role="alert"></div>
+        <label class="rq-ok"><input type="checkbox" id="rq-public"> This request contains no customer data, credentials or internal details. The repository is public.</label>
+        <p class="rq-note"><b>Submit opens GitHub</b> with this change request filled in. Sign in there and click <i>Create</i>; your GitHub name shows on the request.</p>
+        <div class="rq-actions"><button type="button" class="rq-cancel">Cancel</button><button type="submit" class="rq-go" disabled>Continue on GitHub ↗</button></div>
+      </form></div>`);
+    const modal = $('#req-modal'), form = $('#cq-form'), blocks = $('#cq-blocks'), priv = $('#rq-priv'), ok = $('#rq-public'), go = modal.querySelector('.rq-go');
+    const close = () => { modal.remove(); removeEventListener('keydown', onKey); };
+    const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+    addEventListener('keydown', onKey);
+    modal.onclick = (ev) => { if (ev.target === modal) close(); };
+    modal.querySelector('.rq-x').onclick = close;
+    modal.querySelector('.rq-cancel').onclick = close;
+    const kept = {}; // what was typed per part survives unticking and ticking again
+    const ticked = () => [...modal.querySelectorAll('.cq-p input:checked')].map((c) => c.value);
+    const save = () => blocks.querySelectorAll('.cq-b').forEach((b) => { kept[b.dataset.part] = { wrong: b.querySelector('.cq-wrong').value, right: b.querySelector('.cq-right').value }; });
+    const draw = () => {
+      save();
+      const sel = ticked();
+      blocks.innerHTML = sel.length ? sel.map((part, i) => `<div class="cq-b" data-part="${esc(part)}"><h4>${esc(part)}</h4>
+        <label class="rq-f"><span>What is not correct <b>*</b></span><textarea class="cq-wrong" id="cq-wrong-${i}" rows="2"></textarea></label>
+        <label class="rq-f"><span>What it should be (optional)</span><textarea class="cq-right" id="cq-right-${i}" rows="2"></textarea></label></div>`).join('') : '<p class="cq-none">Tick one or more parts above.</p>';
+      blocks.querySelectorAll('.cq-b').forEach((b) => {
+        const k = kept[b.dataset.part]; if (k) { b.querySelector('.cq-wrong').value = k.wrong; b.querySelector('.cq-right').value = k.right; }
+        b.querySelectorAll('textarea').forEach((t) => t.addEventListener('input', guard));
+      });
+      guard();
+    };
+    const fields = () => [...blocks.querySelectorAll('.cq-b')].flatMap((b) => [
+      { el: b.querySelector('.cq-wrong'), label: `${b.dataset.part} (what is wrong)` },
+      { el: b.querySelector('.cq-right'), label: `${b.dataset.part} (should be)` },
+    ]).concat([{ el: $('#cq-sources'), label: 'Sources' }]);
+    const values = () => {
+      const sel = [...blocks.querySelectorAll('.cq-b')].map((b) => ({ part: b.dataset.part, wrong: b.querySelector('.cq-wrong').value.trim(), right: b.querySelector('.cq-right').value.trim() }));
+      const changes = sel.map((x) => `#### ${x.part}\nWhat is not correct: ${x.wrong}${x.right ? `\nWhat it should be: ${x.right}` : ''}`).join('\n\n');
+      return { id: e.id, name: e.name, parts: sel.map((x) => x.part), sel, changes, sources: $('#cq-sources').value.trim() };
+    };
+    function guard() {
+      const f = fields().flatMap(({ el, label }) => window.GoatpediaPrivacy.scan(el.value).map((x) => ({ ...x, el, field: label })));
+      fields().forEach(({ el }) => el.classList.toggle('bad', f.some((x) => x.el === el)));
+      const v = values();
+      const missing = v.sel.filter((x) => !x.wrong).length;
+      const tooLong = v.sel.length && changeUrl(v).length > MAX_URL;
+      const notes = f.slice(0, 8).map((x) => `<li>${esc(x.field)}: ${esc(x.label)} <code>${esc(window.GoatpediaPrivacy.mask(x.match))}</code></li>`);
+      priv.hidden = !f.length && !tooLong;
+      priv.innerHTML = (f.length ? `<b>Remove before you submit</b> (the repository is public):<ul>${notes.join('')}</ul>` : '') + (tooLong ? '<p><b>Too long for one request.</b> Shorten the text, or send the rest as a second request.</p>' : '');
+      go.disabled = !v.sel.length || !!missing || !!f.length || !!tooLong || !ok.checked;
+      return { v, ok: !go.disabled };
+    }
+    modal.querySelectorAll('.cq-p input').forEach((c) => (c.onchange = draw));
+    $('#cq-sources').addEventListener('input', guard);
+    ok.onchange = guard;
+    form.onsubmit = (ev) => {
+      ev.preventDefault();
+      const { v, ok: fine } = guard();
+      if (!fine) { const empty = blocks.querySelector('.cq-wrong:placeholder-shown'); if (empty) empty.focus(); return; }
+      window.open(changeUrl(v), '_blank', 'noopener');
+      close();
+    };
+    modal.querySelector('.cq-p input')?.focus();
+  }
+
   // ---------- boot ----------
-  $('#contrib').href = newUrl; $('#repo').href = REPO;
+  $('#repo').href = REPO;
   $('#request').onclick = () => openRequest();
   $('#mq').onkeydown = (ev) => { if (ev.key === 'Enter') location.hash = '#/?q=' + encodeURIComponent(ev.target.value); };
   addEventListener('keydown', (ev) => { if (ev.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { ev.preventDefault(); ($('#q') || $('#mq')).focus(); } });
