@@ -105,6 +105,11 @@
     home(params.get('q') || '', params.get('cat'), page);
   }
 
+  // ---------- vendor logos ----------
+  // Built by scripts/logos.mjs (Simple Icons, or a hand-added file in logos/). Entries without
+  // one keep their category icon. Lazy-loaded, so a page only fetches the logos it shows.
+  const logoImg = (e, cls = '') => e.logo ? `<img class="${cls}" src="${esc(e.logo.src)}?v=__BUILD__" alt="${esc(e.logo.title)} logo" title="${esc(e.logo.title)}" loading="lazy" width="28" height="28">` : '';
+
   // ---------- paging ----------
   // Only one page is drawn at a time: 24 cards on Browse, 100 rows on the index tables.
   const PAGE = 24, ROWS = 100;
@@ -167,7 +172,7 @@
     wirePager($('#pages'), (to) => { go(to); $('#count').scrollIntoView({ block: 'start' }); });
     $('#grid').innerHTML = shown.length ? shown.map(({ e }) => {
       const c = CATS[e.category], cv = cveIds(e);
-      return `<a class="card" href="#/e/${e.id}"><div class="cat" style="color:${c.color}">${c.icon} ${esc(c.label)}</div>
+      return `<a class="card${e.logo ? ' has-logo' : ''}" href="#/e/${e.id}">${logoImg(e, 'card-logo')}<div class="cat" style="color:${c.color}">${c.icon} ${esc(c.label)}</div>
         <h3>${mark(e.name, q)}</h3><div class="v">${mark(e.vendor, q)}</div><p>${mark(e.summary, q)}</p>
         <div>${e.sourcetypes.slice(0, 3).map((s) => `<span class="st">${mark(s.st, q)}</span>`).join('')}</div>
         <div class="badges">${cv.length ? `<span class="b" style="background:#fee2e2;color:#b91c1c">${cv.length} CVE${cv.length > 1 ? 's' : ''}</span>` : ''}${e.status === 'full' ? '<span class="b" style="background:#dcfce7;color:#166534">full article</span>' : '<span class="b" style="background:#fef3c7;color:#92400e">stub</span>'}</div></a>`;
@@ -186,7 +191,7 @@
     app.innerHTML = `<div class="ahead"><div class="in">
       <div class="crumb"><a href="#/">Goatpedia</a> › <a href="#/?cat=${e.category}">${esc(c.label)}</a> › <span>${esc(e.vendor)}</span>
         <a class="edit" href="${editUrl(e.id)}" target="_blank" rel="noopener">✎ Edit on GitHub</a></div>
-      <div class="title"><div class="ico" style="background:${c.color}22">${c.icon}</div><div><h1>${esc(e.name)}</h1>
+      <div class="title">${e.logo ? `<div class="ico logo-ico">${logoImg(e)}</div>` : `<div class="ico" style="background:${c.color}22">${c.icon}</div>`}<div><h1>${esc(e.name)}</h1>
         <div class="v">${esc(e.vendor)} · ${esc(c.label)}${e.aka ? ' · aka ' + e.aka.map(esc).join(', ') : ''}</div></div></div>
       <div class="lede">${esc(e.summary)}</div>
       ${full ? `<div class="glance"><div><small>Sourcetypes</small><b>${e.sourcetypes.length}</b> · <span class="st">${esc(e.sourcetypes[0].st)}</span></div>
