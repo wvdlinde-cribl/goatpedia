@@ -1,71 +1,343 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cisco-ise
-name: Cisco Ise
-short: Cisco Ise
+name: Cisco Identity Services Engine (ISE)
+short: Cisco ISE
+aka:
+  - ISE
+  - Identity Services Engine
+  - ISE-PIC
+  - ISE Passive Identity Connector
+  - cisco_ise
 vendor: Cisco
-category: saas
+category: idp
 status: full
-updated: '2026-11-12'
+updated: "2026-11-14"
 contributors:
   - wlinde
-aka:
-  - cisco_ise
-  - Elastic integrations
+  - ai-request-9
 tags:
-  - elastic
+  - nac
+  - radius
+  - tacacs
+  - 802.1x
+  - aaa
+  - posture
+  - trustsec
+  - syslog
   - kv
-summary: Cisco Ise is logged by the Elastic integrations package cisco_ise. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Cisco's network access control and AAA server. Switches, wireless controllers and VPN head-ends ask ISE over RADIUS whether a user or device may connect, and ISE answers with the access to grant (VLAN, downloadable ACL, Security Group Tag). It also profiles endpoints, checks posture, runs guest portals and handles TACACS+ device administration. Every authentication, failure and accounting record can be sent as syslog, which makes it the main record of who and what joined the network.
 sourcetypes:
+  - st: cisco:ise:syslog
+    desc: All ISE remote-logging categories over syslog (Splunk Add-on for Cisco ISE)
   - st: cisco_ise
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cisco_ise/data_stream/log/_dev/test/pipeline/test-pipeline-failed-attempts.log'
+    desc: Same syslog stream as named by the Elastic Cisco ISE integration and the Pack Generator samples pool
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cisco_ise
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: header, ConfigVersionId, Address, Port, DestinationIPAddress, DestinationPort
+  Role: Network access control (NAC), RADIUS and TACACS+ AAA, posture, profiling, guest, TrustSec
+  Personas: Policy Administration (PAN), Monitoring (MnT), Policy Service (PSN), pxGrid
+  Form factors: SNS hardware appliances, VMware / KVM / Hyper-V VMs, AWS / Azure / OCI images
+  Current trains: 3.3, 3.4
+  Protocols in: RADIUS (UDP 1812/1813), RADIUS CoA, TACACS+ (TCP 49), HTTPS portals and APIs
+  Log transport: Remote logging targets (UDP / TCP / secure syslog over TLS), pxGrid, MnT reports
+  Log format: Syslog, a fixed header then comma-separated key=value pairs; long events split into segments
+  Identity sources: Active Directory, LDAP, internal users, certificates (EAP-TLS), SAML for portals
 placement:
   slots:
+    - internal
     - cloud
+    - remote
+    - endpoint
   items:
+    - slot: internal
+      title: Data center policy nodes
+      desc: PAN, MnT and PSN nodes sit in the data center or campus core. Every switch and wireless controller is pointed at the PSNs as its RADIUS server, so ISE sees every 802.1X and MAB connection on the network.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud deployment
+      desc: ISE also runs as an image in AWS, Azure or OCI, usually as extra PSNs close to cloud-hosted VPN or SD-WAN. These images have their own advisories (CVE-2025-20286).
+    - slot: remote
+      title: Remote access authentication
+      desc: VPN head-ends (ASA, Secure Firewall, Meraki) send remote-access logins to ISE over RADIUS for authentication, authorization and posture.
+    - slot: endpoint
+      title: Posture on endpoints
+      desc: The Secure Client posture module on laptops reports patch, antivirus and disk-encryption state. ISE changes the endpoint's access with a RADIUS Change of Authorization (CoA) when the result changes.
 howItWorks:
-  - title: What the fixture shows
-    body: Cisco Ise events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, ConfigVersionId, Address, Port, DestinationIPAddress, DestinationPort. Values in the sample were rewritten to documentation addresses.
+  - title: RADIUS authentication and authorization
+    body: A network access device (NAD) such as a switch, wireless controller or VPN head-end forwards each connection attempt as a RADIUS Access-Request. ISE matches it to a policy set, checks the identity (EAP-TLS certificate, PEAP password against AD, or the MAC address for MAB), and returns Access-Accept with an authorization profile (VLAN, dACL, SGT) or Access-Reject.
+  - title: Policy sets and rules
+    body: Policy sets pick the request by conditions (device type, location, protocol). Inside a set, the authentication policy chooses the identity store and the authorization policy chooses the profile. Passed-authentication logs name the matched rules and the selected profile.
+  - title: Accounting and sessions
+    body: The NAD sends RADIUS Accounting Start, Interim and Stop records for each session, with the user, MAC, assigned IP, port and session ID. ISE keeps the live session table from these records, and they make up most of the syslog volume.
+  - title: Profiling, posture and CoA
+    body: Probes (DHCP, RADIUS, SNMP, HTTP, NMAP) classify endpoints such as printers, phones and cameras. Posture checks the managed laptop. When either result changes, ISE sends a Change of Authorization so the NAD re-authenticates or moves the session.
+  - title: Device administration (TACACS+)
+    body: Network admins log in to switches and routers through TACACS+ on ISE. Each command can be authorized and accounted, which gives a command-level audit of network changes.
+  - title: Administration and APIs
+    body: The admin GUI, the ERS and OpenAPI REST interfaces and pxGrid share context with firewalls, SIEMs and EDR. Admin logins and configuration changes are logged in the Administrative and Operational Audit category. These interfaces are the target of the 2025 critical CVEs.
 traffic:
   handles:
-    - kv
+    - RADIUS authentication (UDP 1812)
+    - RADIUS accounting (UDP 1813)
+    - RADIUS Change of Authorization
+    - TACACS+ (TCP 49)
+    - 802.1X / EAP (EAP-TLS, PEAP, EAP-FAST, TEAP)
+    - MAC Authentication Bypass (MAB)
+    - Guest and BYOD portals (HTTPS)
+    - pxGrid and REST APIs (HTTPS)
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cisco_ise and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Connect
+      desc: An endpoint plugs in or joins Wi-Fi; the switch or controller starts 802.1X or MAB.
+    - step: Access-Request
+      desc: The NAD sends RADIUS to a PSN with user, MAC, port and device attributes.
+    - step: Identity
+      desc: The PSN checks the credential against AD, LDAP, certificates or the endpoint database.
+    - step: Authorize
+      desc: The policy set returns Access-Accept with a VLAN, dACL or SGT, or Access-Reject.
+    - step: Account
+      desc: The NAD sends Accounting Start, Interim and Stop records for the session.
+    - step: CoA
+      desc: A posture or profile change triggers a Change of Authorization.
+    - step: Log
+      desc: Each step is logged to MnT and to remote syslog targets by logging category.
 logs:
-  - type: Log
+  - type: Passed Authentications
+    sourcetype: cisco:ise:syslog
+    format: kv
+    share: 20–40 %
+    avg: ~2–4 KB
+    desc: Category CISE_Passed_Authentications, code 5200 "Authentication succeeded". Names the user or MAC, the NAD, the identity store, the matched policy rules and the authorization profile that was granted.
+    sample: '<181>Nov 14 08:30:01 ise-psn01 CISE_Passed_Authentications 0000123401 1 0 2026-11-14 08:30:01.120 +00:00 0001234567 5200 NOTICE Passed-Authentication: Authentication succeeded, ConfigVersionId=212, Device IP Address=192.0.2.20, DestinationIPAddress=198.51.100.15, DestinationPort=1812, UserName=jdoe@example.com, Protocol=Radius, RequestLatency=24, NetworkDeviceName=sw-floor2, User-Name=jdoe@example.com, NAS-IP-Address=192.0.2.20, NAS-Port=50112, Service-Type=Framed, Calling-Station-ID=00-00-5E-00-53-2A, NAS-Port-Type=Ethernet, NAS-Port-Id=GigabitEthernet1/0/12, AcsSessionID=ise-psn01/512345678/9012, AuthenticationIdentityStore=AD-EXAMPLE, AuthenticationMethod=x509_PKI, SelectedAccessService=Default Network Access, SelectedAuthorizationProfiles=Employees-Wired, IdentityPolicyMatchedRule=Dot1X, AuthorizationPolicyMatchedRule=Employees-Wired, EapAuthentication=EAP-TLS, AuthenticationStatus=AuthenticationPassed, Step=11001, Step=11017, Step=15049, Step=15008, Step=12502, Step=22037, Step=15036, Step=24209, Step=11002, NetworkDeviceGroups=Location#All Locations#HQ, NetworkDeviceGroups=Device Type#All Device Types#Switch,'
+    key:
+      - UserName
+      - Address
+      - Calling-Station-ID
+      - SelectedAuthorizationProfiles
+      - AuthorizationPolicyMatchedRule
+    noise:
+      - Step
+      - ConfigVersionId
+      - RequestLatency
+  - type: Failed Attempts
+    sourcetype: cisco:ise:syslog
+    format: kv
+    share: 5–20 %
+    avg: ~2–4 KB
+    desc: Category CISE_Failed_Attempts. Code 5400 "Authentication failed" carries a FailureReason (22040 Wrong password, 22056 Subject not found in the identity store); 5405 is a RADIUS request dropped, often a NAD with the wrong shared secret.
+    sample: '<181>Nov 14 08:31:12 ise-psn01 CISE_Failed_Attempts 0000123420 1 0 2026-11-14 08:31:12.904 +00:00 0001234590 5400 NOTICE Failed-Attempt: Authentication failed, ConfigVersionId=212, Device IP Address=192.0.2.21, DestinationIPAddress=198.51.100.15, DestinationPort=1812, UserName=asmith@example.com, Protocol=Radius, NetworkDeviceName=wlc-hq, User-Name=asmith@example.com, NAS-IP-Address=192.0.2.21, NAS-Port=13, Calling-Station-ID=00-00-5E-00-53-3B, NAS-Port-Type=Wireless - IEEE 802.11, AcsSessionID=ise-psn01/512345678/9031, AuthenticationIdentityStore=AD-EXAMPLE, AuthenticationMethod=MSCHAPV2, EapTunnel=PEAP, FailureReason=22040 Wrong password or invalid shared secret, Step=11001, Step=11017, Step=12300, Step=22037, Step=24402, Step=22040, Step=11003, NetworkDeviceGroups=Location#All Locations#HQ, NetworkDeviceGroups=Device Type#All Device Types#Wireless,'
+    key:
+      - UserName
+      - Address
+      - Calling-Station-ID
+      - FailureReason
+      - NetworkDeviceName
+    noise:
+      - Step
+      - ConfigVersionId
+  - type: RADIUS Accounting
+    sourcetype: cisco:ise:syslog
+    format: kv
+    share: 40–60 %
+    avg: ~1.5–3 KB
+    desc: Category CISE_RADIUS_Accounting. Code 3000 start and 3001 stop requests; Acct-Status-Type also carries Interim-Update. Ties a user and MAC to an IP address and switch port for the length of the session.
+    sample: '<182>Nov 14 08:31:10 ise-psn01 CISE_RADIUS_Accounting 0000123455 1 0 2026-11-14 08:31:10.402 +00:00 0001234601 3000 NOTICE Radius-Accounting: RADIUS Accounting start request, ConfigVersionId=212, Device IP Address=192.0.2.20, RequestLatency=3, NetworkDeviceName=sw-floor2, User-Name=jdoe@example.com, NAS-IP-Address=192.0.2.20, NAS-Port=50112, Framed-IP-Address=198.51.100.44, Calling-Station-ID=00-00-5E-00-53-2A, Acct-Status-Type=Start, Acct-Delay-Time=0, Acct-Session-Id=0000002A, Acct-Authentic=RADIUS, NAS-Port-Type=Ethernet, NAS-Port-Id=GigabitEthernet1/0/12, AcsSessionID=ise-psn01/512345678/9013, SelectedAccessService=Default Network Access, Step=11004, Step=11017, Step=15049, Step=15008, Step=11005, NetworkDeviceGroups=Location#All Locations#HQ,'
+    key:
+      - User-Name
+      - Framed-IP-Address
+      - Calling-Station-ID
+      - Acct-Status-Type
+      - Acct-Session-Id
+    noise:
+      - Step
+      - Acct-Delay-Time
+      - RequestLatency
+  - type: Administrative and Operational Audit
+    sourcetype: cisco:ise:syslog
+    format: kv
+    share: < 1 %
+    avg: ~0.5–1 KB
+    desc: Category CISE_Administrative_and_Operational_Audit. 51000 / 51001 administrator authentication failed / succeeded, and 52000 / 52001 / 52002 configuration added / changed / deleted, with the admin, source IP and object.
+    sample: '<181>Nov 14 09:02:44 ise-pan01 CISE_Administrative_and_Operational_Audit 0000123500 1 0 2026-11-14 09:02:44.880 +00:00 0001234700 52001 NOTICE Configuration-Changes: Changed configuration, ConfigVersionId=213, AdminInterface=GUI, AdminIPAddress=203.0.113.50, AdminSession=AdminGUI_Session, AdminName=netadmin1, OperationMessageText=Changed configuration, Priority=1, AcsInstance=ise-pan01, ObjectType=Authorization Profile, ObjectName=Employees-Wired, ObjectInternalID=0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d,'
+    key:
+      - AdminName
+      - AdminIPAddress
+      - AdminInterface
+      - ObjectType
+      - ObjectName
+  - type: RADIUS request dropped (fixture)
     sourcetype: cisco_ise
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
-    sample: '<181>Mar 2 09:09:13 cisco-ise-host CISE_Failed_Attempts 0000075134 1 0 2022-03-02 09:09:13.790 +00:00 0000075201 5405 NOTICE Failed-Attempt: RADIUS Request dropped, ConfigVersionId=1364, Device IP Address=192.0.2.20, Device Port=42946, DestinationIPAddress=198.51.100.15, DestinationPort=1812, Protocol=Radius, NetworkDeviceName=testDevice, User-Name=testDevice1, NAS-IP-Address=198.51.100.25, NAS-Port=1, Service-Type=Framed, Session-Timeout=30, Calling-Station-ID=00-23-DF-00-00-01, NAS-Port-Type=Wireless - IEEE 802.11, NAS-Port-Id=G0/25, NetworkDeviceProfileName=Cisco, NetworkDeviceProfileId=b0699505-3150-4215-a80e-6753d45bf56c, AcsSessionID=cisco-ise-host/435083133/47, FailureReason=11036 The Message-Authenticator RADIUS attribute is invalid, Step=11001, Step=11017, Step=11036, Step=5405, NetworkDeviceGroups=IPSEC#Is IPSEC Device#No, NetworkDeviceGroups=Location#All Locations, NetworkDeviceGroups=Device Type#All Device Types, DTLSSupport=Unknown, Model Name=Unknown, Network Device Profile=Cisco, Location=Location#All Locations, Device Type=Device Type#All Device Types, IPSEC=IPSEC#Is IPSEC Device#No,'
+    share: < 1 %
+    desc: A Failed Attempts event from the Elastic integration's test fixtures, values rewritten to documentation addresses. Code 5405, "RADIUS Request dropped", here because the Message-Authenticator attribute is invalid (a wrong shared secret on the NAD).
+    sample: '<181>Mar 2 09:09:13 cisco-ise-host CISE_Failed_Attempts 0000075134 1 0 2022-03-02 09:09:13.790 +00:00 0000075201 5405 NOTICE Failed-Attempt: RADIUS Request dropped, ConfigVersionId=1364, Device IP Address=192.0.2.20, Device Port=42946, DestinationIPAddress=198.51.100.15, DestinationPort=1812, Protocol=Radius, NetworkDeviceName=testDevice, User-Name=testDevice1, NAS-IP-Address=198.51.100.25, NAS-Port=1, Service-Type=Framed, Session-Timeout=30, Calling-Station-ID=00-00-5E-00-53-01, NAS-Port-Type=Wireless - IEEE 802.11, NAS-Port-Id=G0/25, NetworkDeviceProfileName=Cisco, NetworkDeviceProfileId=b0699505-3150-4215-a80e-6753d45bf56c, AcsSessionID=cisco-ise-host/435083133/47, FailureReason=11036 The Message-Authenticator RADIUS attribute is invalid, Step=11001, Step=11017, Step=11036, Step=5405, NetworkDeviceGroups=IPSEC#Is IPSEC Device#No, NetworkDeviceGroups=Location#All Locations, NetworkDeviceGroups=Device Type#All Device Types, DTLSSupport=Unknown, Model Name=Unknown, Network Device Profile=Cisco, Location=Location#All Locations, Device Type=Device Type#All Device Types, IPSEC=IPSEC#Is IPSEC Device#No,'
     key:
-      - ConfigVersionId
-      - Address
-      - Port
+      - FailureReason
+      - NetworkDeviceName
       - DestinationIPAddress
-cves: []
+cves:
+  - id: CVE-2025-20281
+    cvss: 10
+    year: 2025
+    kev: true
+    scope: device
+    title: Unauthenticated remote code execution as root through a specific ISE API
+    affected: ISE and ISE-PIC 3.3 and 3.4
+    fixed: 3.3 Patch 6, 3.4 Patch 2
+    detect: Requests to the ISE APIs from addresses that are not admin workstations or integration servers, ISE nodes opening new outbound connections, and unexpected processes or files on the node. The ISE syslog does not log the exploit itself, so pair it with firewall and NetFlow data for the ISE management interface.
+    avoid: Patch. Expose the admin GUI and APIs only to a management network; never publish them to the internet.
+  - id: CVE-2025-20337
+    cvss: 10
+    year: 2025
+    kev: true
+    scope: device
+    title: Unauthenticated remote code execution as root through a specific ISE API (insufficient input validation)
+    affected: ISE and ISE-PIC 3.3 and 3.4
+    fixed: 3.3 Patch 7, 3.4 Patch 2
+    detect: Same signals as CVE-2025-20281. Both were exploited in the wild (CISA KEV, July 2025).
+    avoid: Patch to the fixed patch level; restrict API reachability to known management hosts.
+  - id: CVE-2025-20282
+    cvss: 10
+    year: 2025
+    scope: device
+    title: Unauthenticated arbitrary file upload and execution through an internal API
+    affected: ISE and ISE-PIC 3.4
+    fixed: 3.4 Patch 2
+    detect: New files and processes on the node; API requests from unknown sources to the management interface.
+    avoid: Patch; restrict access to the management interface.
+  - id: CVE-2025-20124
+    cvss: 9.9
+    year: 2025
+    scope: device
+    title: Insecure Java deserialization in an API lets an authenticated read-only admin run commands as root
+    affected: ISE 3.1, 3.2 and 3.3 before the fixed patches
+    fixed: 3.1 Patch 10, 3.2 Patch 7, 3.3 Patch 4
+    detect: Admin Audit 51001 logins by read-only or rarely used admin accounts followed by API activity, especially from new AdminIPAddress values.
+    avoid: Patch; review which accounts hold read-only admin rights and remove unused ones.
+  - id: CVE-2025-20286
+    cvss: 9.9
+    year: 2025
+    scope: device
+    title: Static credentials shared across ISE cloud deployments (AWS, Azure, OCI)
+    affected: ISE 3.1 to 3.4 deployed from the AWS, Azure or OCI images, where the primary administration node runs in the cloud
+    detect: Admin or API access to a cloud ISE node from outside the expected management sources; logins that do not map to a known administrator.
+    avoid: Apply Cisco's hotfix or upgrade, and reset the credentials as the advisory describes; restrict cloud security groups to administrator sources.
 detections:
-  - title: Cisco Ise events arriving
-    severity: low
+  - title: Password spray against 802.1X or VPN through ISE
+    severity: high
     signals:
-      - header
-      - ConfigVersionId
-      - Address
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cisco_ise"'
-optimizations: []
+      - CISE_Failed_Attempts 5400
+      - FailureReason 22040 Wrong password
+      - many User-Name values from one NAD or Calling-Station-ID
+    why: Spraying common passwords across many accounts shows up as wrong-password failures for many users in a short time, often from one VPN head-end or one MAC.
+    kql: |-
+      dataset="ise_logs" "CISE_Failed_Attempts" "5400"
+      | extract "FailureReason=(?<reason>\d+)" from _raw
+      | extract "User-Name=(?<user>[^,]+)" from _raw
+      | extract "NetworkDeviceName=(?<nad>[^,]+)" from _raw
+      | where reason == "22040"
+      | summarize fails=count(), users=dcount(user) by nad, bin(_time, 10m)
+      | where users > 10
+    mitre:
+      - T1110.003
+  - title: Unknown accounts tried against the identity store
+    severity: medium
+    signals:
+      - FailureReason 22056 Subject not found in the applicable identity store(s)
+      - a burst of distinct user names
+    why: Many "subject not found" failures mean someone is guessing user names, or a misconfigured supplicant is sending the wrong identity.
+    kql: |-
+      dataset="ise_logs" "CISE_Failed_Attempts"
+      | extract "FailureReason=(?<reason>\d+)" from _raw
+      | extract "User-Name=(?<user>[^,]+)" from _raw
+      | where reason == "22056"
+      | summarize users=dcount(user), fails=count() by bin(_time, 15m)
+      | where users > 20
+    mitre:
+      - T1110
+  - title: ISE administrator brute force
+    severity: high
+    signals:
+      - CISE_Administrative_and_Operational_Audit 51000 Administrator authentication failed
+      - repeated from one AdminIPAddress
+    why: Repeated admin login failures against the ISE GUI or CLI precede account takeover of the system that decides network access.
+    kql: |-
+      dataset="ise_logs" "CISE_Administrative_and_Operational_Audit" "51000"
+      | extract "AdminIPAddress=(?<src>[^,]+)" from _raw
+      | extract "AdminName=(?<admin>[^,]+)" from _raw
+      | summarize fails=count(), admins=dcount(admin) by src, bin(_time, 10m)
+      | where fails >= 5
+    mitre:
+      - T1110.001
+  - title: Admin login or change from an unexpected source
+    severity: high
+    signals:
+      - 51001 or 52000 / 52001 / 52002
+      - AdminIPAddress outside the management networks
+    why: Access to the ISE admin plane from a new address is the first thing to check after the 2025 API RCEs and the cloud static-credential advisory.
+    kql: |-
+      dataset="ise_logs" "CISE_Administrative_and_Operational_Audit"
+      | extract "AdminIPAddress=(?<src>[^,]+)" from _raw
+      | extract "AdminName=(?<admin>[^,]+)" from _raw
+      | where not(ipv4_is_in_range(src, "203.0.113.0/24"))
+      | summarize events=count(), first=min(_time) by admin, src
+    mitre:
+      - T1078
+      - T1190
+  - title: Access policy deleted or weakened
+    severity: medium
+    signals:
+      - 52002 Deleted configuration
+      - 52001 Changed configuration on authorization profiles or policy sets
+    why: Deleting or loosening an authorization profile or policy set can quietly let unmanaged devices on the network.
+    kql: |-
+      dataset="ise_logs" "CISE_Administrative_and_Operational_Audit"
+      | extract " (?<code>5200[0-2]) " from _raw
+      | extract "ObjectType=(?<type>[^,]+)" from _raw
+      | extract "ObjectName=(?<obj>[^,]+)" from _raw
+      | extract "AdminName=(?<admin>[^,]+)" from _raw
+      | where code in ("52001", "52002") and type in ("Authorization Profile", "Policy Set", "Authorization Rule")
+      | project _time, code, admin, type, obj
+    mitre:
+      - T1562
+optimizations:
+  - title: Stop events from being split into segments
+    saving: fewer events
+    fn: Source settings, or Event Breaker
+    how: ISE splits a long event into several syslog messages (the "total segments" and "segment number" fields after the category). Raise the remote target's maximum length (up to 8192) so most events arrive whole. Otherwise, rejoin the segments in Stream before parsing.
+    expr: "header: CISE_<category> <msgid> <total> <segment>  → reassemble on msgid"
+  - title: Strip the Step= trail
+    saving: 15–30 %
+    fn: Mask or Eval
+    how: Every authentication and accounting event lists dozens of Step=NNNNN codes, which you only need while troubleshooting a single session. Keep the FailureReason and remove the steps, or keep only the last step.
+    expr: "_raw.replace(/ Step=\\d+,/g, '')"
+  - title: Thin or roll up interim accounting
+    saving: 20–40 %
+    fn: Drop or Aggregations
+    how: Interim-Update records repeat the session every few minutes. Keep Start and Stop for the user-to-IP mapping and roll interims up to one per session per hour, or send them only to Cribl Lake.
+    expr: "Acct-Status-Type == 'Interim-Update'"
+  - title: Suppress repeated failures from broken supplicants
+    saving: 5–15 %
+    fn: Suppress
+    how: A misconfigured device can retry thousands of times a day with the same failure. Keep one per Calling-Station-ID, failure reason and NAD per 5 minutes, with a count.
+    expr: "key: `${__e['Calling-Station-ID']}:${FailureReason}:${NetworkDeviceName}`  allow 1 / 300s"
+  - title: Route by value
+    saving: SIEM licence
+    fn: Routes
+    how: Send failed attempts and the admin audit to the SIEM in full. Send passed authentications and accounting to the SIEM in optimised form, and send everything raw to Cribl Lake for investigations.
+    expr: "/CISE_(Failed_Attempts|Administrative_and_Operational_Audit)/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)"
 references:
-  - title: elastic/integrations cisco_ise/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisco_ise/data_stream/log/_dev/test/pipeline/test-pipeline-failed-attempts.log
-  - title: Pack Generator sample cisco_ise.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_ise.json
+  - title: Cisco ISE syslog message list
+    url: https://www.cisco.com/c/en/us/td/docs/security/ise/syslog/Cisco_ISE_Syslogs/m_SyslogsList.html
+  - title: Cisco ISE 3.3 administrator guide — maintain and monitor (logging categories)
+    url: https://www.cisco.com/c/en/us/td/docs/security/ise/3-3/admin_guide/b_ise_admin_3_3/b_ISE_admin_33_maintain_monitor.html
+  - title: Cisco advisory — ISE unauthenticated RCE (CVE-2025-20281, CVE-2025-20282, CVE-2025-20337)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ise-unauth-rce-ZAd2GnJ6
+  - title: Cisco advisory — ISE multiple vulnerabilities (CVE-2025-20124, CVE-2025-20125)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ise-multivuls-FTW9AOXF
+  - title: Cisco advisory — ISE cloud deployments static credential (CVE-2025-20286)
+    url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ise-aws-static-cred-FPMjUcm7
+  - title: Elastic Cisco ISE integration — test fixtures
+    url: https://github.com/elastic/integrations/tree/main/packages/cisco_ise/data_stream/log/_dev/test/pipeline
+  - title: CISA Known Exploited Vulnerabilities catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+related:
+  - cisco-asa
+  - cisco-secure-firewall
+  - cisco-ios
