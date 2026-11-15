@@ -1,0 +1,48 @@
+# Change request: someone reports that part of an existing article is wrong or out of date.
+# The site's "Request a change" button on every article opens this form pre-filled (field
+# ids below are the query-parameter names). Admins list requests with `npm run requests`
+# and work them with the process-change-requests Claude Code skill (see README).
+name: Request a change
+description: Report that part of an existing Goatpedia article is wrong or out of date.
+title: "[Change request] "
+labels: ["change-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Name the article and the parts that are not right. Say what is wrong and, if you know it, what it should be.
+        **This repository is public.** Don't paste real customer data, internal hostnames, IP addresses or credentials.
+  - type: input
+    id: article
+    attributes:
+      label: Article
+      description: The article id, as in the address (#/e/<id>).
+      placeholder: "e.g. pan-ngfw"
+    validations:
+      required: true
+  - type: textarea
+    id: parts
+    attributes:
+      label: Parts
+      description: One part per line, e.g. "Logs › Traffic" or "CVE › CVE-2024-3400".
+    validations:
+      required: true
+  - type: textarea
+    id: changes
+    attributes:
+      label: Changes
+      description: "For each part: a `#### <part>` line, then `What is not correct:` and, optionally, `What it should be:`."
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Links that show the right content (vendor docs, advisories), one per line.
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Public repository
+      options:
+        - label: This request contains no customer data, credentials or internal details.
+          required: true

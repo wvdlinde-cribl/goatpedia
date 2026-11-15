@@ -19,7 +19,7 @@ Requests come from the site's **Request a device** popup through `.github/ISSUE_
 2. Run `git switch main && git pull --ff-only`, and make sure `gh auth status` succeeds.
 
 ## Step 2 — Existence check (always)
-Run `node scripts/requests.mjs check <n|all> --json`. Sort the requests by verdict:
+Run `node scripts/requests.mjs check <n|all> --devices --json`. Change requests (`change-request` label) belong to the process-change-requests skill, so leave them out here. Sort the requests by verdict:
 - **pr-open:** skip it and link the PR.
 - **new:** go ahead (Step 4).
 - **exists / possible:** needs a decision (Step 3).

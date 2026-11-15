@@ -5,6 +5,7 @@
 //   npm run requests                     list open requests
 //   node scripts/requests.mjs list --json
 //   node scripts/requests.mjs check all   existence check: exists / possible / new, with reasons
+//   node scripts/requests.mjs check all --changes   change requests only (--devices: device requests only)
 //   node scripts/requests.mjs check 12 --json
 //   node scripts/requests.mjs show 12     one request, its fields and library matches
 //   node scripts/requests.mjs scan entries/x.yaml   privacy check of a file (exit 1 on findings)
@@ -24,6 +25,8 @@ const { scan } = globalThis.GoatpediaPrivacy;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const LABEL = 'device-request';
+/** Change requests: the "Request a change" form (.github/ISSUE_TEMPLATE/change-request.yml). */
+export const CHANGE_LABEL = 'change-request';
 
 /** Issue-form headings → field ids (the same ids as the form and the site's popup). */
 export const FIELDS = {
@@ -36,7 +39,24 @@ export const FIELDS = {
   'Sample event': 'sample',
   'Anything else': 'notes',
   'Public repository': 'public',
+  // change-request form
+  Article: 'article',
+  Parts: 'parts',
+  Changes: 'changes',
+  Sources: 'sources',
 };
+
+/** The Changes field: "#### <part>\nWhat is not correct: …\nWhat it should be: …" blocks. */
+export function parseChanges(text) {
+  return String(text || '').split(/^#### /m).slice(1).map((blk) => {
+    const nl = blk.indexOf('\n');
+    const part = (nl < 0 ? blk : blk.slice(0, nl)).trim();
+    const body = nl < 0 ? '' : blk.slice(nl + 1);
+    const wrong = (body.match(/What is not correct:\s*([\s\S]*?)(?=\nWhat it should be:|$)/) || [])[1]?.trim() || '';
+    const right = (body.match(/What it should be:\s*([\s\S]*)$/) || [])[1]?.trim() || '';
+    return { part, wrong, ...(right ? { right } : {}) };
+  }).filter((c) => c.part);
+}
 
 /** An issue-form body ("### Heading\n\nvalue") → { device, vendor, … }. Empty answers are left out. */
 export function parseRequestBody(body) {
@@ -55,6 +75,9 @@ export function parseRequestBody(body) {
   }
   if (out.sourcetypes) out.sourcetypes = out.sourcetypes.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
   if (out.links) out.links = out.links.split(/\s+/).filter((s) => /^https?:\/\//.test(s));
+  if (out.sources) out.sources = out.sources.split(/\s+/).filter((s) => /^https?:\/\//.test(s));
+  if (out.parts) out.parts = out.parts.split('\n').map((s) => s.trim()).filter(Boolean);
+  if (out.changes) out.changes = parseChanges(out.changes);
   delete out.public;
   return out;
 }
@@ -141,7 +164,25 @@ export function loadEntries(root = ROOT) {
 const gh = (args) => JSON.parse(execFileSync('gh', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 }));
 
 function openRequests() {
-  return gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '500', '--json', 'number,title,body,author,createdAt,url']);
+  const fields = 'number,title,body,author,createdAt,url,labels';
+  const seen = new Map();
+  for (const label of [LABEL, CHANGE_LABEL]) for (const i of gh(['issue', 'list', '--label', label, '--state', 'open', '--limit', '500', '--json', fields])) seen.set(i.number, i);
+  return [...seen.values()];
+}
+
+const isChange = (issue) => (issue.labels || []).some((l) => l.name === CHANGE_LABEL);
+
+/** A change request names an article: does it exist, and do the named parts still match it? */
+export function checkChange(req, entries) {
+  const id = String(req.article || '').trim().replace(/^.*#\/e\//, '').split('/')[0];
+  const e = entries.find((x) => x.id === id);
+  if (!e) return { verdict: 'article-missing', matches: [], id };
+  const names = new Set([
+    ...(e.logs || []).map((l) => `Logs › ${l.type}`), ...(e.cves || []).map((v) => `CVE › ${v.id}`),
+    ...(e.detections || []).map((d) => `Detection › ${d.title}`), ...(e.optimizations || []).map((o) => `Optimization › ${o.title}`),
+  ]);
+  const stale = (req.parts || []).filter((p) => /^(Logs|CVE|Detection|Optimization) › /.test(p) && !names.has(p));
+  return { verdict: 'article-found', matches: [{ id: e.id, name: e.name, reason: stale.length ? `parts no longer in the article: ${stale.join('; ')}` : 'article exists' }], id, stale };
 }
 
 /** Open PRs made by the skill, by request number (branch request/<n>-<id>). */
@@ -156,9 +197,10 @@ function prsByRequest() {
 
 function describe(issue, entries, prs) {
   const req = parseRequestBody(issue.body);
+  const type = isChange(issue) ? 'change' : 'device';
   return {
-    number: issue.number, url: issue.url, title: issue.title, requestedBy: issue.author?.login || null,
-    createdAt: issue.createdAt, ...req, check: checkRequest(req, entries), pr: prs.get(issue.number)?.url || null,
+    number: issue.number, type, url: issue.url, title: issue.title, requestedBy: issue.author?.login || null,
+    createdAt: issue.createdAt, ...req, check: type === 'change' ? checkChange(req, entries) : checkRequest(req, entries), pr: prs.get(issue.number)?.url || null,
     // Requests made on GitHub directly skip the popup's check: flag what it would have refused.
     privacy: [...new Set(scan(issue.body).map((f) => f.kind))],
   };
@@ -183,9 +225,9 @@ function main() {
     if (!rows.length) return console.log('No open device requests.');
     for (const r of rows) {
       const state = label(r);
-      console.log(`#${r.number}  ${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''}  · by ${r.requestedBy || '?'} · ${r.createdAt.slice(0, 10)} · ${state}${r.privacy.length ? ` · ⚠ privacy: ${r.privacy.join(', ')}` : ''}`);
+      console.log(`#${r.number}  ${r.type === 'change' ? `[change] ${r.article}: ${(r.parts || []).join(', ')}` : `${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''}`}  · by ${r.requestedBy || '?'} · ${r.createdAt.slice(0, 10)} · ${state}${r.privacy.length ? ` · ⚠ privacy: ${r.privacy.join(', ')}` : ''}`);
     }
-    return console.log(`\n${rows.length} open request(s). Process them with the process-device-requests skill in Claude Code.`);
+    return console.log(`\n${rows.length} open request(s). Process them in Claude Code: process-device-requests for new devices, process-change-requests for changes.`);
   }
   if (cmd === 'check') {
     // The existence check the skills run before anything is written: one request, or all open ones.
@@ -193,16 +235,19 @@ function main() {
       ? [gh(['issue', 'view', String(arg), '--json', 'number,title,body,author,createdAt,url,labels'])]
       : openRequests();
     const rows = issues.map((i) => describe(i, entries, prs)).sort((a, b) => a.number - b.number);
-    if (asJson) return console.log(JSON.stringify(rows.map(({ number, url, device, vendor, requestedBy, check, pr, privacy }) => ({ number, url, device, vendor, requestedBy, verdict: pr ? 'pr-open' : check.verdict, matches: check.matches, pr, privacy })), null, 2));
-    for (const r of rows) {
-      console.log(`#${r.number}  ${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''} → ${r.pr ? `PR open ${r.pr}` : r.check.verdict.toUpperCase()}${r.privacy.length ? `  ⚠ privacy: ${r.privacy.join(', ')}` : ''}`);
+    const want = process.argv.includes('--changes') ? 'change' : process.argv.includes('--devices') ? 'device' : null;
+    const picked = rows.filter((r) => !want || r.type === want);
+    if (asJson) return console.log(JSON.stringify(picked.map(({ number, type, url, device, vendor, article, parts, changes, sources, requestedBy, check, pr, privacy }) => ({ number, type, url, device, vendor, article, parts, changes, sources, requestedBy, verdict: pr ? 'pr-open' : check.verdict, matches: check.matches, pr, privacy })), null, 2));
+    for (const r of picked) {
+      const what = r.type === 'change' ? `[change] ${r.article}: ${(r.parts || []).join(', ')}` : `${r.device || r.title}${r.vendor ? ` (${r.vendor})` : ''}`;
+      console.log(`#${r.number}  ${what} → ${r.pr ? `PR open ${r.pr}` : r.check.verdict.toUpperCase()}${r.privacy.length ? `  ⚠ privacy: ${r.privacy.join(', ')}` : ''}`);
       for (const m of r.check.matches) console.log(`      ${m.id}  ${m.reason}`);
     }
     return;
   }
   if (cmd === 'show' && arg) {
     const issue = gh(['issue', 'view', String(arg), '--json', 'number,title,body,author,createdAt,url,labels,state']);
-    if (!issue.labels.some((l) => l.name === LABEL)) throw new Error(`#${arg} is not labelled ${LABEL}`);
+    if (!issue.labels.some((l) => l.name === LABEL || l.name === CHANGE_LABEL)) throw new Error(`#${arg} is not labelled ${LABEL} or ${CHANGE_LABEL}`);
     const r = { ...describe(issue, entries, prs), state: issue.state };
     return console.log(asJson ? JSON.stringify(r, null, 2) : Object.entries(r).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n'));
   }
