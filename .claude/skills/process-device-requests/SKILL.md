@@ -48,7 +48,7 @@ Run `npm run validate` and fix every reported problem until it passes.
 1. Branch `request/<n>-<id>` from up-to-date `main`. Commit only that entry, plus `coverage/pack-generator.yaml` if it changed. Push.
 2. Run `gh pr create --base main`:
    - Title: "Add <name> (request #<n>)", or "Improve <name> (request #<n>)".
-   - Body: `Requested in #<n> by @<requester>`, which decision was taken, the sources used, and anything that could not be confirmed.
+   - Body: `Requested in #<n> by <requester>` (`@<login>` for a GitHub user; for a request sent from Cribl, the name in its *Requested by* section), which decision was taken, the sources used, and anything that could not be confirmed.
 3. Return to `main` before the next request.
 
 ## Step 6 — Report

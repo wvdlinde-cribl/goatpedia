@@ -127,3 +127,8 @@ test('the change skill verifies and asks before it edits', () => {
   assert.match(skill, /never `Closes #<n>`/);
   assert.match(read('.claude/skills/process-device-requests/SKILL.md'), /check <n\|all> --devices --json/);
 });
+
+test('a request sent from inside Cribl names its requester in "Requested by"', () => {
+  const body = ['### Device or sourcetype', '', 'Acme SecureGate', '', '### Requested by', '', 'Jane Doe (via SE Toolkit)'].join('\n');
+  assert.deepEqual(parseRequestBody(body), { device: 'Acme SecureGate', requestedBy: 'Jane Doe (via SE Toolkit)' });
+});

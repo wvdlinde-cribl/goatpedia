@@ -47,7 +47,7 @@ For each requested part, open `entries/<id>.yaml` and find that part. Check the 
 1. Branch `change/<n>-<id>` from up-to-date `main`. Commit the entry, plus `logos.yaml` / `logos/` if touched. Push.
 2. Run `gh pr create --base main`:
    - Title: "Correct <name>: <parts> (change request #<n>)".
-   - Body: `Requested in #<n> by @<requester>`, then a table of part / claim / verdict / what changed / source, and the parts left unchanged with the reason.
+   - Body: `Requested in #<n> by <requester>` (`@<login>` for a GitHub user; for a request sent from Cribl, the name in its *Requested by* section), then a table of part / claim / verdict / what changed / source, and the parts left unchanged with the reason.
 3. Return to `main` before the next request.
 
 ## Step 6 — Report
