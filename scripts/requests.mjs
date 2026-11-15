@@ -44,6 +44,9 @@ export const FIELDS = {
   Parts: 'parts',
   Changes: 'changes',
   Sources: 'sources',
+  // Requests sent from inside Cribl (SE Toolkit, Pack Generator) are created by a bot
+  // account; this section names the Cribl member who asked (a name, never an email).
+  'Requested by': 'requestedBy',
 };
 
 /** The Changes field: "#### <part>\nWhat is not correct: …\nWhat it should be: …" blocks. */
@@ -199,8 +202,10 @@ function describe(issue, entries, prs) {
   const req = parseRequestBody(issue.body);
   const type = isChange(issue) ? 'change' : 'device';
   return {
-    number: issue.number, type, url: issue.url, title: issue.title, requestedBy: issue.author?.login || null,
-    createdAt: issue.createdAt, ...req, check: type === 'change' ? checkChange(req, entries) : checkRequest(req, entries), pr: prs.get(issue.number)?.url || null,
+    createdAt: issue.createdAt, ...req,
+    number: issue.number, type, url: issue.url, title: issue.title,
+    // From Cribl the GitHub author is the bot; the Requested by section names the person.
+    requestedBy: req.requestedBy || issue.author?.login || null, via: req.requestedBy ? issue.author?.login || null : null, check: type === 'change' ? checkChange(req, entries) : checkRequest(req, entries), pr: prs.get(issue.number)?.url || null,
     // Requests made on GitHub directly skip the popup's check: flag what it would have refused.
     privacy: [...new Set(scan(issue.body).map((f) => f.kind))],
   };

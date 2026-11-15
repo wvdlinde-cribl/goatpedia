@@ -50,6 +50,7 @@ Every article has a **Request a change** button next to *Edit on GitHub*. In the
 - **See them:** the [open `change-request` issues](https://github.com/wvdlinde-cribl/goatpedia/issues?q=is%3Aissue+is%3Aopen+label%3Achange-request), or `npm run requests` (both kinds). `node scripts/requests.mjs check all --changes` says whether each article still exists and whether the parts named are still in it.
 - **Process them:** in Claude Code, *"process change request #12"* or *"process all change requests"* ([`process-change-requests`](.claude/skills/process-change-requests/SKILL.md)). It checks every claim against sources (confirmed / partly / not confirmed / can't verify) and shows you the proposed edits. It asks before it changes anything, then opens one PR per request on `change/<n>-<id>`.
 
+- **From inside Cribl** (SE Toolkit): the member's Cribl sign-in identifies them. With a bot token saved in the app's Settings, the app creates the issue directly in the same layout as the forms, so the member never visits GitHub. The GitHub author is then the bot, and the issue's *Requested by* section names the member (a name, never an email). `npm run requests` and the skills use that name.
 - **Other front ends** (SE Toolkit, Pack Generator) can reuse the same form. Link to `issues/new?template=device-request.yml` and pass the fields by id as query parameters: `device`, `vendor`, `category`, `sourcetypes`, `format`, `links`, `sample`, `notes`.
 
 ## Contribute
