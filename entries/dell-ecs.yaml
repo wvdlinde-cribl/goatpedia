@@ -1,0 +1,271 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+# Written from request #11. The log samples and sourcetype names are ILLUSTRATIVE: no public
+# Dell document or vendor add-on giving the ECS syslog message layout was found. Replace them
+# with a redacted real event when one is available (see the request issue).
+id: dell-ecs
+name: Dell ECS (Elastic Cloud Storage)
+short: Dell ECS
+aka:
+  - ECS
+  - Elastic Cloud Storage
+  - Dell EMC ECS
+  - EMC ECS
+  - ObjectScale
+vendor: Dell
+category: storage
+status: full
+updated: "2026-11-15"
+contributors:
+  - ai-request-11
+tags:
+  - object-storage
+  - s3
+  - swift
+  - nfs
+  - immutability
+  - geo-replication
+  - syslog
+  - kv
+summary: Dell's software-defined object storage platform, sold as appliances and as software. It serves S3-compatible, Swift, Atmos, CAS and NFS access to the same buckets, keeps data with erasure coding inside a site and replicates it between sites. It is often the on-premises archive and backup target, and the replay bucket behind a data pipeline. Its own logs are management audit events and system alerts sent over syslog; the newer releases continue as Dell ObjectScale 4.x.
+sourcetypes:
+  - st: dell:ecs:audit
+    desc: "Suggested name: ECS audit events (portal and management API actions) received over syslog. No vendor-standard sourcetype was found."
+  - st: dell:ecs:alert
+    desc: "Suggested name: ECS system alerts (hardware, capacity, replication, licence) received over syslog."
+facts:
+  Role: S3-compatible object storage, archive and backup target, multi-site replication
+  Protocols: S3, OpenStack Swift, Atmos, CAS (Centera), NFSv3 on buckets
+  Form factors: ECS appliances (EX-series, all-flash EXF), ECS software; successor line Dell ObjectScale 4.x
+  Current trains: ECS 3.8.1.x; ObjectScale 4.x
+  Management: ECS Portal (HTTPS), Management REST API (port 4443), CLI on the nodes
+  Data ports: S3 over HTTPS on 9021 (HTTP 9020); usually behind a load balancer on 443
+  Tenancy: Namespaces (tenants), buckets, object users with S3 secret keys, IAM in newer releases
+  Log transport: Syslog forwarding of audit events and alerts (UDP / TCP 514), SNMP traps for alerts
+placement:
+  slots:
+    - internal
+    - remote
+    - cloud
+  items:
+    - slot: internal
+      title: Data center object store
+      desc: ECS racks sit in the data center as the target for backups, archives, application objects and data-pipeline replay buckets. Applications reach it through a load balancer on the data network; admins use the portal and API on the management network.
+    - slot: remote
+      title: Second site for geo-replication
+      desc: A replication group spans two or more sites (virtual data centers). Each object written in one site is copied to the others, so a whole site can be lost without losing data.
+    - slot: cloud
+      title: S3 endpoint for hybrid applications
+      desc: Cloud-built applications and tools that speak S3 (backup software, log pipelines, analytics) point at ECS as an on-premises S3 endpoint, keeping the data out of the public cloud.
+howItWorks:
+  - title: One object store, several protocols
+    body: Buckets are reached over S3, Swift, Atmos or CAS, and NFS can be enabled on a bucket. Most deployments use S3, with access keys issued to object users inside a namespace.
+  - title: Sites, storage pools and replication groups
+    body: Nodes form storage pools inside a virtual data center (VDC). A replication group decides which VDCs hold a copy of a bucket's data. Within a site, data is protected with erasure coding rather than full copies.
+  - title: Namespaces and object users
+    body: A namespace is a tenant with its own buckets, quotas and administrators. Applications authenticate as object users with S3 access keys; people administer the system through the portal or the management API.
+  - title: Retention and object lock
+    body: Buckets can enforce retention periods and S3 Object Lock, so backups and compliance archives cannot be deleted or overwritten before they expire. This is why ECS is a common target for immutable backup copies.
+  - title: What it logs
+    body: ECS records audit events for management actions (logins, namespace and bucket changes, user and key changes, configuration) and alerts for system conditions (failed disks or nodes, capacity thresholds, replication problems). Both can be forwarded to syslog servers and alerts also as SNMP traps. Object reads and writes are not part of this stream.
+traffic:
+  handles:
+    - S3 (HTTPS 9021, often 443 via load balancer)
+    - OpenStack Swift
+    - Atmos
+    - CAS (Centera)
+    - NFSv3 on buckets
+    - Management REST API (HTTPS 4443)
+    - Inter-site geo-replication
+  flow:
+    - step: Request
+      desc: An application sends an S3 request with an access key to the load balancer.
+    - step: Authenticate
+      desc: An ECS node checks the signature against the object user's secret key and the bucket policy.
+    - step: Store
+      desc: The object is written to the storage pool with erasure coding.
+    - step: Replicate
+      desc: The replication group copies the object to the other sites in the background.
+    - step: Manage
+      desc: Admins change namespaces, buckets, users and settings through the portal or API.
+    - step: Log
+      desc: Management actions become audit events and system conditions become alerts, both sent to syslog.
+logs:
+  - type: Audit event (illustrative)
+    sourcetype: dell:ecs:audit
+    format: kv
+    share: 20–40 %
+    desc: "ILLUSTRATIVE, not confirmed against a real ECS event: the layout is a typical syslog header followed by key=value fields. Audit events cover portal and API logins, namespace, bucket and object-user changes, secret key changes and configuration changes."
+    sample: '<14>Nov 15 09:12:44 ecs-node01 ECS-Audit: eventType=Audit category=Bucket action=BucketDelete namespace=backup-ns bucket=veeam-offload-01 user=storage-admin1 role=NAMESPACE_ADMIN srcIP=203.0.113.50 interface=MgmtAPI result=SUCCESS vdc=vdc-site1 description="Bucket veeam-offload-01 deleted"'
+    key:
+      - action
+      - namespace
+      - bucket
+      - user
+      - srcIP
+      - result
+    noise:
+      - eventType
+      - vdc
+  - type: Alert (illustrative)
+    sourcetype: dell:ecs:alert
+    format: kv
+    share: 60–80 %
+    desc: "ILLUSTRATIVE, not confirmed against a real ECS event. Alerts carry a severity and a symptom, such as a failed disk or node, a capacity threshold, replication lag or certificate expiry."
+    sample: '<12>Nov 15 09:20:03 ecs-node02 ECS-Alert: eventType=Alert severity=WARNING category=Capacity symptom="Storage pool usage above threshold" storagePool=sp-site1 vdc=vdc-site1 usedPercent=86 threshold=85 node=ecs-node02 ack=false'
+    key:
+      - severity
+      - category
+      - symptom
+      - storagePool
+      - node
+    noise:
+      - eventType
+      - ack
+cves:
+  - id: CVE-2026-40636
+    cvss: 9.8
+    year: 2026
+    scope: device
+    title: Hard-coded credentials
+    affected: ECS 3.8.1.0 through 3.8.1.7; ObjectScale before 4.3.0.0
+    fixed: ObjectScale 4.3.0.0 (see the Dell advisory for the ECS fix)
+    detect: Logins on the nodes or management plane by accounts no administrator uses, especially from the node network.
+    avoid: Apply Dell's fix; restrict SSH and management access to the management network.
+  - id: CVE-2026-22273
+    cvss: 8.8
+    year: 2026
+    scope: device
+    title: Default credentials in the operating system
+    affected: ECS 3.8.1.0 through 3.8.1.7; ObjectScale before 4.2.0.0
+    fixed: ObjectScale 4.2.0.0 (see the Dell advisory for the ECS fix)
+    detect: Node logins with default or built-in account names; audit logins from unexpected sources.
+    avoid: Apply Dell's fix and change every default credential on the nodes.
+  - id: CVE-2024-51540
+    cvss: 8.1
+    year: 2024
+    scope: device
+    title: Arithmetic overflow in retention period handling
+    affected: ECS before 3.8.1.3
+    fixed: 3.8.1.3
+    detect: Audit events that change bucket or object retention, followed by deletes of objects that should still be retained.
+    avoid: Upgrade; limit which users may change retention or object lock settings.
+  - id: CVE-2026-22274
+    cvss: 6.5
+    year: 2026
+    scope: device
+    title: Cleartext transmission of sensitive information in the fabric syslog
+    affected: ECS 3.8.1.0 through 3.8.1.7; ObjectScale before 4.2.0.0
+    fixed: ObjectScale 4.2.0.0 (see the Dell advisory for the ECS fix)
+    detect: Syslog from the nodes crossing networks in clear text; look at where the syslog collector sits on the network.
+    avoid: Apply the fix; keep syslog on the management network or use an encrypted transport where supported.
+  - id: CVE-2025-43992
+    cvss: 5.6
+    year: 2025
+    scope: device
+    title: Authentication bypass in geo-replication
+    affected: ECS 3.8.1.0 through 3.8.1.7; ObjectScale before 4.3.0.0
+    fixed: ObjectScale 4.3.0.0 (see the Dell advisory for the ECS fix)
+    detect: Replication traffic to or from addresses that are not the other sites.
+    avoid: Apply the fix; allow replication ports only between the replication group's sites.
+  - id: CVE-2019-3766
+    cvss: 9.8
+    year: 2019
+    scope: device
+    title: No limit on authentication attempts (password brute force)
+    affected: ECS before 3.4.0.0
+    fixed: 3.4.0.0
+    detect: Many failed portal or API logins for one account in a short time.
+    avoid: Upgrade; keep the portal and API off the data and user networks.
+detections:
+  - title: Buckets deleted or retention weakened
+    severity: high
+    signals:
+      - audit action BucketDelete
+      - retention or object lock changes
+      - many deletes by one user
+    why: Deleting backup buckets or shortening retention is how ransomware crews remove the recovery copy before they encrypt.
+    kql: |-
+      dataset="dell_ecs_logs" "ECS-Audit"
+      | extract "action=(?<action>\S+)" from _raw
+      | extract "user=(?<user>\S+)" from _raw
+      | extract "bucket=(?<bucket>\S+)" from _raw
+      | where action in ("BucketDelete", "BucketRetentionUpdate", "ObjectLockConfigurationUpdate")
+      | summarize changes=count(), buckets=dcount(bucket) by user, action, bin(_time, 1h)
+    mitre:
+      - T1490
+      - T1485
+  - title: Management login or change from an unexpected source
+    severity: high
+    signals:
+      - audit login or change
+      - srcIP outside the management networks
+    why: Admin access from a new network is the first step of taking over the backup and archive store.
+    kql: |-
+      dataset="dell_ecs_logs" "ECS-Audit"
+      | extract "srcIP=(?<src>\S+)" from _raw
+      | extract "user=(?<user>\S+)" from _raw
+      | where not(ipv4_is_in_range(src, "203.0.113.0/24"))
+      | summarize events=count(), first=min(_time) by user, src
+    mitre:
+      - T1078
+  - title: Object user secret keys created or changed
+    severity: medium
+    signals:
+      - audit category ObjectUser or SecretKey
+      - outside a change window
+    why: A new S3 secret key for an existing object user gives an attacker quiet, long-lived access to that user's buckets.
+    kql: |-
+      dataset="dell_ecs_logs" "ECS-Audit"
+      | extract "category=(?<cat>\S+)" from _raw
+      | extract "action=(?<action>\S+)" from _raw
+      | extract "user=(?<user>\S+)" from _raw
+      | where cat in ("ObjectUser", "SecretKey")
+      | project _time, user, cat, action
+    mitre:
+      - T1098.001
+  - title: Repeated failed management logins
+    severity: medium
+    signals:
+      - audit login with result FAILURE
+      - repeated for one user or source
+    why: Brute force against the portal or API (CVE-2019-3766 removed the old lack of a lockout, but spraying still shows up here).
+    kql: |-
+      dataset="dell_ecs_logs" "ECS-Audit"
+      | extract "action=(?<action>\S+)" from _raw
+      | extract "result=(?<result>\S+)" from _raw
+      | extract "srcIP=(?<src>\S+)" from _raw
+      | where action == "Login" and result == "FAILURE"
+      | summarize fails=count() by src, bin(_time, 10m)
+      | where fails >= 5
+    mitre:
+      - T1110
+optimizations:
+  - title: Collapse repeated alerts
+    saving: 30–60 %
+    fn: Suppress
+    how: A failed disk or a capacity threshold is raised again and again until someone acknowledges it. Keep one alert per symptom, node and storage pool per hour, with a count.
+    expr: "key: `${symptom}:${node}:${storagePool}`  allow 1 / 3600s"
+  - title: Send informational alerts to Lake only
+    saving: 20–40 %
+    fn: Routes
+    how: INFO-level alerts are useful for capacity trends but rarely for security. Keep WARNING and above and all audit events in the SIEM; send the rest to Cribl Lake.
+    expr: "severity == 'INFO' → Lake  |  else → SIEM"
+  - title: Keep audit events whole
+    saving: SIEM licence
+    fn: Routes
+    how: Audit events are low volume and high value for ransomware and insider investigations; never sample or drop them.
+    expr: "/ECS-Audit/.test(_raw) → SIEM (full fidelity)"
+references:
+  - title: Dell ECS product page
+    url: https://www.dell.com/en-us/dt/storage/ecs/index.htm
+  - title: Dell security advisories
+    url: https://www.dell.com/support/security/en-us
+  - title: NVD — CVE-2026-40636 (ECS / ObjectScale hard-coded credentials)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-40636
+  - title: NVD — CVE-2024-51540 (ECS retention period overflow)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-51540
+  - title: NVD — CVE-2026-22274 (ECS fabric syslog cleartext)
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-22274
+related:
+  - dell-powerstore
+  - dell-avamar
