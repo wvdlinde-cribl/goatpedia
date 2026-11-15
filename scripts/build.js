@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import Ajv from 'ajv';
+import { createLogoResolver } from './logos.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK = process.argv.includes('--check');
@@ -79,16 +80,29 @@ for (const rel of ['index.html', 'app.js']) {
   const p = path.join(dist, rel);
   fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replaceAll('__BUILD__', stamp));
 }
-fs.writeFileSync(path.join(dist, 'library.json'), JSON.stringify({ built, categories, entries }));
 // Load only what is needed: index.json carries what browse, search and the two index pages
 // use (a few hundred KB, not the whole library); e/<id>.json holds one full article, fetched
 // when it is opened. library.json stays for readers that still load everything at once.
+// Vendor logos (scripts/logos.mjs): one SVG per logo under dist/logos/, referenced by path.
+const logoOf = createLogoResolver(ROOT);
+fs.mkdirSync(path.join(dist, 'logos'), { recursive: true });
+let logoCount = 0;
+for (const e of entries) {
+  const l = logoOf(e);
+  if (!l) continue;
+  const file = path.join(dist, 'logos', `${l.slug}.svg`);
+  if (!fs.existsSync(file)) fs.writeFileSync(file, l.svg);
+  e.logo = { src: `logos/${l.slug}.svg`, title: l.title };
+  logoCount++;
+}
+console.log(`✓ logos for ${logoCount} of ${entries.length} entries (the rest show their category icon)`);
+fs.writeFileSync(path.join(dist, 'library.json'), JSON.stringify({ built, categories, entries }));
 const searchText = (e) => [...(e.howItWorks || []).map((h) => `${h.title} ${h.body}`), ...(e.detections || []).map((d) => `${d.title} ${d.signals.join(' ')}`)].join(' ');
 const card = (e) => ({
   id: e.id, name: e.name, short: e.short, aka: e.aka, vendor: e.vendor, category: e.category, status: e.status,
   summary: e.summary, tags: e.tags, updated: e.updated, sourcetypes: e.sourcetypes,
   cves: e.cves && e.cves.map(({ id, cvss, kev, title, scope }) => ({ id, cvss, kev, title, scope })),
-  cveIds: e.cveIds, text: searchText(e),
+  cveIds: e.cveIds, logo: e.logo, text: searchText(e),
 });
 fs.writeFileSync(path.join(dist, 'index.json'), JSON.stringify({ built, categories, entries: entries.map(card) }));
 fs.mkdirSync(path.join(dist, 'e'), { recursive: true });

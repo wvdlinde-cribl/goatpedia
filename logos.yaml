@@ -1,0 +1,18 @@
+# Vendor logos for the site's cards and articles (scripts/logos.mjs).
+#
+# By default every entry's logo comes from Simple Icons (CC0, the `simple-icons` package):
+# its vendor name is matched to an icon, or failing that its product name. Use this file
+# where the automatic match is wrong or missing:
+#   vendors:  <vendor as written in entries/*.yaml>: <slug> | null (null = no logo)
+#   entries:  <entry id>: <slug> | null                 (wins over vendors)
+# A slug is a Simple Icons slug, or the name of a file you added as logos/<slug>.svg
+# (a hand-added file always wins). Entries without a logo show their category icon.
+vendors:
+  Prisma: paloaltonetworks        # Palo Alto Prisma Access / Cloud, not the Prisma ORM
+  Palo: paloaltonetworks
+  Traefik: traefikproxy           # not Traefik Mesh
+  Hive: apachehive                # Apache Hive, not the Hive smart-home brand
+  CrowdStrike: null               # Simple Icons "Falcon" is a different project
+  Neon: null                      # Neon Cyber, not the Neon database
+  Checkpoint: null                # Check Point is not in Simple Icons yet
+entries: {}

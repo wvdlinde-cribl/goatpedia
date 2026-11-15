@@ -30,6 +30,13 @@ npm ci
 npm run dev        # → http://localhost:8080
 ```
 
+## Vendor logos
+Cards and articles show the vendor's logo when one is available. Otherwise they show the category icon.
+- **Where they come from:** the [Simple Icons](https://simpleicons.org) set (CC0), matched to the vendor name at build time by [`scripts/logos.mjs`](scripts/logos.mjs). The build copies only the logos that are used to `dist/logos/`, so the site loads them from GitHub Pages and never calls a third party.
+- **Fix a wrong or missing match:** edit [`logos.yaml`](logos.yaml). Map a vendor or an entry id to a Simple Icons slug, or to `null` for no logo.
+- **Add a vendor Simple Icons doesn't have** (for example Microsoft, AWS, CrowdStrike, Zscaler): add its SVG as `logos/<slug>.svg` and map the vendor to that slug in `logos.yaml`.
+- Logos are trademarks of their owners and are shown only to identify the product. See the [Simple Icons disclaimer](https://github.com/simple-icons/simple-icons/blob/develop/DISCLAIMER.md).
+
 ## Request a device
 Something missing? Click **Request a device** in the site's top bar (or **Request this device** when a search finds nothing). Fill in what you know, then **Continue on GitHub** opens the [device request form](https://github.com/wvdlinde-cribl/goatpedia/issues/new?template=device-request.yml) with your answers already in it. Sign in and click *Create*. Your GitHub name shows on the request, and that sign-in also keeps robots out. The site never asks for an email address.
 
