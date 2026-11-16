@@ -333,6 +333,7 @@ references:
   - title: VMware NSX 4.1.2.6 release notes (VMSA-2025-0012)
     url: https://techdocs.broadcom.com/us/en/vmware-cis/nsx/vmware-nsx/4-1/release-notes/vmware-nsx-4126-release-notes.html
 related:
+  - vmware-horizon
   - vmware-esxi
   - pan-ngfw
   - checkpoint

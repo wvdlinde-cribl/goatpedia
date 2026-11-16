@@ -1,0 +1,100 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: dragos
+name: Dragos Platform
+short: Dragos
+vendor: Dragos
+category: ndr
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - Dragos SiteStore
+  - Dragos WorldView
+tags:
+  - ot
+  - ics
+  - cef
+  - syslog
+summary: An operational-technology detection platform. Sensors watch industrial network traffic and the platform raises notifications for indicators, modeling, configuration, and threat behavior. A notification rule can forward the ones you choose to syslog. The usual message is CEF whose header names the vendor Dragos and the product Platform. The vendor's own syslog guide is in the customer portal. The field names below are the ones published by parsers of that CEF.
+sourcetypes:
+  - st: dragos_notification
+    desc: One Dragos notification forwarded as CEF syslog
+facts:
+  Product: OT network detection. Sensors and a platform that notifies on industrial assets
+  Log transport: Syslog from the platform, TCP, UDP, or TLS. A notification rule chooses which notifications are sent, and to which server
+  Log format: A message template. Parsers of the platform expect CEF that starts with the header CEF:0|Dragos|Platform. Key-value and LEEF templates are a different choice and are not what those parsers read
+  What a notification answers: The notification type, the severity, the assets it names, and when the sensor saw it
+placement:
+  slots:
+    - internal
+  items:
+    - slot: internal
+      title: Industrial network
+      desc: Sensors sit on the plant network. The platform sends notifications out. It does not replace the firewall.
+howItWorks:
+  - title: Notifications
+    body: The platform produces notifications and a rule decides which of them are forwarded. Public descriptions of the feed group them as indicator, modeling, configuration, and threat behavior, plus system notices from the platform itself.
+  - title: CEF message
+    body: The published CEF header is vendor Dragos and product Platform. The extension carries the message text, the source and destination of a directional event, the notification type, when it occurred, and an id. Asset inventory is not part of this syslog feed.
+traffic:
+  handles:
+    - Industrial protocol traffic observed by a sensor
+    - Notification syslog
+  flow:
+    - step: Observe
+      desc: A sensor sees traffic between industrial assets.
+    - step: Notify
+      desc: The platform raises a notification and a rule matches it.
+    - step: Forward
+      desc: The rule sends the notification to the syslog server in the chosen template.
+logs:
+  - type: Notification
+    sourcetype: dragos_notification
+    format: cef
+    share: one message per forwarded notification
+    avg: about 1 KB
+    desc: A synthetic CEF notification. The extension names are the ones public parsers map for this product.
+    sample: 'CEF:0|Dragos|Platform|1.5|notification|Indicator match|5|msg=A known indicator matched one asset src=192.0.2.40 dst=198.51.100.20 type=Indicator occurredAt=2026-11-16T08:40:00Z externalId=1001 originalSeverity=5'
+    key:
+      - type
+      - severity
+      - src
+      - dst
+      - msg
+      - occurredAt
+    noise:
+      - device_version
+cves: []
+detections:
+  - title: Indicator notification
+    severity: high
+    signals:
+      - type
+      - src
+      - dst
+      - msg
+    why: An Indicator notification is the platform matching a known bad value to an asset. The two addresses are the assets it named.
+    kql: |
+      dataset="dragos_logs"
+      | where sourcetype == "dragos_notification" and type == "Indicator"
+      | project occurredAt, type, severity, src, dst, msg, externalId
+    mitre:
+      - T0886
+optimizations:
+  - title: Drop system notices
+    saving: the platform's own health notices
+    fn: Drop
+    how: System notifications are the platform talking about itself. Keep Indicator, modeling, and threat behavior.
+    expr: type == 'System'
+references:
+  - title: WitFoo — Dragos Platform CEF syslog
+    url: https://docs.witfoo.com/conductor/syslog/dragos/
+  - title: LogRhythm — Dragos alerts field mapping
+    url: https://docs.logrhythm.com/devices/docs/dragos-alerts
+  - title: Sophos — Dragos Platform syslog collection
+    url: https://docs.sophos.com/fusion/Customer/help/en-us/ManageYourProducts/XDRSecOps/Integrations/Products/Dragos/index.html
+related:
+  - nozomi-networks
+  - claroty-xdome
+  - claroty-ctd

@@ -338,6 +338,7 @@ references:
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 related:
+  - fortinac
   - cisco-asa
   - cisco-secure-firewall
   - cisco-ios

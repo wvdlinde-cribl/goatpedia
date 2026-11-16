@@ -236,3 +236,6 @@ detections:
       | project clusterName, filesetName, osType, effectiveSlaDomainName, totalSnapshots
 optimizations: []
 references: []
+related:
+  - commvault
+  - veeam

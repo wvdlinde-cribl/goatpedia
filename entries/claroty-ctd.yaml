@@ -110,3 +110,7 @@ detections:
       - T0886
 optimizations: []
 references: []
+related:
+  - dragos
+  - claroty-xdome
+  - nozomi-networks

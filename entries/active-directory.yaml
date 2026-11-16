@@ -346,6 +346,7 @@ references:
   - title: Cribl Splunk Forwarder Windows XML Events to JSON pack
     url: https://github.com/criblpacks/cribl-splunk-forwarder-windows-xml-events-to-json
 related:
+  - defender-for-identity
   - win-security
   - entra-id
   - ms-dns-dhcp

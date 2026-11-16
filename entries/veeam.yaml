@@ -91,3 +91,6 @@ optimizations: []
 references:
   - title: Veeam Backup & Replication documentation
     url: https://helpcenter.veeam.com/docs/backup/vsphere/overview.html
+related:
+  - commvault
+  - rubrik

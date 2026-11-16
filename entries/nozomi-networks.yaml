@@ -197,3 +197,7 @@ optimizations:
     how: Sessions and process variables are continuous telemetry, refreshed for every link and tag. Alerts, audit and vulnerabilities are the security subset. Route sessions and variables to cheaper storage and send the rest to the SIEM.
     expr: sourcetype == 'nozomi_networks_session' || sourcetype == 'nozomi_networks_variable'
 references: []
+related:
+  - dragos
+  - claroty-xdome
+  - claroty-ctd

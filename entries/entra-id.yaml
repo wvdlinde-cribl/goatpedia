@@ -336,6 +336,8 @@ references:
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 related:
+  - azure-active-directory
+  - defender-for-identity
   - o365
   - azure-activity
   - active-directory

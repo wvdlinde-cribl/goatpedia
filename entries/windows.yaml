@@ -129,3 +129,6 @@ references:
     url: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging
   - title: Microsoft Defender Antivirus
     url: https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-antivirus-windows
+related:
+  - win-security
+  - system

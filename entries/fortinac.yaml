@@ -1,0 +1,95 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: fortinac
+name: Fortinet FortiNAC
+short: FortiNAC
+vendor: Fortinet
+category: idp
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - FortiNAC-OS
+  - Network Access Control
+tags:
+  - nac
+  - syslog
+  - identity
+summary: Fortinet's network access control appliance. It learns hosts, users, and switch ports, and it decides which hosts may join the network. Events are stored on the appliance. Each event can also be sent to an external receiver as a syslog CSV line or as CEF.
+sourcetypes:
+  - st: fortinac_event
+    desc: One FortiNAC event forwarded as a syslog CSV line
+facts:
+  Product: Network access control. The appliance tracks hosts and users and can restrict a port when a host does not meet policy
+  Log transport: Syslog CSV or syslog CEF to a log receiver, UDP or TCP on port 514 by default. Each event is set to External, or Internal and External. SNMP traps are a third option
+  Log format: The published CSV examples are one line whose body is comma-separated. The event name and the message text sit in that body
+  What an event answers: Which named event fired, and the message that says which user or host it was about
+placement:
+  slots:
+    - internal
+  items:
+    - slot: internal
+      title: Access-control appliance
+      desc: FortiNAC sits beside the switches and wireless controllers whose ports it governs. It is not the firewall.
+howItWorks:
+  - title: Hosts, users, and ports
+    body: The appliance polls the network for hosts and records who logs on to a host, who locks a session, and who signs in to the admin interface. An event is generated only when that event type is enabled, and it can be limited to a chosen group of hosts.
+  - title: External log
+    body: A log receiver is a syslog CSV server, a syslog CEF server, or an SNMP trap receiver. For each event that should leave the appliance, the event is set to log externally. The published CSV examples put the local time, an event number, the event name, and a message in one comma-separated body.
+traffic:
+  handles:
+    - Host and user session events
+    - Admin sign-in to the appliance
+  flow:
+    - step: Observe
+      desc: The appliance learns a host, a user session, or an admin sign-in.
+    - step: Record
+      desc: The matching event is written on the appliance when that event type is enabled.
+    - step: Forward
+      desc: Events marked for an external receiver are sent as syslog CSV or CEF.
+logs:
+  - type: Event
+    sourcetype: fortinac_event
+    format: text
+    share: one line per forwarded event
+    avg: a few hundred bytes
+    desc: A synthetic line in the shape of Fortinet's published CSV example. The event name and the message are the useful fields.
+    pattern: '(?<event_time>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} UTC),(?<marker>\d+),(?<event_id>\d+),(?<event>[^,]+),(?<code>\d+),(?<type_id>\d+),,,,,(?<message>.+)'
+    sample: '2026/11/16 08:40:00 UTC,1,1001,Login Success,0,12,,,,,User ada logged in.'
+    key:
+      - event
+      - event_id
+      - message
+    noise:
+      - marker
+      - code
+cves: []
+detections:
+  - title: Admin interface sign-in
+    severity: medium
+    signals:
+      - event
+      - message
+    why: Login Success is the admin interface accepting a sign-in. The message names the account. A sign-in from a new address is the event to keep.
+    kql: |
+      dataset="fortinac_logs"
+      | where sourcetype == "fortinac_event" and event == "Login Success"
+      | project event_time, event_id, event, message
+    mitre:
+      - T1078
+optimizations:
+  - title: Drop workstation session chatter
+    saving: the host lock, unlock, and logon lines
+    fn: Drop
+    how: Fortinet's examples include a line for every host logon, logoff, lock, and unlock. Those are presence, not an access decision. Keep admin sign-in and events whose name says Failure.
+    expr: event == 'User Logged onto Host' || event == 'User Logged off Host' || event == 'User Locked Session' || event == 'User Unlocked Session'
+references:
+  - title: FortiNAC — Log events to an external log host
+    url: https://docs.fortinet.com/document/fortinac/9.4.0/fortinac-manager/499308/log-events-to-an-external-log-host
+  - title: FortiNAC — Examples of syslog messages
+    url: https://docs.fortinet.com/document/fortinac/9.4.0/administration-guide/338223/examples-of-syslog-messages
+  - title: FortiNAC — Event management
+    url: https://docs.fortinet.com/document/fortinac/9.4.0/administration-guide/249512/event-management
+related:
+  - fortigate
+  - cisco-ise

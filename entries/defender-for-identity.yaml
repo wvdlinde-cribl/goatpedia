@@ -1,0 +1,101 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: defender-for-identity
+name: Microsoft Defender for Identity
+short: Defender ID
+vendor: Microsoft
+category: idp
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - Azure Advanced Threat Protection
+  - Azure ATP
+  - MDI
+tags:
+  - identity
+  - active-directory
+  - json
+summary: Microsoft's sensor for on-premises Active Directory. Installed on a domain controller, it watches Kerberos, NTLM, and LDAP and sends that activity to Defender. The records land in the Defender XDR advanced-hunting tables, of which IdentityLogonEvents is the authentication table. Defender for Endpoint is the device sensor. This one is the domain-controller sensor.
+sourcetypes:
+  - st: mdi_identity_logon
+    desc: One authentication event captured by the Defender for Identity sensor
+facts:
+  Product: Identity detection for on-premises Active Directory. The sensor is installed on the domain controller
+  Log transport: The sensor reports to the Defender service. A SIEM receives the rows through the Defender XDR streaming API or by querying advanced hunting. There is no separate syslog from the sensor
+  Log format: One JSON object per advanced-hunting row. IdentityLogonEvents is the authentication table
+  What a logon row answers: Which account authenticated, with which protocol, to which device, and why it failed when it failed
+placement:
+  slots:
+    - internal
+  items:
+    - slot: internal
+      title: Domain controller
+      desc: The sensor is installed on the domain controller. It reads authentication on that server. It is not an agent on every workstation.
+howItWorks:
+  - title: Sensor
+    body: The sensor on the domain controller records authentication and directory queries. Microsoft's hunting guidance puts Defender for Identity activity into IdentityLogonEvents, IdentityQueryEvents, and IdentityInfo. Logons over Kerberos, NTLM, and LDAP are the authentication rows.
+  - title: IdentityLogonEvents
+    body: Each row names the action, the application, the logon type, the protocol, the account, the source device and address, and the domain controller that handled it. A failure carries a failure reason. The same table also holds some cloud authentication from Defender for Cloud Apps. A row whose application is Active Directory is the on-premises sensor.
+traffic:
+  handles:
+    - Kerberos
+    - NTLM
+    - LDAP
+  flow:
+    - step: Authenticate
+      desc: A domain account attempts a logon and the domain controller handles it.
+    - step: Sense
+      desc: The Defender for Identity sensor records the attempt.
+    - step: Hunt
+      desc: The row appears in IdentityLogonEvents and can be streamed out of Defender XDR.
+logs:
+  - type: Logon
+    sourcetype: mdi_identity_logon
+    format: json
+    share: one row per authentication
+    avg: about 1 KB
+    desc: One IdentityLogonEvents row for a failed Kerberos logon seen by the sensor.
+    sample: '{"Timestamp":"2026-11-16T08:41:00Z","ActionType":"LogonFailed","Application":"Active Directory","Protocol":"Kerberos","FailureReason":"Wrong password","AccountName":"ada","AccountDomain":"example","AccountUpn":"ada@example.com","DeviceName":"pc-01.example.com","IPAddress":"192.0.2.50","DestinationDeviceName":"dc1.example.com","ReportId":"a1b2c3d4"}'
+    key:
+      - ActionType
+      - Protocol
+      - AccountUpn
+      - IPAddress
+      - DestinationDeviceName
+      - FailureReason
+    noise:
+      - ReportId
+cves: []
+detections:
+  - title: Failed Kerberos logon
+    severity: medium
+    signals:
+      - AccountUpn
+      - IPAddress
+      - FailureReason
+      - DestinationDeviceName
+    why: A failed Kerberos logon against a domain controller is a password guess or a stale credential. Many failures for one account, or one address failing many accounts, are the spraying view of this table.
+    kql: |
+      dataset="mdi_logs"
+      | where sourcetype == "mdi_identity_logon" and Application == "Active Directory" and ActionType == "LogonFailed" and Protocol == "Kerberos"
+      | project Timestamp, AccountUpn, IPAddress, DestinationDeviceName, FailureReason
+    mitre:
+      - T1110
+optimizations:
+  - title: Keep failures and unusual protocols
+    saving: the successful logon volume
+    fn: Drop
+    how: Successful logons are the bulk of IdentityLogonEvents. Keep failures. Keep NTLM if you alert on legacy authentication.
+    expr: ActionType == 'LogonSuccess' && Protocol == 'Kerberos'
+references:
+  - title: Microsoft Learn — IdentityLogonEvents table
+    url: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-identitylogonevents-table
+  - title: Microsoft Learn — Defender for Identity monitored activities
+    url: https://learn.microsoft.com/en-us/defender-for-identity/monitored-activities
+  - title: Microsoft Learn — Install the Defender for Identity sensor for advanced hunting
+    url: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-extend-data
+related:
+  - active-directory
+  - mde
+  - entra-id

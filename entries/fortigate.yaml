@@ -385,6 +385,8 @@ references:
   - title: Cribl Pack — Fortinet FortiGate Firewall
     url: https://packs.cribl.io/packs/cribl-fortinet-fortigate-firewall
 related:
+  - fortiedr
+  - fortinac
   - pan-ngfw
   - cisco-asa
   - checkpoint

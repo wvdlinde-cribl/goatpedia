@@ -1,0 +1,97 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: commvault
+name: Commvault
+short: Commvault
+vendor: Commvault
+category: netinfra
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - CommCell
+  - Commvault Cloud
+tags:
+  - backup
+  - audit
+  - syslog
+summary: A backup and recovery platform. The CommServe records every operation in an audit trail, including who signed in, who changed a schedule, and who restored data. That trail can be forwarded to a syslog server or a webhook, together with alerts and events. The audit report's columns are the operation id, the severity, the user, the time, the operation, and the details.
+sourcetypes:
+  - st: commvault_audit
+    desc: One audit-trail operation forwarded by the CommServe
+facts:
+  Product: Backup and restore. The CommServe is the management server for the CommCell
+  Log transport: Syslog, UDP or TLS 1.2, or a webhook. The CommServe forwards on a schedule of about eight minutes, not as each click happens. Alerts, the audit trail, and events are selected separately
+  Log format: One audit message names the operation id, the time, the severity, the user, the operation, and a details string. RFC 5424 framing is a setting on the CommServe
+  What an audit line answers: Who did what in the CommCell, and the object the details string names
+placement:
+  slots:
+    - internal
+  items:
+    - slot: internal
+      title: CommServe
+      desc: The management server records the audit trail. The media agents and clients do the backup. The audit line is about an operation, not about the file bytes.
+howItWorks:
+  - title: Audit trail
+    body: Each user operation in the CommCell becomes a row in the audit trail. The report lists an id, a severity, the user, the time, the operation name, and a free-text details field. A restore, a schedule change, and a sign-in are all operations.
+  - title: Forwarding
+    body: On the CommServe you name a syslog host and port, choose UDP or TLS, and tick the audit trail. Messages leave in batches. The details field is where the client, the agent, and the database or file are named.
+traffic:
+  handles:
+    - Backup and restore jobs
+    - CommCell administration
+  flow:
+    - step: Operate
+      desc: A user signs in, changes a job, or starts a restore.
+    - step: Record
+      desc: The CommServe writes the operation to the audit trail.
+    - step: Forward
+      desc: The next syslog cycle sends the new audit rows to the receiver.
+logs:
+  - type: Audit
+    sourcetype: commvault_audit
+    format: text
+    share: one line per operation
+    avg: a few hundred bytes, longer when the details describe a restore
+    desc: One audit line. The names are the audit report columns, written as a single labelled message.
+    pattern: 'Opid = \{(?<opid>[^}]+)\} Audittime = \{(?<audittime>[^}]+)\} Severitylevel = \{(?<severity>[^}]+)\} Username = \{(?<username>[^}]+)\} Operation = \{(?<operation>[^}]+)\} Details = \{(?<details>[^}]+)\}'
+    sample: 'AuditTrail: Opid = {1001} Audittime = {16 Nov 2026 08:43:00} Severitylevel = {Medium} Username = {ada} Operation = {Restore Contents} Details = {Client example-sql01, database appdb}'
+    key:
+      - username
+      - operation
+      - severity
+      - details
+      - audittime
+    noise:
+      - opid
+cves: []
+detections:
+  - title: Restore started
+    severity: high
+    signals:
+      - username
+      - operation
+      - details
+    why: A restore puts backup data back onto a client. The details name the client and the database. An unexpected restore is the backup-plane equivalent of data access.
+    kql: |
+      dataset="commvault_logs"
+      | where sourcetype == "commvault_audit" and operation == "Restore Contents"
+      | project audittime, username, severity, operation, details
+    mitre:
+      - T1078
+optimizations:
+  - title: Drop sign-in and sign-out
+    saving: the session lines
+    fn: Drop
+    how: User Logged in and User Logged out repeat for every console session. Keep restores, failed logins, and account locks.
+    expr: operation == 'User Logged in' || operation == 'User Logged out'
+references:
+  - title: Commvault — Configuring a syslog server
+    url: https://documentation.commvault.com/2024e/software/configuring_syslog_server.html
+  - title: Commvault — Audit trail report columns
+    url: https://documentation.commvault.com/2024e/commcell-console/default_data_views_for_audit_trail_report.html
+  - title: Commvault — Sending alerts, audit trails, and events to a SIEM
+    url: https://documentation.commvault.com/2024e/commcell-console/sending_alerts_audit_trails_events_and_logs_to_third_party_systems.html
+related:
+  - veeam
+  - rubrik

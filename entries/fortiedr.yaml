@@ -1,0 +1,101 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: fortiedr
+name: Fortinet FortiEDR
+short: FortiEDR
+vendor: Fortinet
+category: edr
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - enSilo
+  - FortiEDR/XDR
+tags:
+  - edr
+  - endpoint
+  - cef
+  - syslog
+summary: Fortinet's endpoint detection and response product. A collector on each protected device watches processes and sends what it sees to the Central Manager, which grades the activity and can block it. The manager is the only place syslog comes from. It sends a message for every raw item, as semicolon-separated text, CEF, or LEEF, and items that belong to one security event share an event id.
+sourcetypes:
+  - st: fortiedr_security
+    desc: One raw security item from a protected device, graded and either logged or blocked
+facts:
+  Product: Endpoint detection and response. Collectors sit on the devices. The Central Manager grades events and can block them
+  Log transport: Syslog from the Central Manager, TCP or UDP, with TLS optional on TCP. A playbook policy has to allow the syslog notification for the collector group
+  Log format: Semicolon-separated text, FortiAnalyzer, CEF, or LEEF. The message type is a security event, a system event, or an audit record
+  What a security event answers: Which device and process, what it tried to reach, how the manager graded it, and whether the action was logged or blocked
+placement:
+  slots:
+    - endpoint
+  items:
+    - slot: endpoint
+      title: Protected device
+      desc: The collector runs on the workstation or server. It reports to the Central Manager, which is the host that emits syslog.
+howItWorks:
+  - title: Collector and manager
+    body: The collector on the device records the process that triggered the event, including its path, hash, and whether it is signed. The Central Manager assigns an event id and a raw-data id. Variants of the same activity share the event id, so a collector can group them back into one security event.
+  - title: Grade and action
+    body: Each item is graded Malicious, Suspicious, PUP, Inconclusive, Likely Safe, or Safe. The action on that item is either logged or blocked. The first-seen and last-seen times come from the collector's clock.
+traffic:
+  handles:
+    - Process activity on the protected device
+    - Syslog from the Central Manager
+  flow:
+    - step: Collect
+      desc: The collector on the device observes the process and the destination it touched.
+    - step: Grade
+      desc: The Central Manager assigns the event id, the grade, and whether to log or block.
+    - step: Forward
+      desc: The manager sends one syslog message per raw item to the configured receiver.
+logs:
+  - type: Security event
+    sourcetype: fortiedr_security
+    format: cef
+    share: the security stream
+    avg: a few KB
+    desc: One raw security item. The CEF extension names match Fortinet's security-event column for the CEF format.
+    sample: 'CEF:0|Fortinet|FortiEDR|7.2|security|Security event|5|cs1=example-org cs1Label=Organization eventid=1001 cs6=9001 cs6Label=RawDataId Shost=win11-01 fname=powershell.exe act=blocked Classification=Malicious src=192.0.2.20 dst=203.0.113.10 suser=ada'
+    key:
+      - Shost
+      - fname
+      - act
+      - Classification
+      - src
+      - dst
+      - eventid
+    noise:
+      - cs1Label
+      - cs6Label
+cves: []
+detections:
+  - title: Process blocked as malicious
+    severity: high
+    signals:
+      - Shost
+      - fname
+      - Classification
+      - dst
+    why: A blocked malicious item is the collector stopping a process. The device, the process name, and the destination are the fields to keep with the alert.
+    kql: |
+      dataset="fortiedr_logs"
+      | where sourcetype == "fortiedr_security" and act == "blocked" and Classification == "Malicious"
+      | project eventid, Shost, fname, src, dst, suser
+    mitre:
+      - T1204
+optimizations:
+  - title: Drop safe grades
+    saving: the safe and likely-safe items
+    fn: Drop
+    how: Safe and Likely Safe grades are the collector deciding the process is ordinary. Keep Malicious, Suspicious, PUP, and Inconclusive.
+    expr: Classification == 'Safe' || Classification == 'Likely Safe'
+references:
+  - title: FortiEDR — Syslog
+    url: https://docs.fortinet.com/document/fortiedr/7.2.5/administration-guide/109591/syslog
+  - title: FortiEDR syslog message reference — security event fields
+    url: https://docs.fortinet.com/document/fortiedr/7.2.3/syslog-message-reference/707512/security-event
+  - title: FortiEDR syslog message reference — message types and layout
+    url: https://docs.fortinet.com/document/fortiedr/7.2.3/syslog-message-reference/999316/syslog-information
+related:
+  - fortigate
+  - fortinet-forticlient

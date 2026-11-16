@@ -83,3 +83,5 @@ detections:
       - T1078
 optimizations: []
 references: []
+related:
+  - beyondtrust-identity-security-insights

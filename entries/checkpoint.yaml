@@ -327,6 +327,7 @@ references:
   - title: Cribl Packs Dispensary — CheckPoint (cribl-checkpoint)
     url: https://packs.cribl.io/packs/cribl-checkpoint
 related:
+  - checkpoint-quantum-firewall
   - pan-ngfw
   - fortigate
   - cisco-asa
