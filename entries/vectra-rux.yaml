@@ -153,6 +153,16 @@ optimizations:
     fn: Drop
     how: Health is a repeated snapshot of CPU, memory, disk and every sensor. It is most of the operational volume and it is not a detection. Keep detections, lockdown and audit. Drop the health stream before the SIEM.
     expr: "sourcetype == 'vectra_rux_health'"
+    stream:
+      log: Platform health
+      functions:
+        - id: drop
+          filter: typeof memory === 'object' && typeof cpu === 'object' && typeof sensors !== 'undefined'
+          description: Drop Vectra platform health snapshots (CPU, memory, disk, sensors) before the SIEM; detections, lockdown and audit pass
+          conf: {}
+      expect:
+        out: 0
+        smaller: true
 references:
   - title: Vectra Respond UX API
     url: https://docs.vectra.ai/configuration/access/api-rux

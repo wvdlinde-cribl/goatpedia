@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop endpoint telemetry",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f3fcca2c363f2f68",
+    "in": {
+      "events": 1,
+      "bytes": 943
+    },
+    "out": {
+      "events": 0,
+      "bytes": 0
+    },
+    "ok": true
+  }
+}

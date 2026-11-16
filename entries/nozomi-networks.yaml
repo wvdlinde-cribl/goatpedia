@@ -196,6 +196,21 @@ optimizations:
     fn: Routes
     how: Sessions and process variables are continuous telemetry, refreshed for every link and tag. Alerts, audit and vulnerabilities are the security subset. Route sessions and variables to cheaper storage and send the rest to the SIEM.
     expr: sourcetype == 'nozomi_networks_session' || sourcetype == 'nozomi_networks_variable'
+    stream:
+      routes:
+        - name: Nozomi sessions → cheap storage
+          filter: /"transport_protocol":/.test(_raw) && /"transferred\.bytes":/.test(_raw)
+          to: Cribl Lake or other low-cost storage
+          final: true
+        - name: Nozomi process variables → cheap storage
+          filter: /"var_key":/.test(_raw) && /"flow_status":/.test(_raw)
+          to: Cribl Lake or other low-cost storage
+          final: true
+        - name: Nozomi alerts, audit, vulnerabilities and other records → SIEM
+          filter: 'true'
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match keys that only session records (transport_protocol, transferred.bytes) or process variable records (var_key, flow_status) carry. If your source sets sourcetype, you can use sourcetype == 'nozomi_networks_session' || sourcetype == 'nozomi_networks_variable' instead. Put the two telemetry routes before the SIEM route.
 references: []
 related:
   - dragos

@@ -84,6 +84,17 @@ optimizations:
     fn: Routes
     how: Previews and downloads of ordinary content make up much of a busy enterprise's events. Sharing, collaboration, admin and login events carry the security questions. Send those to the SIEM in full and send routine previews to cheaper storage.
     expr: "event_type == 'PREVIEW'"
+    stream:
+      routes:
+        - name: Box routine previews and downloads → cheaper storage
+          filter: /"event_type":"(PREVIEW|DOWNLOAD)"/.test(_raw)
+          to: Cribl Lake or other low-cost storage; replay on demand
+          final: true
+        - name: Box sharing, collaboration, admin and login events → SIEM
+          filter: /"event_type":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match event_type inside the JSON text. Put the preview route first so everything else, including sharing, collaboration, admin and login events, reaches the SIEM in full.
 references:
   - title: Box API list events
     url: https://developer.box.com/reference/get-events/

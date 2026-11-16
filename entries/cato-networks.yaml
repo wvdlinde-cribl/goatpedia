@@ -126,4 +126,15 @@ optimizations:
     fn: Routes
     how: Allowed traffic makes up most security events. Send Block and Prompt decisions to the SIEM in full and send allowed events to cheaper storage or aggregate them per user and application.
     expr: "action == 'Allow'"
+    stream:
+      routes:
+        - name: Cato blocks and prompts → SIEM
+          filter: /"action":"(Block|Prompt)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Cato allowed events → Lake / aggregated
+          filter: /"action":"Allow"/.test(_raw)
+          to: Cribl Lake or cheaper storage, optionally through an aggregation pipeline per user and application
+          final: true
+      note: Routes see the raw event, so they match the action key inside the JSON text. Put the Block/Prompt route first so security decisions always reach the SIEM.
 references: []

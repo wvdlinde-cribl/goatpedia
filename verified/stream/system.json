@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop privileged object operations by built-in service accounts",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "295346e577a7203b",
+    "in": {
+      "events": 2,
+      "bytes": 2208
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1117
+    },
+    "ok": true
+  }
+}

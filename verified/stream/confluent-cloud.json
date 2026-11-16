@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop envelope constants",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "47c85afd79d43a00",
+    "in": {
+      "events": 1,
+      "bytes": 766
+    },
+    "out": {
+      "events": 1,
+      "bytes": 603
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated successful authentications",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "581223ae2cfbcfa3",
+    "in": {
+      "events": 4,
+      "bytes": 2968
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1500
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate allowed authorization checks",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3669b16a1bd16b26",
+    "in": {
+      "events": 4,
+      "bytes": 4468
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1433
+    },
+    "ok": true
+  }
+}

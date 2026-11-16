@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Drop repeated entity copies of the actor",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3ef9d7070f769937",
+    "in": {
+      "events": 1,
+      "bytes": 666
+    },
+    "out": {
+      "events": 1,
+      "bytes": 512
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate file views and channel joins",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cec42cb1d394d731",
+    "in": {
+      "events": 4,
+      "bytes": 2404
+    },
+    "out": {
+      "events": 2,
+      "bytes": 853
+    },
+    "ok": true
+  }
+}

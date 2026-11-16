@@ -165,6 +165,16 @@ optimizations:
     fn: Drop
     how: Telemetry is one object per process observation and it is the bulk of what an agent emits. Alerts, unsuccessful console audit, and detections that quarantined something are the security-relevant subset. Drop the telemetry stream before the SIEM and keep it in cheaper storage if you still want the process detail.
     expr: "sourcetype == 'trend_micro_vision_one_telemetry'"
+    stream:
+      log: Endpoint telemetry
+      functions:
+        - id: drop
+          filter: eventHashId !== undefined && logReceivedTime !== undefined && objectHashId !== undefined
+          description: Drop Vision One endpoint telemetry before the SIEM; keep it in cheaper storage through a separate route if the process detail is needed
+          conf: {}
+      expect:
+        out: 0
+        smaller: true
 references:
   - title: Trend Vision One documentation
     url: https://docs.trendmicro.com/en-us/documentation/trend-vision-one/

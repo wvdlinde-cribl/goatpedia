@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Sample hardware inventory",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1dd32523c9eb511c",
+    "in": {
+      "events": 1,
+      "bytes": 1170
+    },
+    "out": {
+      "events": 0,
+      "bytes": 0
+    },
+    "ok": true
+  }
+}

@@ -327,26 +327,130 @@ optimizations:
     fn: Drop / Sampling
     how: MailItemsAccessed (sync and bind) and FileAccessed from sync clients are the largest record types. Keep them in Cribl Lake for investigations, send only a sample or none to the SIEM.
     expr: Operation=='MailItemsAccessed' || (Operation=='FileAccessed' && UserAgent.includes('OneDrive'))
+    stream:
+      log: Unified Audit Log (SharePoint / OneDrive)
+      functions:
+        - id: drop
+          filter: Operation == 'MailItemsAccessed' || (Operation == 'FileAccessed' && String(UserAgent || '').indexOf('OneDrive') >= 0)
+          description: Drop MailItemsAccessed and sync-client FileAccessed records before the SIEM; keep the full copy in Cribl Lake
+          conf: {}
+      test:
+        - '{"CreationTime":"2026-11-12T09:31:05","Id":"b7c9d1e3-2f4a-4b6c-8d0e-ffeeddccbbab","Operation":"FileAccessed","OrganizationId":"00000000-1111-2222-3333-444444444444","RecordType":6,"UserKey":"i:0h.f|membership|10032001a2b3c4d5@live.com","UserType":0,"Version":1,"Workload":"OneDrive","ClientIP":"198.51.100.23","ObjectId":"https://example-my.sharepoint.com/personal/jdoe_example_com/Documents/Finance/payroll-2026.xlsx","UserId":"jdoe@example.com","EventSource":"SharePoint","ItemType":"File","ListId":"5e6f7a8b-1234-4cde-9f01-23456789abcd","ListItemUniqueId":"9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d","Site":"3c4d5e6f-7a8b-4c9d-0e1f-a2b3c4d5e6f7","UserAgent":"Microsoft SkyDriveSync 24.201.1006.0005 ship; Windows NT 10.0 (OneDrive)","WebId":"7f8e9d0c-1b2a-4c3d-8e5f-6a7b8c9d0e1f","SourceFileExtension":"xlsx","SiteUrl":"https://example-my.sharepoint.com/personal/jdoe_example_com/","SourceFileName":"payroll-2026.xlsx","SourceRelativeUrl":"Documents/Finance"}'
+      expect:
+        out: 1
   - title: Remove constant tenant fields
     saving: 10–20 %
     fn: Eval
     how: OrganizationId, OrganizationName, OriginatingServer, Version and UserKey repeat on every record and add nothing to detection.
     expr: "remove: OrganizationId, OrganizationName, OriginatingServer, Version, UserKey"
+    stream:
+      log: Unified Audit Log (Exchange)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant tenant fields
+          conf:
+            remove:
+              - OrganizationId
+              - OrganizationName
+              - OriginatingServer
+              - Version
+              - UserKey
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - OrganizationId
+          - OrganizationName
+          - OriginatingServer
+          - Version
+          - UserKey
+        smaller: true
   - title: De-duplicate overlapping content blobs
     saving: 1–10 %
     fn: Suppress
     how: Polling overlapping windows or restarting a collector re-delivers records. Suppress on the record Id for a few hours.
     expr: "key: Id  allow 1 / 6h"
+    stream:
+      log: Unified Audit Log (Exchange)
+      functions:
+        - id: suppress
+          filter: Id
+          description: Drop re-delivered records with the same Id within 6 hours
+          conf:
+            keyExpr: Id
+            allow: 1
+            suppressPeriodSec: 21600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"CreationTime":"2026-11-12T09:14:22","Id":"6f2e1c4a-8b3d-4e1f-9a2c-1d5e7f9b0a11","Operation":"New-InboxRule","OrganizationId":"00000000-1111-2222-3333-444444444444","RecordType":1,"ResultStatus":"True","UserKey":"10032001A2B3C4D5","UserType":0,"Version":1,"Workload":"Exchange","ClientIP":"198.51.100.23:51544","ObjectId":"jdoe@example.com\\RSS Feeds","UserId":"jdoe@example.com","AppId":"","ClientAppId":"","ExternalAccess":false,"OrganizationName":"example.onmicrosoft.com","OriginatingServer":"AM0PR01MB1234 (15.20.8000.000)","Parameters":[{"Name":"Name","Value":"."},{"Name":"From","Value":"payroll@example.com"},{"Name":"MoveToFolder","Value":"RSS Feeds"},{"Name":"MarkAsRead","Value":"True"},{"Name":"StopProcessingRules","Value":"True"}],"SessionId":"a1b2c3d4-0000-4e5f-8a9b-112233445566"}'
+        - '{"CreationTime":"2026-11-12T09:14:22","Id":"6f2e1c4a-8b3d-4e1f-9a2c-1d5e7f9b0a11","Operation":"New-InboxRule","OrganizationId":"00000000-1111-2222-3333-444444444444","RecordType":1,"ResultStatus":"True","UserKey":"10032001A2B3C4D5","UserType":0,"Version":1,"Workload":"Exchange","ClientIP":"198.51.100.23:51544","ObjectId":"jdoe@example.com\\RSS Feeds","UserId":"jdoe@example.com","AppId":"","ClientAppId":"","ExternalAccess":false,"OrganizationName":"example.onmicrosoft.com","OriginatingServer":"AM0PR01MB1234 (15.20.8000.000)","Parameters":[{"Name":"Name","Value":"."},{"Name":"From","Value":"payroll@example.com"},{"Name":"MoveToFolder","Value":"RSS Feeds"},{"Name":"MarkAsRead","Value":"True"},{"Name":"StopProcessingRules","Value":"True"}],"SessionId":"a1b2c3d4-0000-4e5f-8a9b-112233445566"}'
+      expect:
+        out: 1
   - title: Flatten Parameters arrays
     saving: 5–10 %
     fn: Eval / Code
     how: Turn the Exchange Parameters Name/Value array into top-level fields (param_ForwardTo, param_MoveToFolder) so detections and SIEM parsers can index them directly, then drop the array.
     expr: Parameters && Workload=='Exchange'
+    stream:
+      log: Unified Audit Log (Exchange)
+      functions:
+        - id: eval
+          filter: Workload == 'Exchange' && Parameters != null
+          description: Copy the Parameters Name/Value pairs to top-level param_<Name> fields, then remove the array
+          conf:
+            add:
+              - name: param_Name
+                value: (_raw.match(/\x22Name\x22:\x22Name\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_From
+                value: (_raw.match(/\x22Name\x22:\x22From\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_MoveToFolder
+                value: (_raw.match(/\x22Name\x22:\x22MoveToFolder\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_ForwardTo
+                value: (_raw.match(/\x22Name\x22:\x22ForwardTo\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_ForwardAsAttachmentTo
+                value: (_raw.match(/\x22Name\x22:\x22ForwardAsAttachmentTo\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_RedirectTo
+                value: (_raw.match(/\x22Name\x22:\x22RedirectTo\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_DeleteMessage
+                value: (_raw.match(/\x22Name\x22:\x22DeleteMessage\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_MarkAsRead
+                value: (_raw.match(/\x22Name\x22:\x22MarkAsRead\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+              - name: param_StopProcessingRules
+                value: (_raw.match(/\x22Name\x22:\x22StopProcessingRules\x22,\x22Value\x22:\x22([^\x22]*)\x22/) || [])[1]
+            remove:
+              - Parameters
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - Parameters
+        present:
+          - param_MoveToFolder
+          - param_From
   - title: Route by workload
     saving: SIEM licence
     fn: Routes
     how: AzureActiveDirectory, Exchange admin and SecurityComplianceCenter records → SIEM at full fidelity. High-volume SharePoint/OneDrive access records → Lake, with only sharing and download operations to the SIEM.
     expr: Workload in ('AzureActiveDirectory','SecurityComplianceCenter') || Operation.startsWith('New-') || Operation.startsWith('Set-')
+    stream:
+      routes:
+        - name: M365 AAD, Compliance and Exchange admin → SIEM
+          filter: /"Workload":"(AzureActiveDirectory|SecurityComplianceCenter)"/.test(_raw) || /"Operation":"(New|Set)-/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: SharePoint/OneDrive sharing and downloads → SIEM + Lake
+          filter: /"Workload":"(SharePoint|OneDrive)"/.test(_raw) && /"Operation":"(FileDownloaded|Sharing[A-Za-z]*|AnonymousLink[A-Za-z]*|SecureLink[A-Za-z]*|AddedToSecureLink)"/.test(_raw)
+          to: The SIEM, plus Cribl Lake
+          final: true
+        - name: Other M365 records → Lake
+          filter: /"Workload":"/.test(_raw)
+          to: Cribl Lake only; replay on demand
+          final: true
+      note: Routes see the raw JSON, so they match the Workload and Operation keys in _raw. Keep this order.
 references:
   - title: Office 365 Management Activity API schema
     url: https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema

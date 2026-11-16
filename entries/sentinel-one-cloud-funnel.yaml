@@ -97,4 +97,15 @@ optimizations:
     fn: Routes
     how: Cloud Funnel exports every process action, which is far more than a SIEM needs for alerting. Route events from processes with non-zero indicator counters to the SIEM in full and send the rest to low-cost storage for hunting.
     expr: src.process.indicatorRansomwareCount > 0 || src.process.indicatorInjectionCount > 0 || src.process.indicatorReconnaissanceCount > 0
+    stream:
+      routes:
+        - name: Cloud Funnel events with indicators → SIEM
+          filter: /"src\.process\.indicator(Ransomware|Injection|Reconnaissance)Count":[1-9]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Cloud Funnel other telemetry → low-cost storage
+          filter: /"event\.category":"/.test(_raw)
+          to: Cribl Lake or object storage for hunting; replay on demand
+          final: true
+      note: Routes see the raw event, so they match non-zero indicator counters inside the JSON text. Put the SIEM route first.
 references: []

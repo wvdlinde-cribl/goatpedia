@@ -93,6 +93,18 @@ optimizations:
     fn: Drop
     how: Cached static assets make up a large share of requests and say little about security. Keep misses, dynamic requests and anything the firewall acted on.
     expr: CacheCacheStatus == 'hit' && EdgePathingSrc != 'filter_based_firewall'
+    stream:
+      log: HTTP requests
+      functions:
+        - id: drop
+          filter: CacheCacheStatus == 'hit' && EdgePathingSrc != 'filter_based_firewall'
+          description: Drop cache hits for static content unless the firewall acted on the request
+          conf: {}
+      test:
+        - '{"BotScore":20,"BotScoreSrc":"Verified Bot","CacheCacheStatus":"hit","CacheResponseBytes":0,"CacheResponseStatus":0,"CacheTieredFill":false,"ClientASN":15169,"ClientCountry":"us","ClientDeviceType":"desktop","ClientIP":"192.0.2.10","ClientIPClass":"noRecord","ClientRequestBytes":2577,"ClientRequestHost":"example.com","ClientRequestMethod":"GET","ClientRequestPath":"/static/app.js","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://example.com/","ClientRequestURI":"/static/app.js","ClientRequestUserAgent":"Mozilla/5.0","ClientSSLCipher":"ECDHE-ECDSA-AES128-GCM-SHA256","ClientSSLProtocol":"TLSv1.2","ClientSrcPort":55028,"EdgeColoID":14,"EdgeEndTimestamp":"2019-08-02T15:29:08Z","EdgePathingOp":"wl","EdgePathingSrc":"macro","EdgePathingStatus":"nr","EdgeRateLimitAction":"","EdgeRateLimitID":0,"EdgeRequestHost":""}'
+        - '{"BotScore":20,"BotScoreSrc":"Verified Bot","CacheCacheStatus":"hit","CacheResponseBytes":0,"CacheResponseStatus":0,"CacheTieredFill":false,"ClientASN":15169,"ClientCountry":"us","ClientDeviceType":"desktop","ClientIP":"192.0.2.11","ClientIPClass":"noRecord","ClientRequestBytes":2577,"ClientRequestHost":"example.com","ClientRequestMethod":"GET","ClientRequestPath":"/static/app.js","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://example.com/","ClientRequestURI":"/static/app.js","ClientRequestUserAgent":"Mozilla/5.0","ClientSSLCipher":"ECDHE-ECDSA-AES128-GCM-SHA256","ClientSSLProtocol":"TLSv1.2","ClientSrcPort":55028,"EdgeColoID":14,"EdgeEndTimestamp":"2019-08-02T15:29:08Z","EdgePathingOp":"ban","EdgePathingSrc":"filter_based_firewall","EdgePathingStatus":"captchaNew","EdgeRateLimitAction":"","EdgeRateLimitID":0,"EdgeRequestHost":""}'
+      expect:
+        out: 2
 references:
   - title: Cloudflare Logpull
     url: https://developers.cloudflare.com/logs/logpull/

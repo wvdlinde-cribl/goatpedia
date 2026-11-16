@@ -99,6 +99,18 @@ optimizations:
     fn: Drop
     how: Devices and groups are a snapshot of the system tree, repeated on each poll, and a large tenant has far more of those rows than threat events. Keep the event stream in full. Sample or drop the device and group snapshots before the SIEM.
     expr: "sourcetype == 'trellix_epo_cloud_device' || sourcetype == 'trellix_epo_cloud_group'"
+    stream:
+      log: Managed device
+      functions:
+        - id: drop
+          filter: type == 'devices' || type == 'groups'
+          description: Drop device and system tree group snapshots before the SIEM; threat events pass in full
+          conf: {}
+      test:
+        - '{"id":"314623","type":"MVEvents","links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623"},"attributes":{"name":"localhost","parentId":854691,"agentGuid":"3AF594B1-13D2-ED11-87C6-000000800B73","lastUpdate":"2023-04-07T08:38:35.517+00:00","agentState":0,"nodePath":null,"agentPlatform":"LINUX","agentVersion":"192.0.2.10","nodeCreatedDate":"2023-03-29T12:06:05.877+00:00","managed":"1","tenantId":61399,"tags":"Deployment 2, Deployment, Server","excludedTags":"","managedState":1,"computerName":"localhost","domainName":"(none)","ipAddress":"192.0.2.20","osType":"Linux","osVersion":"3.10","osBuildNumber":0,"cpuType":"Intel(R) Xeon(R) CPU E5-2620 v2 @ 2.10GHz","cpuSpeed":2100,"numOfCpu":4,"totalPhysicalMemory":12409634816,"macAddress":"00005E005300","userName":"N/A","osPlatform":"Server","ipHostName":"localhost","subnetAddress":"","isPortable":"non-portable"},"relationships":{"installedProducts":{"links":{"self":"https://api.manage.trellix.com/epo/v2/devices/314623/relationships/installedProducts","related":"https://api.manage.trellix.com/epo/v2/devices/314623/installedProducts"}}}}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Trellix documentation
     url: https://docs.trellix.com/

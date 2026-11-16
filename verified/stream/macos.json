@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop Info and Debug messages",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cea5aff685d6cee1",
+    "in": {
+      "events": 3,
+      "bytes": 2821
+    },
+    "out": {
+      "events": 1,
+      "bytes": 942
+    },
+    "ok": true
+  }
+}

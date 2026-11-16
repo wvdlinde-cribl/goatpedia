@@ -113,6 +113,17 @@ optimizations:
     fn: Drop
     how: The elasticsearch.query loggers at DEBUG record every request Kibana sends to the cluster, mostly task-manager housekeeping. Keep warnings, errors and the audit log.
     expr: log.level == 'DEBUG'
+    stream:
+      log: Server log
+      functions:
+        - id: drop
+          filter: (log || {}).level == 'DEBUG' && /^elasticsearch\.query/.test((log || {}).logger || '')
+          description: Drop DEBUG lines from the elasticsearch.query loggers; warnings, errors and the audit log stay
+          conf: {}
+      test:
+        - '{"http":{"request":{"id":"unknownId","method":"POST"},"response":{"status_code":500}},"url":{"path":"/_bulk"},"service":{"node":{"roles":["background_tasks","ui"]}},"ecs":{"version":"8.4.0"},"@timestamp":"2022-09-09T13:26:12.639+00:00","message":"500 - request failed","log":{"level":"ERROR","logger":"elasticsearch.query.data"},"process":{"pid":6},"trace":{"id":"367daf7c4cd706043f301712e2fcc505"},"transaction":{"id":"a1d046c765ff35a9"}}'
+      expect:
+        out: 1
 references:
   - title: Kibana audit logging
     url: https://www.elastic.co/guide/en/kibana/current/xpack-security-audit-logging.html

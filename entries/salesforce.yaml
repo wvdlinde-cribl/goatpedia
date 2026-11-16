@@ -436,21 +436,92 @@ optimizations:
     fn: Parser → Serialize
     how: Parse the CSV and drop DB_BLOCKS, DB_CPU_TIME, DB_TOTAL_TIME, CPU_TIME, RUN_TIME, the 15-char USER_ID (keep USER_ID_DERIVED), ORGANIZATION_ID (one value per org) and empty columns, then serialise as JSON.
     expr: "remove: DB_*, CPU_TIME, RUN_TIME, USER_ID, ORGANIZATION_ID, URI_ID_DERIVED; drop empty"
+    stream:
+      log: REST API (EventLogFile RestApi)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove performance-only, duplicate and per-org constant columns
+          conf:
+            remove:
+              - DB_BLOCKS
+              - DB_CPU_TIME
+              - DB_TOTAL_TIME
+              - CPU_TIME
+              - RUN_TIME
+              - USER_ID
+              - ORGANIZATION_ID
+              - URI_ID_DERIVED
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - DB_BLOCKS
+          - DB_CPU_TIME
+          - DB_TOTAL_TIME
+          - CPU_TIME
+          - RUN_TIME
+          - USER_ID
+          - ORGANIZATION_ID
+        present:
+          - USER_ID_DERIVED
+        smaller: true
   - title: Route performance event types away from the SIEM
     saving: 30–60 %
     fn: Routes
     how: ApexExecution, ApexTrigger, URI, LightningPageView and UI telemetry event types are performance data. Send them to Cribl Lake / an observability tool; keep RestApi, API, BulkApi*, Login, LoginAs, Report*, PermissionUpdate and ApexCallout in the SIEM.
     expr: EVENT_TYPE in ('ApexExecution','ApexTrigger','URI','LightningPageView','LightningPerformance') → Lake
+    stream:
+      routes:
+        - name: Salesforce performance event types → Lake
+          filter: /^"(ApexExecution|ApexTrigger|URI|LightningPageView|LightningPerformance)",|"EVENT_TYPE":"(ApexExecution|ApexTrigger|URI|LightningPageView|LightningPerformance)"/.test(_raw)
+          to: Cribl Lake / observability tool
+          final: true
+        - name: Salesforce security event types → SIEM
+          filter: /^"[A-Za-z]+",|"EVENT_TYPE":"|"attributes":\{"type":"|"LoginHistoryId"/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event, so they match the quoted first CSV column or the EVENT_TYPE JSON key. Put the performance route first.
   - title: Aggregate small, repetitive integration calls
     saving: 10–25 %
     fn: Aggregations
     how: Integration users poll the same endpoint thousands of times a day with ROWS_PROCESSED 0–1. Roll up calls, rows and errors per user/app/URI per 5 minutes; keep raw rows where ROWS_PROCESSED > 1000.
     expr: EVENT_TYPE=='RestApi' && Number(ROWS_PROCESSED) < 1000
+    stream:
+      log: REST API (EventLogFile RestApi)
+      functions:
+        - id: aggregation
+          filter: EVENT_TYPE == 'RestApi' && Number(ROWS_PROCESSED) < 1000
+          description: Roll up small integration calls per user, app and URI every 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(calls)
+              - sum(ROWS_PROCESSED).as(rows)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - USER_ID_DERIVED
+              - CONNECTED_APP_ID
+              - URI
+      test:
+        - '"RestApi","20261112081422.517","4nWgxWbDKWWDIk0FKfF5DV","00D5j000000AbCd","0055j000004XyZq","1840","212","/services/data/v64.0/query","Qw8Ep2RtYu6IoP1a","Lk3Jh5Gf7Ds9Az2X","Standard","S","1503","GET","application/json;charset=UTF-8","200","python-requests/2.32.3","1","14","38211","9","","1843210","Account","0H45j000000Kr0A","","2026-11-12T08:14:22.517Z","0055j000004XyZqAAK","198.51.100.23",""'
+        - '"RestApi","20261112081422.517","4nWgxWbDKWWDIk0FKfF5DV","00D5j000000AbCd","0055j000004XyZq","1840","212","/services/data/v64.0/query","Qw8Ep2RtYu6IoP1a","Lk3Jh5Gf7Ds9Az2X","Standard","S","1503","GET","application/json;charset=UTF-8","200","python-requests/2.32.3","0","14","38211","9","","1843210","Account","0H45j000000Kr0A","","2026-11-12T08:14:22.517Z","0055j000004XyZqAAK","198.51.100.23",""'
+        - '"RestApi","20261112081422.517","4nWgxWbDKWWDIk0FKfF5DV","00D5j000000AbCd","0055j000004XyZq","1840","212","/services/data/v64.0/query","Qw8Ep2RtYu6IoP1a","Lk3Jh5Gf7Ds9Az2X","Standard","S","1503","GET","application/json;charset=UTF-8","200","python-requests/2.32.3","1","14","38211","9","","1843210","Account","0H45j000000Kr0A","","2026-11-12T08:14:22.517Z","0055j000004XyZqAAK","198.51.100.23",""'
+      expect:
+        out: 2
+        smaller: true
   - title: Enrich user and app IDs
     saving: Analyst time
     fn: Lookup
     how: ELF only carries IDs. Join a periodically exported User (Id → Username, Profile) and ConnectedApplication lookup so detections can read names and privilege.
     expr: lookup sfdc_users on USER_ID_DERIVED → Username, ProfileName
+    stream:
+      note: Periodically export the Salesforce User (Id, Username, Profile.Name) and ConnectedApplication objects to CSV lookup files in Cribl. Then add a Lookup function that matches USER_ID_DERIVED (and CONNECTED_APP_ID) and adds Username, ProfileName and the app name.
 references:
   - title: EventLogFile object reference
     url: https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_eventlogfile.htm

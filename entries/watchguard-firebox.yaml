@@ -76,6 +76,19 @@ optimizations:
     saving: most of the traffic-log volume
     fn: Drop
     how: A Firebox logs every allowed connection when traffic logging is on, and those allows are almost all of the volume. Security monitoring needs the Deny lines. Drop lines whose disposition word is Allow before the SIEM, and keep Deny. The disposition is inside the message text, so the filter is a text match on that word rather than a separate field.
+    stream:
+      log: Traffic log
+      parse: false
+      functions:
+        - id: drop
+          filter: /msg_id="[^"]*" Allow /.test(_raw)
+          description: Drop allowed connection lines; keep Deny
+          conf: {}
+      test:
+        - '<142>May 10 15:19:06 WatchGuard-Firebox FVE6035FD3AE3 (2024-01-10T09:49:05) firewall[10]: msg_id="3000-0148" Deny Firebox 0-External 52 tcp 20 127 198.51.100.25 203.0.113.8 62443 80 offset 8 S 832026162 win 8192 (HTTP-00)'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Send Firebox logs to a syslog server
     url: https://www.watchguard.com/help/docs/help-center/en-us/content/en-US/Fireware/logging/send_logs_to_syslog_c.html

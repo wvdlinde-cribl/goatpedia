@@ -71,4 +71,16 @@ optimizations:
     fn: Drop
     how: At full coverage every JQL search is an audit event. Administration and permission changes are the security-relevant part. Drop the search category, or route it to cheaper storage.
     expr: type.category == 'search'
+    stream:
+      log: Audit events
+      functions:
+        - id: drop
+          filter: (type || {}).category == 'search'
+          description: Drop JQL search audit events; keep administration and permission changes
+          conf: {}
+      test:
+        - '{"affectedObjects":[],"author":{"avatarUri":"","id":"18166","name":"max.mustermann","type":"ApplicationUser","uri":"https://jira.example.com/jira/secure/ViewProfile.jspa?name=max.mustermann"},"changedValues":[],"extraAttributes":[{"name":"Loadbalancer/proxyIPaddress","nameI18nKey":"atlassian.audit.event.attribute.forwarder","value":"192.0.2.20"}],"method":"Browser","node":"my-jira-node","source":"198.51.100.15,198.51.100.25","system":"https://jira.example.com/jira","timestamp":"2025-02-25T08:03:35.815Z","type":{"action":"Permissionschemeupdated","actionI18nKey":"jira.auditing.permission.scheme.updated","category":"permissions","categoryI18nKey":"jira.auditing.category.permissions"}}'
+      expect:
+        out: 1
+        smaller: true
 references: []
