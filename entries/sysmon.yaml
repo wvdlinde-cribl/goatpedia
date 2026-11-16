@@ -323,26 +323,102 @@ optimizations:
     fn: Eval (C.Text.parseWinEvent) → Serialize
     how: Windows event XML is mostly markup. Parse with C.Text.parseWinEvent(_raw, ['0x0','0','-']) to drop default values, flatten EventData, then serialise as JSON or KV.
     expr: "__e = C.Text.parseWinEvent(_raw, ['0x0','0','-'])"
+    stream:
+      log: Event 1 — Process creation
+      parse: false
+      functions:
+        - id: eval
+          filter: /^<Event/.test(_raw)
+          description: Parse the Windows event XML and drop default values (0x0, 0, -)
+          conf:
+            add:
+              - name: ev
+                value: C.Text.parseWinEvent(_raw, ['0x0','0','-'])
+        - id: eval
+          filter: ev
+          description: Write the event back as compact JSON and remove the temporary field
+          conf:
+            add:
+              - name: _raw
+                value: JSON.stringify(ev)
+            remove:
+              - ev
+      expect:
+        out: 1
+        absent:
+          - ev
+        smaller: true
   - title: Strip System block noise
     saving: 10–20 %
     fn: Eval (remove fields)
     how: Keywords (0x8000000000000000), Opcode, Task, Version, Level, Provider Guid, Execution ProcessID/ThreadID (Sysmon's own PID) and Security UserID are constant for Sysmon and can go.
     expr: "remove: Keywords, Opcode, Task, Version, Level, Provider.Guid, Execution.*, Security.UserID"
+    stream:
+      log: Event 1 — Process creation
+      parse: false
+      functions:
+        - id: eval
+          filter: /Sysmon/.test(_raw)
+          description: 'Remove constant System block elements: Keywords, Opcode, Task, Version, Level, Provider Guid, Execution and Security'
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/<(Keywords|Opcode|Task|Version|Level)>[^<]*<\/\1>/g, '').replace(/ Guid=\x22[^\x22]*\x22/g, '').replace(/<Execution [^>]*\/>/g, '').replace(/<Security [^>]*\/>/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Drop noisy image loads and DNS
     saving: 20–40 %
     fn: Drop + Lookup
     how: If the config is permissive, drop Event 7 for signed Microsoft DLLs, Event 22 for top domains, and Event 3 for browsers to 443 in Stream rather than waiting for a config rollout.
     expr: (EventID==7 && Signed=='true' && /Microsoft/.test(Signature)) || (EventID==22 && C.Lookup('top_domains.csv','domain').match(QueryName))
+    stream:
+      log: Event 3 — Network connection
+      parse: false
+      functions:
+        - id: drop
+          filter: (/<EventID>7<\/EventID>/.test(_raw) && /Name=\x22Signed\x22>true</.test(_raw) && /Name=\x22Signature\x22>[^<]*Microsoft/.test(_raw)) || (/<EventID>3<\/EventID>/.test(_raw) && /Name=\x22Image\x22>[^<]*\\(chrome|msedge|firefox)\.exe</i.test(_raw) && /Name=\x22DestinationPort\x22>443</.test(_raw))
+          description: Drop signed Microsoft image loads and browser connections to 443
+          conf: {}
+      test:
+        - <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Sysmon" Guid="{5770385f-c22a-43e0-bf4c-06f5698ffbd9}"/><EventID>3</EventID><Version>5</Version><Level>4</Level><Task>3</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime="2026-11-12T09:14:24.2210000Z"/><EventRecordID>482131</EventRecordID><Correlation/><Execution ProcessID="3204" ThreadID="5120"/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>ws-fin-042.corp.example.com</Computer><Security UserID="S-1-5-18"/></System><EventData><Data Name="RuleName">-</Data><Data Name="UtcTime">2026-11-12 09:14:23.881</Data><Data Name="ProcessGuid">{8f2b1c0d-9e7a-6735-5c04-000000001b00}</Data><Data Name="ProcessId">7412</Data><Data Name="Image">C:\Program Files\Google\Chrome\Application\chrome.exe</Data><Data Name="User">CORP\jdoe</Data><Data Name="Protocol">tcp</Data><Data Name="Initiated">true</Data><Data Name="SourceIsIpv6">false</Data><Data Name="SourceIp">10.20.30.44</Data><Data Name="SourceHostname">ws-fin-042.corp.example.com</Data><Data Name="SourcePort">51544</Data><Data Name="SourcePortName">-</Data><Data Name="DestinationIsIpv6">false</Data><Data Name="DestinationIp">198.51.100.77</Data><Data Name="DestinationHostname">www.example.com</Data><Data Name="DestinationPort">443</Data><Data Name="DestinationPortName">https</Data></EventData></Event>
+      expect:
+        out: 1
   - title: Remove PE metadata on Linux and from repeat processes
     saving: 5–15 %
     fn: Eval
     how: Linux Event 1 sets FileVersion/Description/Product/Company/OriginalFileName/Hashes to "-". On Windows, PE metadata can be re-derived from the hash — keep Hashes and OriginalFileName only.
     expr: "remove: FileVersion, Description, Product, Company when value=='-'"
+    stream:
+      log: Event 1 — Process creation (Sysmon for Linux)
+      parse: false
+      functions:
+        - id: eval
+          filter: /Linux-Sysmon/.test(_raw)
+          description: Remove PE metadata elements whose value is '-'
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/<Data Name=\x22(FileVersion|Description|Product|Company|OriginalFileName|Hashes)\x22>-<\/Data>/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Route by event ID
     saving: SIEM licence
     fn: Routes
     how: 1, 8, 10, 11 (executables), 13 (Run keys), 19–21 (WMI), 25, 27–29 → SIEM at full fidelity. 3, 7, 22 → Cribl Lake raw + SIEM aggregated.
     expr: "EventID in (3,7,22) → Lake + SIEM(optimised)  |  else → SIEM"
+    stream:
+      routes:
+        - name: Sysmon 3, 7, 22 → Lake raw, SIEM optimised
+          filter: /<EventID>(3|7|22)<\/EventID>/.test(_raw) && /Sysmon/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM aggregated through the optimisation pipelines
+          final: true
+        - name: Sysmon other events → SIEM
+          filter: /Sysmon/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw XML, so they match the EventID element. Put the high-volume route first.
 references:
   - title: Microsoft Sysinternals — Sysmon (event IDs, configuration schema)
     url: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon

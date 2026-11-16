@@ -83,6 +83,17 @@ optimizations:
     fn: Drop
     how: BROKER_USERLOGGEDIN repeats for every desktop session. Keep AUDIT_FAIL events.
     expr: EventType == 'BROKER_USERLOGGEDIN'
+    stream:
+      log: Broker event
+      functions:
+        - id: drop
+          filter: EventType == 'BROKER_USERLOGGEDIN'
+          description: Drop successful broker sign-ins; AUDIT_FAIL events stay
+          conf: {}
+      test:
+        - Module=Broker Severity=AUDIT_SUCCESS EventType=BROKER_USERLOGGEDIN UserDisplayName=EXAMPLE\ada DesktopId=pool-finance Node=cs1.example.com
+      expect:
+        out: 1
 references:
   - title: Omnissa — Configure Horizon event logging to a file or a syslog server
     url: https://docs.omnissa.com/Horizon8InstallUpgrade-V2606/ConfigureEventLoggingtoFileorSyslogServerinHorizon8

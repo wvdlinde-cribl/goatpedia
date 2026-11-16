@@ -291,21 +291,73 @@ optimizations:
     fn: Drop
     how: hostd and vpxa at info/verbose log property collector updates and heartbeats. Keep Wa/Er/Cr and the subsystems that matter (Vimsvc, ha-eventmgr, Solo.Vmsvc).
     expr: "['Hostd','vpxa'].includes(program) && /^(Db|Vb)\\(/.test(severity || '')"
+    stream:
+      log: Host agent (hostd)
+      functions:
+        - id: drop
+          filter: (program == 'Hostd' || program == 'vpxa') && /^(Db|Vb)\(/.test(severity || '')
+          description: Drop debug and verbose hostd/vpxa lines; keep info, warning, error and critical
+          conf: {}
+      test:
+        - '2026-11-12T02:12:40.073Z esx01.example.com Db(167) Hostd[2098450]: [Originator@6876 sub=PropertyProvider opID=esxui-7c1a-90d2] RecordOp ASSIGN: info, haTask. Applied change to temp map.'
+      expect:
+        out: 1
   - title: Drop vmkernel storage path noise
     saving: 10–30 %
     fn: Drop
     how: vmkernel NMP/SCSI sense messages and vsan health chatter repeat thousands of times per hour during storage events. Keep them in Lake, not the SIEM.
     expr: program=='vmkernel' && /NMP|ScsiDeviceIO|vsan/.test(message)
+    stream:
+      log: ESXi Shell command
+      functions:
+        - id: drop
+          filter: program == 'vmkernel' && /NMP|ScsiDeviceIO|vsan/.test(message || '')
+          description: Drop vmkernel NMP, SCSI sense and vSAN chatter before the SIEM
+          conf: {}
+      test:
+        - '2026-11-12T02:14:22.508Z esx01.example.com In(14) vmkernel[2097152]: NMP: nmp_ThrottleLogForDevice:3893: Cmd 0x28 to dev naa.600000000000000000000001 failed H:0x0 D:0x2 P:0x0'
+      expect:
+        out: 1
   - title: Suppress repeated rejected logins
     saving: 5–15 %
     fn: Suppress
     how: Scanners hammer root on 443. Keep one failure per host/message per minute with a count.
     expr: "key: `${host}:${message}`  allow 1 / 60s  when /Cannot login|Rejected password/.test(message)"
+    stream:
+      log: Host agent (hostd)
+      functions:
+        - id: suppress
+          filter: /Cannot login|Rejected password/.test(message || '')
+          description: Keep one rejected login per host and message per minute
+          conf:
+            keyExpr: host + ':' + message
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '2026-11-12T02:12:40.073Z esx01.example.com In(166) Hostd[2098450]: [Originator@6876 sub=Vimsvc.ha-eventmgr opID=esxui-7c1a-90d2] Event 4120 : Cannot login root@198.51.100.23'
+        - '2026-11-12T02:12:40.073Z esx01.example.com In(166) Hostd[2098450]: [Originator@6876 sub=Vimsvc.ha-eventmgr opID=esxui-7c1a-90d2] Event 4120 : Cannot login root@198.51.100.23'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: shell, vobd, auth and hostd security events → SIEM; vmkernel, vsan, vmkwarning performance lines → Cribl Lake for troubleshooting.
     expr: "['shell','vobd','sshd'].includes(program) || /login|Rejected|Permission/.test(message) → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: ESXi security events → SIEM
+          filter: '/ (shell|vobd|sshd)\[\d+\]: /.test(_raw) || /login|Rejected|Permission/.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: ESXi other (vmkernel, vsan, vmkwarning, performance) → Lake
+          filter: /\d{4}-\d{2}-\d{2}T[\d:.]+Z \S+ /.test(_raw)
+          to: Cribl Lake for troubleshooting
+          final: true
+      note: Routes see the raw event, so they match the program name before [pid] and the login keywords in _raw. Put the SIEM route first.
 references:
   - title: ESXi log file formats introduced in vSphere 8.0
     url: https://knowledge.broadcom.com/external/article/421596/esxi-log-file-formats-introduced-from-vs.html

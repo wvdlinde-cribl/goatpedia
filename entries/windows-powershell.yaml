@@ -346,26 +346,86 @@ optimizations:
     fn: Suppress
     how: SCCM, DSC, Intune and monitoring agents run the same scripts every few minutes. Hash ScriptBlockText and keep one per host per hash per hour, with a count; new hashes always pass.
     expr: "key: `${Computer}:${C.Crypto.md5(ScriptBlockText)}`  allow 1 / 3600s  when EventID=='4104' && Level!='3'"
+    stream:
+      log: Script block (4104)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /<EventID>4104<[/]EventID>/.test(_raw) && !/<Level>3<[/]Level>/.test(_raw)
+          description: Keep one non-warning script block per host per script hash per hour
+          conf:
+            keyExpr: (_raw.match(/<Computer>([^<]*)</) || [])[1] + ':' + C.Crypto.md5((_raw.match(/Name='ScriptBlockText'>([^<]*)</) || [])[1] || '')
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4104</EventID><Version>1</Version><Level>5</Level><Task>2</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:24.118213400Z'/><EventRecordID>77120</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='MessageNumber'>1</Data><Data Name='MessageTotal'>1</Data><Data Name='ScriptBlockText'>Get-Service | Where-Object Status -eq 'Running'</Data><Data Name='ScriptBlockId'>3f9a1c2e-7d4b-4e8a-9c1f-0b2d3e4f5a6b</Data><Data Name='Path'></Data></EventData></Event>
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4104</EventID><Version>1</Version><Level>5</Level><Task>2</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:24.118213400Z'/><EventRecordID>77120</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='MessageNumber'>1</Data><Data Name='MessageTotal'>1</Data><Data Name='ScriptBlockText'>Get-Service | Where-Object Status -eq 'Running'</Data><Data Name='ScriptBlockId'>3f9a1c2e-7d4b-4e8a-9c1f-0b2d3e4f5a6b</Data><Data Name='Path'></Data></EventData></Event>
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4104</EventID><Version>1</Version><Level>5</Level><Task>2</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:24.118213400Z'/><EventRecordID>77120</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='MessageNumber'>1</Data><Data Name='MessageTotal'>1</Data><Data Name='ScriptBlockText'>Get-Service | Where-Object Status -eq 'Running'</Data><Data Name='ScriptBlockId'>3f9a1c2e-7d4b-4e8a-9c1f-0b2d3e4f5a6b</Data><Data Name='Path'></Data></EventData></Event>
+      expect:
+        out: 2
   - title: Drop start/stop invocation noise
     saving: 10–30 %
     fn: Drop
     how: 4105 / 4106 (script block invocation start / stop), 40961 / 40962 (console starting / ready) and 53504 carry no content beyond a ScriptBlockId or a timestamp. Drop them, or keep in Lake.
     expr: "['4105','4106','40961','40962','53504'].includes(EventID)"
+    stream:
+      log: Script block (4104)
+      parse: false
+      functions:
+        - id: drop
+          filter: /<EventID>(4105|4106|40961|40962|53504)<[/]EventID>/.test(_raw)
+          description: Drop invocation start/stop and console start/ready events
+          conf: {}
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4105</EventID><Version>1</Version><Level>5</Level><Task>102</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2026-11-12T09:14:24.118213400Z'/><EventRecordID>77121</EventRecordID><Correlation ActivityID='{8b1c2d3e-4f50-4a61-9b72-c3d4e5f60718}'/><Execution ProcessID='8000' ThreadID='7311'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>WS042.corp.example.com</Computer><Security UserID='S-1-5-21-1111111111-2222222222-3333333333-1190'/></System><EventData><Data Name='ScriptBlockId'>3f9a1c2e-7d4b-4e8a-9c1f-0b2d3e4f5a6b</Data><Data Name='RunspaceId'>0a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d</Data></EventData></Event>
+      expect:
+        out: 1
   - title: Strip XML boilerplate and verbose ContextInfo
     saving: 20–35 %
     fn: Parser → Eval
     how: Remove the static System block (Provider Guid, Version, Task, Opcode, Keywords, ThreadID, Correlation) and parse ContextInfo into a few fields (host application, command, script, user) instead of keeping the padded text.
     expr: "remove: Provider.Guid, Version, Task, Opcode, Keywords, Execution.ThreadID, Correlation.ActivityID, UserData"
+    stream:
+      log: Module / pipeline execution (4103)
+      parse: false
+      functions:
+        - id: eval
+          filter: /Microsoft-Windows-PowerShell/.test(_raw)
+          description: Remove static System boilerplate and the empty UserData element
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ Guid='[^']*'/, '').replace(/<(Version|Task|Opcode|Keywords)>[^<]*<[/](Version|Task|Opcode|Keywords)>/g, '').replace(/ ThreadID='[^']*'/, '').replace(/<Correlation [^>]*[/]>/, '').replace(/<Data Name='UserData'><[/]Data>/, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Reassemble multi-part script blocks
     saving: fewer events, better detections
     fn: Aggregations
     how: Join 4104 parts that share ScriptBlockId (MessageNumber 1..MessageTotal) into one event before routing, so content-matching rules see the whole script and the SIEM indexes one record instead of many.
     expr: "group by ScriptBlockId, Computer; concat ScriptBlockText ordered by MessageNumber; emit when count == MessageTotal or after 30s"
+    stream:
+      note: Reassembling 4104 parts needs ordered concatenation of ScriptBlockText by MessageNumber per ScriptBlockId and Computer, which the standard Aggregations function cannot do reliably; do it with a stateful custom step or in the SIEM, emitting when MessageNumber reaches MessageTotal or after 30 seconds.
   - title: Route by risk
     saving: SIEM licence
     fn: Routes
     how: Warning-level 4104, 400 with EngineVersion 2.x, offensive-keyword hits and 4103 network/download commands go to the SIEM; the bulk of verbose 4103 / 800 pipeline events and inventories go to Lake for hunting.
     expr: "(EventID=='4104' && Level=='3') || (EventCode=='400' && /^2\\./.test(EngineVersion)) → SIEM"
+    stream:
+      routes:
+        - name: PowerShell high-risk → SIEM
+          filter: (/<EventID>4104<[/]EventID>/.test(_raw) && /<Level>3<[/]Level>/.test(_raw)) || (/EventCode=400 /.test(_raw) && /EngineVersion=2\./.test(_raw)) || (/<EventID>4103<[/]EventID>/.test(_raw) && /Invoke-WebRequest|Invoke-RestMethod|DownloadString|DownloadFile|Start-BitsTransfer|Net\.WebClient/.test(_raw))
+          to: The SIEM, full fidelity
+          final: true
+        - name: PowerShell other events and inventories → Lake
+          filter: /Microsoft-Windows-PowerShell|SourceName=PowerShell|PSComputerName=/.test(_raw)
+          to: Cribl Lake for hunting
+          final: true
+      note: Routes see the raw event, so they match EventID, Level and EngineVersion in the text. Put the SIEM route first.
 references:
   - title: Microsoft — about_Logging_Windows (PowerShell 7)
     url: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging_windows

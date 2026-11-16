@@ -283,26 +283,126 @@ optimizations:
     fn: Drop
     how: systemd session scopes ("Started Session N of user"), cron "CMD" lines for monitoring jobs, NetworkManager and dhclient renewals make up most of /var/log/messages. Drop by process and message pattern; keep secure/auth.log whole.
     expr: process=='systemd' && /Started Session|Removed slice|Created slice/.test(message)
+    stream:
+      log: System messages
+      functions:
+        - id: drop
+          filter: process == 'systemd' && /Started Session|Removed slice|Created slice/.test(message)
+          description: Drop routine systemd session and slice chatter
+          conf: {}
+      test:
+        - 'Nov 12 09:25:44 web01 systemd[1]: Started Session 42 of user jdoe.'
+      expect:
+        out: 1
   - title: Suppress SSH background noise
     saving: 20–50 % of secure
     fn: Suppress
     how: Internet scanning produces thousands of identical failures. Keep one per src per 5 minutes with a count; never suppress Accepted lines.
     expr: "key: `${src}:${action}`  allow 1 / 300s  when action=='Failed'"
+    stream:
+      log: sshd authentication
+      functions:
+        - id: suppress
+          filter: action == 'Failed'
+          description: Keep one failed SSH login per source per 5 minutes; never suppress Accepted
+          conf:
+            keyExpr: src + ':' + action
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 'Nov 12 09:14:22 bastion01 sshd[2245]: Failed password for invalid user admin from 198.51.100.23 port 51544 ssh2'
+        - 'Nov 12 09:14:22 bastion01 sshd[2245]: Failed password for invalid user admin from 198.51.100.23 port 51544 ssh2'
+        - 'Nov 12 09:14:22 bastion01 sshd[2245]: Accepted password for admin from 198.51.100.23 port 51544 ssh2'
+      expect:
+        out: 2
   - title: Strip the redundant syslog header
     saving: 10–20 %
     fn: Parser → Serialize / Eval
     how: The text timestamp and host duplicate _time and host metadata. Parse once, keep the extracted fields and message, and drop the header — the Syslog Input pack does this for network syslog.
     expr: "remove: timestamp; keep: host, process, pid, message"
+    stream:
+      log: System messages
+      functions:
+        - id: eval
+          filter: message !== undefined
+          description: Rewrite _raw without the syslog timestamp and host header; keep host, process, pid and message as fields
+          conf:
+            add:
+              - name: _raw
+                value: 'process + (pid ? ''['' + pid + '']'' : '''') + '': '' + message'
+            remove:
+              - timestamp
+      expect:
+        out: 1
+        absent:
+          - timestamp
+        present:
+          - host
+          - process
+          - message
+        smaller: true
   - title: Unwrap CloudWatch batches
     saving: 10–30 % (aws_ec2)
     fn: Unroll / Eval
     how: Split logEvents[] into one event per syslog line, copy logGroup and logStream (instance id) onto each and drop the batch envelope (messageType, owner, subscriptionFilters).
     expr: messageType=='DATA_MESSAGE' && Array.isArray(logEvents)
+    stream:
+      log: EC2 syslog via CloudWatch Logs
+      functions:
+        - id: unroll
+          filter: messageType == 'DATA_MESSAGE' && Array.isArray(logEvents)
+          description: Split the CloudWatch batch into one event per log line
+          conf:
+            srcExpr: logEvents
+            dstField: logEvents
+        - id: eval
+          filter: messageType == 'DATA_MESSAGE'
+          description: Make the syslog line the event, keep logGroup and logStream, drop the batch envelope
+          conf:
+            add:
+              - name: _raw
+                value: (logEvents || {}).message
+            remove:
+              - messageType
+              - owner
+              - subscriptionFilters
+              - logEvents
+      test:
+        - '{"messageType":"DATA_MESSAGE","owner":"111122223333","logGroup":"/var/log/secure","logStream":"i-0abc1234def567890","subscriptionFilters":["to-cribl"],"logEvents":[{"id":"1","timestamp":1731403200000,"message":"Nov 12 09:20:00 ip-10-0-1-25 sshd[3112]: Accepted publickey for ec2-user from 203.0.113.80 port 50122 ssh2"},{"id":"2","timestamp":1731403201000,"message":"Nov 12 09:20:01 ip-10-0-1-25 sshd[3113]: Failed password for root from 198.51.100.9 port 50123 ssh2"}]}'
+      expect:
+        out: 3
+        absent:
+          - messageType
+          - owner
+          - subscriptionFilters
+          - logEvents
+        present:
+          - logGroup
+          - logStream
   - title: Route secure vs messages
     saving: SIEM licence
     fn: Routes
     how: secure/auth.log → SIEM at full fidelity. messages/syslog → Lake, with only kernel errors, segfaults, OOM and service changes sent to the SIEM.
     expr: sourcetype=='linux_secure' || /segfault|Out of memory|Started|Stopped/.test(message)
+    stream:
+      routes:
+        - name: Linux secure/auth → SIEM
+          filter: '/ (sshd|sudo|su|login|passwd|useradd|usermod|groupadd)(\[\d+\])?: /.test(_raw) || /"logGroup":"\/var\/log\/(secure|auth\.log)"/.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: 'Linux messages: errors and service changes → SIEM + Lake'
+          filter: '/segfault|Out of memory|Started|Stopped|kernel: .*error/i.test(_raw)'
+          to: The SIEM and Cribl Lake
+          final: true
+        - name: Linux other messages → Lake
+          filter: 'true'
+          to: Cribl Lake only
+          final: true
+      note: Routes see the raw event, so they match the process name or CloudWatch logGroup in _raw. Keep the secure route first.
 references:
   - title: RFC 3164 — The BSD syslog protocol
     url: https://www.rfc-editor.org/rfc/rfc3164

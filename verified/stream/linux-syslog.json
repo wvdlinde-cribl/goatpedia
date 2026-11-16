@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop routine daemon chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3685f28739acb681",
+    "in": {
+      "events": 2,
+      "bytes": 144
+    },
+    "out": {
+      "events": 1,
+      "bytes": 78
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress SSH background noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6ddb202a0275eeeb",
+    "in": {
+      "events": 4,
+      "bytes": 433
+    },
+    "out": {
+      "events": 2,
+      "bytes": 211
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip the redundant syslog header",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "055764bac9d3bcd3",
+    "in": {
+      "events": 1,
+      "bytes": 78
+    },
+    "out": {
+      "events": 1,
+      "bytes": 56
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Unwrap CloudWatch batches",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3d95343d42a86f00",
+    "in": {
+      "events": 2,
+      "bytes": 875
+    },
+    "out": {
+      "events": 3,
+      "bytes": 340
+    },
+    "ok": true
+  }
+}
