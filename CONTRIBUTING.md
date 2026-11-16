@@ -29,6 +29,14 @@ npm run dev        # build and preview at http://localhost:8080
 
 Full schema: [`schema/entry.schema.json`](schema/entry.schema.json).
 
+## Cribl Stream functions (optional, per optimization)
+Add a `stream:` block to an optimization to give the exact Stream functions; see `entries/pan-ngfw.yaml` for an example.
+- `log` names the `logs[].type` it works on. The parse step is generated from that log's format, fields or pattern.
+- `functions` holds the Cribl function configs (`id`, `filter`, `conf`), written as Stream stores them.
+- `serialize: true` writes the event back in its original format.
+- Routing advice uses `routes`, and source settings use `note`.
+- Add `test` events and an `expect` so `npm run verify:stream` can check the pipeline in Cribl's preview. Expressions must be ES5: no arrow functions, `?.`, `??` or template literals. Write fields with a dash as `__e['Field-Name']`.
+
 ## Content guidelines
 - **No real customer data.** Samples must be synthetic. Use documentation IP ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24) and fake hostnames and users.
 - **Cite the vendor advisory** for CVE versions. If you are unsure, leave `fixed` out rather than guessing.

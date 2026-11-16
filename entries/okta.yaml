@@ -295,21 +295,135 @@ optimizations:
     fn: Eval / Parser → Serialize
     how: System Log JSON carries many explicit nulls (client.device, client.zone, target, request.ipChain duplicates of client geo). Drop null/empty values and request.ipChain when it has a single hop equal to client.ipAddress. The Okta REST Collector IO Pack ships this step.
     expr: "remove nulls; remove request.ipChain when request.ipChain.length==1"
+    stream:
+      log: Sign-in (user.session.start)
+      functions:
+      - id: eval
+        filter: 'true'
+        description: Remove the fields the System Log sends as explicit null
+        conf:
+          add:
+          - name: client.device
+            value: '(client || {}).device === null ? undefined : (client || {}).device'
+          - name: client.zone
+            value: '(client || {}).zone === null ? undefined : (client || {}).zone'
+          - name: client.id
+            value: '(client || {}).id === null ? undefined : (client || {}).id'
+          - name: actor.detailEntry
+            value: '(actor || {}).detailEntry === null ? undefined : (actor || {}).detailEntry'
+          - name: target
+            value: 'target === null ? undefined : target'
+          - name: authenticationContext.externalSessionId
+            value: '(authenticationContext || {}).externalSessionId === null ? undefined : (authenticationContext || {}).externalSessionId'
+          - name: authenticationContext.issuer
+            value: '(authenticationContext || {}).issuer === null ? undefined : (authenticationContext || {}).issuer'
+          - name: securityContext.asNumber
+            value: '(securityContext || {}).asNumber === null ? undefined : (securityContext || {}).asNumber'
+          - name: securityContext.asOrg
+            value: '(securityContext || {}).asOrg === null ? undefined : (securityContext || {}).asOrg'
+          - name: securityContext.isp
+            value: '(securityContext || {}).isp === null ? undefined : (securityContext || {}).isp'
+          - name: securityContext.domain
+            value: '(securityContext || {}).domain === null ? undefined : (securityContext || {}).domain'
+          - name: securityContext.isProxy
+            value: '(securityContext || {}).isProxy === null ? undefined : (securityContext || {}).isProxy'
+      - id: eval
+        filter: request && request.ipChain && request.ipChain.length == 1
+        description: Remove request.ipChain when it is a single hop (the same address as client.ipAddress)
+        conf:
+          remove:
+          - request
+      serialize: true
+      test:
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"user.session.start","version":"0","severity":"INFO","legacyEventType":"core.user_auth.login_failed","displayMessage":"User login to Okta","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe","detailEntry":null},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":null,"device":null,"ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"},"id":null},"outcome":{"result":"FAILURE","reason":"INVALID_CREDENTIALS"},"target":null,"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM,
+        reasons=New Geo-Location, New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":null,"interface":"Okta Identity Engine","credentialType":"PASSWORD","issuer":null},"securityContext":{"asNumber":null,"asOrg":null,"isp":null,"domain":null,"isProxy":null},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      expect:
+        out: 2
+        absent:
+        - request
+        smaller: true
   - title: Sample or drop policy evaluation events
     saving: 10–30 %
     fn: Sampling / Drop
     how: policy.evaluate_sign_on fires on every policy evaluation and duplicates the decision already on the sign-in event. Sample 1:10 (or drop) unless outcome.result is DENY.
     expr: eventType=='policy.evaluate_sign_on' && outcome.result!='DENY'
+    stream:
+      log: Sign-in (user.session.start)
+      functions:
+      - id: sampling
+        filter: 'true'
+        description: Keep 1 in 10 sign-on policy evaluations unless the result is DENY
+        conf:
+          rules:
+          - filter: eventType == 'policy.evaluate_sign_on' && (outcome || {}).result != 'DENY'
+            rate: 10
+      test:
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"ALLOW","reason":"Sign-on policy evaluation resulted in ALLOW"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      - '{"uuid":"4f3c2a1e-9b7d-11ef-8c2a-0d1e2f3a4b5c","published":"2026-11-12T08:14:22.517Z","eventType":"policy.evaluate_sign_on","version":"0","severity":"INFO","displayMessage":"Evaluation of sign-on policy","actor":{"id":"00u1abcdEFGHijkl0x7","type":"User","alternateId":"jdoe@example.com","displayName":"John Doe"},"client":{"userAgent":{"rawUserAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","os":"Windows 10","browser":"CHROME"},"zone":"null","device":"Computer","ipAddress":"198.51.100.23","geographicalContext":{"city":"Amsterdam","state":"North Holland","country":"Netherlands","postalCode":"1012"}},"outcome":{"result":"DENY","reason":"Sign-on policy evaluation resulted in DENY"},"target":[],"transaction":{"type":"WEB","id":"Zx9kQm3vT2aB7cD1eF4g","detail":{"requestApiTokenId":"none"}},"debugContext":{"debugData":{"requestUri":"/idp/idx/identify","threatSuspected":"false","risk":"{level=MEDIUM, reasons=New Geo-Location,
+        New IP}","behaviors":"{New Geo-Location=POSITIVE, New Device=NEGATIVE, New IP=POSITIVE}"}},"authenticationContext":{"authenticationStep":0,"externalSessionId":"102AbCdEfGhIjKlMnOpQrS","interface":"Okta Identity Engine","credentialType":"PASSWORD"},"securityContext":{"asNumber":64500,"asOrg":"example hosting bv","isp":"example hosting","domain":"example.net","isProxy":false},"request":{"ipChain":[{"ip":"198.51.100.23","geographicalContext":{"city":"Amsterdam","country":"Netherlands"},"version":"V4"}]}}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
   - title: Strip legacy and low-value keys
     saving: 5–15 %
     fn: Eval
     how: legacyEventType, version, transaction.detail and the long rawUserAgent (keep parsed os/browser) are rarely searched. Remove before the SIEM, keep the full event in Lake.
     expr: "remove: legacyEventType, version, transaction.detail, client.userAgent.rawUserAgent"
+    stream:
+      log: Sign-in (user.session.start)
+      functions:
+      - id: eval
+        filter: 'true'
+        description: Remove legacy and rarely searched keys; keep the parsed OS and browser
+        conf:
+          remove:
+          - legacyEventType
+          - version
+          - transaction.detail
+          - client.userAgent.rawUserAgent
+      serialize: true
+      expect:
+        out: 1
+        absent:
+        - legacyEventType
+        - version
+        smaller: true
   - title: Route by event family
     saving: SIEM licence
     fn: Routes
     how: user.session.*, user.authentication.*, security.*, user.account.privilege.*, system.* and policy changes → SIEM at full fidelity. app.oauth2 token refreshes, user.session.access_admin_app and other high-volume informational events → Lake only, replay on demand.
     expr: /^(user\.(session|authentication|account|mfa)|security|system|policy\.lifecycle)\./.test(eventType) → SIEM
+    stream:
+      routes:
+      - name: Okta security-relevant events → SIEM
+        filter: /"eventType":"(user\.(session|authentication|account|mfa)|security|system|policy\.lifecycle)\./.test(_raw)
+        to: The SIEM, full fidelity
+        final: true
+      - name: Okta other events → Lake
+        filter: /"eventType":"/.test(_raw)
+        to: Cribl Lake only; replay on demand
+        final: true
+      note: Routes see the raw event, so they match eventType inside the JSON text. Put the SIEM route first.
 references:
   - title: Okta System Log API
     url: https://developer.okta.com/docs/reference/api/system-log/

@@ -462,26 +462,125 @@ optimizations:
     fn: Drop
     how: Session-end records contain everything the start record has plus bytes and end reason. Prefer "Log at Session End" on rules, or drop subtype=start in Stream.
     expr: type=='TRAFFIC' && subtype=='start'
+    stream:
+      log: Traffic
+      functions:
+      - id: drop
+        filter: type == 'TRAFFIC' && subtype == 'start'
+        description: Drop TRAFFIC session-start records; the end record carries the same fields plus bytes and end reason
+      test:
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,start,2561,2026/11/12 09:14:22,10.20.30.44,142.250.74.110,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,ssl,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,443,31544,443,0x400053,tcp,allow,0,0,0,1,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,n/a
+      expect:
+        out: 1
   - title: Strip future_use, empty and duplicate fields
     saving: 25–40 %
     fn: Parser → Serialize
     how: Parse the CSV, remove future_use*, receive_time (≈ generated_time), seqno, action_flags and empty values, then re-serialise. Keep field order if the SIEM TA expects CSV.
     expr: "remove: future_use*, receive_time, seqno, action_flags; drop empty"
+    stream:
+      log: Traffic
+      functions:
+      - id: eval
+        filter: 'true'
+        description: Remove reserved and duplicate columns
+        conf:
+          remove:
+          - future_use
+          - future_use2
+          - future_use3
+          - future_use4
+          - future_use5
+          - receive_time
+          - seqno
+          - action_flags
+      serialize: true
+      expect:
+        out: 1
+        absent:
+        - future_use
+        - future_use2
+        - future_use3
+        - future_use4
+        - future_use5
+        - receive_time
+        - seqno
+        - action_flags
+        smaller: true
   - title: Suppress repetitive denies
     saving: 5–15 %
     fn: Suppress
     how: Internet background noise produces thousands of identical denies. Keep one per src_ip/dst_ip/dst_port per 60 s with a count.
     expr: "key: `${src_ip}:${dst_ip}:${dst_port}`  allow 1 / 60s  when action=='deny'"
+    stream:
+      log: Traffic
+      functions:
+      - id: suppress
+        filter: action == 'deny'
+        description: Keep one deny per source, destination and port per minute
+        conf:
+          keyExpr: src_ip + ':' + dst_ip + ':' + dst_port
+          allow: 1
+          suppressPeriodSec: 60
+          dropEventsMode: true
+          maxCacheSize: 50000
+          cacheIdleTimeoutPeriods: 2
+          numEventsIdleTimeoutTrigger: 10000
+      test:
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,198.51.100.23,203.0.113.10,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,not-applicable,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,23,31544,443,0x400053,tcp,deny,60,1532,5310,22,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,policy-deny
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,198.51.100.23,203.0.113.10,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,not-applicable,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,23,31544,443,0x400053,tcp,deny,60,1532,5310,22,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,policy-deny
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,198.51.100.23,203.0.113.10,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,not-applicable,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,23,31544,443,0x400053,tcp,deny,60,1532,5310,22,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,policy-deny
+      expect:
+        out: 2
   - title: Aggregate high-volume allowed flows to metrics
     saving: 20–35 %
     fn: Aggregations
     how: Allowed DNS, NTP and internal SMB flows are rarely searched individually. Roll up to bytes/sessions per src/dst/app per minute, send raw to Lake.
     expr: app in ('dns','ntp','ms-ds-smb') && action=='allow'
+    stream:
+      log: Traffic
+      functions:
+      - id: aggregation
+        filter: action == 'allow' && (app == 'dns' || app == 'ntp' || app == 'ms-ds-smb')
+        description: Roll allowed DNS, NTP and SMB sessions up to one metric event per source, destination and app per minute
+        conf:
+          passthrough: false
+          preserveGroupBys: false
+          sufficientStatsOnly: false
+          metricsMode: false
+          timeWindow: 60s
+          aggregations:
+          - count().as(sessions)
+          - sum(bytes).as(bytes)
+          - sum(packets).as(packets)
+          cumulative: false
+          flushOnInputClose: true
+          groupbys:
+          - src_ip
+          - dst_ip
+          - app
+      test:
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,10.20.30.44,198.51.100.53,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,dns,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,53,31544,443,0x400053,udp,allow,180,1532,5310,2,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,tcp-fin
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,10.20.30.44,198.51.100.53,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,dns,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,53,31544,443,0x400053,udp,allow,210,1532,5310,2,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,tcp-fin
+      - 1,2026/11/12 09:14:22,013201001234,TRAFFIC,end,2561,2026/11/12 09:14:22,10.20.30.44,198.51.100.53,203.0.113.10,142.250.74.110,allow-web-out,corp\jdoe,,dns,vsys1,trust,untrust,ethernet1/2,ethernet1/1,fwd-cribl,2026/11/12 09:14:22,48211,1,51544,53,31544,443,0x400053,udp,allow,164,1532,5310,2,2026/11/12 09:13:51,30,computer-and-internet-info,0,7340032119,0x8000000000000000,10.0.0.0-10.255.255.255,United States,0,12,10,tcp-fin
+      expect:
+        out: 2
+        smaller: true
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: THREAT, SYSTEM, CONFIG, GLOBALPROTECT → SIEM at full fidelity. TRAFFIC → Cribl Lake raw + SIEM optimised. Replay from Lake during incidents.
     expr: type!='TRAFFIC' → SIEM  |  type=='TRAFFIC' → Lake + SIEM(optimised)
+    stream:
+      routes:
+      - name: PAN TRAFFIC → Lake raw, SIEM optimised
+        filter: /^[^,]*,[^,]*,[^,]*,TRAFFIC,/.test(_raw)
+        to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+        final: true
+      - name: PAN other log types → SIEM
+        filter: /^[^,]*,[^,]*,[^,]*,(THREAT|SYSTEM|CONFIG|GLOBALPROTECT|USERID|AUTHENTICATION),/.test(_raw)
+        to: The SIEM, full fidelity
+        final: true
+      note: Routes come before pipelines and see the raw event, so they match the log type column in _raw. Put the TRAFFIC route first.
 references:
   - title: PAN-OS syslog field descriptions
     url: https://docs.paloaltonetworks.com/pan-os/11-1/pan-os-admin/monitoring/use-syslog-for-monitoring/syslog-field-descriptions

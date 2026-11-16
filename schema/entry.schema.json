@@ -85,7 +85,8 @@
       "type": "array",
       "items": { "type": "object", "required": ["title", "saving", "fn", "how"],
         "properties": { "title": { "type": "string" }, "saving": { "type": "string" }, "fn": { "type": "string" },
-          "how": { "type": "string" }, "expr": { "type": "string" } } }
+          "how": { "type": "string" }, "expr": { "type": "string" },
+          "stream": { "$ref": "#/definitions/stream" } } }
     },
     "related": { "type": "array", "items": { "type": "string" } }
   },
@@ -93,6 +94,25 @@
   "then": { "required": ["aka", "updated", "facts", "placement", "howItWorks", "traffic", "logs", "cves", "detections", "optimizations", "references"] },
   "definitions": {
     "cveId": { "type": "string", "pattern": "^CVE-\\d{4}-\\d{4,}$" },
+    "streamFunction": { "type": "object", "required": ["id"], "additionalProperties": false,
+      "properties": { "id": { "type": "string", "description": "Cribl Stream function id: serde, eval, drop, suppress, aggregation, sampling, …" },
+        "filter": { "type": "string", "description": "ES5 JavaScript filter expression; default true" },
+        "description": { "type": "string" }, "final": { "type": "boolean" },
+        "conf": { "type": "object", "description": "The function's configuration, exactly as Cribl Stream stores it" } } },
+    "stream": { "type": "object", "additionalProperties": false,
+      "description": "Exact Cribl Stream functions for an optimization: site/stream.js adds the parse (and serialize) steps; scripts/stream-verify.mjs checks it in Cribl's preview",
+      "properties": {
+        "log": { "type": "string", "description": "The logs[].type this works on; its format and fields give the parse step" },
+        "parse": { "type": "boolean", "description": "false skips the generated parse step" },
+        "functions": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/streamFunction" } },
+        "serialize": { "type": "boolean", "description": "Write the event back in the log's original format afterwards" },
+        "routes": { "type": "array", "items": { "type": "object", "required": ["name", "filter", "to"], "additionalProperties": false,
+          "properties": { "name": { "type": "string" }, "filter": { "type": "string" }, "to": { "type": "string" }, "final": { "type": "boolean" } } } },
+        "note": { "type": "string", "description": "How to apply advice that is not a pipeline function (source settings, routes)" },
+        "test": { "type": "array", "items": { "type": "string" }, "description": "Extra synthetic raw events for the Cribl check" },
+        "expect": { "type": "object", "additionalProperties": false,
+          "properties": { "out": { "type": "integer", "minimum": 0 }, "outMin": { "type": "integer", "minimum": 0 }, "outMax": { "type": "integer", "minimum": 0 }, "absent": { "type": "array", "items": { "type": "string" } },
+            "present": { "type": "array", "items": { "type": "string" } }, "smaller": { "type": "boolean" } } } } },
     "slot": { "enum": ["edge", "internal", "cloud", "remote", "dmz", "endpoint"] },
     "titleBody": { "type": "object", "required": ["title", "body"], "properties": { "title": { "type": "string" }, "body": { "type": "string" } } }
   }

@@ -16,5 +16,6 @@
 - **Detections:** KQL with generic dataset names (`dataset="<vendor>_logs"`), plus MITRE technique ids where they apply.
 - **Optimizations:** typical saving ranges, the Stream function to use, and an expression.
 - **Metadata:** `updated:` is today's date. Add `ai-request-<n>` to `contributors`.
+- **Optimizations:** give each one a `stream:` block with the exact Cribl Stream functions. Follow CONTRIBUTING.md and the pilot entries (`pan-ngfw`, `cisco-ise`, `okta`). Add `test` events and an `expect`. If a Cribl API client is configured in `.env`, run `npm run verify:stream <id>` and commit `verified/stream.json`. Otherwise say in the PR that the functions are not checked in Cribl yet.
 - **Coverage:** if a sourcetype is in the Pack Generator catalog, map it in `coverage/pack-generator.yaml`.
 - **Validate:** `npm run validate` must pass before the PR.

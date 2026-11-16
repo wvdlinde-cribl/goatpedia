@@ -204,6 +204,7 @@
     <div class="body">${full ? (TAB[tab] || TAB.overview)(e, logi) : stub(e)}</div>`;
     if (full && tab === 'logs') wireLogs(e, logi);
     $('#req-change').onclick = () => openChange(e);
+    if (tab === 'optimize') wireStream();
     app.querySelectorAll('.copy').forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.closest('.box').querySelector('pre').textContent); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy KQL'), 1200); }));
   }
   const stub = (e) => `<div class="box"><h2>Sourcetypes</h2>${e.sourcetypes.map((s) => `<span class="st">${esc(s.st)}</span>`).join('')}</div>
@@ -237,9 +238,45 @@
     detect: (e) => e.detections.map((d) => `<div class="box"><button class="copy">Copy KQL</button><h4><span class="b" style="background:${sevColor(d.severity)};color:#fff">${d.severity}</span> ${esc(d.title)}</h4>
       <p>${esc(d.why)}</p><div>${d.signals.map((s) => `<span class="sig">${esc(s)}</span>`).join('')}</div>
       ${(d.mitre || []).length ? `<div class="mitre">MITRE ATT&amp;CK: ${d.mitre.map((t) => `<a href="${mitreUrl(t)}" target="_blank" rel="noopener">${t}</a>`).join(' · ')}</div>` : ''}<pre class="kql">${esc(d.kql)}</pre></div>`).join(''),
-    optimize: (e) => `<div class="box"><h2>Reduce volume without losing signal</h2>${e.optimizations.map((o) => `<div class="opt"><div class="pct">${esc(o.saving)}<small>typical saving</small></div>
-      <div><h4>${esc(o.title)} <span class="st">${esc(o.fn)}</span></h4><p>${esc(o.how)}</p>${o.expr ? `<code class="st" style="display:inline-block">${esc(o.expr)}</code>` : ''}</div></div>`).join('')}</div>`,
+    optimize: (e) => `<div class="box"><h2>Reduce volume without losing signal</h2>${e.optimizations.map((o, i) => `<div class="opt"><div class="pct">${esc(o.saving)}<small>typical saving</small>${o.verified && o.verified.ok ? `<small class="measured">${measuredPct(o.verified)} measured</small>` : ''}</div>
+      <div><h4>${esc(o.title)} <span class="st">${esc(o.fn)}</span></h4><p>${esc(o.how)}</p>${o.stream ? streamBlock(e, o, i) : o.expr ? `<code class="st" style="display:inline-block">${esc(o.expr)}</code>` : ''}</div></div>`).join('')}</div>`,
   };
+  // ---------- Cribl Stream functions for an optimization ----------
+  // site/stream.js builds the pipeline (parse step from the article's log, the optimization,
+  // optional write-back); scripts/stream-verify.mjs checks it in Cribl's preview.
+  const STREAM_COPY = new Map();
+  const kb = (b) => (b >= 1024 ? `${(b / 1024).toFixed(1)} KB` : `${b} B`);
+  const measuredPct = (v) => `${v.in.bytes ? Math.round((1 - v.out.bytes / v.in.bytes) * 100) : 0} %`;
+  function streamBlock(e, o, i) {
+    const S = window.GoatpediaStream, st = o.stream;
+    const parts = [];
+    if (st.note) parts.push(`<p class="sx-note">${esc(st.note)}</p>`);
+    const pipe = S.pipelineFor(e, o);
+    if (pipe) {
+      const log = S.logOf(e, st);
+      const before = st.parse === false ? 0 : S.parseStep(log).length;
+      const after = st.serialize ? S.serializeStep(log, o).length : 0;
+      STREAM_COPY.set(`${i}:all`, JSON.stringify(pipe, null, 2));
+      STREAM_COPY.set(`${i}:own`, JSON.stringify({ functions: pipe.functions.slice(before, pipe.functions.length - after) }, null, 2));
+      const v = o.verified;
+      const check = v && v.ok
+        ? `<div class="sx-ok">✓ Checked in Cribl Stream on ${esc(v.checked)}: ${v.in.events} → ${v.out.events} events, ${kb(v.in.bytes)} → ${kb(v.out.bytes)} (${measuredPct(v)} smaller) on this article's sample${v.in.events > 1 ? ' and test events' : ''}.</div>`
+        : '<div class="sx-todo">Not checked in Cribl yet.</div>';
+      parts.push(`${check}<ol class="sx-steps">${pipe.functions.map((f) => `<li><b>${esc(S.NAMES[f.id] || f.id)}</b>${f.description ? ` — ${esc(f.description)}` : ''}${f.filter && f.filter !== 'true' ? `<code>filter: ${esc(f.filter)}</code>` : ''}${f.id !== 'serde' && f.id !== 'serialize' ? `<code>${esc(S.describe(f).replace(/^[^:]*:\s*/, ''))}</code>` : ''}</li>`).join('')}</ol>
+        <details class="sx-json"><summary>Show JSON</summary><pre>${esc(STREAM_COPY.get(`${i}:all`))}</pre></details>
+        <div class="sx-actions"><button type="button" class="sx-copy" data-k="${i}:all">Copy pipeline JSON</button><button type="button" class="sx-copy" data-k="${i}:own">Copy functions only</button>
+        <span>Parses the ${esc(log.type)} log as ${esc((log.format || '').toUpperCase())}. In Cribl Stream: Processing › Pipelines › Add Pipeline › Manage as JSON, then paste.</span></div>`);
+    }
+    if (st.routes) parts.push(`<table class="ftable sx-routes"><tr><th>Route</th><th>Filter</th><th>Send to</th></tr>${st.routes.map((r) => `<tr><td>${esc(r.name)}</td><td><code>${esc(r.filter)}</code></td><td>${esc(r.to)}${r.final ? '' : ' (not final)'}</td></tr>`).join('')}</table>`);
+    return `<div class="sx"><div class="sx-h">In Cribl Stream</div>${parts.join('')}</div>`;
+  }
+  function wireStream() {
+    app.querySelectorAll('.sx-copy').forEach((b) => (b.onclick = () => {
+      navigator.clipboard.writeText(STREAM_COPY.get(b.dataset.k) || '');
+      const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => (b.textContent = t), 1200);
+    }));
+  }
+
   function wireLogs(e, logi) {
     const l = e.logs[logi] || e.logs[0], p = parsed(l);
     const drop = p.filter((f) => f.noise || !f.value).reduce((a, f) => a + f.value.length + 1, 0);

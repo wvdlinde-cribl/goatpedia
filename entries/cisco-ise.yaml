@@ -302,26 +302,82 @@ optimizations:
     fn: Source settings, or Event Breaker
     how: ISE splits a long event into several syslog messages (the "total segments" and "segment number" fields after the category). Raise the remote target's maximum length (up to 8192) so most events arrive whole. Otherwise, rejoin the segments in Stream before parsing.
     expr: "header: CISE_<category> <msgid> <total> <segment>  → reassemble on msgid"
+    stream:
+      note: Not a pipeline function. In ISE, open Administration > System > Logging > Remote Logging Targets and set each target's Maximum Length to 8192, so most events arrive in one piece. Events that are still split share the message id after the CISE_ category, with the total and the segment number after it; join them in a Cribl Event Breaker or keep them together on the syslog source.
   - title: Strip the Step= trail
     saving: 15–30 %
     fn: Mask or Eval
     how: Every authentication and accounting event lists dozens of Step=NNNNN codes, which you only need while troubleshooting a single session. Keep the FailureReason and remove the steps, or keep only the last step.
     expr: "_raw.replace(/ Step=\\d+,/g, '')"
+    stream:
+      log: Passed Authentications
+      parse: false
+      functions:
+      - id: eval
+        filter: /CISE_/.test(_raw)
+        description: Remove every Step=NNNNN code from the raw event
+        conf:
+          add:
+          - name: _raw
+            value: _raw.replace(/ Step=\d+,/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Thin or roll up interim accounting
     saving: 20–40 %
     fn: Drop or Aggregations
     how: Interim-Update records repeat the session every few minutes. Keep Start and Stop for the user-to-IP mapping and roll interims up to one per session per hour, or send them only to Cribl Lake.
     expr: "Acct-Status-Type == 'Interim-Update'"
+    stream:
+      log: RADIUS Accounting
+      functions:
+      - id: drop
+        filter: __e['Acct-Status-Type'] == 'Interim-Update'
+        description: Drop interim accounting updates; Start and Stop keep the user-to-IP mapping
+      test:
+      - '<182>Nov 14 08:31:10 ise-psn01 CISE_RADIUS_Accounting 0000123455 1 0 2026-11-14 08:31:10.402 +00:00 0001234601 3002 NOTICE Radius-Accounting: RADIUS Accounting watchdog update, ConfigVersionId=212, Device IP Address=192.0.2.20, RequestLatency=3, NetworkDeviceName=sw-floor2, User-Name=jdoe@example.com, NAS-IP-Address=192.0.2.20, NAS-Port=50112, Framed-IP-Address=198.51.100.44, Calling-Station-ID=00-00-5E-00-53-2A, Acct-Status-Type=Interim-Update, Acct-Delay-Time=0, Acct-Session-Id=0000002A, Acct-Authentic=RADIUS, NAS-Port-Type=Ethernet, NAS-Port-Id=GigabitEthernet1/0/12, AcsSessionID=ise-psn01/512345678/9013, SelectedAccessService=Default Network Access, Step=11004, Step=11017, Step=15049, Step=15008, Step=11005, NetworkDeviceGroups=Location#All Locations#HQ,'
+      expect:
+        out: 1
   - title: Suppress repeated failures from broken supplicants
     saving: 5–15 %
     fn: Suppress
     how: A misconfigured device can retry thousands of times a day with the same failure. Keep one per Calling-Station-ID, failure reason and NAD per 5 minutes, with a count.
     expr: "key: `${__e['Calling-Station-ID']}:${FailureReason}:${NetworkDeviceName}`  allow 1 / 300s"
+    stream:
+      log: Failed Attempts
+      functions:
+      - id: suppress
+        filter: /CISE_Failed_Attempts/.test(_raw)
+        description: Keep one failure per device, reason and network device per 5 minutes
+        conf:
+          keyExpr: __e['Calling-Station-ID'] + ':' + FailureReason + ':' + NetworkDeviceName
+          allow: 1
+          suppressPeriodSec: 300
+          dropEventsMode: true
+          maxCacheSize: 50000
+          cacheIdleTimeoutPeriods: 2
+          numEventsIdleTimeoutTrigger: 10000
+      test:
+      - '<181>Nov 14 08:31:12 ise-psn01 CISE_Failed_Attempts 0000123420 1 0 2026-11-14 08:31:12.904 +00:00 0001234590 5400 NOTICE Failed-Attempt: Authentication failed, ConfigVersionId=212, Device IP Address=192.0.2.21, DestinationIPAddress=198.51.100.15, DestinationPort=1812, UserName=asmith@example.com, Protocol=Radius, NetworkDeviceName=wlc-hq, User-Name=asmith@example.com, NAS-IP-Address=192.0.2.21, NAS-Port=13, Calling-Station-ID=00-00-5E-00-53-3B, NAS-Port-Type=Wireless - IEEE 802.11, AcsSessionID=ise-psn01/512345678/9031, AuthenticationIdentityStore=AD-EXAMPLE, AuthenticationMethod=MSCHAPV2, EapTunnel=PEAP, FailureReason=22040 Wrong password or invalid shared secret, Step=11001, Step=11017, Step=12300, Step=22037, Step=24402, Step=22040, Step=11003, NetworkDeviceGroups=Location#All Locations#HQ, NetworkDeviceGroups=Device Type#All Device Types#Wireless,'
+      - '<181>Nov 14 08:31:12 ise-psn01 CISE_Failed_Attempts 0000123420 1 0 2026-11-14 08:31:12.904 +00:00 0001234590 5400 NOTICE Failed-Attempt: Authentication failed, ConfigVersionId=212, Device IP Address=192.0.2.21, DestinationIPAddress=198.51.100.15, DestinationPort=1812, UserName=asmith@example.com, Protocol=Radius, NetworkDeviceName=wlc-hq, User-Name=asmith@example.com, NAS-IP-Address=192.0.2.21, NAS-Port=13, Calling-Station-ID=00-00-5E-00-53-3B, NAS-Port-Type=Wireless - IEEE 802.11, AcsSessionID=ise-psn01/512345678/9031, AuthenticationIdentityStore=AD-EXAMPLE, AuthenticationMethod=MSCHAPV2, EapTunnel=PEAP, FailureReason=22040 Wrong password or invalid shared secret, Step=11001, Step=11017, Step=12300, Step=22037, Step=24402, Step=22040, Step=11003, NetworkDeviceGroups=Location#All Locations#HQ, NetworkDeviceGroups=Device Type#All Device Types#Wireless,'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: Send failed attempts and the admin audit to the SIEM in full. Send passed authentications and accounting to the SIEM in optimised form, and send everything raw to Cribl Lake for investigations.
     expr: "/CISE_(Failed_Attempts|Administrative_and_Operational_Audit)/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)"
+    stream:
+      routes:
+      - name: ISE failures and admin audit → SIEM
+        filter: / CISE_(Failed_Attempts|Administrative_and_Operational_Audit) /.test(_raw)
+        to: The SIEM, full fidelity
+        final: true
+      - name: ISE other categories → Lake raw, SIEM optimised
+        filter: / CISE_/.test(_raw)
+        to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+        final: true
+      note: Routes see the raw event, so they match the CISE_ category name. Put the failures and audit route first.
 references:
   - title: Cisco ISE syslog message list
     url: https://www.cisco.com/c/en/us/td/docs/security/ise/syslog/Cisco_ISE_Syslogs/m_SyslogsList.html
