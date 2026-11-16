@@ -305,16 +305,54 @@ optimizations:
     fn: Routes
     how: Security events (name!='Normal') are low volume and high value. Access logs are 90 %+ of the stream; send them to Cribl Lake / object storage and only aggregates to the SIEM.
     expr: name!='Normal' → SIEM  |  name=='Normal' → Lake + Aggregations
+    stream:
+      routes:
+        - name: Imperva access events (Normal) → Lake + aggregates
+          filter: /CEF:0\|Incapsula\|[^|]*\|[^|]*\|[^|]*\|Normal\|/.test(_raw)
+          to: Cribl Lake / object storage (raw), and the SIEM only through the aggregation pipeline
+          final: true
+        - name: Imperva security events → SIEM
+          filter: /CEF:0\|Incapsula\|/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the CEF name column. Put the Normal (access) route first so everything else from Incapsula goes to the SIEM.
   - title: Collapse csN / csNLabel pairs
     saving: 15–25 %
     fn: Eval
     how: Every event repeats label strings (cs4Label=VID, cs7Label=latitude…). Rename csN to its label (cs7 → latitude) and drop the *Label fields — what the Cribl Imperva pack does.
     expr: "latitude=cs7, longitude=cs8, vid=cs4, client_app=cs6; remove: cs*Label"
+    stream:
+      log: Access event
+      parse: false
+      functions:
+        - id: eval
+          filter: /CEF:0\|Incapsula\|/.test(_raw)
+          description: Rename cs4/cs6/cs7/cs8 to their labels and remove every csNLabel pair from the raw event
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ cs\d+Label=.*?(?= [A-Za-z0-9_]+=|$)/g, '').replace(/ cs7=/, ' latitude=').replace(/ cs8=/, ' longitude=').replace(/ cs4=/, ' vid=').replace(/ cs6=/, ' client_app=')
+      expect:
+        out: 1
+        smaller: true
   - title: Drop postbody and response headers
     saving: 10–20 %
     fn: Eval
     how: postbody (when enabled) and additionalResHeaders are large and rarely searched; keep them only on security events.
     expr: "name=='Normal' → remove: postbody, additionalResHeaders, additionalReqHeaders"
+    stream:
+      log: Access event
+      parse: false
+      functions:
+        - id: eval
+          filter: /\|Normal\|/.test(_raw)
+          description: Remove postbody and additional request/response headers from access (Normal) events
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ (postbody|additionalResHeaders|additionalReqHeaders)=.*?(?= [A-Za-z0-9_]+=|$)/g, '')
+      expect:
+        out: 1
   - title: Aggregate cache hits and static assets
     saving: 20–40 % of access volume
     fn: Aggregations

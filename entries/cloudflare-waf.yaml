@@ -270,21 +270,99 @@ optimizations:
     fn: Logpush job config (upstream of Cribl)
     how: http_requests has 130+ fields; most teams need 25. Set the job's field list and a filter (e.g. exclude static asset paths) so the bytes never leave Cloudflare.
     expr: "output_options.field_names: [EdgeStartTimestamp, RayID, ClientIP, ClientRequestHost, ClientRequestPath, EdgeResponseStatus, SecurityAction, WAFAttackScore, BotScore]"
+    stream:
+      note: Not a pipeline function. In the Cloudflare Logpush job, set output_options.field_names to the 25 or so fields you need (for example EdgeStartTimestamp, RayID, ClientIP, ClientRequestHost, ClientRequestPath, EdgeResponseStatus, SecurityAction, WAFAttackScore, BotScore), and add a job filter that excludes static asset paths, so those bytes never leave Cloudflare.
   - title: Sample clean cached static requests
     saving: 30–60 %
     fn: Sampling
     how: Cache hits for images, CSS and JS with status 200 and no security action are pure CDN telemetry. Keep 1 in 20 for capacity analytics; keep every request with a security signal.
     expr: CacheCacheStatus=='hit' && EdgeResponseStatus==200 && !SecurityAction && /\.(png|jpe?g|gif|css|js|woff2?|svg|ico)$/.test(ClientRequestPath)
+    stream:
+      log: HTTP requests
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 20 clean cached static asset requests; keep every request with a security signal
+          conf:
+            rules:
+              - filter: CacheCacheStatus == 'hit' && EdgeResponseStatus == 200 && !SecurityAction && /\.(png|jpe?g|gif|css|js|woff2?|svg|ico)$/.test(ClientRequestPath)
+                rate: 20
+      test:
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e70","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e71","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e72","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/app.js","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e73","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/site.css","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e74","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e75","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e76","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e77","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e78","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+        - '{"EdgeStartTimestamp":"2026-11-12T09:20:14Z","RayID":"8e1f2a3b4c5d6e79","ZoneName":"example.com","ClientIP":"192.0.2.10","ClientRequestHost":"shop.example.com","ClientRequestPath":"/static/logo.png","CacheCacheStatus":"hit","EdgeColoCode":"AMS","EdgeResponseStatus":200,"EdgeTimeToFirstByteMs":3,"BotScore":90,"WAFAttackScore":95,"LeakedCredentialCheckResult":"clean","SecurityAction":""}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
   - title: Roll up performance fields to metrics
     saving: 15–30 %
     fn: Aggregations
     how: Timing fields (ClientTCPRTTMs, EdgeTimeToFirstByteMs, Origin*DurationMs) are for dashboards, not hunting. Aggregate p50/p95 per host, colo and status every minute, then remove them from the events.
     expr: "aggregations: perc(95, EdgeTimeToFirstByteMs), count() by ClientRequestHost, EdgeColoCode, EdgeResponseStatus"
+    stream:
+      log: HTTP requests
+      functions:
+        - id: aggregation
+          filter: 'true'
+          description: Emit per-minute p50/p95 timing metrics per host, colo and status alongside the events
+          conf:
+            passthrough: true
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+              - perc(50, EdgeTimeToFirstByteMs).as(ttfb_p50)
+              - perc(95, EdgeTimeToFirstByteMs).as(ttfb_p95)
+              - perc(95, ClientTCPRTTMs).as(rtt_p95)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - ClientRequestHost
+              - EdgeColoCode
+              - EdgeResponseStatus
+        - id: eval
+          filter: 'true'
+          description: Remove the timing fields from the events once rolled up
+          conf:
+            remove:
+              - ClientTCPRTTMs
+              - EdgeTimeToFirstByteMs
+              - OriginDNSResponseTimeMs
+              - OriginTLSHandshakeDurationMs
+      serialize: true
+      expect:
+        out: 2
+        absent:
+          - ClientTCPRTTMs
+          - EdgeTimeToFirstByteMs
+          - OriginDNSResponseTimeMs
+          - OriginTLSHandshakeDurationMs
   - title: Route by security relevance
     saving: SIEM licence
     fn: Routes
     how: Firewall events, audit logs and requests with a security action, low attack/bot score or leaked credentials go to the SIEM. All other requests go to Cribl Lake or R2 for replay.
     expr: SecurityAction || WAFAttackScore<=30 || BotScore<30 || (LeakedCredentialCheckResult && LeakedCredentialCheckResult!='clean') → SIEM ; else → Lake
+    stream:
+      routes:
+        - name: Cloudflare firewall, audit and security-signal requests → SIEM
+          filter: /"Kind":"firewall"|"ActionType":|"SecurityAction":"[^"]+"|"WAFAttackScore":([0-9]|[12][0-9]|30)[,}]|"BotScore":([0-9]|[12][0-9])[,}]|"LeakedCredentialCheckResult":"(?!clean")[^"]+"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Cloudflare other HTTP requests → Lake
+          filter: /"RayID":"/.test(_raw)
+          to: Cribl Lake or R2 for replay
+          final: true
+      note: Routes see the raw JSON, so they match the keys and values in _raw. Put the SIEM route first.
 references:
   - title: Cloudflare Logpush — HTTP requests dataset fields
     url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/

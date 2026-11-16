@@ -1,0 +1,32 @@
+{
+  "1": {
+    "title": "Collapse csN / csNLabel pairs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a52613808805d2d6",
+    "in": {
+      "events": 1,
+      "bytes": 1013
+    },
+    "out": {
+      "events": 1,
+      "bytes": 874
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop postbody and response headers",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9f8e4a7821aac86f",
+    "in": {
+      "events": 1,
+      "bytes": 1013
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1013
+    },
+    "ok": true
+  }
+}

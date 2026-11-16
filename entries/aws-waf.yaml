@@ -287,21 +287,134 @@ optimizations:
     fn: Sampling
     how: "Allowed requests without labels or non-terminating matches are access-log duplicates (CloudFront/ALB logs already record them). Sample 1:20 for the SIEM, send all to Lake; never sample BLOCK, CAPTCHA, CHALLENGE or labelled requests."
     expr: action=='ALLOW' && (!labels || labels.length==0) && (!nonTerminatingMatchingRules || nonTerminatingMatchingRules.length==0)
+    stream:
+      log: Allowed request
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 20 plain allowed requests with no labels and no non-terminating matches; blocks, challenges and labelled requests are never sampled
+          conf:
+            rules:
+              - filter: action == 'ALLOW' && (!labels || labels.length == 0) && (!nonTerminatingMatchingRules || nonTerminatingMatchingRules.length == 0)
+                rate: 20
+      test:
+        - '{"timestamp":1794474862118,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"Default_Action","terminatingRuleType":"REGULAR","action":"ALLOW","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"198.51.100.23","country":"NL","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/products/42","args":"ref=home","httpVersion":"HTTP/2.0","httpMethod":"GET","requestId":"1-6733a5ee-0123456789abcdef01234567"},"labels":[]}'
+        - '{"timestamp":1794474862118,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"Default_Action","terminatingRuleType":"REGULAR","action":"ALLOW","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"198.51.100.23","country":"NL","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/products/42","args":"ref=home","httpVersion":"HTTP/2.0","httpMethod":"GET","requestId":"1-6733a5ee-0123456789abcdef01234567"},"labels":[]}'
+        - '{"timestamp":1794474862118,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"Default_Action","terminatingRuleType":"REGULAR","action":"ALLOW","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"198.51.100.23","country":"NL","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/products/42","args":"ref=home","httpVersion":"HTTP/2.0","httpMethod":"GET","requestId":"1-6733a5ee-0123456789abcdef01234567"},"labels":[]}'
+        - '{"timestamp":1794474862118,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"Default_Action","terminatingRuleType":"REGULAR","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"198.51.100.23","country":"NL","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/products/42","args":"ref=home","httpVersion":"HTTP/2.0","httpMethod":"GET","requestId":"1-6733a5ee-0123456789abcdef01234567"},"labels":[]}'
+      expect:
+        outMin: 2
+        outMax: 5
   - title: Strip headers and empty arrays
     saving: 30–50 %
     fn: Parser → Serialize
     how: The headers[] array is the bulk of each record. Keep Host, User-Agent and X-Forwarded-For as top-level fields, drop the rest, and remove empty ruleGroupList/rateBasedRuleList/terminatingRuleMatchDetails and null fields. Use WAF field redaction for Authorization/Cookie at the source.
     expr: "keep headers: Host, User-Agent, X-Forwarded-For; remove: httpSourceId, formatVersion, requestId, empty arrays, nulls"
+    stream:
+      log: Allowed request
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Lift Host, User-Agent and X-Forwarded-For to top-level fields
+          conf:
+            add:
+              - name: host
+                value: (JSON.stringify((httpRequest || {}).headers || []).match(/.name.:.Host.,.value.:.([^\x22]*)/) || [])[1]
+              - name: user_agent
+                value: (JSON.stringify((httpRequest || {}).headers || []).match(/.name.:.User-Agent.,.value.:.([^\x22]*)/) || [])[1]
+              - name: x_forwarded_for
+                value: (JSON.stringify((httpRequest || {}).headers || []).match(/.name.:.X-Forwarded-For.,.value.:.([^\x22]*)/) || [])[1]
+        - id: eval
+          filter: 'true'
+          description: Remove the headers array, low-value keys, empty arrays and nulls
+          conf:
+            remove:
+              - httpRequest.headers
+              - httpSourceId
+              - formatVersion
+              - httpRequest.requestId
+            add:
+              - name: terminatingRuleMatchDetails
+                value: 'terminatingRuleMatchDetails && terminatingRuleMatchDetails.length == 0 ? undefined : terminatingRuleMatchDetails'
+              - name: ruleGroupList
+                value: 'ruleGroupList && ruleGroupList.length == 0 ? undefined : ruleGroupList'
+              - name: rateBasedRuleList
+                value: 'rateBasedRuleList && rateBasedRuleList.length == 0 ? undefined : rateBasedRuleList'
+              - name: nonTerminatingMatchingRules
+                value: 'nonTerminatingMatchingRules && nonTerminatingMatchingRules.length == 0 ? undefined : nonTerminatingMatchingRules'
+              - name: requestHeadersInserted
+                value: 'requestHeadersInserted === null ? undefined : requestHeadersInserted'
+              - name: responseCodeSent
+                value: 'responseCodeSent === null ? undefined : responseCodeSent'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - formatVersion
+          - httpSourceId
+          - rateBasedRuleList
+          - terminatingRuleMatchDetails
+          - requestHeadersInserted
+        present:
+          - host
+          - user_agent
+        smaller: true
   - title: Use WAF logging filters at the source
     saving: 50–95 % of WAF log cost
     fn: Routes
     how: WAF logging filters can keep only BLOCK/COUNT/CAPTCHA/CHALLENGE or records with specific labels. If you still need the full set, send it to S3 and let Cribl pick security-relevant records for the SIEM.
     expr: "action != 'ALLOW' || labels.length > 0 → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: WAF non-allow or labelled → SIEM
+          filter: /"webaclId":/.test(_raw) && (/"action":"(BLOCK|COUNT|CAPTCHA|CHALLENGE)"/.test(_raw) || /"labels":\[\{/.test(_raw))
+          to: The SIEM, full fidelity
+          final: true
+        - name: WAF other records → Lake
+          filter: /"webaclId":/.test(_raw)
+          to: Cribl Lake (or S3) only
+          final: true
+      note: Where possible, configure WAF logging filters to keep only BLOCK/COUNT/CAPTCHA/CHALLENGE or labelled records at the source; otherwise use these routes, security-relevant route first.
   - title: Aggregate rate-based and scanner blocks
     saving: 5–20 %
     fn: Aggregations
     how: Floods produce millions of identical rate-based blocks. Roll up to count per clientIp, terminatingRuleId and uri per minute.
     expr: terminatingRuleType=='RATE_BASED' && action=='BLOCK'
+    stream:
+      log: Rate-based block
+      functions:
+        - id: eval
+          filter: terminatingRuleType == 'RATE_BASED' && action == 'BLOCK'
+          description: Copy client IP and URI to top-level fields for grouping
+          conf:
+            add:
+              - name: client_ip
+                value: (httpRequest || {}).clientIp
+              - name: uri
+                value: (httpRequest || {}).uri
+        - id: aggregation
+          filter: terminatingRuleType == 'RATE_BASED' && action == 'BLOCK'
+          description: Roll rate-based blocks up to a count per client IP, rule and URI per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(blocks)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - client_ip
+              - terminatingRuleId
+              - uri
+      test:
+        - '{"timestamp":1794475322904,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"login-rate-limit","terminatingRuleType":"RATE_BASED","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"192.0.2.150","country":"DE","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/api/login","args":"","httpVersion":"HTTP/1.1","httpMethod":"POST","requestId":"1-6733a7ba-0123456789abcdef01234568"},"labels":[]}'
+        - '{"timestamp":1794475322904,"formatVersion":1,"webaclId":"arn:aws:wafv2:us-east-1:111122223333:regional/webacl/shop-prod/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","terminatingRuleId":"login-rate-limit","terminatingRuleType":"RATE_BASED","action":"BLOCK","terminatingRuleMatchDetails":[],"httpSourceName":"ALB","httpSourceId":"111122223333-app/shop-prod-alb/0123456789abcdef","ruleGroupList":[],"rateBasedRuleList":[],"nonTerminatingMatchingRules":[],"requestHeadersInserted":null,"responseCodeSent":null,"httpRequest":{"clientIp":"192.0.2.150","country":"DE","headers":[{"name":"Host","value":"shop.example.com"}],"uri":"/api/login","args":"","httpVersion":"HTTP/1.1","httpMethod":"POST","requestId":"1-6733a7ba-0123456789abcdef01234569"},"labels":[]}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Log fields for protection pack (web ACL) traffic
     url: https://docs.aws.amazon.com/waf/latest/developerguide/logging-fields.html

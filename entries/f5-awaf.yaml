@@ -289,26 +289,98 @@ optimizations:
     fn: Eval
     how: The request field (full headers, sometimes body) is the largest part of each event. Keep uri, method, query_string and the violation details, and keep request only for blocked or rating ≥ 3 events.
     expr: request_status=='passed' && violation_rating < 3 ? delete request
+    stream:
+      log: Request / violation (Splunk key="value" format)
+      parse: false
+      functions:
+        - id: eval
+          filter: /request_status="passed"/.test(_raw) && /violation_rating="[0-2]"/.test(_raw)
+          description: Empty the raw request field on passed, low-rating events
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/,request="[^"]*"$/, ',request=""')
+      test:
+        - '<131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="Illegal meta character in value",support_id="18205860747014045722",request_status="passed",response_code="200",ip_client="198.51.100.24",route_domain="0",method="GET",protocol="HTTPS",query_string="id=2",x_forwarded_for_header_value="N/A",sig_ids="",sig_names="",date_time="2026-11-12 09:14:22",severity="Informational",attack_type="Other",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4959",src_port="51545",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="1",uri="/catalog/item.php",request="GET /catalog/item.php?id=2 HTTP/1.1\r\nHost: shop.example.com\r\nUser-Agent: Mozilla/5.0\r\nAccept: */*\r\n\r\n"'
+      expect:
+        out: 2
+        smaller: true
   - title: Do not ship legal requests to the SIEM
     saving: 50–90 % when "log all requests" is on
     fn: Drop
     how: With log-all-requests, most events are legal traffic (violations empty, request_status passed). Send them to Lake for forensics and keep illegal requests in the SIEM. Better, use "illegal requests only" on the logging profile.
     expr: request_status=='passed' && !violations
+    stream:
+      log: Request / violation (Splunk key="value" format)
+      functions:
+        - id: drop
+          filter: request_status == 'passed' && !violations
+          description: Drop legal requests (passed, no violations); send them to Lake instead
+          conf: {}
+      test:
+        - '<131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="",support_id="18205860747014045723",request_status="passed",response_code="200",ip_client="198.51.100.25",route_domain="0",method="GET",protocol="HTTPS",query_string="id=3",x_forwarded_for_header_value="N/A",sig_ids="",sig_names="",date_time="2026-11-12 09:14:22",severity="Informational",attack_type="",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4960",src_port="51546",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="0",uri="/catalog/item.php",request="GET /catalog/item.php?id=3 HTTP/1.1\r\nHost: shop.example.com\r\n\r\n"'
+      expect:
+        out: 1
   - title: Strip constant and N/A fields
     saving: 15–25 %
     fn: Parser → Serialize
     how: management_ip_address, http_class_name, policy_apply_date, route_domain and the many "N/A" placeholders repeat on every event. Parse the key="value" pairs, drop empties and N/A, and re-serialise.
     expr: "remove: management_ip_address, http_class_name, policy_apply_date, route_domain; drop value=='N/A' || value==''"
+    stream:
+      log: Request / violation (Splunk key="value" format)
+      parse: false
+      functions:
+        - id: eval
+          filter: / ASM:unit_hostname=/.test(_raw)
+          description: Remove constant fields and N/A or empty pairs from the raw event
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/,(management_ip_address|http_class_name|policy_apply_date|route_domain)="[^"]*"/g, '').replace(/,\w+="(N\/A)?"/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress scanner noise
     saving: 10–30 %
     fn: Suppress
     how: One scanner can produce thousands of blocked events. Keep one per ip_client and attack_type per 5 minutes with a count. Never suppress rating-5 events.
     expr: "key: `${ip_client}:${attack_type}`  allow 1 / 300s  when request_status=='blocked' && violation_rating < 5"
+    stream:
+      log: Request / violation (Splunk key="value" format)
+      functions:
+        - id: suppress
+          filter: request_status == 'blocked' && Number(violation_rating) < 5
+          description: Keep one blocked event per client and attack type per 5 minutes; never rating 5
+          conf:
+            keyExpr: ip_client + ':' + attack_type
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - <131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="Attack signature detected",support_id="18205860747014045730",request_status="blocked",response_code="0",ip_client="198.51.100.77",route_domain="0",method="GET",protocol="HTTPS",query_string="id=1",x_forwarded_for_header_value="N/A",sig_ids="200002835",sig_names="SQL-INJ",date_time="2026-11-12 09:14:22",severity="Error",attack_type="SQL-Injection",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4970",src_port="51550",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="4",uri="/catalog/item.php",request="GET /catalog/item.php?id=1 HTTP/1.1\r\n\r\n"
+        - <131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="Attack signature detected",support_id="18205860747014045730",request_status="blocked",response_code="0",ip_client="198.51.100.77",route_domain="0",method="GET",protocol="HTTPS",query_string="id=1",x_forwarded_for_header_value="N/A",sig_ids="200002835",sig_names="SQL-INJ",date_time="2026-11-12 09:14:22",severity="Error",attack_type="SQL-Injection",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4970",src_port="51550",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="4",uri="/catalog/item.php",request="GET /catalog/item.php?id=1 HTTP/1.1\r\n\r\n"
+        - <131>Nov 12 09:14:22 waf1.example.com ASM:unit_hostname="waf1.example.com",management_ip_address="10.0.0.20",http_class_name="/Common/shop_waf",policy_name="/Common/shop_waf",policy_apply_date="2026-11-01 10:12:44",violations="Attack signature detected",support_id="18205860747014045730",request_status="blocked",response_code="0",ip_client="198.51.100.77",route_domain="0",method="GET",protocol="HTTPS",query_string="id=1",x_forwarded_for_header_value="N/A",sig_ids="200002835",sig_names="SQL-INJ",date_time="2026-11-12 09:14:22",severity="Error",attack_type="SQL-Injection",geo_location="N/A",ip_address_intelligence="N/A",username="N/A",session_id="a9141b68ac7b4970",src_port="51550",dest_port="443",dest_ip="203.0.113.10",sub_violations="",virus_name="N/A",violation_rating="4",uri="/catalog/item.php",request="GET /catalog/item.php?id=1 HTTP/1.1\r\n\r\n"
+      expect:
+        out: 2
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: Blocked and high-rating events plus mcpd AUDIT go to the SIEM. All requests go to Lake. Replay by support_id when a user reports a block.
     expr: request_status=='blocked' || violation_rating>=3 || /AUDIT/.test(_raw) → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: F5 ASM all requests → Lake
+          filter: / ASM:/.test(_raw)
+          to: Cribl Lake (raw); replay by support_id
+          final: false
+        - name: F5 blocked, high-rating and mcpd AUDIT → SIEM
+          filter: /request_status="blocked"|violation_rating="[3-5]"|act=blocked|AUDIT - /.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event. The Lake route is non-final so events continue to the SIEM route; remaining events end at Lake only.
 references:
   - title: F5 — Event Messages and Attack Types (ASM log formats, field reference, CEF/Splunk examples)
     url: https://techdocs.f5.com/en-us/bigip-16-0-0/external-monitoring-of-big-ip-systems-implementations/event-messages-and-attack-types.html

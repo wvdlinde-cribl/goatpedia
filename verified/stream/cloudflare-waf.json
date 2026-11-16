@@ -1,0 +1,32 @@
+{
+  "1": {
+    "title": "Sample clean cached static requests",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9e29df55544e6046",
+    "in": {
+      "events": 11,
+      "bytes": 5252
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1762
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Roll up performance fields to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1785fe67627db48a",
+    "in": {
+      "events": 1,
+      "bytes": 1374
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1451
+    },
+    "ok": true
+  }
+}
