@@ -15,6 +15,10 @@ const errors = [];
 const err = (file, msg) => errors.push(`${file}: ${msg}`);
 
 await import('../site/parse.js');
+await import('../site/stream.js');
+const { parse: parseJs } = await import('acorn');
+const { fingerprint } = await import('./stream-fingerprint.mjs');
+const { FUNCTIONS: STREAM_FUNCTIONS } = globalThis.GoatpediaStream;
 const { parseLog } = globalThis.SecpediaParse;
 
 const categories = yaml.load(fs.readFileSync(path.join(ROOT, 'categories.yaml'), 'utf8'));
@@ -42,6 +46,28 @@ for (const f of files) {
     if (l.fields && (l.format === 'csv' || l.format === 'tsv') && rows.length !== l.fields.length) err(file, `${at}: sample has ${rows.length} columns but ${l.fields.length} field names`);
     const names = new Set(rows.map((r) => r.name));
     for (const k of [...(l.key || []), ...(l.noise || [])]) if (!names.has(k)) err(file, `${at}: key/noise field "${k}" is not in the parsed sample`);
+  }
+  // Cribl Stream functions for optimizations: real function ids, a log that exists, and
+  // expressions Cribl can load (ES5 only: no arrow functions, ?., ??, template literals).
+  const es5 = (where, expr) => {
+    try { parseJs(`(${expr})`, { ecmaVersion: 5 }); } catch (x) { err(file, `${where}: "${String(expr).slice(0, 60)}" is not an ES5 expression Cribl can load (${x.message})`); }
+  };
+  for (const [i, o] of (e.optimizations || []).entries()) {
+    const st = o.stream;
+    if (!st) continue;
+    const at = `optimizations[${i}] (${o.title})`;
+    if (st.log && !(e.logs || []).some((l) => l.type === st.log)) err(file, `${at}: stream.log "${st.log}" is not a logs[].type`);
+    for (const [j, fn] of (st.functions || []).entries()) {
+      if (!STREAM_FUNCTIONS.includes(fn.id)) err(file, `${at}: function ${j} "${fn.id}" is not a known Cribl Stream function id`);
+      if (fn.filter != null) es5(`${at} function ${j} filter`, fn.filter);
+      const c = fn.conf || {};
+      for (const a of c.add || []) es5(`${at} eval ${a.name}`, a.value);
+      if (c.keyExpr) es5(`${at} suppress keyExpr`, c.keyExpr);
+      for (const r of c.rules || []) es5(`${at} sampling rule`, r.filter);
+      if (fn.id === 'suppress' && (c.allow == null || c.suppressPeriodSec == null)) err(file, `${at}: suppress needs allow and suppressPeriodSec`);
+    }
+    for (const r of st.routes || []) es5(`${at} route ${r.name}`, r.filter);
+    if (!st.functions && !st.routes && !st.note) err(file, `${at}: stream needs functions, routes or a note`);
   }
   const sts = new Set(e.sourcetypes.map((s) => s.st));
   for (const [i, l] of (e.logs || []).entries()) if (!sts.has(l.sourcetype)) err(file, `logs[${i}] sourcetype "${l.sourcetype}" is not listed under sourcetypes`);
@@ -85,6 +111,21 @@ for (const rel of ['index.html', 'app.js']) {
 // when it is opened. library.json stays for readers that still load everything at once.
 // Vendor logos (scripts/logos.mjs): one SVG per logo under dist/logos/, referenced by path.
 const logoOf = createLogoResolver(ROOT);
+// Cribl checks (scripts/stream-verify.mjs): attached only while the pipeline, events and
+// expectations still match what was checked.
+const verifiedFile = path.join(ROOT, 'verified', 'stream.json');
+const checks = fs.existsSync(verifiedFile) ? JSON.parse(fs.readFileSync(verifiedFile, 'utf8')) : {};
+let checked = 0, stale = 0;
+for (const e of entries) for (const [i, o] of (e.optimizations || []).entries()) {
+  if (!o.stream?.functions) continue;
+  const c = checks[`${e.id}#${i}`];
+  if (!c) continue;
+  if (c.fingerprint !== fingerprint(e, o)) { stale++; continue; }
+  const { fingerprint: _f, title: _t, ...rest } = c;
+  o.verified = rest;
+  checked++;
+}
+console.log(`✓ Cribl Stream checks: ${checked} attached${stale ? `, ${stale} out of date (run npm run verify:stream)` : ''}`);
 fs.mkdirSync(path.join(dist, 'logos'), { recursive: true });
 let logoCount = 0;
 for (const e of entries) {

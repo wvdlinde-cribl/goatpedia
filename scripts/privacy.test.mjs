@@ -50,5 +50,5 @@ test('the popup scans every field and blocks Submit on a finding or without the 
   assert.match(app, /window\.GoatpediaPrivacy\.scan\(\$\(`#rq-\$\{id\}`\)\.value\)/);
   assert.match(app, /go\.disabled = !!f\.length \|\| !ok\.checked;/);
   assert.match(app, /if \(guard\(\)\.length \|\| !ok\.checked\) return;/);
-  assert.match(fs.readFileSync(new URL('../site/index.html', import.meta.url), 'utf8'), /<script src="privacy\.js\?v=__BUILD__"><\/script>\n<script src="app\.js/);
+  assert.match(fs.readFileSync(new URL('../site/index.html', import.meta.url), 'utf8'), /<script src="privacy\.js\?v=__BUILD__"><\/script>\n(?:<script src="[a-z]+\.js\?v=__BUILD__"><\/script>\n)*<script src="app\.js/);
 });

@@ -30,6 +30,13 @@ npm ci
 npm run dev        # → http://localhost:8080
 ```
 
+## Cribl Stream functions for optimizations
+An optimization can include the exact Cribl Stream functions that apply it, in a `stream` block. On the site's Optimize tab these show as numbered steps, with **Copy pipeline JSON** to paste into Stream (Processing › Pipelines › Manage as JSON).
+- **The parse step comes from the article's own log** (built by [`site/stream.js`](site/stream.js)): CSV with the article's column list, key=value, JSON, or the text log's regex. `serialize: true` writes the event back in its original format afterwards. CSV keeps every column in place, and removed fields become empty columns.
+- **Checked in Cribl:** `npm run verify:stream` runs each pipeline in Cribl Stream's preview on the article's sample, plus any `test` events. Nothing is deployed. It checks `expect` (events left, fields gone, smaller output) and records the events and bytes before and after in [`verified/stream.json`](verified/stream.json). The site shows "Checked in Cribl Stream" and a measured saving only while the article still matches what was checked. It needs a Cribl API client in `.env` (gitignored): `CRIBL_API_URL`, `CRIBL_CLIENT_ID`, `CRIBL_CLIENT_SECRET`, and optionally `CRIBL_GROUP`.
+- **The build checks every block:** function ids exist, the log exists, and every filter and expression is ES5, because Cribl does not load arrow functions, `?.`, `??` or template literals.
+- **Pilot:** `pan-ngfw` (CSV), `cisco-ise` (key=value) and `okta` (JSON).
+
 ## Vendor logos
 Cards and articles show the vendor's logo when one is available. Otherwise they show the category icon.
 - **Where they come from:** the [Simple Icons](https://simpleicons.org) set (CC0), matched to the vendor name at build time by [`scripts/logos.mjs`](scripts/logos.mjs). The build copies only the logos that are used to `dist/logos/`, so the site loads them from GitHub Pages and never calls a third party.
