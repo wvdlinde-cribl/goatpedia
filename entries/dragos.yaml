@@ -87,6 +87,18 @@ optimizations:
     fn: Drop
     how: System notifications are the platform talking about itself. Keep Indicator, modeling, and threat behavior.
     expr: type == 'System'
+    stream:
+      log: Notification
+      parse: false
+      functions:
+        - id: drop
+          filter: /(^|\s)type=System(\s|$)/.test(_raw)
+          description: Drop Dragos System notifications (type=System in the CEF extension); keep Indicator, modeling and threat behavior
+          conf: {}
+      test:
+        - CEF:0|Dragos|Platform|1.5|notification|Sensor health|2|msg=Sensor disk usage above threshold src=192.0.2.40 dst=198.51.100.20 type=System occurredAt=2026-11-16T08:41:00Z externalId=1002 originalSeverity=2
+      expect:
+        out: 1
 references:
   - title: WitFoo — Dragos Platform CEF syslog
     url: https://docs.witfoo.com/conductor/syslog/dragos/

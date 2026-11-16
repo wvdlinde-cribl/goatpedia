@@ -890,26 +890,127 @@ optimizations:
     fn: Drop
     how: loaded_scripts, packet_filter, stats, capture_loss and reporter are operational, so send them to Lake or a metrics store. Keep conn, dns, http, ssl, x509, files, notice, weird, smb, kerberos, dce_rpc and intel.
     expr: "['loaded_scripts','packet_filter','stats','capture_loss','reporter'].includes(_path)"
+    stream:
+      log: Zeek
+      parse: false
+      functions:
+        - id: drop
+          filter: /"_path":"(loaded_scripts|packet_filter|stats|capture_loss|reporter)"/.test(_raw)
+          description: Drop operational Zeek logs (loaded_scripts, packet_filter, stats, capture_loss, reporter) before the SIEM
+          conf: {}
+      test:
+        - <134>Dec 26 01:35:11 machine-name {"_path":"notice","_write_ts":"2023-12-12T05:52:50.756358Z","ts":"2023-12-12T05:52:32.763303Z","note":"Scan::Port_Scan","msg":"192.0.2.10 scanned ports"}
+      expect:
+        out: 1
+        smaller: true
   - title: Drop unanswered / scan noise from conn.log
     saving: 15–35 % of conn
     fn: Drop
     how: Inbound internet scans produce S0/REJ connections with zero bytes to closed ports. Keep a sampled or aggregated view, and drop the rest before the SIEM.
     expr: "!local_orig && ['S0','REJ','OTH'].includes(conn_state) && !orig_bytes && !resp_bytes"
+    stream:
+      log: Connection (conn.log)
+      functions:
+        - id: drop
+          filter: '!local_orig && (conn_state == ''S0'' || conn_state == ''REJ'' || conn_state == ''OTH'') && !orig_bytes && !resp_bytes'
+          description: Drop inbound unanswered or rejected zero-byte scan connections
+          conf: {}
+      test:
+        - '{"ts":1762938862.401201,"uid":"CHhAvVGS1DHFjwGM0","id.orig_h":"198.51.100.99","id.orig_p":51544,"id.resp_h":"192.0.2.50","id.resp_p":23,"proto":"tcp","duration":0,"orig_bytes":0,"resp_bytes":0,"conn_state":"S0","local_orig":false,"local_resp":true,"missed_bytes":0,"history":"S","orig_pkts":1,"orig_ip_bytes":44,"resp_pkts":0,"resp_ip_bytes":0,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE="}'
+      expect:
+        out: 1
   - title: Aggregate internal chatter to metrics
     saving: 30–50 % of conn
     fn: Aggregations
     how: Roll up internal DNS, NTP, LDAP and Kerberos conn records to counts and bytes per src/dst/service per minute. Raw records go to Lake for replay.
     expr: local_orig && local_resp && ['dns','ntp','krb','ldap'].includes(service)
+    stream:
+      log: Connection (conn.log)
+      functions:
+        - id: eval
+          filter: local_orig && local_resp && (service == 'dns' || service == 'ntp' || service == 'krb' || service == 'ldap')
+          description: Copy the dotted address fields to plain names for grouping
+          conf:
+            add:
+              - name: src
+                value: __e['id.orig_h']
+              - name: dst
+                value: __e['id.resp_h']
+        - id: aggregation
+          filter: local_orig && local_resp && (service == 'dns' || service == 'ntp' || service == 'krb' || service == 'ldap')
+          description: Roll internal DNS, NTP, Kerberos and LDAP connections up per source, destination and service per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+              - sum(orig_bytes).as(orig_bytes)
+              - sum(resp_bytes).as(resp_bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src
+              - dst
+              - service
+      test:
+        - '{"ts":1762938862.401201,"uid":"CHhAvVGS1DHFjwGM1","id.orig_h":"10.20.30.44","id.orig_p":61022,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","service":"dns","duration":0.01,"orig_bytes":40,"resp_bytes":80,"conn_state":"SF","local_orig":true,"local_resp":true,"missed_bytes":0,"history":"Dd","orig_pkts":1,"orig_ip_bytes":68,"resp_pkts":1,"resp_ip_bytes":108,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE="}'
+        - '{"ts":1762938863.401201,"uid":"CHhAvVGS1DHFjwGM2","id.orig_h":"10.20.30.44","id.orig_p":61023,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","service":"dns","duration":0.01,"orig_bytes":42,"resp_bytes":90,"conn_state":"SF","local_orig":true,"local_resp":true,"missed_bytes":0,"history":"Dd","orig_pkts":1,"orig_ip_bytes":70,"resp_pkts":1,"resp_ip_bytes":118,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE="}'
+      expect:
+        out: 2
+        smaller: true
   - title: Trim fields and convert TSV to JSON
     saving: 10–20 %
     fn: Parser → Serialize
     how: Parse TSV using the #fields header, drop missed_bytes, *_ip_bytes, tunnel_parents and "-" placeholders, and add community_id for joins with Suricata and EDR.
     expr: "remove: missed_bytes, orig_ip_bytes, resp_ip_bytes, tunnel_parents; drop '-' and '(empty)'"
+    stream:
+      log: Connection (native TSV)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove low-value columns
+          conf:
+            remove:
+              - missed_bytes
+              - orig_ip_bytes
+              - resp_ip_bytes
+              - tunnel_parents
+        - id: eval
+          filter: 'true'
+          description: Write the event as JSON, leaving out '-' and '(empty)' values
+          conf:
+            add:
+              - name: _raw
+                value: 'JSON.stringify({''ts'': ts, ''uid'': uid, ''id.orig_h'': __e[''id.orig_h''], ''id.orig_p'': __e[''id.orig_p''], ''id.resp_h'': __e[''id.resp_h''], ''id.resp_p'': __e[''id.resp_p''], ''proto'': proto, ''service'': (service == ''-'' || service == ''(empty)'') ? undefined : service, ''duration'': duration == ''-'' ? undefined : duration, ''orig_bytes'': orig_bytes == ''-'' ? undefined : orig_bytes, ''resp_bytes'': resp_bytes == ''-'' ? undefined : resp_bytes, ''conn_state'': conn_state, ''local_orig'': local_orig == ''-'' ? undefined : local_orig, ''local_resp'': local_resp == ''-'' ? undefined : local_resp, ''history'': history == ''-'' ? undefined : history, ''orig_pkts'': orig_pkts, ''resp_pkts'': resp_pkts})'
+      expect:
+        out: 1
+        absent:
+          - missed_bytes
+          - orig_ip_bytes
+          - resp_ip_bytes
+          - tunnel_parents
+        present:
+          - uid
+          - conn_state
   - title: Route by log path
     saving: SIEM licence
     fn: Routes
     how: notice, intel, weird, ssl, http, dns and files go to the SIEM. conn goes to Lake in full, with an aggregated copy in the SIEM. Pivot on uid when replaying an incident.
     expr: _path=='conn' → Lake + SIEM(aggregated)  |  else → SIEM
+    stream:
+      routes:
+        - name: Zeek conn → Lake raw, SIEM aggregated
+          filter: /"_path":"conn"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline
+          final: true
+        - name: Zeek other logs → SIEM
+          filter: /"_path":"/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event, so they match _path in the JSON text. Put the conn route first and pivot on uid when replaying from Lake.
 references:
   - title: Zeek docs — conn.log
     url: https://docs.zeek.org/en/master/logs/conn.html

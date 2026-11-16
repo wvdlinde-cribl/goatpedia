@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Aggregate flows per minute",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8d75795595393e73",
+    "in": {
+      "events": 3,
+      "bytes": 1435
+    },
+    "out": {
+      "events": 1,
+      "bytes": 254
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop template-noise fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4318108f99c7dcb9",
+    "in": {
+      "events": 1,
+      "bytes": 481
+    },
+    "out": {
+      "events": 1,
+      "bytes": 325
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Correct for sampling, then normalise names",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "42cae9d93b7869f7",
+    "in": {
+      "events": 1,
+      "bytes": 481
+    },
+    "out": {
+      "events": 1,
+      "bytes": 448
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop internal-only chatter you never investigate",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "209240e5a852a0bc",
+    "in": {
+      "events": 2,
+      "bytes": 965
+    },
+    "out": {
+      "events": 1,
+      "bytes": 481
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "1": {
+    "title": "Drop scan noise and zero-byte connections",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e279c7b2718fae59",
+    "in": {
+      "events": 2,
+      "bytes": 1125
+    },
+    "out": {
+      "events": 1,
+      "bytes": 585
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip metadata and placeholder fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2af95b7dd5aa4b21",
+    "in": {
+      "events": 1,
+      "bytes": 585
+    },
+    "out": {
+      "events": 1,
+      "bytes": 391
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate internal DNS/NTP/Kerberos chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "92aa427ba04e3799",
+    "in": {
+      "events": 4,
+      "bytes": 2258
+    },
+    "out": {
+      "events": 2,
+      "bytes": 814
+    },
+    "ok": true
+  }
+}

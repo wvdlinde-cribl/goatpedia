@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Unroll, then drop the envelope",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "02d36db4f15197bf",
+    "in": {
+      "events": 1,
+      "bytes": 950
+    },
+    "out": {
+      "events": 3,
+      "bytes": 2850
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate denied inbound noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9a03a9ffff7cf8f3",
+    "in": {
+      "events": 10,
+      "bytes": 610
+    },
+    "out": {
+      "events": 1,
+      "bytes": 198
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop empty Begin records",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4ab81abcf58b9b8b",
+    "in": {
+      "events": 2,
+      "bytes": 123
+    },
+    "out": {
+      "events": 1,
+      "bytes": 68
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Normalise NSG v2 and VNet tuples",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bb7287fc725ba8ac",
+    "in": {
+      "events": 1,
+      "bytes": 68
+    },
+    "out": {
+      "events": 1,
+      "bytes": 68
+    },
+    "ok": true
+  }
+}
