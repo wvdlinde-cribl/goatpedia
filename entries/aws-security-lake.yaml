@@ -305,26 +305,134 @@ optimizations:
     fn: Routes
     how: Findings (2004), Authentication (3002), Account Change (3001) and write API Activity go to the SIEM at full fidelity; Network Activity and DNS Activity go to Cribl Lake or stay in Security Lake for Athena and replay.
     expr: class_uid in (2004,3001,3002) || (class_uid==6003 && activity_id!=2) → SIEM | else → Lake
+    stream:
+      routes:
+        - name: Findings, Account Change, Authentication → SIEM
+          filter: /"class_uid":(2004|3001|3002)[,}]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Write API Activity → SIEM
+          filter: /"class_uid":6003[,}]/.test(_raw) && !/"activity_id":2[,}]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Network, DNS and read API Activity → Lake
+          filter: /"class_uid":/.test(_raw)
+          to: Cribl Lake (or leave in Security Lake for Athena and replay)
+          final: true
+      note: Routes see the raw event, so they match class_uid and activity_id in the JSON text. Keep the SIEM routes above the Lake catch-all.
   - title: Aggregate accepted internal flows
     saving: 40–70 % of 4001
     fn: Aggregations
     how: Roll accepted east-west flows up to bytes, packets and flow count per src/dst/port per 5 minutes; keep every rejected flow and every flow that crosses the VPC boundary as raw.
     expr: class_uid==4001 && action=='Allowed' && connection_info.boundary_id==1
+    stream:
+      log: Network Activity (VPC Flow Logs)
+      functions:
+        - id: aggregation
+          filter: class_uid == 4001 && action == 'Allowed' && (connection_info || {}).boundary_id == 1
+          description: Roll accepted east-west flows up to flows, bytes and packets per source, destination and port per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(flows)
+              - sum(traffic.bytes).as(bytes)
+              - sum(traffic.packets).as(packets)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_endpoint.ip
+              - dst_endpoint.ip
+              - dst_endpoint.port
+      test:
+        - '{"metadata":{"product":{"version":"5","name":"Amazon VPC","vendor_name":"AWS","feature":{"name":"Flowlogs"}},"profiles":["cloud","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","zone":"eu-west-1a","provider":"AWS"},"src_endpoint":{"port":51544,"svc_name":"-","ip":"10.20.30.44","intermediate_ips":null,"interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"dst_endpoint":{"port":443,"svc_name":"-","ip":"10.20.30.55","interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"connection_info":{"protocol_num":6,"tcp_flags":2,"direction":"Outbound","direction_id":2,"boundary_id":1,"boundary":"Same VPC"},"traffic":{"packets":3,"bytes":180},"time":1762938840000,"start_time":1762938780000,"end_time":1762938840000,"status_code":"OK","severity_id":1,"severity":"Informational","class_name":"Network Activity","class_uid":4001,"category_name":"Network Activity","category_uid":4,"activity_name":"Traffic","activity_id":6,"action":"Allowed","action_id":1,"disposition":"Allowed","disposition_id":1,"type_uid":400106,"type_name":"Network Activity: Traffic","accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"5","name":"Amazon VPC","vendor_name":"AWS","feature":{"name":"Flowlogs"}},"profiles":["cloud","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","zone":"eu-west-1a","provider":"AWS"},"src_endpoint":{"port":51545,"svc_name":"-","ip":"10.20.30.44","intermediate_ips":null,"interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"dst_endpoint":{"port":443,"svc_name":"-","ip":"10.20.30.55","interface_uid":"eni-0a1b2c3d4e5f67890","vpc_uid":"vpc-0123456789abcdef0","instance_uid":"i-0abc123def4567890","subnet_uid":"subnet-0fedcba9876543210"},"connection_info":{"protocol_num":6,"tcp_flags":2,"direction":"Outbound","direction_id":2,"boundary_id":1,"boundary":"Same VPC"},"traffic":{"packets":5,"bytes":420},"time":1762938840000,"start_time":1762938780000,"end_time":1762938840000,"status_code":"OK","severity_id":1,"severity":"Informational","class_name":"Network Activity","class_uid":4001,"category_name":"Network Activity","category_uid":4,"activity_name":"Traffic","activity_id":6,"action":"Allowed","action_id":1,"disposition":"Allowed","disposition_id":1,"type_uid":400106,"type_name":"Network Activity: Traffic","accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop read-only API Activity from AWS services
     saving: 20–50 % of 6003
     fn: Drop
     how: Describe/List/Get calls by AWS service principals (Config, Trusted Advisor, scanners) dominate API Activity. Keep errors and IAM/STS/sign-in calls.
     expr: class_uid==6003 && activity_id==2 && status=='Success' && /^(Describe|List|Get)/.test(api.operation) && !/iam|sts|signin/.test(api.service.name)
+    stream:
+      log: API Activity (CloudTrail)
+      functions:
+        - id: drop
+          filter: class_uid == 6003 && activity_id == 2 && status == 'Success' && /^(Describe|List|Get)/.test((api || {}).operation) && !/iam|sts|signin/.test(((api || {}).service || {}).name)
+          description: Drop successful read-only Describe/List/Get calls outside IAM, STS and sign-in
+          conf: {}
+      test:
+        - '{"metadata":{"product":{"version":"1.09","name":"CloudTrail","vendor_name":"AWS","feature":{"name":"Management"}},"uid":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","profiles":["cloud","datetime"],"version":"1.1.0"},"time":1762938862000,"cloud":{"region":"us-east-1","provider":"AWS"},"api":{"response":{"data":"{}"},"operation":"DescribeInstances","version":null,"service":{"name":"ec2.amazonaws.com"},"request":{"data":"{}","uid":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b"}},"actor":{"user":{"type":"AssumedRole","name":"config","uid":"arn:aws:sts::111122223333:assumed-role/AWSServiceRoleForConfig/config","account":{"uid":"111122223333"},"credential_uid":"ASIAEXAMPLEKEY12345"},"session":{"created_time":1762937702000,"mfa":false,"issuer":"arn:aws:iam::111122223333:role/AWSServiceRoleForConfig"}},"http_request":{"user_agent":"config.amazonaws.com"},"src_endpoint":{"ip":"203.0.113.45"},"class_name":"API Activity","class_uid":6003,"category_name":"Application Activity","category_uid":6,"severity_id":1,"severity":"Informational","status":"Success","status_id":1,"activity_name":"Read","activity_id":2,"type_uid":600302,"type_name":"API Activity: Read","accountid":"111122223333","region":"us-east-1","asl_version":"2.0"}'
+      expect:
+        out: 1
   - title: Strip OCSF descriptors and raw payloads
     saving: 15–30 %
     fn: Parser → Serialize
     how: class_name, category_name, type_name, activity_name and severity are lookups of their *_uid / *_id numbers; unmapped and raw_data repeat the source record. Remove them before the SIEM and restore names with a lookup at search time.
     expr: "remove: class_name, category_name, type_name, activity_name, severity, metadata.profiles, raw_data, unmapped"
+    stream:
+      log: API Activity (CloudTrail)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove OCSF name descriptors and raw payload copies; names can be restored from the ids at search time
+          conf:
+            remove:
+              - class_name
+              - category_name
+              - type_name
+              - activity_name
+              - severity
+              - metadata.profiles
+              - raw_data
+              - unmapped
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - class_name
+          - category_name
+          - type_name
+          - activity_name
+          - severity
+        present:
+          - class_uid
+          - activity_id
+        smaller: true
   - title: Sample successful DNS responses for common domains
     saving: 30–60 % of 4003
     fn: Sampling
     how: Lookups of AWS service endpoints and your own zones are repetitive. Sample 10:1 when rcode is NoError and the domain is on an allow-list; keep NXDOMAIN, TXT and rare domains in full.
     expr: class_uid==4003 && rcode=='NoError' && /\.(amazonaws\.com|example\.com)\.$/.test(query.hostname)
+    stream:
+      log: DNS Activity (Route 53 Resolver)
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 successful lookups of allow-listed common domains
+          conf:
+            rules:
+              - filter: class_uid == 4003 && rcode == 'NoError' && /\.(amazonaws\.com|example\.com)\.$/.test((query || {}).hostname)
+                rate: 10
+      test:
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+        - '{"metadata":{"product":{"version":"1.100000","name":"Route 53","vendor_name":"AWS","feature":{"name":"Resolver Query Logs"}},"profiles":["cloud","security_control","datetime"],"version":"1.1.0"},"cloud":{"account":{"uid":"111122223333"},"region":"eu-west-1","provider":"AWS"},"src_endpoint":{"vpc_uid":"vpc-0123456789abcdef0","ip":"10.20.30.44","port":"40221","instance_uid":"i-0abc123def4567890"},"time":1762938901000,"query":{"hostname":"s3.eu-west-1.amazonaws.com.","type":"A","class":"IN"},"rcode":"NoError","answers":[{"type":"A","rdata":"192.0.2.10","class":"IN"}],"connection_info":{"protocol_name":"UDP","direction":"Outbound","direction_id":2},"dst_endpoint":{"instance_uid":null,"interface_uid":"rni-0a1b2c3d4e5f6a7b8"},"firewall_rule":{"uid":null},"disposition":"Allowed","disposition_id":1,"severity_id":1,"severity":"Informational","class_name":"DNS Activity","class_uid":4003,"category_name":"Network Activity","category_uid":4,"activity_id":2,"activity_name":"Response","type_uid":400302,"type_name":"DNS Activity: Response","rcode_id":0,"accountid":"111122223333","region":"eu-west-1","asl_version":"2.0"}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
 references:
   - title: What is Amazon Security Lake?
     url: https://docs.aws.amazon.com/security-lake/latest/userguide/what-is-security-lake.html

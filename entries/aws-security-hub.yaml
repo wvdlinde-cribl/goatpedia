@@ -285,6 +285,17 @@ optimizations:
     fn: Drop
     how: "Most control findings are re-sent as PASSED on every evaluation. Keep a PASSED only when it follows a FAILED (state change) and drop the rest — or send them to Lake for compliance reporting."
     expr: Compliance && Compliance.Status=='PASSED' && ProductName=='Security Hub'
+    stream:
+      log: Control finding (ASFF)
+      functions:
+        - id: drop
+          filter: Compliance && Compliance.Status == 'PASSED' && ProductName == 'Security Hub'
+          description: Drop PASSED control re-evaluations from Security Hub (send them to Lake for compliance reporting if needed)
+          conf: {}
+      test:
+        - '{"SchemaVersion":"2018-10-08","Id":"arn:aws:securityhub:us-east-1:111122223333:security-control/S3.8/finding/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","ProductArn":"arn:aws:securityhub:us-east-1::product/aws/securityhub","ProductName":"Security Hub","CompanyName":"AWS","Region":"us-east-1","GeneratorId":"security-control/S3.8","AwsAccountId":"111122223333","Types":["Software and Configuration Checks/Industry and Regulatory Standards"],"FirstObservedAt":"2026-10-02T11:04:18.112Z","LastObservedAt":"2026-11-12T08:15:40.507Z","CreatedAt":"2026-10-02T11:04:18.112Z","UpdatedAt":"2026-11-12T08:15:33.981Z","Severity":{"Label":"INFORMATIONAL","Normalized":0,"Original":"INFORMATIONAL"},"Title":"S3 general purpose buckets should block public access","Description":"This control checks whether an Amazon S3 general purpose bucket blocks public access at the bucket level.","Resources":[{"Type":"AwsS3Bucket","Id":"arn:aws:s3:::example-public-assets","Partition":"aws","Region":"us-east-1"}],"Compliance":{"Status":"PASSED","SecurityControlId":"S3.8"},"WorkflowState":"NEW","Workflow":{"Status":"RESOLVED"},"RecordState":"ACTIVE","ProcessedAt":"2026-11-12T08:15:41.220Z"}'
+      expect:
+        out: 1
   - title: Split detail.findings[] and unwrap the envelope
     saving: 5–15 %
     fn: Unroll → Eval
@@ -295,11 +306,48 @@ optimizations:
     fn: Suppress
     how: Keep one event per finding Id per state; repeated updates with the same status and severity (only UpdatedAt/LastObservedAt changed) are dropped.
     expr: "key: `${Id}:${Compliance && Compliance.Status}:${Severity.Label}:${RecordState}`  allow 1 / 86400s"
+    stream:
+      log: Control finding (ASFF)
+      functions:
+        - id: suppress
+          filter: Id
+          description: Keep one event per finding Id and state per day
+          conf:
+            keyExpr: Id + ':' + (Compliance || {}).Status + ':' + (Severity || {}).Label + ':' + RecordState
+            allow: 1
+            suppressPeriodSec: 86400
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"SchemaVersion":"2018-10-08","Id":"arn:aws:securityhub:us-east-1:111122223333:security-control/S3.8/finding/1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","ProductArn":"arn:aws:securityhub:us-east-1::product/aws/securityhub","ProductName":"Security Hub","CompanyName":"AWS","Region":"us-east-1","GeneratorId":"security-control/S3.8","AwsAccountId":"111122223333","FirstObservedAt":"2026-10-02T11:04:18.112Z","LastObservedAt":"2026-11-12T09:15:40.507Z","UpdatedAt":"2026-11-12T09:15:33.981Z","Severity":{"Label":"HIGH","Normalized":70,"Original":"HIGH"},"Title":"S3 general purpose buckets should block public access","Compliance":{"Status":"FAILED","SecurityControlId":"S3.8"},"Workflow":{"Status":"NEW"},"RecordState":"ACTIVE"}'
+      expect:
+        out: 1
   - title: Strip remediation text and duplicate fields
     saving: 10–25 %
     fn: Parser → Serialize
     how: Remediation.Recommendation.Text, Description, FindingProviderFields (duplicates Severity/Types) and ProductFields aws/securityhub/* are static per control; remove them or keep them in a lookup keyed by SecurityControlId.
     expr: "remove: Remediation, FindingProviderFields, ProductFields['aws/securityhub/ProductName'], ProductFields['aws/securityhub/CompanyName']"
+    stream:
+      log: Control finding (ASFF)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove static remediation text and duplicated provider fields
+          conf:
+            remove:
+              - Remediation
+              - FindingProviderFields
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - Remediation
+          - FindingProviderFields
+        present:
+          - Severity
+        smaller: true
 references:
   - title: AWS Security Finding Format (ASFF)
     url: https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-findings-format.html

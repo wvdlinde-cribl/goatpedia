@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Keep only final status of each operation",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bcf4423d258b1496",
+    "in": {
+      "events": 2,
+      "bytes": 4122
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2076
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Reduce Policy audit noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "00c29cb1d0a801b1",
+    "in": {
+      "events": 3,
+      "bytes": 3821
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2585
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip token claims and localized duplicates",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9b04fb7482f7c22b",
+    "in": {
+      "events": 1,
+      "bytes": 2376
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2078
+    },
+    "ok": true
+  }
+}

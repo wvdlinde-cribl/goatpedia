@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop noisy read-only service calls",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3fcc02fa82a5dca7",
+    "in": {
+      "events": 2,
+      "bytes": 2405
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1266
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip low-value fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "61b19e32a7e7bd3b",
+    "in": {
+      "events": 1,
+      "bytes": 1266
+    },
+    "out": {
+      "events": 1,
+      "bytes": 934
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate S3 data events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "16be9394e4712238",
+    "in": {
+      "events": 3,
+      "bytes": 3592
+    },
+    "out": {
+      "events": 1,
+      "bytes": 344
+    },
+    "ok": true
+  },
+  "4": {
+    "title": "Deduplicate overlapping trails",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3e857506b2898b72",
+    "in": {
+      "events": 2,
+      "bytes": 2532
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1266
+    },
+    "ok": true
+  }
+}

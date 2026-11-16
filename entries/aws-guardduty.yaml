@@ -279,6 +279,26 @@ optimizations:
     fn: Suppress
     how: "The same finding id is re-exported every time its count or lastSeen changes. Keep the first occurrence and then one update per id per hour (or only when severity changes)."
     expr: "key: `${id || detail.id}:${severity || detail.severity}`  allow 1 / 3600s"
+    stream:
+      log: IAM / API finding
+      functions:
+        - id: suppress
+          filter: '!!(id || (detail || {}).id)'
+          description: Keep the first export of a finding and then one update per finding id and severity per hour
+          conf:
+            keyExpr: (id || (detail || {}).id) + ':' + (severity || (detail || {}).severity)
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"schemaVersion":"2.0","accountId":"111122223333","region":"us-east-1","partition":"aws","id":"8ac9f1e2d3b4a5968778695a4b3c2d1e","arn":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/8ac9f1e2d3b4a5968778695a4b3c2d1e","type":"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS","resource":{"resourceType":"AccessKey","accessKeyDetails":{"accessKeyId":"ASIAEXAMPLEKEY12345","principalId":"AROAEXAMPLEID1234:i-0abc123def4567890","userName":"web-app-role","userType":"AssumedRole"}},"service":{"serviceName":"guardduty","detectorId":"12abc34d567e8fa901bc2d34e56789f0","action":{"actionType":"AWS_API_CALL","awsApiCallAction":{"api":"ListBuckets","serviceName":"s3.amazonaws.com","callerType":"Remote IP","remoteIpDetails":{"ipAddressV4":"198.51.100.23","organization":{"asn":"64500","asnOrg":"EXAMPLE-HOSTING","isp":"Example Hosting","org":"Example Hosting"},"country":{"countryName":"Netherlands"},"city":{"cityName":"Amsterdam"},"geoLocation":{"lat":52.37,"lon":4.89}}}},"resourceRole":"TARGET","additionalInfo":{"value":"{}","type":"default"},"eventFirstSeen":"2026-11-12T08:41:10.000Z","eventLastSeen":"2026-11-12T09:12:55.000Z","archived":false,"count":8},"severity":8,"createdAt":"2026-11-12T08:47:31.512Z","updatedAt":"2026-11-12T09:18:02.113Z","title":"Credentials for the EC2 instance role web-app-role were used from a remote AWS account.","description":"Credentials created exclusively for an EC2 instance using instance role web-app-role have been used from external IP address 198.51.100.23."}'
+        - '{"schemaVersion":"2.0","accountId":"111122223333","region":"us-east-1","partition":"aws","id":"8ac9f1e2d3b4a5968778695a4b3c2d1e","arn":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/8ac9f1e2d3b4a5968778695a4b3c2d1e","type":"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS","resource":{"resourceType":"AccessKey","accessKeyDetails":{"accessKeyId":"ASIAEXAMPLEKEY12345","principalId":"AROAEXAMPLEID1234:i-0abc123def4567890","userName":"web-app-role","userType":"AssumedRole"}},"service":{"serviceName":"guardduty","detectorId":"12abc34d567e8fa901bc2d34e56789f0","action":{"actionType":"AWS_API_CALL","awsApiCallAction":{"api":"ListBuckets","serviceName":"s3.amazonaws.com","callerType":"Remote IP","remoteIpDetails":{"ipAddressV4":"198.51.100.23","organization":{"asn":"64500","asnOrg":"EXAMPLE-HOSTING","isp":"Example Hosting","org":"Example Hosting"},"country":{"countryName":"Netherlands"},"city":{"cityName":"Amsterdam"},"geoLocation":{"lat":52.37,"lon":4.89}}}},"resourceRole":"TARGET","additionalInfo":{"value":"{}","type":"default"},"eventFirstSeen":"2026-11-12T08:41:10.000Z","eventLastSeen":"2026-11-12T09:22:55.000Z","archived":false,"count":9},"severity":8,"createdAt":"2026-11-12T08:47:31.512Z","updatedAt":"2026-11-12T09:28:02.113Z","title":"Credentials for the EC2 instance role web-app-role were used from a remote AWS account.","description":"Credentials created exclusively for an EC2 instance using instance role web-app-role have been used from external IP address 198.51.100.23."}'
+      expect:
+        out: 1
+        smaller: true
   - title: Unwrap the EventBridge envelope
     saving: 5–10 %
     fn: Eval
@@ -289,11 +309,37 @@ optimizations:
     fn: Routes
     how: "Critical/High findings → SIEM + ticketing; Medium → SIEM; Low (port probes, archived, suppressed) → Lake only."
     expr: "(severity || detail.severity) >= 4 && !(service.archived || detail.service.archived) → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: GuardDuty archived or Low → Lake
+          filter: /"archived":true/.test(_raw) || !/"severity":([4-9]|10)(\.\d+)?[,}]/.test(_raw)
+          to: Cribl Lake only
+          final: true
+        - name: GuardDuty High/Critical → SIEM + ticketing
+          filter: /"severity":([7-9]|10)(\.\d+)?[,}]/.test(_raw)
+          to: The SIEM and the ticketing system
+          final: true
+        - name: GuardDuty Medium → SIEM
+          filter: /"severity":[4-6](\.\d+)?[,}]/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw JSON, so they match the numeric severity (top level or inside detail) and the archived flag. Put the Lake route first so archived findings never reach the SIEM.
   - title: Drop sample findings
     saving: test noise
     fn: Drop
     how: Findings generated by CreateSampleFindings carry service.additionalInfo.sample=true and the [SAMPLE] title prefix; keep them out of production alerting.
     expr: "/\"sample\":true/.test(JSON.stringify(service && service.additionalInfo))"
+    stream:
+      log: IAM / API finding
+      functions:
+        - id: drop
+          filter: /\\?"sample\\?":true/.test(JSON.stringify((service || {}).additionalInfo || {})) || /^\[SAMPLE\]/.test(title || '')
+          description: Drop sample findings generated by CreateSampleFindings
+          conf: {}
+      test:
+        - '{"schemaVersion":"2.0","accountId":"111122223333","region":"us-east-1","partition":"aws","id":"9bd0f1e2d3b4a5968778695a4b3c2d1f","arn":"arn:aws:guardduty:us-east-1:111122223333:detector/12abc34d567e8fa901bc2d34e56789f0/finding/9bd0f1e2d3b4a5968778695a4b3c2d1f","type":"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS","resource":{"resourceType":"AccessKey","accessKeyDetails":{"accessKeyId":"ASIAEXAMPLEKEY12345","principalId":"AROAEXAMPLEID1234:i-0abc123def4567890","userName":"web-app-role","userType":"AssumedRole"}},"service":{"serviceName":"guardduty","detectorId":"12abc34d567e8fa901bc2d34e56789f0","action":{"actionType":"AWS_API_CALL","awsApiCallAction":{"api":"ListBuckets","serviceName":"s3.amazonaws.com","callerType":"Remote IP","remoteIpDetails":{"ipAddressV4":"198.51.100.23","organization":{"asn":"64500","asnOrg":"EXAMPLE-HOSTING","isp":"Example Hosting","org":"Example Hosting"},"country":{"countryName":"Netherlands"},"city":{"cityName":"Amsterdam"},"geoLocation":{"lat":52.37,"lon":4.89}}}},"resourceRole":"TARGET","additionalInfo":{"value":"{\"sample\":true}","type":"default"},"eventFirstSeen":"2026-11-12T08:41:10.000Z","eventLastSeen":"2026-11-12T09:02:55.000Z","archived":false,"count":1},"severity":8,"createdAt":"2026-11-12T08:47:31.512Z","updatedAt":"2026-11-12T09:08:02.113Z","title":"[SAMPLE] Credentials for the EC2 instance role web-app-role were used from a remote AWS account.","description":"Credentials created exclusively for an EC2 instance using instance role web-app-role have been used from external IP address 198.51.100.23."}'
+      expect:
+        out: 1
 references:
   - title: Understanding GuardDuty findings
     url: https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html

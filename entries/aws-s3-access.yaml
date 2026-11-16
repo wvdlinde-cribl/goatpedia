@@ -274,21 +274,118 @@ optimizations:
     fn: Sampling
     how: Static website and asset buckets are dominated by 200/304 GETs. Sample 10:1, keep all errors, deletes, PUTs and configuration operations at full fidelity.
     expr: /^(REST|WEBSITE)\.GET\.OBJECT$/.test(operation) && (http_status=='200' || http_status=='304')
+    stream:
+      log: Object read (GET)
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 successful object GETs; errors, deletes, PUTs and config operations pass in full
+          conf:
+            rules:
+              - filter: /^(REST|WEBSITE)\.GET\.OBJECT$/.test(operation) && (http_status == '200' || http_status == '304')
+                rate: 10
+      test:
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:31:57 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F3EXAMPLE REST.GET.OBJECT 2026/q3/missing.csv "GET /2026/q3/missing.csv HTTP/1.1" 404 NoSuchKey 243 - 9 5 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+      expect:
+        outMin: 2
+        outMax: 4
+        smaller: true
   - title: Aggregate reads to per-principal metrics
     saving: 60–90 % of GET volume
     fn: Aggregations
     how: Roll REST.GET.OBJECT up to requests, distinct keys and bytes_sent per bucket, requester and remote_ip per 5 minutes for the SIEM; keep raw in Lake for investigations.
     expr: operation=='REST.GET.OBJECT' && http_status=='200'
+    stream:
+      log: Object read (GET)
+      functions:
+        - id: aggregation
+          filter: operation == 'REST.GET.OBJECT' && http_status == '200'
+          description: Roll successful object reads up to requests, distinct keys and bytes per bucket, requester and source IP per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(requests)
+              - distinct_count(key).as(distinct_keys)
+              - sum(bytes_sent).as(bytes_sent)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - bucket
+              - requester
+              - remote_ip
+      test:
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:32:10 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F4EXAMPLE REST.GET.OBJECT 2026/q3/ledger.csv "GET /2026/q3/ledger.csv HTTP/1.1" 200 - 1024 1024 20 8 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-finance-reports [12/Nov/2026:09:32:30 +0000] 203.0.113.45 arn:aws:iam::111122223333:user/svc-backup 3E57427F5EXAMPLE REST.GET.OBJECT 2026/q3/payroll.csv "GET /2026/q3/payroll.csv HTTP/1.1" 200 - 48211 48211 41 12 "-" "aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0" - EXAMPLEhostid0123456789abcdefEXAMPLEhostid0123456789abcdef= SigV4 TLS_AES_128_GCM_SHA256 AuthHeader example-finance-reports.s3.eu-west-1.amazonaws.com TLSv1.3 - - eu-west-1
+      expect:
+        out: 1
+        smaller: true
   - title: Drop lifecycle and internal service operations
     saving: 5–30 %
     fn: Drop
     how: S3.EXPIRE.OBJECT, S3.TRANSITION.OBJECT and replication / inventory reads by AWS service principals are expected and repetitive.
     expr: /^S3\.(EXPIRE|TRANSITION|CREATE\.DELETEMARKER)/.test(operation) || /s3.amazonaws.com|AWSConfig/.test(requester)
+    stream:
+      log: Delete / batch delete
+      functions:
+        - id: drop
+          filter: /^S3\.(EXPIRE|TRANSITION|CREATE\.DELETEMARKER)/.test(operation) || /s3\.amazonaws\.com|AWSConfig/.test(requester)
+          description: Drop lifecycle operations and reads by AWS service principals
+          conf: {}
+      test:
+        - 7cd47ef2be0123456789abcdef0123456789abcdef0123456789abcdef012345 example-backups [12/Nov/2026:10:02:44 +0000] 192.0.2.88 AmazonS3 8A9B0C1D3EEXAMPLE S3.EXPIRE.OBJECT db/2026-10-01/full.dump.gz "-" - - - 734003200 - - "-" "-" - EXAMPLEhostidDel0123456789abcdefEXAMPLEhostidDel012345= - - - - - - - -
+      expect:
+        out: 1
   - title: Parse and drop low-value fields
     saving: 25–40 %
     fn: Parser → Serialize
     how: bucket_owner, host_id and request_id are long opaque strings, - placeholders are noise. Parse with the regex, drop them and empty values, serialise as JSON or key=value.
     expr: "remove: bucket_owner, host_id, request_id, version_id, turn_around_time; drop value=='-'"
+    stream:
+      log: Object read (GET)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Rewrite _raw without bucket_owner, request_id, version_id, host_id and turn_around_time, keeping the space-delimited order of the other fields
+          conf:
+            add:
+              - name: _raw
+                value: '[bucket, ''['' + time + '']'', remote_ip, requester, operation, key, ''"'' + request_uri + ''"'', http_status, error_code, bytes_sent, object_size, total_time, ''"'' + referer + ''"'', ''"'' + user_agent + ''"'', signature_version, cipher_suite, authentication_type, host_header, tls_version, access_point_arn, acl_required, source_region].join('' '')'
+        - id: eval
+          filter: 'true'
+          description: Remove the long opaque and low-value fields
+          conf:
+            remove:
+              - bucket_owner
+              - host_id
+              - request_id
+              - version_id
+              - turn_around_time
+      expect:
+        out: 1
+        absent:
+          - bucket_owner
+          - host_id
+          - request_id
+          - version_id
+          - turn_around_time
+        present:
+          - bucket
+          - operation
+        smaller: true
 references:
   - title: Amazon S3 server access log format
     url: https://docs.aws.amazon.com/AmazonS3/latest/userguide/LogFormat.html

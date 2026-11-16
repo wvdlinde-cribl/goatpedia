@@ -194,6 +194,18 @@ optimizations:
     fn: Drop
     how: Each invocation writes START and END lines that carry only the request id. REPORT has the duration and memory, and the function output has the content. Drop START and END before the SIEM.
     expr: message.indexOf('START RequestId:') == 0 || message.indexOf('END RequestId:') == 0
+    stream:
+      log: Lambda function logs
+      functions:
+        - id: drop
+          filter: message && (message.indexOf('START RequestId:') == 0 || message.indexOf('END RequestId:') == 0)
+          description: Drop Lambda START and END platform lines; REPORT and function output are kept
+          conf: {}
+      test:
+        - 'END RequestId: 6bc28136-xmpl-4365-b021-0ce6b2e64ab0'
+        - "REPORT RequestId: 6bc28136-xmpl-4365-b021-0ce6b2e64ab0\tDuration: 2.89 ms\tBilled Duration: 3 ms\tMemory Size: 128 MB\tMax Memory Used: 71 MB"
+      expect:
+        out: 1
 references:
   - title: API Gateway logging
     url: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-logging.html

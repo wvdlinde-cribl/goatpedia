@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop PASSED control re-evaluations",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e666d86647f79314",
+    "in": {
+      "events": 2,
+      "bytes": 3135
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1971
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress unchanged updates",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0d0aa3151c1e6ca6",
+    "in": {
+      "events": 2,
+      "bytes": 2691
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1971
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Strip remediation text and duplicate fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "47ee3b3b94d0ed10",
+    "in": {
+      "events": 1,
+      "bytes": 1971
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1603
+    },
+    "ok": true
+  }
+}

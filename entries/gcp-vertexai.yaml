@@ -88,6 +88,18 @@ optimizations:
     fn: Drop
     how: CountTokens is an application measuring a prompt. Keep calls that were denied, and keep admin-activity methods. Allowed token-count reads can stay in cheaper storage.
     expr: "protoPayload.methodName.endsWith('CountTokens') && protoPayload.authorizationInfo[0].granted == true"
+    stream:
+      log: Audit log
+      functions:
+        - id: drop
+          filter: /CountTokens$/.test(String((protoPayload || {}).methodName)) && ((protoPayload || {}).authorizationInfo || [{}])[0] && ((protoPayload || {}).authorizationInfo || [{}])[0].granted === true
+          description: Drop allowed CountTokens reads; denied calls and admin-activity methods stay
+          conf: {}
+      test:
+        - '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","authenticationInfo":{"principalEmail":"user@example.com"},"requestMetadata":{"callerIp":"198.51.100.15","callerSuppliedUserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36,gzip(gfe),gzip(gfe)","requestAttributes":{"time":"2025-05-06T05:52:00.375773173Z","auth":{}},"destinationAttributes":{}},"serviceName":"aiplatform.googleapis.com","methodName":"google.cloud.aiplatform.internal.PredictionService.CountTokens","authorizationInfo":[{"resource":"projects/elastic-abs/locations/us-central1/publishers/google/models/gemini-2.0-flash-exp","permission":"aiplatform.endpoints.predict","granted":false,"resourceAttributes":{},"permissionType":"DATA_READ"}],"resourceName":"projects/elastic-abs/locations/us-central1/publishers/google/models/gemini-2.0-flash-exp","request":{"endpoint":"projects/elastic-abs/locations/us-central1/publishers/google/models/gemini-2.0-flash-exp","@type":"type.googleapis.com/google.cloud.aiplatform.internal.CountTokensRequest"},"response":{"@type":"type.googleapis.com/google.cloud.aiplatform.internal.CountTokensResponse"}},"insertId":"1tif4epd6kb1","resource":{"type":"audited_resource","labels":{"method":"google.cloud.aiplatform.internal.PredictionService.CountTokens","service":"aiplatform.googleapis.com","project_id":"elastic-abs"}},"timestamp":"2025-05-06T05:52:00.360468025Z","severity":"ERROR","logName":"projects/elastic-abs/logs/cloudaudit.googleapis.com%2Fdata_access","receiveTimestamp":"2025-05-06T05:52:01.411315215Z"}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Vertex AI audit logging
     url: https://cloud.google.com/vertex-ai/docs/general/audit-logging

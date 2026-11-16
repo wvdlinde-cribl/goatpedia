@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Exclude low-value Data Access reads at the sink",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f6e7dcd980209107",
+    "in": {
+      "events": 2,
+      "bytes": 2214
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1134
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop GKE read-only noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b4c9293e71e4d72b",
+    "in": {
+      "events": 2,
+      "bytes": 2064
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1097
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip type URLs and request echoes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ba9980131a06c4fb",
+    "in": {
+      "events": 1,
+      "bytes": 1390
+    },
+    "out": {
+      "events": 1,
+      "bytes": 982
+    },
+    "ok": true
+  }
+}

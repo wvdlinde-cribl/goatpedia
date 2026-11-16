@@ -121,6 +121,17 @@ optimizations:
     fn: Drop
     how: Static content served from cache is most of the access log on a CDN. Errors, WAF records and requests forwarded to the origin are the useful part. Drop 2xx cache hits or send them to cheaper storage.
     expr: properties.cacheStatus == 'HIT' && properties.httpStatusCode == '200'
+    stream:
+      log: Access logs
+      functions:
+        - id: drop
+          filter: (properties || {}).cacheStatus == 'HIT' && (properties || {}).httpStatusCode == '200'
+          description: Drop successful requests served from the Front Door cache
+          conf: {}
+      test:
+        - '{"category":"FrontdoorAccessLog","operationName":"Microsoft.Network/FrontDoor/AccessLog/Write","properties":{"ErrorInfo":"NoError","backendHostname":"samplev6erp.azurewebsites.net:443","cacheStatus":"HIT","clientIp":"203.0.113.8","clientPort":"50382","httpMethod":"GET","httpStatusCode":"200","httpStatusDetails":"200","httpVersion":"203.0.113.40","isReceivedFromClient":true,"pop":"SIN","requestBytes":"2545","requestProtocol":"HTTPS","requestUri":"https://erp.example.com:443/static/app.js","responseBytes":"1205","routingRuleName":"erp","rulesEngineMatchNames":[],"securityProtocol":"TLS 1.2","socketIp":"192.0.2.10","timeTaken":"0.004","timeToFirstByte":"0.004","trackingReference":"0k1y5YQAAAAAWd0Uc6UcnR7WN8uo2prYZU0lOMzBFREdFMDIxNwBkYjIxMTMyNi1mZTJmLTQwYWYtOTA4My03MGUyYTJmYWRmZjc=","userAgent":"Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36"},"resourceId":"/SUBSCRIPTIONS/49D1B571-1CBE-402D-B523-AFEE3C19B64E/RESOURCEGROUPS/WAF-RG/PROVIDERS/MICROSOFT.NETWORK/FRONTDOORS/TESTCLOUD","time":"2021-12-15T03:10:11.6479719Z"}'
+      expect:
+        out: 1
 references:
   - title: Monitor metrics and logs in Azure Front Door
     url: https://learn.microsoft.com/en-us/azure/frontdoor/front-door-diagnostics

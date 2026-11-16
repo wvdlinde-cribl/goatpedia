@@ -1,0 +1,15 @@
+{
+  "1": {
+    "title": "Unwrap the EventBridge envelope",
+    "problems": [
+      "field detail is still in the output",
+      "field version is still in the output",
+      "field source is still in the output",
+      "field resources is still in the output",
+      "field type is missing from the output",
+      "field severity is missing from the output",
+      "field service is missing from the output",
+      "output (1435 B) is not smaller than input (1435 B)"
+    ]
+  }
+}

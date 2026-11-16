@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop system read chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bd604471e2ac16c0",
+    "in": {
+      "events": 3,
+      "bytes": 2042
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1358
+    },
+    "ok": true
+  }
+}

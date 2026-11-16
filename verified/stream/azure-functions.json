@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Keep warnings and errors, sample the rest",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9221f9695debf60a",
+    "in": {
+      "events": 2,
+      "bytes": 2049
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1215
+    },
+    "ok": true
+  }
+}

@@ -84,6 +84,17 @@ optimizations:
     fn: Drop
     how: A busy function app writes Information and Trace lines for every invocation. Investigation needs the warnings, errors and exceptions. Drop or sample the lower levels before the SIEM and keep them in cheaper storage if needed.
     expr: "level == 'Information' || level == 'Trace' || level == 'Debug'"
+    stream:
+      log: Function app runtime log
+      functions:
+        - id: drop
+          filter: level == 'Information' || level == 'Trace' || level == 'Debug'
+          description: Drop Information, Trace and Debug runtime lines; keep warnings, errors and exceptions
+          conf: {}
+      test:
+        - '{"time":"2023-06-07T11:33:11Z","resourceId":"/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/TEST-RG/PROVIDERS/MICROSOFT.WEB/SITES/TEST-FUNCTION","category":"FunctionAppLogs","operationName":"Microsoft.Web/sites/functions/log","level":"Information","location":"East US","properties":{"appName":"mbranca-test-function","roleInstance":"54108609-638217294083255145","message":"Executing ''Functions.hello'' (Reason=''This function was programmatically called via the host APIs.'', Id=3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e)","category":"Function.hello","hostVersion":"203.0.113.8","functionInvocationId":"3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e","functionName":"Functions.hello","hostInstanceId":"8699ec76-436a-43e2-a811-371c8e1472d7","level":"Information","levelId":2,"processId":64,"eventId":1,"eventName":"FunctionStarted"}}'
+      expect:
+        out: 1
 references:
   - title: Monitor executions in Azure Functions
     url: https://learn.microsoft.com/en-us/azure/azure-functions/functions-monitoring

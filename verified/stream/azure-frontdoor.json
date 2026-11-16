@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop successful cache hits",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "43e56a2e7b3cd42d",
+    "in": {
+      "events": 2,
+      "bytes": 2219
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1124
+    },
+    "ok": true
+  }
+}
