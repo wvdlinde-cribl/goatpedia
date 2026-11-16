@@ -295,21 +295,94 @@ optimizations:
     fn: Aggregations
     how: Permitted-flow ACL logs repeat per flow every 5 minutes. Aggregate permits by acl, src_ip, dest_ip, dest_port with sum(packets) per 5 minutes; keep denies as individual events.
     expr: "sum(packets) by acl, src_ip, dest_ip, dest_port every 300s  when action=='permitted'"
+    stream:
+      log: ACL hit (SEC-6-IPACCESSLOGP)
+      functions:
+        - id: aggregation
+          filter: action == 'permitted'
+          description: Roll permitted ACL hits up to packet totals per ACL, source, destination and port every 5 minutes; denies pass through
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(events)
+              - sum(packets).as(packets)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - acl
+              - src_ip
+              - dest_ip
+              - dest_port
+      test:
+        - '<190>48214: edge-rtr01: Nov 12 09:14:23.186 UTC: %SEC-6-IPACCESSLOGP: list OUTSIDE-IN permitted tcp 203.0.113.45(51544) (GigabitEthernet0/0/0 ) -> 198.51.100.10(443), 3 packets'
+        - '<190>48215: edge-rtr01: Nov 12 09:14:24.186 UTC: %SEC-6-IPACCESSLOGP: list OUTSIDE-IN permitted tcp 203.0.113.45(51545) (GigabitEthernet0/0/0 ) -> 198.51.100.10(443), 5 packets'
+        - '<190>48216: edge-rtr01: Nov 12 09:14:25.186 UTC: %SEC-6-IPACCESSLOGP: list OUTSIDE-IN permitted tcp 203.0.113.45(51546) (GigabitEthernet0/0/0 ) -> 198.51.100.10(443), 2 packets'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop interface flap and debug noise
     saving: 10–30 %
     fn: Drop
     how: Access-port LINK/LINEPROTO up-down on user ports and severity-7 debug lines add volume with little security value. Keep them for uplinks.
     expr: "(facility in ('LINK','LINEPROTO') && /Gi\\d+\\/0\\/\\d+/.test(_raw)) || severity=='7'"
+    stream:
+      log: ACL hit (SEC-6-IPACCESSLOGP)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/%(LINK|LINEPROTO)-\d-[A-Z0-9_]+: .*Gi(gabitEthernet)?\d+\/0\/\d+/.test(_raw) || /: %[A-Z0-9_]+-7-[A-Z0-9_]+:/.test(_raw)'
+          description: Drop access-port link and line-protocol flaps and severity-7 debug messages
+          conf: {}
+      test:
+        - '<189>48250: edge-rtr01: Nov 12 09:30:00.000 UTC: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1/0/12, changed state to down'
+        - '<191>48251: edge-rtr01: Nov 12 09:30:01.000 UTC: %IP-7-DEBUG: debug message example'
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress repeated login failures
     saving: 5–20 %
     fn: Suppress
     how: A brute-force run can emit thousands of identical LOGIN_FAILED lines. Keep one per src_ip/user per minute with a count.
     expr: "key: `${src_ip}:${user}`  allow 1 / 60s  when mnemonic=='LOGIN_FAILED'"
+    stream:
+      log: Login failure (SEC_LOGIN-4-LOGIN_FAILED)
+      functions:
+        - id: suppress
+          filter: mnemonic == 'LOGIN_FAILED'
+          description: Keep one login failure per source and user per minute
+          conf:
+            keyExpr: src_ip + ':' + user
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<188>48230: edge-rtr01: Nov 12 09:15:03.402 UTC: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 09:15:03 UTC Thu Nov 12 2026'
+        - '<188>48230: edge-rtr01: Nov 12 09:15:03.402 UTC: %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 203.0.113.45] [localport: 22] [Reason: Login Authentication Failed] at 09:15:03 UTC Thu Nov 12 2026'
+      expect:
+        out: 1
   - title: Route security mnemonics to the SIEM, the rest to Lake
     saving: SIEM licence
     fn: Routes
     how: SEC_LOGIN, PARSER CFGLOG, SYS CONFIG, AAA, WEBUI, SNMP auth failures and ACL denies → SIEM. Interface, routing-protocol and environmental messages → Cribl Lake for operations and investigations.
     expr: "/^(SEC_LOGIN|PARSER|SYS|AAA|WEBUI|DMI|SNMP)$/.test(facility) || action=='denied' → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: IOS security mnemonics and ACL denies → SIEM
+          filter: '/: %(SEC_LOGIN|PARSER|SYS|AAA|WEBUI|DMI|SNMP)-\d-[A-Z0-9_]+:/.test(_raw) || /%SEC-6-IPACCESSLOG\w*: list \S+ denied /.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: IOS other messages → Lake
+          filter: '/: %[A-Z0-9_]+-\d-[A-Z0-9_]+:/.test(_raw)'
+          to: Cribl Lake for operations and investigations
+          final: true
+      note: Routes see the raw event, so they match the %FACILITY-SEVERITY-MNEMONIC tag in _raw. Put the SIEM route first.
 references:
   - title: Cisco advisory — IOS XE web UI privilege escalation (CVE-2023-20198, CVE-2023-20273)
     url: https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-iosxe-webui-privesc-j22SaA4z

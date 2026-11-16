@@ -84,6 +84,18 @@ optimizations:
     fn: Drop
     how: A monitor that hits a health URL with status 200 is the largest part of a request log. Keep errors and everything that is not that URL.
     expr: status == '200' && uri == '/health'
+    stream:
+      log: Request
+      functions:
+        - id: drop
+          filter: status == '200' && uri == '/health'
+          description: Drop successful health-check requests from the monitor
+          conf: {}
+      test:
+        - 192.0.2.10 - - [16/Nov/2026 08:41:00 +0000] "GET /health HTTP/1.1" 200 2
+        - 192.0.2.10 - - [16/Nov/2026 08:41:00 +0000] "GET /health HTTP/1.1" 503 64
+      expect:
+        out: 2
 references:
   - title: F5 — Configuring Request Logging
     url: https://techdocs.f5.com/en-us/bigip-16-0-0/external-monitoring-of-big-ip-systems-implementations/configuring-request-logging.html

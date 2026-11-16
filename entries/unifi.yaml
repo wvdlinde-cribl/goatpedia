@@ -263,26 +263,113 @@ optimizations:
     fn: Drop
     how: event_type=fixup with dns_resp_seen=yes means the client joined fine. Keep failures, soft failures and DNS timeouts; the controller's Client Connected event already records the success.
     expr: /STA_ASSOC_TRACKER/.test(_raw) && /"event_type":"fixup"/.test(_raw) && /"dns_resp_seen":"yes"/.test(_raw)
+    stream:
+      log: Station tracker (stahtd)
+      parse: false
+      functions:
+        - id: drop
+          filter: /STA_ASSOC_TRACKER/.test(_raw) && /"event_type":"fixup"/.test(_raw) && /"dns_resp_seen":"yes"/.test(_raw)
+          description: Drop successful fixup records; the controller's Client Connected event records the success
+          conf: {}
+      test:
+        - '<30>Nov 12 09:14:00 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: stahtd: stahtd[2385]: [STA-TRACKER].stahtd_dump_event(): {"message_type":"STA_ASSOC_TRACKER","mac":"02:5a:3b:7c:11:9e","vap":"ra0","event_type":"fixup","assoc_status":"0","event_id":"1","auth_ts":"11337.56785","dns_resp_seen":"yes"} - n2p, flags: 0x20'
+      expect:
+        out: 1
   - title: Parse the embedded JSON and drop the wrapper
     saving: 20–35 %
     fn: Parser → Serialize
     how: Extract the {...} after stahtd_dump_event(), parse it as JSON, drop the repeated tag (AP MAC, model+firmware string) and timing deltas you don't use, then forward as a compact JSON event.
     expr: "regex: /stahtd_dump_event\\(\\):\\s*(?<j>\\{[^}]+\\})/ → JSON parse j; remove: auth_ts, event_id, ap_model_fw"
+    stream:
+      log: Station tracker (stahtd)
+      functions:
+        - id: eval
+          filter: message_type
+          description: Replace the syslog wrapper with a compact JSON event without auth_ts, event_id and the model/firmware tag
+          conf:
+            add:
+              - name: _raw
+                value: 'JSON.stringify({timestamp: timestamp, host: host, ap_mac: ap_mac, message_type: message_type, mac: mac, vap: vap, event_type: event_type, assoc_status: assoc_status})'
+            remove:
+              - auth_ts
+              - event_id
+              - ap_model_fw
+              - trailer
+              - pid
+      expect:
+        out: 1
+        absent:
+          - auth_ts
+          - event_id
+          - ap_model_fw
+        present:
+          - mac
+          - event_type
+        smaller: true
   - title: Aggregate mcad anomalies
     saving: 60–90 % of mcad
     fn: Aggregations
     how: mcad logs the same anomaly per station every few seconds. Roll up to count and min satisfaction per AP/anomaly per 5 minutes.
     expr: /log_sta_anomalies/.test(_raw)
+    stream:
+      log: Wireless anomalies (mcad)
+      functions:
+        - id: aggregation
+          filter: /log_sta_anomalies/.test(_raw)
+          description: Roll mcad anomalies up to count and minimum satisfaction per AP and anomaly per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(events)
+              - min(satisfaction_now).as(min_satisfaction)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - bssid
+              - anomalies
+      test:
+        - '<30>Nov 12 09:14:39 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: mcad: mcad[2777]: wireless_agg_stats.log_sta_anomalies(): bssid=24:5a:4c:1b:2c:3e radio=ra0 vap=ra2 sta=02:5a:3b:7c:11:9e satisfaction_now=55 anomalies=dns_timeout'
+        - '<30>Nov 12 09:14:44 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: mcad: mcad[2777]: wireless_agg_stats.log_sta_anomalies(): bssid=24:5a:4c:1b:2c:3e radio=ra0 vap=ra2 sta=02:5a:3b:7c:11:9e satisfaction_now=50 anomalies=dns_timeout'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop inform and debug chatter
     saving: 10–20 %
     fn: Drop
     how: mcad inform retries, blebrd websocket noise and kernel radio debug lines have no security value; keep them only in Lake.
     expr: /ace_reporter|blebrd|check_multi_info/.test(_raw)
+    stream:
+      log: Wireless anomalies (mcad)
+      parse: false
+      functions:
+        - id: drop
+          filter: /ace_reporter|blebrd|check_multi_info/.test(_raw)
+          description: Drop inform retries, BLE websocket noise and radio debug lines
+          conf: {}
+      test:
+        - '<30>Nov 12 09:14:34 ap-lobby 245a4c1b2c3d,U7-Pro-8.0.9+16091: mcad: mcad[2777]: ace_reporter.reporter_fail(): inform retry to http://unifi.example.com:8080/inform'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: CEF Security and System/Admin categories and stahtd failures → SIEM. Monitoring/Power CEF events and mcad anomalies → Lake or a metrics store.
     expr: "UNIFIcategory in ('Security','System') || event_type=='failure' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: UniFi CEF Security/System and stahtd failures → SIEM
+          filter: /UNIFIcategory=(Security|System) /.test(_raw) || (/STA_ASSOC_TRACKER/.test(_raw) && /"event_type":"failure"/.test(_raw))
+          to: The SIEM, full fidelity
+          final: true
+        - name: UniFi other events → Lake
+          filter: /UNIFIcategory=|stahtd|mcad/.test(_raw)
+          to: Cribl Lake or a metrics store
+          final: true
+      note: Routes see the raw event, so they match the CEF category and the stahtd event_type in _raw. Put the SIEM route first.
 references:
   - title: UniFi System Logs & SIEM Integration (CEF format and keys)
     url: https://help.ui.com/hc/en-us/articles/33349041044119-UniFi-System-Logs-SIEM-Integration

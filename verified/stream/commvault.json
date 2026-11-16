@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop sign-in and sign-out",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7cbc6aa5a81e6d40",
+    "in": {
+      "events": 3,
+      "bytes": 508
+    },
+    "out": {
+      "events": 1,
+      "bytes": 182
+    },
+    "ok": true
+  }
+}

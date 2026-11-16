@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Aggregate ACL permit logs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a2d60a327d8761c8",
+    "in": {
+      "events": 4,
+      "bytes": 701
+    },
+    "out": {
+      "events": 2,
+      "bytes": 409
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop interface flap and debug noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f8fc8e457ef32a1b",
+    "in": {
+      "events": 3,
+      "bytes": 397
+    },
+    "out": {
+      "events": 1,
+      "bytes": 173
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated login failures",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d296b734d39e0187",
+    "in": {
+      "events": 3,
+      "bytes": 633
+    },
+    "out": {
+      "events": 1,
+      "bytes": 211
+    },
+    "ok": true
+  }
+}

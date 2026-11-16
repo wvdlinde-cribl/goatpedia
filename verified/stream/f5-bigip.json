@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop health checks",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "fd971999acd303b6",
+    "in": {
+      "events": 3,
+      "bytes": 218
+    },
+    "out": {
+      "events": 2,
+      "bytes": 146
+    },
+    "ok": true
+  }
+}

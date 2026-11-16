@@ -85,6 +85,18 @@ optimizations:
     fn: Drop
     how: User Logged in and User Logged out repeat for every console session. Keep restores, failed logins, and account locks.
     expr: operation == 'User Logged in' || operation == 'User Logged out'
+    stream:
+      log: Audit
+      functions:
+        - id: drop
+          filter: operation == 'User Logged in' || operation == 'User Logged out'
+          description: Drop routine console sign-in and sign-out audit records; restores, failed logins and locks stay
+          conf: {}
+      test:
+        - 'AuditTrail: Opid = {1002} Audittime = {16 Nov 2026 08:40:00} Severitylevel = {Low} Username = {ada} Operation = {User Logged in} Details = {Login from 192.0.2.10}'
+        - 'AuditTrail: Opid = {1003} Audittime = {16 Nov 2026 09:10:00} Severitylevel = {Low} Username = {ada} Operation = {User Logged out} Details = {Logout from 192.0.2.10}'
+      expect:
+        out: 1
 references:
   - title: Commvault — Configuring a syslog server
     url: https://documentation.commvault.com/2024e/software/configuring_syslog_server.html

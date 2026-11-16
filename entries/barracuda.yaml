@@ -103,4 +103,15 @@ optimizations:
     fn: Routes
     how: Access logs record every request, while web firewall logs record only rule matches. Send every web firewall event to the SIEM, and send access logs to cheaper storage or forward only errors and a sample.
     expr: "sourcetype == 'barracuda_waf'"
+    stream:
+      routes:
+        - name: Barracuda web firewall events → SIEM
+          filter: / logType=WF /.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Barracuda access logs → Lake, errors and a sample to SIEM
+          filter: / barracuda TR /.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through a pipeline that keeps 4xx/5xx responses and samples the rest
+          final: true
+      note: Routes see the raw event, so they match the logType=WF key for web firewall events and the TR log type marker for access logs. Put the web firewall route first.
 references: []

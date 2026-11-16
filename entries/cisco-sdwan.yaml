@@ -280,26 +280,84 @@ optimizations:
     fn: Drop
     how: The Manager UI pulls JS, CSS, fonts and images on every page load. They carry no security value; keep logins, /dataservice API calls and any non-2xx response.
     expr: sourcetype=='cisco_sdwan_access' && method=='GET' && /\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(path) && response_code<400
+    stream:
+      log: Service-proxy access
+      functions:
+        - id: drop
+          filter: method == 'GET' && /\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(path) && Number(response_code) < 400
+          description: Drop successful static asset requests (JS, CSS, fonts, images); keep logins, API calls and errors
+          conf: {}
+      test:
+        - '[2026-11-12T08:14:05.057Z] "GET /static/js/app.js HTTP/1.1" 200 - 0 5120 2 1 "198.51.100.23" "Mozilla/5.0" "6f2c1b7e-3d4a-4c9b-9a51-0e8d2f7a1c33" "vmanage.example.com" "127.0.0.1:8080"'
+      expect:
+        out: 1
   - title: Strip Envoy internals
     saving: 15–25 % of access log
     fn: Parser → Serialize
     how: Parse with the regex above and remove request_id, upstream_host, response_flags='-' and upstream_service_time before forwarding; keep the raw copy in Lake.
     expr: "remove: request_id, upstream_host, upstream_service_time; drop response_flags=='-'"
+    stream:
+      log: Service-proxy access
+      parse: false
+      functions:
+        - id: eval
+          filter: /^\[/.test(_raw)
+          description: Remove upstream_service_time, response_flags when '-', request_id and upstream_host from the raw access line
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/^(\[[^\]]+\] "[^"]*" \d+ \S+ \d+ \d+ \d+) \S+ "/, '$1 "').replace(/^(\[[^\]]+\] "[^"]*" \d+) - /, '$1 ').replace(/ "[^"]*" ("[^"]*") "[^"]*"$/, ' $1')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress flapping control connections
     saving: 5–30 % of syslog on unstable transports
     fn: Suppress
     how: A flaky LTE or internet link makes an edge reconnect many times a minute. Keep one state-change per peer/state per 5 minutes with a count — but never suppress peer_type=vmanage events.
     expr: "key: `${host}:${peer_system_ip}:${new_state}`  allow 1 / 300s  when event=='control-connection-state-change' && peer_type!='vmanage'"
+    stream:
+      log: Control-connection event (vsyslog)
+      functions:
+        - id: suppress
+          filter: event == 'control-connection-state-change' && peer_type != 'vmanage'
+          description: Keep one control-connection state change per host, peer and state per 5 minutes; never suppress vManage peers
+          conf:
+            keyExpr: host + ':' + peer_system_ip + ':' + new_state
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 'Nov 12 08:03:33 vSmart-01 VDAEMON_0[2571]: %Viptela-vSmart-VDAEMON_0-5-NTCE-1000001: control-connection-state-change new-state:down peer-type:vedge peer-system-ip:10.255.0.21 public-ip:203.0.113.46 public-port:12346 domain-id:1 site-id:1021'
+        - 'Nov 12 08:03:33 vSmart-01 VDAEMON_0[2571]: %Viptela-vSmart-VDAEMON_0-5-NTCE-1000001: control-connection-state-change new-state:down peer-type:vedge peer-system-ip:10.255.0.21 public-ip:203.0.113.46 public-port:12346 domain-id:1 site-id:1021'
+        - 'Nov 12 08:03:33 vSmart-01 VDAEMON_0[2571]: %Viptela-vSmart-VDAEMON_0-5-NTCE-1000001: control-connection-state-change new-state:down peer-type:vedge peer-system-ip:10.255.0.21 public-ip:203.0.113.46 public-port:12346 domain-id:1 site-id:1021'
+      expect:
+        out: 2
   - title: Aggregate HSL flow logs
     saving: 50–80 % of edge flow syslog
     fn: Aggregations
     how: FTMD HSL-LOGGING implicit-ACL / flow messages are per-flow and huge on busy edges. Roll up to counts and bytes per src/dst/proto per minute; send raw to Lake if needed.
     expr: /HSL-LOGGING/.test(_raw)
+    stream:
+      note: The article has no HSL flow-log sample, so parse the FTMD HSL-LOGGING messages first (src, dst, proto, bytes) and then add an Aggregations function filtered on /HSL-LOGGING/.test(_raw) that counts flows and sums bytes per src/dst/proto per 60s. Send the raw HSL messages to Cribl Lake if they must be kept.
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: auth.log, NTCE control-connection events and non-static Manager access → SIEM. HSL flow logs and debug-level daemon messages → Lake only.
     expr: "/sshd|NTCE-1000001|_security_check|dataservice/.test(_raw) → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: SD-WAN auth, control connections and Manager logins/API → SIEM
+          filter: /sshd\[|NTCE-1000001|_security_check|dataservice/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: SD-WAN HSL flows, debug and other → Lake
+          filter: 'true'
+          to: Cribl Lake only
+          final: true
+      note: Routes see the raw event, so they match process names and paths in _raw. Put the SIEM route first.
 references:
   - title: Cisco Catalyst SD-WAN — Syslog message format (Network Monitoring Guide 26.x)
     url: https://www.cisco.com/c/en/us/td/docs/routers/sdwan/26x-later/network-monitoring/network-monitoring-guide/sys-and-network-logs/gui-Use-Syslog-Messages.html

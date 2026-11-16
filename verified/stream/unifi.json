@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop successful fixup records",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "29e68c4e0a9b4942",
+    "in": {
+      "events": 2,
+      "bytes": 607
+    },
+    "out": {
+      "events": 1,
+      "bytes": 294
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Parse the embedded JSON and drop the wrapper",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bcbe198eb9c28397",
+    "in": {
+      "events": 1,
+      "bytes": 294
+    },
+    "out": {
+      "events": 1,
+      "bytes": 189
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate mcad anomalies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c3be97eabccb8384",
+    "in": {
+      "events": 3,
+      "bytes": 675
+    },
+    "out": {
+      "events": 1,
+      "bytes": 212
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop inform and debug chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f573a286f573d1f5",
+    "in": {
+      "events": 2,
+      "bytes": 387
+    },
+    "out": {
+      "events": 1,
+      "bytes": 225
+    },
+    "ok": true
+  }
+}
