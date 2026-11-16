@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop health and discovery noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "60e7f7496f3714ed",
+    "in": {
+      "events": 3,
+      "bytes": 2611
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1303
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate system get/list/watch",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e1144140e4e1ef8a",
+    "in": {
+      "events": 4,
+      "bytes": 3100
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1529
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Trim duplicated identity and timestamp fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "151b8137ddd76118",
+    "in": {
+      "events": 1,
+      "bytes": 1303
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1142
+    },
+    "ok": true
+  }
+}
