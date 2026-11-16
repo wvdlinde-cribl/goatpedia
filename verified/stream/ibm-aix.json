@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop pipeline self-events and daemon file reads",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5f367ad104af9ae7",
+    "in": {
+      "events": 2,
+      "bytes": 255
+    },
+    "out": {
+      "events": 1,
+      "bytes": 139
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repetitive cron and agent execs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "08c7568b84853ed9",
+    "in": {
+      "events": 3,
+      "bytes": 417
+    },
+    "out": {
+      "events": 1,
+      "bytes": 139
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Parse and keep only useful tail fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7815d0e1105893f9",
+    "in": {
+      "events": 1,
+      "bytes": 139
+    },
+    "out": {
+      "events": 1,
+      "bytes": 114
+    },
+    "ok": true
+  }
+}

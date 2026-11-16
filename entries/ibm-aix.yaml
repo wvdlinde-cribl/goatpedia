@@ -256,16 +256,104 @@ optimizations:
     fn: Drop
     how: auditselect should already exclude logger/auditpr/auditstream; also drop FILE_Read / FILE_Open by monitoring agents and backup daemons that read the same files every few seconds.
     expr: event_action.startsWith('FILE_Read') && ['nmon','topas','dsmc'].includes(component)
+    stream:
+      log: Audit stream
+      functions:
+        - id: drop
+          filter: /^FILE_(Read|Open)/.test(event_action) && ['nmon','topas','dsmc'].indexOf(component) >= 0
+          description: Drop file reads and opens by monitoring agents and backup daemons
+          conf: {}
+      test:
+        - FILE_Read        root     OK       Wed Nov 12 09:14:22 2026 nmon             file descriptor = 3 filename /proc/stat
+      expect:
+        out: 1
   - title: Suppress repetitive cron and agent execs
     saving: 10–25 %
     fn: Suppress
     how: Monitoring scripts run the same PROC_Execute every minute. Keep one per user/command/path per 5 minutes with a count.
     expr: "key: `${user}:${component}:${message}`  allow 1 / 300s  when event_action=='PROC_Execute' && result=='OK'"
+    stream:
+      log: Audit stream
+      functions:
+        - id: suppress
+          filter: event_action == 'PROC_Execute' && result == 'OK'
+          description: Keep one exec per user, command and path per 5 minutes
+          conf:
+            keyExpr: user + ':' + component + ':' + message
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 'PROC_Execute     jdoe     OK       Wed Nov 12 09:14:22 2026 ksh              euid: 0 egid: 0 epriv: ffffffff:ffffffff name /tmp/.x/invscout'
+        - 'PROC_Execute     jdoe     OK       Wed Nov 12 09:14:22 2026 ksh              euid: 0 egid: 0 epriv: ffffffff:ffffffff name /tmp/.x/invscout'
+      expect:
+        out: 1
   - title: Parse and keep only useful tail fields
     saving: 10–20 %
     fn: Parser → Serialize
     how: Extract euid, path, tty and source IP from the tail with regex, drop epriv masks and the duplicated time, and send structured JSON.
     expr: "regex_extract message → euid, name, tty, src_ip; remove: epriv, timestamp"
+    stream:
+      log: Audit stream
+      functions:
+        - id: regex_extract
+          filter: 'true'
+          description: Extract euid from the tail
+          conf:
+            source: message
+            regex: '/euid: (?<euid>\d+)/'
+        - id: regex_extract
+          filter: 'true'
+          description: Extract path name from the tail
+          conf:
+            source: message
+            regex: /name (?<name>\S+)/
+        - id: regex_extract
+          filter: 'true'
+          description: Extract tty from the tail
+          conf:
+            source: message
+            regex: '/tty: (?<tty>\S+)/'
+        - id: regex_extract
+          filter: 'true'
+          description: Extract source IP from the tail
+          conf:
+            source: message
+            regex: /from (?<src_ip>\d{1,3}(?:\.\d{1,3}){3})/
+        - id: eval
+          filter: 'true'
+          description: Remove the epriv masks, duplicated time and the parsed tail
+          conf:
+            remove:
+              - timestamp
+              - message
+        - id: serialize
+          filter: 'true'
+          description: Send structured JSON
+          conf:
+            type: json
+            fields:
+              - event_action
+              - user
+              - result
+              - component
+              - euid
+              - name
+              - tty
+              - src_ip
+            dstField: _raw
+      expect:
+        out: 1
+        absent:
+          - timestamp
+          - message
+        present:
+          - euid
+          - name
+        smaller: true
   - title: Route by value
     saving: SIEM licence
     fn: Routes
