@@ -255,21 +255,102 @@ optimizations:
     fn: Drop
     how: ZR (object read) entries from nightly batch and backup profiles dominate volume when *OBJAUD is on. Keep ZR only for interactive and remote users.
     expr: entry_type=='ZR' && ['QSYSOPR','BACKUPSVC','BATCHSVC'].includes(user)
+    stream:
+      log: Profile / system value change (CP, SV)
+      parse: false
+      functions:
+        - id: drop
+          filter: /\bentry_type:ZR\b/.test(_raw) && /\buser:(QSYSOPR|BACKUPSVC|BATCHSVC)(\s|$)/.test(_raw)
+          description: Drop ZR object-read entries written by batch and backup profiles
+          conf: {}
+      test:
+        - '<133>2026/11/12 09:31:55 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:ZR job:QBATCH/BATCHSVC/482800 user:BATCHSVC object:PAYLIB/PAYMAST object_type:*FILE'
+        - '<133>2026/11/12 09:31:55 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:ZR job:QPADEV0012/JDOE/482390 user:JDOE object:PAYLIB/PAYMAST object_type:*FILE'
+      expect:
+        out: 2
   - title: Suppress repeated authority failures
     saving: 5–20 %
     fn: Suppress
     how: A misconfigured job can write the same AF entry thousands of times. Keep one per user/object per 10 minutes with a count.
     expr: "key: `${user}:${object}`  allow 1 / 600s  when entry_type=='AF'"
+    stream:
+      log: Authority failure (AF)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /\bentry_type:AF\b/.test(_raw)
+          description: Keep one authority failure per user and object per 10 minutes
+          conf:
+            keyExpr: (_raw.match(/\buser:(\S+)/) || [])[1] + ':' + (_raw.match(/\bobject:(\S+)/) || [])[1]
+            allow: 1
+            suppressPeriodSec: 600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<132>2026/11/12 08:14:09 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:AF violation_type:A job:QPADEV0012/JDOE/482390 user:JDOE object:PAYLIB/PAYMAST object_type:*FILE remote_addr:10.20.30.44'
+        - '<132>2026/11/12 08:14:09 +01:00 IBMIPRD1 QAUDJRN[0]: OS400 V7R5M0 CCSID=37 journal_code:T entry_type:AF violation_type:A job:QPADEV0012/JDOE/482390 user:JDOE object:PAYLIB/PAYMAST object_type:*FILE remote_addr:10.20.30.44'
+      expect:
+        out: 1
   - title: Parse key:value payload and drop header noise
     saving: 10–20 %
     fn: Parser → Serialize
     how: Split the key:value pairs after CCSID into fields, drop priority, pid, ccsid and the constant platform string, and send JSON.
     expr: "kvp(payload, pair=':' delim=' '); remove: priority, pid, ccsid, platform"
+    stream:
+      log: Invalid sign-on (PW)
+      parse: false
+      functions:
+        - id: regex_extract
+          filter: 'true'
+          description: Extract the useful header fields
+          conf:
+            source: _raw
+            iterations: 100
+            overwrite: false
+            regex: '/^<\d+>(?<timestamp>\S+ \S+ \S+) (?<host>\S+) (?<app>[^\[\s:]+)\[\d+\]: OS400 (?<os_release>\S+)/'
+        - id: regex_extract
+          filter: 'true'
+          description: Split the key:value payload into fields
+          conf:
+            source: _raw
+            iterations: 100
+            overwrite: false
+            regex: /(?<_NAME_0>[A-Za-z_]+):(?<_VALUE_0>\S+)/g
+        - id: serialize
+          filter: 'true'
+          description: Write the event as JSON without priority, pid, ccsid and platform
+          conf:
+            type: json
+            fields: []
+            dstField: _raw
+      expect:
+        out: 1
+        absent:
+          - priority
+          - pid
+          - ccsid
+          - platform
+        present:
+          - user
+          - entry_type
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: PW, AF, CP, SV, CA, PS, CD → SIEM. ZC/ZR, JS and spooled-file entries → Cribl Lake for audits and investigations.
     expr: "['PW','AF','CP','SV','CA','PS','CD'].includes(entry_type) → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: IBM i security entries → SIEM
+          filter: /\bentry_type:(PW|AF|CP|SV|CA|PS|CD)\b/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: IBM i other entries → Lake
+          filter: /QAUDJRN/.test(_raw)
+          to: Cribl Lake for audits and investigations
+          final: true
+      note: Routes see the raw event, so they match the entry_type key in _raw. Put the SIEM route first.
 references:
   - title: IBM i Audit Journal (QAUDJRN) entry types
     url: https://www.ibm.com/docs/en/i/7.4.0?topic=entries-audit-journal-qaudjrn-entry-types

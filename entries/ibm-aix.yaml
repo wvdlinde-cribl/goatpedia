@@ -271,6 +271,17 @@ optimizations:
     fn: Routes
     how: USER_*, GROUP_*, PASSWORD_*, AUD_* and any FAIL → SIEM; successful FILE_* and TCP_* → Cribl Lake for investigations.
     expr: "/^(USER|GROUP|PASSWORD|AUD)_/.test(event_action) || result!='OK' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: AIX identity, audit and failures → SIEM
+          filter: /^(USER|GROUP|PASSWORD|AUD)_/.test(_raw) || /^[A-Z][A-Za-z_]+\s+\S+\s+FAIL/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: AIX other audit events → Lake
+          filter: /^[A-Z][A-Za-z_]+\s+\S+\s+OK\s/.test(_raw)
+          to: Cribl Lake for investigations
+          final: true
+      note: Routes see the raw event, so they match the event name and result columns at the start of _raw. Put the SIEM route first.
 references:
   - title: "AIX AUDIT: The Audit Subsystem in AIX"
     url: https://www.ibm.com/support/pages/aix-audit-audit-subsystem-aix
