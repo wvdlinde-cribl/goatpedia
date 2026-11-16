@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Aggregate allowed DNS with no policy match",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3fe167c1858edec4",
+    "in": {
+      "events": 4,
+      "bytes": 3419
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1187
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop redundant and reversed fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bafd60d35f9dba2b",
+    "in": {
+      "events": 1,
+      "bytes": 923
+    },
+    "out": {
+      "events": 1,
+      "bytes": 828
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated identical lookups",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "028274a4eb82a012",
+    "in": {
+      "events": 4,
+      "bytes": 3452
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1766
+    },
+    "ok": true
+  }
+}

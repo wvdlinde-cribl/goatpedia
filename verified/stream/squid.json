@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop cache hits for static content",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b0cc7b0dc2bcfe3c",
+    "in": {
+      "events": 2,
+      "bytes": 228
+    },
+    "out": {
+      "events": 1,
+      "bytes": 113
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated CONNECTs to the same host",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c6038e016919cb0c",
+    "in": {
+      "events": 3,
+      "bytes": 339
+    },
+    "out": {
+      "events": 1,
+      "bytes": 113
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate allowed traffic to well-known SaaS",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "27f7cba875d46f9e",
+    "in": {
+      "events": 3,
+      "bytes": 345
+    },
+    "out": {
+      "events": 2,
+      "bytes": 311
+    },
+    "ok": true
+  }
+}

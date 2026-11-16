@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Summarise ad and analytics traffic",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b632768f918a2b7d",
+    "in": {
+      "events": 4,
+      "bytes": 1676
+    },
+    "out": {
+      "events": 2,
+      "bytes": 535
+    },
+    "ok": true
+  }
+}

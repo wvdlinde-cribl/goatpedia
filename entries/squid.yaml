@@ -281,21 +281,104 @@ optimizations:
     fn: Drop
     how: TCP_HIT/TCP_MEM_HIT for images, CSS and JS have no security value — the original MISS was already logged.
     expr: /HIT/.test(cache_result) && /^(image|text\/css|application\/javascript)/.test(mime_type)
+    stream:
+      log: Access log (native format)
+      parse: false
+      functions:
+        - id: drop
+          filter: /^\S+\s+\d+\s+\S+\s+[^\/\s]*HIT[^\/\s]*\/\d{3}\s.*\s(image\/|text\/css|application\/javascript)\S*$/.test(_raw)
+          description: Drop cache hits for static images, CSS and JavaScript; the original MISS was already logged
+          conf: {}
+      test:
+        - 1794557662.123    3 10.20.30.44 TCP_MEM_HIT/200 4210 GET http://www.example.com/logo.png jdoe HIER_NONE/- image/png
+      expect:
+        out: 1
   - title: Suppress repeated CONNECTs to the same host
     saving: 25–50 %
     fn: Suppress
     how: Browsers open many parallel tunnels to the same SaaS host. Keep one per client/host per minute with a count and summed bytes.
     expr: "key: `${client_ip}:${url}`  allow 1 / 60s  when http_method=='CONNECT'"
+    stream:
+      log: Access log (native format)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /^\S+\s+\d+\s+\S+\s+\S+\s+\d+\s+CONNECT\s/.test(_raw)
+          description: Keep one CONNECT per client and host per minute
+          conf:
+            keyExpr: _raw.split(/\s+/)[2] + ':' + _raw.split(/\s+/)[6]
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 1794557662.123    245 10.20.30.44 TCP_TUNNEL/200 6842 CONNECT www.example.com:443 jdoe HIER_DIRECT/203.0.113.80 -
+        - 1794557662.123    245 10.20.30.44 TCP_TUNNEL/200 6842 CONNECT www.example.com:443 jdoe HIER_DIRECT/203.0.113.80 -
+      expect:
+        out: 1
   - title: Aggregate allowed traffic to well-known SaaS
     saving: 20–35 %
     fn: Aggregations
     how: Microsoft 365, Google and update CDNs dominate volume; roll up bytes/requests per user/domain per 5 min, keep raw in Lake.
     expr: cache_result!='TCP_DENIED' && /(microsoft|office|windowsupdate|googleapis|gstatic)\.com/.test(url)
+    stream:
+      log: Access log (native format)
+      parse: false
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Extract user, host and bytes from the raw line
+          conf:
+            add:
+              - name: ident
+                value: _raw.split(/\s+/)[7]
+              - name: url
+                value: _raw.split(/\s+/)[6]
+              - name: bytes
+                value: Number(_raw.split(/\s+/)[4])
+              - name: cache_result
+                value: _raw.split(/\s+/)[3].split('/')[0]
+        - id: aggregation
+          filter: cache_result != 'TCP_DENIED' && /(microsoft|office|windowsupdate|googleapis|gstatic)\.com/.test(url)
+          description: Roll allowed SaaS traffic up to requests and bytes per user and host per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(requests)
+              - sum(bytes).as(bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - ident
+              - url
+      test:
+        - 1794557662.123    245 10.20.30.44 TCP_TUNNEL/200 6842 CONNECT outlook.office.com:443 jdoe HIER_DIRECT/203.0.113.80 -
+        - 1794557663.123    210 10.20.30.44 TCP_TUNNEL/200 5120 CONNECT outlook.office.com:443 jdoe HIER_DIRECT/203.0.113.80 -
+      expect:
+        out: 2
+        smaller: true
   - title: Enrich and route denies to the SIEM
     saving: SIEM licence
     fn: Routes
     how: TCP_DENIED, 407 and cache.log errors go to the SIEM in full; allowed traffic goes to Cribl Lake with aggregates to the SIEM. Add a URL-category / threat-intel lookup on the host.
     expr: cache_result=='TCP_DENIED' || http_status=='407' → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: Squid denies, 407 and cache.log errors → SIEM
+          filter: / TCP_DENIED\/| [A-Z_]+\/407 |vendor_action=TCP_DENIED|status=407 | kid\d+\| (ERROR|FATAL|WARNING):/.test(_raw)
+          to: The SIEM, full fidelity (add a URL-category / threat-intel lookup on the host)
+          final: true
+        - name: Squid allowed traffic → Lake, aggregates to SIEM
+          filter: 'true'
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline above
+          final: true
+      note: Routes see the raw event, so they match the cache result/status and cache.log level in _raw. The threat-intel lookup needs a URL-category file you supply. Put the deny route first.
 references:
   - title: Squid logformat directive
     url: https://www.squid-cache.org/Doc/config/logformat/

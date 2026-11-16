@@ -337,21 +337,110 @@ optimizations:
     fn: Parser → Serialize
     how: NSS templates emit every field, filling empty ones with None or NA. Parse the JSON, drop placeholder values and the static envelope, and re-serialise. The SIEM sees the same information in a much smaller event.
     expr: "remove fields where value in ('None','NA','') ; remove: sourcetype envelope after routing"
+    stream:
+      log: Web
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove fields whose value is a None/NA/empty placeholder, and the static sourcetype envelope
+          conf:
+            add:
+              - name: event.dlpeng
+                value: '[''None'',''NA'',''''].indexOf((event || {}).dlpeng) >= 0 ? undefined : (event || {}).dlpeng'
+              - name: event.dlpdict
+                value: '[''None'',''NA'',''''].indexOf((event || {}).dlpdict) >= 0 ? undefined : (event || {}).dlpdict'
+              - name: event.ereferer
+                value: '[''None'',''NA'',''''].indexOf((event || {}).ereferer) >= 0 ? undefined : (event || {}).ereferer'
+              - name: event.unscannabletype
+                value: '[''None'',''NA'',''''].indexOf((event || {}).unscannabletype) >= 0 ? undefined : (event || {}).unscannabletype'
+              - name: event.malwarecat
+                value: '[''None'',''NA'',''''].indexOf((event || {}).malwarecat) >= 0 ? undefined : (event || {}).malwarecat'
+              - name: event.threatname
+                value: '[''None'',''NA'',''''].indexOf((event || {}).threatname) >= 0 ? undefined : (event || {}).threatname'
+            remove:
+              - sourcetype
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - sourcetype
+        present:
+          - event
+        smaller: true
   - title: Route by action and verdict
     saving: 40–60 % SIEM licence
     fn: Routes
     how: Blocked, threat, DLP and Caution transactions go to the SIEM at full fidelity. Allowed, clean web traffic goes to Cribl Lake (or object storage) and can be replayed during an investigation.
     expr: event.action!='Allowed' || event.threatname!='None' || event.dlpeng!='None'  → SIEM ; else → Lake
+    stream:
+      routes:
+        - name: ZIA blocked, threat, DLP and Caution → SIEM
+          filter: /"sourcetype":"zscalernss-web"/.test(_raw) && (!/"action":"Allowed"/.test(_raw) || (/"threatname":"/.test(_raw) && !/"threatname":"None"/.test(_raw)) || (/"dlpeng":"/.test(_raw) && !/"dlpeng":"None"/.test(_raw)))
+          to: The SIEM, full fidelity
+          final: true
+        - name: ZIA allowed clean web → Lake
+          filter: /"sourcetype":"zscalernss-web"/.test(_raw)
+          to: Cribl Lake (or object storage); replay on demand
+          final: true
+      note: Routes see the raw JSON, so they match action, threatname and dlpeng in the text. Put the SIEM route first.
   - title: Aggregate allowed CDN and update traffic
     saving: 10–25 %
     fn: Aggregations
     how: Software updates, CDNs and SaaS telemetry produce thousands of identical allowed records per device. Roll them up to bytes and request counts per user, app and category per 5 minutes.
     expr: event.action=='Allowed' && ['Content Server','Software Updates','Web Analytics'].includes(event.urlcat)
+    stream:
+      log: Web
+      functions:
+        - id: aggregation
+          filter: (event || {}).action == 'Allowed' && ['Content Server','Software Updates','Web Analytics'].indexOf((event || {}).urlcat) >= 0
+          description: Roll allowed CDN, update and analytics traffic up per user, app and category per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(requests)
+              - sum(event.reqsize).as(reqbytes)
+              - sum(event.respsize).as(respbytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - event.login
+              - event.appname
+              - event.urlcat
+      test:
+        - '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:22 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"updates.example.com/pkg/1.bin","action":"Allowed","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"200","reqsize":"612","respsize":"1480","urlclass":"Business Use","urlsupercat":"Information Technology","urlcat":"Software Updates","malwarecat":"None","threatname":"None","riskscore":"0","threatseverity":"None","dlpeng":"None","dlpdict":"None","filetype":"None","ssldecrypted":"Yes","ruletype":"None","rulelabel":"None","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+        - '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:25 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"updates.example.com/pkg/2.bin","action":"Allowed","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"200","reqsize":"600","respsize":"2000","urlclass":"Business Use","urlsupercat":"Information Technology","urlcat":"Software Updates","malwarecat":"None","threatname":"None","riskscore":"0","threatseverity":"None","dlpeng":"None","dlpdict":"None","filetype":"None","ssldecrypted":"Yes","ruletype":"None","rulelabel":"None","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Suppress repeated blocked ad and tracker requests
     saving: 5–15 %
     fn: Suppress
     how: Browsers retry blocked ad and tracker hosts constantly. Keep one record per user and host per 10 minutes with a count.
     expr: "key: `${event.login}:${event.eurl}`  allow 1 / 600s  when event.urlcat=='Advertising'"
+    stream:
+      log: Web
+      functions:
+        - id: suppress
+          filter: (event || {}).urlcat == 'Advertising'
+          description: Keep one advertising/tracker record per user and host per 10 minutes
+          conf:
+            keyExpr: (event || {}).login + ':' + (event || {}).eurl
+            allow: 1
+            suppressPeriodSec: 600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:22 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"ads.example.com/pixel","action":"Blocked","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"403","reqsize":"612","respsize":"1480","urlclass":"Bandwidth Loss","urlsupercat":"Advertising","urlcat":"Advertising","malwarecat":"None","threatname":"None","riskscore":"0","threatseverity":"None","dlpeng":"None","dlpdict":"None","filetype":"None","ssldecrypted":"Yes","ruletype":"URL Filtering","rulelabel":"Block_Ads","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+        - '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:22 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"ads.example.com/pixel","action":"Blocked","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"403","reqsize":"612","respsize":"1480","urlclass":"Bandwidth Loss","urlsupercat":"Advertising","urlcat":"Advertising","malwarecat":"None","threatname":"None","riskscore":"0","threatseverity":"None","dlpeng":"None","dlpdict":"None","filetype":"None","ssldecrypted":"Yes","ruletype":"URL Filtering","rulelabel":"Block_Ads","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+        - '{"sourcetype":"zscalernss-web","event":{"time":"Thu Nov 12 09:14:22 2026","login":"jdoe@example.com","proto":"HTTPS","eurl":"ads.example.com/pixel","action":"Blocked","appname":"General Browsing","appclass":"General Browsing","reqmethod":"GET","respcode":"403","reqsize":"612","respsize":"1480","urlclass":"Bandwidth Loss","urlsupercat":"Advertising","urlcat":"Advertising","malwarecat":"None","threatname":"None","riskscore":"0","threatseverity":"None","dlpeng":"None","dlpdict":"None","filetype":"None","ssldecrypted":"Yes","ruletype":"URL Filtering","rulelabel":"Block_Ads","location":"Road Warrior","dept":"Finance","cip":"10.20.30.44","cintip":"203.0.113.45","sip":"198.51.100.77","eua":"Mozilla/5.0","ereferer":"None","unscannabletype":"None","devicehostname":"LT-JDOE-01","deviceowner":"jdoe"}}'
+      expect:
+        out: 2
 references:
   - title: Zscaler — NSS Feed Output Format, Web Logs
     url: https://help.zscaler.com/zia/nss-feed-output-format-web-logs

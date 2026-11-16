@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop healthy sessions",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f21090afa46313b9",
+    "in": {
+      "events": 3,
+      "bytes": 937
+    },
+    "out": {
+      "events": 2,
+      "bytes": 624
+    },
+    "ok": true
+  }
+}
