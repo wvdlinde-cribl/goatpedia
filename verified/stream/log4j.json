@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Drop DEBUG and TRACE",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3fa8f0167992b2e6",
+    "in": {
+      "events": 3,
+      "bytes": 414
+    },
+    "out": {
+      "events": 2,
+      "bytes": 295
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated errors",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "17992d4ff954cb7c",
+    "in": {
+      "events": 4,
+      "bytes": 509
+    },
+    "out": {
+      "events": 2,
+      "bytes": 277
+    },
+    "ok": true
+  }
+}

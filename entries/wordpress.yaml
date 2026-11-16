@@ -288,21 +288,108 @@ optimizations:
     fn: Eval
     how: Login, user and plugin events carry empty post_status, post_type, post_id = 0 and empty session_id; site_id is 1 on single sites.
     expr: "remove: post_status, post_type, post_id, site_id  when post_id==0"
+    stream:
+      log: Activity event (database row)
+      functions:
+        - id: eval
+          filter: post_id == 0
+          description: Remove empty post columns and the single-site site_id on non-post events
+          conf:
+            remove:
+              - post_status
+              - post_type
+              - post_id
+              - site_id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - post_status
+          - post_type
+          - post_id
+          - site_id
+        present:
+          - alert_id
+        smaller: true
   - title: Sample routine content and WooCommerce events
     saving: 30–60 %
     fn: Sampling
     how: Opened-in-editor (2100, 9072, 9154) and routine post modifications are high-volume and low-value on busy editorial or shop sites; keep 1 in 10, always keep Critical/High.
     expr: "[2100,9072,9154,2065].includes(alert_id) && !['critical','high'].includes(severity)  → sample 10:1"
+    stream:
+      log: Activity event (database row)
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 routine editor and content events unless severity is critical or high
+          conf:
+            rules:
+              - filter: '[2100,9072,9154,2065].indexOf(alert_id) >= 0 && severity != ''critical'' && severity != ''high'''
+                rate: 10
+      test:
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+        - '{"id":184523,"site_id":1,"alert_id":2100,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"low","object":"post","event_type":"opened","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"editor","username":"jdoe","user_id":2,"session_id":"","post_status":"draft","post_type":"post","post_id":51,"message":"Opened the post in the editor."}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
   - title: Suppress repeated failed logins per IP
     saving: 20–50 % during attacks
     fn: Suppress
     how: Brute-force bursts produce thousands of identical 1002/1003 events. Keep one per client_ip + username per 5 minutes with a count.
     expr: "key: `${client_ip}:${username}:${alert_id}`  allow 1 / 300s  when [1002,1003].includes(alert_id)"
+    stream:
+      log: Activity event (database row)
+      functions:
+        - id: suppress
+          filter: alert_id == 1002 || alert_id == 1003
+          description: Keep one failed login per client IP, username and alert per 5 minutes
+          conf:
+            keyExpr: client_ip + ':' + username + ':' + alert_id
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"id":184522,"site_id":1,"alert_id":1002,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"medium","object":"user","event_type":"failed-login","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"administrator","username":"jdoe","user_id":2,"session_id":"","post_status":"","post_type":"","post_id":0,"message":"1 failed login(s)."}'
+        - '{"id":184522,"site_id":1,"alert_id":1002,"created_on":1762935262.517,"client_ip":"203.0.113.45","severity":"medium","object":"user","event_type":"failed-login","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)","user_roles":"administrator","username":"jdoe","user_id":2,"session_id":"","post_status":"","post_type":"","post_id":0,"message":"1 failed login(s)."}'
+      expect:
+        out: 1
   - title: Parse the mirrored metadata JSON
     saving: search time
     fn: Parser
     how: For mirrored lines, extract the metadata object to top-level fields (EventID, ClientIP, Username) so the same detections run on both transports.
     expr: "metadata → JSON parse → alert_id=EventID, client_ip=ClientIP, username=Username"
+    stream:
+      log: Mirrored line (log file / syslog)
+      functions:
+        - id: eval
+          filter: metadata
+          description: Lift EventID, ClientIP and Username from the metadata JSON to the database-row field names
+          conf:
+            add:
+              - name: alert_id
+                value: JSON.parse(metadata).EventID
+              - name: client_ip
+                value: JSON.parse(metadata).ClientIP
+              - name: username
+                value: JSON.parse(metadata).Username
+      expect:
+        out: 1
+        present:
+          - alert_id
+          - client_ip
+          - username
 references:
   - title: WP Activity Log — plugin database documentation (Melapress)
     url: https://melapress.com/support/kb/wp-activity-log-plugin-database-documentation/

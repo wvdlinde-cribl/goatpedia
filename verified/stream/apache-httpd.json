@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop static asset requests",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "415a15318ee4dc16",
+    "in": {
+      "events": 2,
+      "bytes": 280
+    },
+    "out": {
+      "events": 1,
+      "bytes": 156
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop health checks and monitoring probes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7e9bda11ede2a194",
+    "in": {
+      "events": 2,
+      "bytes": 257
+    },
+    "out": {
+      "events": 1,
+      "bytes": 156
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate successful traffic to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2a1cca8f5266fd61",
+    "in": {
+      "events": 4,
+      "bytes": 510
+    },
+    "out": {
+      "events": 2,
+      "bytes": 342
+    },
+    "ok": true
+  }
+}

@@ -290,11 +290,35 @@ optimizations:
     fn: Drop
     how: Successful requests for images, CSS, JS and fonts are most of the volume and rarely matter for security. Keep errors and anything with a query string.
     expr: "/^(2\\d\\d|304)$/.test(status) && /\\.(png|jpe?g|gif|css|js|woff2?|ico|svg)$/i.test(uri || '')"
+    stream:
+      log: Access log (combined)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/"[A-Z]+ [^" ?]+\.(png|jpe?g|gif|css|js|woff2?|ico|svg)(?: HTTP\/[\d.]+)?" (2\d\d|304) /i.test(_raw)'
+          description: Drop successful static asset requests without a query string
+          conf: {}
+      test:
+        - 198.51.100.7 - - [12/Nov/2026:02:14:22 +0000] "GET /static/logo.png HTTP/1.1" 200 1500 "-" "Mozilla/5.0 (X11; Linux x86_64)"
+      expect:
+        out: 1
   - title: Drop health checks and monitoring probes
     saving: 5–20 %
     fn: Drop
     how: Load-balancer and monitoring probes hit the same URL every few seconds from known addresses.
     expr: "['/health','/healthz','/server-status','/ping'].includes(uri) && status == '200'"
+    stream:
+      log: Access log (combined)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/"[A-Z]+ \/(health|healthz|server-status|ping)(?: HTTP\/[\d.]+)?" 200 /.test(_raw)'
+          description: Drop successful load-balancer and monitoring probes
+          conf: {}
+      test:
+        - 192.0.2.10 - - [12/Nov/2026:02:14:22 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "ELB-HealthChecker/2.0"
+      expect:
+        out: 1
   - title: Trim fields and parse the request
     saving: 15–25 %
     fn: Eval
@@ -305,6 +329,47 @@ optimizations:
     fn: Aggregations
     how: For capacity dashboards, roll 2xx/3xx requests up per minute by status and URI prefix; send full lines only for 4xx/5xx and suspicious URIs.
     expr: "count(), sum(bytes) by status, uri_prefix, 1m  where /^[23]/.test(status)"
+    stream:
+      log: Access log (combined)
+      parse: false
+      functions:
+        - id: regex_extract
+          filter: 'true'
+          description: Parse the access log line into fields
+          conf:
+            source: _raw
+            regex: '/^(?<clientip>\S+) (?<ident>\S+) (?<user>\S+) \[(?<timestamp>[^\]]+)\] "(?<method>[A-Z]+) (?<uri>\S+)[^"]*" (?<status>\d{3}) (?<bytes>\S+)(?: "(?<referer>[^"]*)" "(?<useragent>[^"]*)")?/'
+        - id: eval
+          filter: /^[23]/.test(status || '')
+          description: Derive the first path segment as uri_prefix
+          conf:
+            add:
+              - name: uri_prefix
+                value: (uri || '').split('?')[0].split('/').slice(0, 2).join('/')
+        - id: aggregation
+          filter: /^[23]/.test(status || '')
+          description: Roll 2xx/3xx requests up per minute by status and URI prefix
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+              - sum(bytes).as(bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - status
+              - uri_prefix
+      test:
+        - 198.51.100.7 - - [12/Nov/2026:02:14:22 +0000] "GET /app/home HTTP/1.1" 200 1500 "-" "Mozilla/5.0 (X11; Linux x86_64)"
+        - 198.51.100.8 - - [12/Nov/2026:02:14:23 +0000] "GET /app/profile HTTP/1.1" 200 1800 "-" "Mozilla/5.0 (X11; Linux x86_64)"
+        - 198.51.100.9 - - [12/Nov/2026:02:14:24 +0000] "GET /app/list HTTP/1.1" 200 2100 "-" "Mozilla/5.0 (X11; Linux x86_64)"
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: Apache HTTP Server 2.4 vulnerabilities
     url: https://httpd.apache.org/security/vulnerabilities_24.html
