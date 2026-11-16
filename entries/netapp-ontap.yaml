@@ -270,26 +270,109 @@ optimizations:
     fn: Drop
     how: Get-attribute and read-directory records (4663 Get Object Attributes / Read Directory) dominate volume. Keep writes, deletes, renames, permission changes and logon failures.
     expr: EventID=='4663' && /Get Object Attributes|Read Directory/.test(EventName)
+    stream:
+      log: NAS file audit (XML)
+      parse: false
+      functions:
+        - id: drop
+          filter: /<EventID>4663<\/EventID><EventName>(Get Object Attributes|Read Directory)<\/EventName>/.test(_raw)
+          description: Drop 4663 Get Object Attributes and Read Directory records; keep writes, deletes, renames, permission changes and failures
+          conf: {}
+      test:
+        - <Event><System><Provider Name="NetApp-Security-Auditing"/><EventID>4663</EventID><EventName>Read Directory</EventName><Version>101.1</Version><Source>CIFS</Source><Level>0</Level><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><Result>Audit Success</Result><TimeCreated SystemTime="2026-11-12T08:15:02.418937000Z"/><Channel>Security</Channel><Computer>cluster1/svm_cifs</Computer></System><EventData><Data Name="SubjectIP">192.0.2.44</Data><Data Name="SubjectHostName">ws-0142.corp.example.com</Data><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserIsLocal">false</Data><Data Name="SubjectDomainName">CORP</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="ObjectServer">Security</Data><Data Name="ObjectType">Directory</Data><Data Name="HandleID">00000000000453;00;00000060;0001c2a1</Data><Data Name="ObjectName">(vol_finance);/budget</Data></EventData></Event>
+      expect:
+        out: 1
   - title: Flatten the audit XML
     saving: 40–60 % of NAS audit
     fn: Parser → Serialize
     how: Convert each XML Event to a compact JSON/KV record (EventID, EventName, Result, SubjectIP, SubjectUserName, ObjectName, ObjectType) and drop constant fields such as Level, Opcode, Channel, ObjectServer and Version.
     expr: "keep: EventID, EventName, Result, SubjectIP, SubjectUserName, SubjectDomainName, ObjectName, ObjectType, TimeCreated"
+    stream:
+      log: NAS file audit (XML)
+      parse: false
+      functions:
+        - id: eval
+          filter: /NetApp-Security-Auditing/.test(_raw)
+          description: Remove constant XML elements (Version, Level, Opcode, Keywords, Channel, ObjectServer)
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/<(Version|Level|Opcode|Keywords|Channel)>[^<]*<\/\1>|<Data Name="ObjectServer">[^<]*<\/Data>/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Aggregate read activity
     saving: 30–70 % of remaining NAS audit
     fn: Aggregations
     how: Roll successful reads up to counts per user, client IP and top-level folder per 5 minutes. Keep raw writes and deletes.
     expr: EventID=='4663' && EventName=='Read Object' && Result=='Audit Success'
+    stream:
+      log: NAS file audit (XML)
+      parse: false
+      functions:
+        - id: regex_extract
+          filter: /<EventName>Read Object<\/EventName>/.test(_raw)
+          description: Extract user, client IP, volume and top-level folder from read records
+          conf:
+            source: _raw
+            regex: /<Data Name="SubjectIP">(?<agg_ip>[^<]*)<\/Data>[\s\S]*<Data Name="SubjectUserName">(?<agg_user>[^<]*)<\/Data>[\s\S]*<Data Name="ObjectName">\((?<agg_vol>[^)]*)\);\/(?<agg_folder>[^\/<]*)/
+        - id: aggregation
+          filter: /<EventID>4663<\/EventID><EventName>Read Object<\/EventName>/.test(_raw) && /<Result>Audit Success<\/Result>/.test(_raw)
+          description: Roll successful reads up to counts per user, client IP and top-level folder per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(reads)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - agg_user
+              - agg_ip
+              - agg_vol
+              - agg_folder
+      test:
+        - <Event><System><Provider Name="NetApp-Security-Auditing"/><EventID>4663</EventID><EventName>Read Object</EventName><Version>101.1</Version><Source>CIFS</Source><Level>0</Level><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><Result>Audit Success</Result><TimeCreated SystemTime="2026-11-12T08:15:02.418937000Z"/><Channel>Security</Channel><Computer>cluster1/svm_cifs</Computer></System><EventData><Data Name="SubjectIP">192.0.2.44</Data><Data Name="SubjectHostName">ws-0142.corp.example.com</Data><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserIsLocal">false</Data><Data Name="SubjectDomainName">CORP</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="ObjectServer">Security</Data><Data Name="ObjectType">File</Data><Data Name="HandleID">00000000000453;00;00000060;0001c2a1</Data><Data Name="ObjectName">(vol_finance);/budget/a.xlsx</Data></EventData></Event>
+        - <Event><System><Provider Name="NetApp-Security-Auditing"/><EventID>4663</EventID><EventName>Read Object</EventName><Version>101.1</Version><Source>CIFS</Source><Level>0</Level><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><Result>Audit Success</Result><TimeCreated SystemTime="2026-11-12T08:15:03.418937000Z"/><Channel>Security</Channel><Computer>cluster1/svm_cifs</Computer></System><EventData><Data Name="SubjectIP">192.0.2.44</Data><Data Name="SubjectHostName">ws-0142.corp.example.com</Data><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserIsLocal">false</Data><Data Name="SubjectDomainName">CORP</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="ObjectServer">Security</Data><Data Name="ObjectType">File</Data><Data Name="HandleID">00000000000453;00;00000060;0001c2a2</Data><Data Name="ObjectName">(vol_finance);/budget/b.xlsx</Data></EventData></Event>
+        - <Event><System><Provider Name="NetApp-Security-Auditing"/><EventID>4663</EventID><EventName>Read Object</EventName><Version>101.1</Version><Source>CIFS</Source><Level>0</Level><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><Result>Audit Success</Result><TimeCreated SystemTime="2026-11-12T08:15:04.418937000Z"/><Channel>Security</Channel><Computer>cluster1/svm_cifs</Computer></System><EventData><Data Name="SubjectIP">192.0.2.44</Data><Data Name="SubjectHostName">ws-0142.corp.example.com</Data><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserIsLocal">false</Data><Data Name="SubjectDomainName">CORP</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="ObjectServer">Security</Data><Data Name="ObjectType">File</Data><Data Name="HandleID">00000000000453;00;00000060;0001c2a3</Data><Data Name="ObjectName">(vol_finance);/budget/c.xlsx</Data></EventData></Event>
+      expect:
+        out: 2
+        smaller: true
   - title: Drop low-severity EMS chatter
     saving: 20–50 % of EMS
     fn: Drop
     how: Use an EMS filter on the cluster or a Stream Drop for informational/debug events (performance counters, AutoSupport transmit notices). Never drop arw.*, callhome.*, secd.* or anything at error or above.
     expr: /^(informational|debug)$/i.test(severity) && !/^(arw|callhome|secd|snaplock)\./.test(event)
+    stream:
+      log: EMS event (syslog)
+      functions:
+        - id: drop
+          filter: /^(informational|debug)$/i.test(severity) && !/^(arw|callhome|secd|snaplock)\./.test(event)
+          description: Drop informational and debug EMS events, never arw, callhome, secd or snaplock
+          conf: {}
+      test:
+        - '<13>Nov 12 08:14:22 [cluster1-01:perf.counter.update:informational]: Performance counters were updated on node "cluster1-01".'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: ARP/EMS alerts and audit.log → SIEM in full. Filtered NAS audit → SIEM; full NAS audit → Cribl Lake for investigations and compliance.
     expr: "sourcetype=='ontap_nas_audit_xml' → Lake + SIEM(filtered)  |  else → SIEM"
+    stream:
+      routes:
+        - name: ONTAP NAS audit → Lake raw, SIEM filtered
+          filter: /<Provider Name="NetApp-Security-Auditing"/.test(_raw)
+          to: Cribl Lake (full), and the SIEM through the NAS audit filter pipelines above
+          final: true
+        - name: ONTAP EMS and audit.log → SIEM
+          filter: '/^<\d+>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2} \[[^:\]]+:[^:\]]+:[^\]]+\]: /.test(_raw) || / :: .+ :: .+ :: /.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the NetApp-Security-Auditing provider in the XML. Put the NAS audit route first.
 references:
   - title: ONTAP — event notification destination create (syslog formats)
     url: https://docs.netapp.com/us-en/ontap-cli/event-notification-destination-create.html

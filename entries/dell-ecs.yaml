@@ -245,16 +245,53 @@ optimizations:
     fn: Suppress
     how: A failed disk or a capacity threshold is raised again and again until someone acknowledges it. Keep one alert per symptom, node and storage pool per hour, with a count.
     expr: "key: `${symptom}:${node}:${storagePool}`  allow 1 / 3600s"
+    stream:
+      log: Alert (illustrative)
+      functions:
+        - id: suppress
+          filter: eventType == 'Alert'
+          description: Keep one alert per symptom, node and storage pool per hour
+          conf:
+            keyExpr: symptom + ':' + node + ':' + storagePool
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<12>Nov 15 09:20:03 ecs-node02 ECS-Alert: eventType=Alert severity=WARNING category=Capacity symptom="Storage pool usage above threshold" storagePool=sp-site1 vdc=vdc-site1 usedPercent=86 threshold=85 node=ecs-node02 ack=false'
+        - '<12>Nov 15 09:20:03 ecs-node02 ECS-Alert: eventType=Alert severity=WARNING category=Capacity symptom="Storage pool usage above threshold" storagePool=sp-site1 vdc=vdc-site1 usedPercent=86 threshold=85 node=ecs-node02 ack=false'
+      expect:
+        out: 1
   - title: Send informational alerts to Lake only
     saving: 20–40 %
     fn: Routes
     how: INFO-level alerts are useful for capacity trends but rarely for security. Keep WARNING and above and all audit events in the SIEM; send the rest to Cribl Lake.
     expr: "severity == 'INFO' → Lake  |  else → SIEM"
+    stream:
+      routes:
+        - name: ECS INFO alerts → Lake
+          filter: /ECS-Alert:/.test(_raw) && /severity=INFO\b/.test(_raw)
+          to: Cribl Lake only
+          final: true
+        - name: ECS other events → SIEM
+          filter: /ECS-(Alert|Audit):/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event, so they match severity in the key=value text. Put the INFO route first.
   - title: Keep audit events whole
     saving: SIEM licence
     fn: Routes
     how: Audit events are low volume and high value for ransomware and insider investigations; never sample or drop them.
     expr: "/ECS-Audit/.test(_raw) → SIEM (full fidelity)"
+    stream:
+      routes:
+        - name: ECS audit → SIEM full fidelity
+          filter: /ECS-Audit:/.test(_raw)
+          to: The SIEM, full fidelity, through a passthru pipeline with no sampling or drops
+          final: true
+      note: Place this route above any sampling or suppression routes so audit events are never reduced.
 references:
   - title: Dell ECS product page
     url: https://www.dell.com/en-us/dt/storage/ecs/index.htm
