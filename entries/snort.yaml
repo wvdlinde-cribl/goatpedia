@@ -283,21 +283,89 @@ optimizations:
     fn: Parser → Serialize
     how: Break events on "[**]", extract rule, msg, class, priority and 5-tuple, and drop TTL/TOS/ID/IpLen/DgmLen/Seq/Ack/Win/TcpLen, which are rarely used outside packet forensics. Better still, switch the sensor to alert_json.
     expr: "remove: ttl, tos, ip_id, ip_len, dgm_len, seq, ack, win, tcp_len"
+    stream:
+      log: Alert (alert_full)
+      parse: false
+      functions:
+        - id: regex_extract
+          filter: 'true'
+          description: Extract rule, message, class, priority and 5-tuple from the multi-line alert
+          conf:
+            source: _raw
+            regex: '/\[(?<gid>\d+):(?<sid>\d+):(?<rev>\d+)\] "(?<msg>[^"]+)"[\s\S]*?\[Classification: (?<classification>[^\]]+)\] \[Priority: (?<priority>\d+)\][\s\S]*?(?<timestamp>\d{2}\/\d{2}-[\d:.]+) (?<src_ip>[\d.]+):(?<src_port>\d+) -> (?<dst_ip>[\d.]+):(?<dst_port>\d+)\s+(?<proto>[A-Z]+)/'
+        - id: eval
+          filter: sid
+          description: Rewrite _raw as one compact JSON event without TTL/TOS/ID/IpLen/DgmLen/Seq/Ack/Win/TcpLen
+          conf:
+            add:
+              - name: _raw
+                value: 'JSON.stringify({timestamp: timestamp, gid: gid, sid: sid, rev: rev, msg: msg, classification: classification, priority: priority, proto: proto, src_ip: src_ip, src_port: src_port, dst_ip: dst_ip, dst_port: dst_port})'
+      expect:
+        out: 1
+        absent:
+          - ttl
+          - tos
+          - ip_id
+          - ip_len
+          - dgm_len
+          - seq
+          - ack
+          - win
+          - tcp_len
+        present:
+          - sid
+          - msg
+          - src_ip
+          - dst_ip
+        smaller: true
   - title: Suppress repeated alerts per signature and pair
     saving: 20–60 % of alerts
     fn: Suppress
     how: Scans and policy rules fire repeatedly on the same pair. Keep one per sid, src and dst per 5 minutes with a count, but never suppress priority-1.
     expr: "key: `${sid}:${src_ip}:${dst_ip}`  allow 1 / 300s  when priority > 1"
+    stream:
+      log: Alert (alert_syslog)
+      functions:
+        - id: suppress
+          filter: Number(priority) > 1
+          description: Keep one alert per sid, source and destination per 5 minutes; never suppress priority 1
+          conf:
+            keyExpr: sid + ':' + src_ip + ':' + dst_ip
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<33>Nov 12 09:20:05 ids1.example.com snort[2211]: [1:2001219:20] "SCAN Potential SSH Scan" [Classification: Attempted Information Leak] [Priority: 2] {TCP} 198.51.100.23:50284 -> 10.10.5.20:22'
+        - '<33>Nov 12 09:20:05 ids1.example.com snort[2211]: [1:2001219:20] "SCAN Potential SSH Scan" [Classification: Attempted Information Leak] [Priority: 2] {TCP} 198.51.100.23:50284 -> 10.10.5.20:22'
+        - '<33>Nov 12 09:20:05 ids1.example.com snort[2211]: [1:2001219:20] "SCAN Potential SSH Scan" [Classification: Attempted Information Leak] [Priority: 2] {TCP} 198.51.100.23:50284 -> 10.10.5.20:22'
+      expect:
+        out: 2
   - title: Drop informational / policy noise
     saving: 10–30 %
     fn: Drop
     how: Priority-3/4 classtypes (Misc activity, Not Suspicious Traffic, Generic Protocol Command Decode) rarely drive investigations. Send them to Lake instead of the SIEM.
     expr: priority >= 3 && /Not Suspicious|Misc activity|Protocol Command Decode/.test(classification)
+    stream:
+      log: Alert (alert_syslog)
+      functions:
+        - id: drop
+          filter: Number(priority) >= 3 && /Not Suspicious|Misc activity|Protocol Command Decode/.test(classification)
+          description: Drop low-priority informational and policy alerts (send them to Lake instead)
+          conf: {}
+      test:
+        - '<33>Nov 12 09:20:05 ids1.example.com snort[2211]: [1:1000001:1] "INFO generic activity" [Classification: Misc activity] [Priority: 3] {TCP} 198.51.100.23:50284 -> 10.10.5.20:8080'
+      expect:
+        out: 1
   - title: Enrich with rule metadata
     saving: analyst time
     fn: Lookup
     how: Join sid to a lookup built from the rule files (classtype, CVE references, MITRE metadata, policy) so the SIEM gets context without storing it in every event.
     expr: "lookup snort_rules.csv on sid → cve, mitre_technique, policy"
+    stream:
+      note: Build snort_rules.csv from your rule files (sid, classtype, cve, mitre_technique, policy) and upload it to Cribl as a lookup. Then add a Lookup function that matches the parsed sid field and adds cve, mitre_technique and policy.
 references:
   - title: Snort 3 Rule Writing Guide — Alert Logging (alert_json, alert_full, alert_syslog)
     url: https://docs.snort.org/start/alert_logging
