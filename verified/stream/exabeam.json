@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop empty and null CIM fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "afb3ee3cefe77518",
+    "in": {
+      "events": 2,
+      "bytes": 988
+    },
+    "out": {
+      "events": 2,
+      "bytes": 919
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop constant context elements per source",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "06529cd1558a17e8",
+    "in": {
+      "events": 1,
+      "bytes": 514
+    },
+    "out": {
+      "events": 1,
+      "bytes": 411
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Sample successful routine activity",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f9d9e6519cfdf6b7",
+    "in": {
+      "events": 11,
+      "bytes": 5404
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1003
+    },
+    "ok": true
+  }
+}

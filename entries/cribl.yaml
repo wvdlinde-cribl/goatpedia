@@ -289,21 +289,99 @@ optimizations:
     fn: Drop
     how: Keep warn and error plus auth, audit and deploy messages. Drop debug/silly levels and periodic _raw stats lines unless troubleshooting.
     expr: level=='debug' || level=='silly' || (level=='info' && message=='_raw stats')
+    stream:
+      log: Process log (cribl.log)
+      functions:
+        - id: drop
+          filter: level == 'debug' || level == 'silly' || (level == 'info' && message == '_raw stats')
+          description: Drop debug/silly chatter and periodic _raw stats lines
+          conf: {}
+      test:
+        - '{"time":"2026-11-12T08:14:22.118Z","cid":"w0","channel":"output:siem_hec","level":"debug","message":"sending batch","error":{"message":"none"},"host":"worker-01.example.com","source":"/opt/cribl/log/worker/0/cribl.log"}'
+        - '{"time":"2026-11-12T08:14:22.118Z","cid":"w0","channel":"server","level":"info","message":"_raw stats","error":{"message":"none"},"host":"worker-01.example.com","source":"/opt/cribl/log/worker/0/cribl.log"}'
+      expect:
+        out: 1
   - title: Exclude health checks from access.log
     saving: 40–80 % of access.log
     fn: Drop
     how: Health probes and the UI's own polling (GET /health, /system/status, /notifications) dominate volume. Keep every write method and every 4xx/5xx.
     expr: method=='GET' && status<400 && /\/(health|system\/status|notifications|system\/messages)/.test(url)
+    stream:
+      log: API access log (access.log)
+      functions:
+        - id: drop
+          filter: method == 'GET' && status < 400 && /\/(health|system\/status|notifications|system\/messages)/.test(url)
+          description: Drop successful GET health checks and UI polling
+          conf: {}
+      test:
+        - '{"time":"2026-11-12T08:15:03.561Z","src":"198.51.100.23","user":"jdoe","method":"GET","url":"/api/v1/health","route":"/health","group":"prod","status":200,"message":"GET /api/v1/health","response_time":2,"requestId":"b0f2b1e0-7a1e-4a4a-9a6f-7b2f2b9d5c32","http_user_agent":"product-ui"}'
+        - '{"time":"2026-11-12T08:15:03.561Z","src":"198.51.100.23","user":"jdoe","method":"GET","url":"/api/v1/system/status","route":"/system/status","group":"prod","status":500,"message":"GET /api/v1/system/status","response_time":2,"requestId":"b0f2b1e0-7a1e-4a4a-9a6f-7b2f2b9d5c33","http_user_agent":"product-ui"}'
+      expect:
+        out: 2
   - title: Roll up metrics before the SIEM
     saving: 70–95 % of metrics
     fn: Aggregations
     how: Send only dropped events, backpressure, PQ size and per-output error metrics to the SIEM, aggregated to 1-minute values. Keep full metrics in the monitoring tool or Lake.
     expr: /dropped_events|blocked|pq_|\.err/.test(_metric)
+    stream:
+      log: Internal metric
+      functions:
+        - id: drop
+          filter: '!/dropped_events|blocked|pq_|\.err/.test(_metric)'
+          description: Keep only drop, backpressure, PQ and error metrics for the SIEM
+          conf: {}
+        - id: aggregation
+          filter: 'true'
+          description: Roll the kept metrics up to 1-minute values per metric, output and host
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - sum(_value).as(value)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - _metric
+              - output
+              - host
+      test:
+        - '{"_metric":"cribl.logstream.total.dropped_events","_value":10,"_metric_type":"counter","output":"siem_hec","group":"prod","host":"worker-01.example.com","event_source":"cribl","event_host":"worker-01.example.com","cribl_wp":"w0","earliest":1794471260000,"latest":1794471270000,"_time":1794471270.2}'
+        - '{"_metric":"cribl.logstream.total.in_events","_value":5000,"_metric_type":"counter","output":"siem_hec","group":"prod","host":"worker-01.example.com","event_source":"cribl","event_host":"worker-01.example.com","cribl_wp":"w0","earliest":1794471260000,"latest":1794471270000,"_time":1794471270.2}'
+      expect:
+        out: 1
+        smaller: true
   - title: Strip internal underscore fields
     saving: 10–25 %
     fn: Eval (remove)
     how: Remove __-prefixed and constant envelope fields (__criblMetrics, __inputId, source, event_source) before sending to non-Cribl tools.
     expr: "remove: __*, event_source, event_host, earliest, latest"
+    stream:
+      log: Internal metric
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove internal and constant envelope fields
+          conf:
+            remove:
+              - __*
+              - event_source
+              - event_host
+              - earliest
+              - latest
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - event_source
+          - event_host
+          - earliest
+          - latest
+        present:
+          - _metric
+        smaller: true
 references:
   - title: Cribl Docs — Internal Logs
     url: https://docs.cribl.io/stream/internal-logs/

@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop static assets from splunkd_ui_access",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3df5021309412a96",
+    "in": {
+      "events": 3,
+      "bytes": 826
+    },
+    "out": {
+      "events": 2,
+      "bytes": 558
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop routine splunkd_access polling",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "df83b9168e43218f",
+    "in": {
+      "events": 2,
+      "bytes": 303
+    },
+    "out": {
+      "events": 1,
+      "bytes": 159
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Filter splunkd.log to WARN and above",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "535e32902dd5d831",
+    "in": {
+      "events": 2,
+      "bytes": 232
+    },
+    "out": {
+      "events": 1,
+      "bytes": 119
+    },
+    "ok": true
+  }
+}

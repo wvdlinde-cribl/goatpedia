@@ -230,21 +230,111 @@ optimizations:
     fn: Parser (JSON, drop empty values)
     how: Exports often include every template field even when the value is empty or "N/A". Re-serialising with empty and placeholder values removed cuts the payload without losing data.
     expr: "Parser mode reserialize; fields to drop where value in ('', null, 'N/A', '-')"
+    stream:
+      log: CIM authentication event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove CIM fields whose value is empty, null or a placeholder (N/A, -)
+          conf:
+            add:
+              - name: domain
+                value: '(domain === '''' || domain === null || domain === ''N/A'' || domain === ''-'') ? undefined : domain'
+              - name: failure_reason
+                value: '(failure_reason === '''' || failure_reason === null || failure_reason === ''N/A'' || failure_reason === ''-'') ? undefined : failure_reason'
+              - name: auth_method
+                value: '(auth_method === '''' || auth_method === null || auth_method === ''N/A'' || auth_method === ''-'') ? undefined : auth_method'
+              - name: src_ip
+                value: '(src_ip === '''' || src_ip === null || src_ip === ''N/A'' || src_ip === ''-'') ? undefined : src_ip'
+              - name: src_host
+                value: '(src_host === '''' || src_host === null || src_host === ''N/A'' || src_host === ''-'') ? undefined : src_host'
+              - name: dest_host
+                value: '(dest_host === '''' || dest_host === null || dest_host === ''N/A'' || dest_host === ''-'') ? undefined : dest_host'
+              - name: user
+                value: '(user === '''' || user === null || user === ''N/A'' || user === ''-'') ? undefined : user'
+      serialize: true
+      test:
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"jdoe","domain":"N/A","src_ip":"192.0.2.44","src_host":"-","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"","failure_reason":null,"host":"dc01.corp.example.com"}'
+      expect:
+        out: 2
+        present:
+          - user
+          - host
+        smaller: true
   - title: Drop constant context elements per source
     saving: 10–20 %
     fn: Eval (remove)
     how: vendor, product_category, platform and landscape are constant for a given product. Keep product and drop the rest, re-adding them at search time via a lookup on product if needed.
     expr: "remove: vendor, product_category, platform, landscape"
+    stream:
+      log: CIM authentication event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove context fields that are constant per product; keep product
+          conf:
+            remove:
+              - vendor
+              - product_category
+              - platform
+              - landscape
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - vendor
+          - product_category
+          - platform
+          - landscape
+        present:
+          - product
+        smaller: true
   - title: Sample successful routine activity
     saving: 30–60 % of high-volume classes
     fn: Sampling
     how: Successful process-create events of known-good binaries and successful service-account logins can be sampled 1:10 for the lake copy. Never sample failures, alerts or privileged users.
     expr: outcome=='success' && /^svc_/.test(user) && activity=='login'
+    stream:
+      log: CIM authentication event
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 successful service-account logins; failures, alerts and other users pass
+          conf:
+            rules:
+              - filter: outcome == 'success' && /^svc_/.test(user) && activity == 'login'
+                rate: 10
+      test:
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+        - '{"time":"2026-11-12T09:14:07.512Z","vendor":"Microsoft","product":"Event Viewer - Security","product_category":"operating system","platform":"Windows","landscape":"endpoint","subject":"endpoint","activity":"login","activity_type":"endpoint-login","outcome":"success","event_code":"4624","user":"svc_backup","domain":"CORP","src_ip":"192.0.2.44","src_host":"ws-0142","dest_host":"dc01.corp.example.com","login_type":3,"auth_method":"NTLM","failure_reason":"","host":"dc01.corp.example.com"}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
   - title: Route alerts and raw events separately
     saving: SIEM licence
     fn: Routes
     how: Send Exabeam alerts to the SOC case tool or SIEM in full. Send the bulk CIM events to Cribl Lake, where they stay searchable for hunts and retrospective IOC sweeps.
     expr: "subject=='alert' → SOAR/SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: Exabeam alerts → SOAR/SIEM
+          filter: /"subject":"alert"/.test(_raw)
+          to: The SOC case tool or SIEM, full fidelity
+          final: true
+        - name: Exabeam CIM events → Lake
+          filter: /"subject":"/.test(_raw)
+          to: Cribl Lake, searchable for hunts and IOC sweeps
+          final: true
+      note: Routes see the raw event, so they match the subject key in the JSON text. Put the alert route first.
 references:
   - title: Exabeam — Common Information Model context elements
     url: https://docs.exabeam.com/en/content/all/exabeam-security-content-cim/common-information-model/common-information-model-context-elements.html
