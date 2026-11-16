@@ -99,3 +99,6 @@ optimizations:
 references:
   - title: 'Event 4674: An operation was attempted on a privileged object'
     url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4674
+related:
+  - win-security
+  - windows

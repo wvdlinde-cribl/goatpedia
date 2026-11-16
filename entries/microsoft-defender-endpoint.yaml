@@ -185,3 +185,6 @@ optimizations:
 references:
   - title: Microsoft Defender for Endpoint
     url: https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-endpoint
+related:
+  - mde
+  - defender-for-identity

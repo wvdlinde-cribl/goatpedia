@@ -69,3 +69,5 @@ references:
     url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/checkpoint_quantum_firewall/assets/logs/checkpoint-quantum-firewall_tests.yaml
   - title: Pack Generator sample checkpoint_quantum_firewall.json
     url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/checkpoint_quantum_firewall.json
+related:
+  - checkpoint

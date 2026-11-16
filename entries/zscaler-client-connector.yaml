@@ -1,0 +1,131 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: zscaler-client-connector
+name: Zscaler Client Connector
+short: Zscaler ZCC
+vendor: Zscaler
+category: swg
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - ZCC
+  - Zscaler App
+  - ZApp
+tags:
+  - sse
+  - endpoint
+  - json
+  - posture
+summary: The Zscaler agent on a laptop or a mobile device. It checks device posture, then builds the tunnel the user rides to Internet Access and to Private Access. Two records leave the cloud. The portal audit log is an administrator changing the agent policy. The Private Access user-status log is the agent itself authenticating, with the posture profiles it hit or missed and the client version. Web transactions stay in the Internet Access log.
+sourcetypes:
+  - st: zcc_portal_audit
+    desc: An administrator action in the Client Connector Portal
+  - st: zcc_user_status
+    desc: A Client Connector session status from the Private Access user-status log
+facts:
+  Product: The endpoint agent for Zscaler Internet Access and Zscaler Private Access
+  Log transport: Both streams are fetched or pushed by the Nanolog Streaming Service or the Private Access log receiver. The portal audit feed is the admin-audit log filtered to the Client Connector Portal. The session feed is the Private Access user-status log where the client type is Zscaler Client Connector
+  Log format: JSON or a separated table, depending on the feed. The portal shows action, category, sub-category, and result. The user-status fields include the session status, the client version, the posture profiles, and the device
+  What the portal audit answers: Which administrator changed agent policy, including posture and forwarding profiles
+  What the user status answers: Whether this device authenticated, which posture profiles passed or failed, and which client version it runs
+placement:
+  slots:
+    - endpoint
+    - remote
+  items:
+    - slot: endpoint
+      title: On the device
+      desc: The agent runs on the laptop or the phone. The logs are produced in the Zscaler cloud, not as a local file the SIEM tails.
+howItWorks:
+  - title: Agent
+    body: The agent identifies the user, evaluates device posture and trusted networks, and opens the tunnel. An upgrade changes the version the next user-status row reports. The web requests made through the tunnel are Internet Access logs, which are a different article.
+  - title: Two feeds
+    body: Administrators sign in to the Client Connector Portal and change app profiles, forwarding profiles, and posture. That portal writes an audit record, and a Nanolog feed can stream the Client Connector Portal audit log. Separately, each authentication of the agent is a Private Access user-status row. SessionStatus says authenticated, failed, or disconnected. PosturesHit and PosturesMiss name the profiles.
+traffic:
+  handles:
+    - The agent tunnel
+    - Device posture checks
+  flow:
+    - step: Check
+      desc: The agent evaluates posture and the user authenticates.
+    - step: Tunnel
+      desc: Traffic for Internet Access and Private Access goes through the agent.
+    - step: Record
+      desc: The cloud writes a user-status row for the session, and a portal audit row when an administrator changes policy.
+logs:
+  - type: Portal audit
+    sourcetype: zcc_portal_audit
+    format: json
+    share: one record per admin action
+    avg: under 1 KB
+    desc: One Client Connector Portal audit record. The names are the columns the portal shows.
+    sample: '{"Timestamp":"2026-11-16T08:45:00Z","Action":"Update","Category":"Device Posture","SubCategory":"Device Posture","Result":"Success","AdminID":"ada@example.com","ClientIP":"203.0.113.20"}'
+    key:
+      - Action
+      - Category
+      - AdminID
+      - ClientIP
+      - Result
+    noise: []
+  - type: User status
+    sourcetype: zcc_user_status
+    format: json
+    share: one row per session change
+    avg: about 1 KB
+    desc: One Private Access user-status row for the agent. The same stream is documented on the Private Access article. This sample keeps the fields that describe the client.
+    sample: '{"LogTimestamp":"2026-11-16T08:45:00Z","Username":"ada@example.com","SessionStatus":"ZPN_STATUS_AUTH_FAILED","Version":"4.6.0","ClientType":"Zscaler Client Connector","Hostname":"win11-01","Platform":"Windows","PublicIP":"203.0.113.20","PrivateIP":"192.0.2.70","PosturesHit":"","PosturesMiss":"disk-encryption"}'
+    key:
+      - Username
+      - SessionStatus
+      - Version
+      - PosturesMiss
+      - PublicIP
+      - Hostname
+    noise:
+      - PosturesHit
+cves: []
+detections:
+  - title: Agent failed authentication
+    severity: medium
+    signals:
+      - Username
+      - SessionStatus
+      - PublicIP
+      - PosturesMiss
+    why: ZPN_STATUS_AUTH_FAILED is the agent failing to authenticate. A posture profile in PosturesMiss is the device failing a check the policy required.
+    kql: |
+      dataset="zcc_logs"
+      | where sourcetype == "zcc_user_status" and (SessionStatus == "ZPN_STATUS_AUTH_FAILED" or PosturesMiss != "")
+      | project LogTimestamp, Username, Hostname, PublicIP, SessionStatus, PosturesMiss, Version
+    mitre:
+      - T1078
+  - title: Posture policy changed
+    severity: medium
+    signals:
+      - Action
+      - Category
+      - AdminID
+    why: An update in the Device Posture category is an administrator changing what the agent requires of a device. That is the control that decides who may connect.
+    kql: |
+      dataset="zcc_logs"
+      | where sourcetype == "zcc_portal_audit" and Category == "Device Posture" and Action == "Update"
+      | project Timestamp, AdminID, ClientIP, Action, Category, Result
+    mitre:
+      - T1562
+optimizations:
+  - title: Drop healthy sessions
+    saving: the authenticated session rows
+    fn: Drop
+    how: A successful authentication with nothing in PosturesMiss is an ordinary connect. Keep failures and rows that missed a posture profile.
+    expr: SessionStatus == 'ZPN_STATUS_AUTHENTICATED' && PosturesMiss == ''
+references:
+  - title: Zscaler — Client Connector audit logs
+    url: https://help.zscaler.com/client-connector/about-audit-logs
+  - title: Zscaler — Stream the Client Connector Portal audit log with NSS
+    url: https://help.zscaler.com/zia/adding-http-nss-feeds-admin-audit-logs
+  - title: Zscaler — Private Access user-status log fields
+    url: https://help.zscaler.com/zpa/understanding-user-status-log-fields
+related:
+  - zscaler-zia
+  - zscaler-zpa

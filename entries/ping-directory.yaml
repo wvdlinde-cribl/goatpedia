@@ -134,3 +134,6 @@ detections:
       - T1110
 optimizations: []
 references: []
+related:
+  - pingfederate
+  - ping-one

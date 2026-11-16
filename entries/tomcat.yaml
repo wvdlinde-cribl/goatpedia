@@ -69,3 +69,5 @@ optimizations: []
 references:
   - title: Apache Tomcat logging
     url: https://tomcat.apache.org/tomcat-10.1-doc/logging.html
+related:
+  - apache-tomcat

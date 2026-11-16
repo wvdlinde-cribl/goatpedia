@@ -1,0 +1,100 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: pingfederate
+name: PingFederate
+short: PingFederate
+vendor: Ping Identity
+category: idp
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - PingFederate Server
+tags:
+  - federation
+  - saml
+  - oauth
+  - audit
+summary: Ping Identity's federation server. It authenticates a user at an adapter or a partner, then issues a SAML assertion, an OAuth token, or a WS-Trust token for an application. The security audit log records those runtime transactions. It is a pipe-separated line in audit.log. PingOne is the cloud directory. This is the server you run yourself.
+sourcetypes:
+  - st: pingfederate_audit
+    desc: One security-audit transaction from audit.log
+facts:
+  Product: On-premises federation server for SAML, OAuth, WS-Trust, and inbound SCIM
+  Log transport: A file on the server, pingfederate/log/audit.log. The same events can be written to a database, to CEF, or to a Splunk-formatted file
+  Log format: Fields separated by a vertical pipe, in the order configured in log4j2.xml. The default order starts with the time, the tracking id, the transaction id, and the event type
+  What an audit line answers: Who authenticated, from which address, for which application, with which protocol, and whether it succeeded
+placement:
+  slots:
+    - internal
+    - dmz
+  items:
+    - slot: dmz
+      title: Federation server
+      desc: Applications and partner identity providers talk to PingFederate. It sits with the identity servers, not on the endpoint.
+howItWorks:
+  - title: Transaction
+    body: A user authenticates at an adapter, or PingFederate sends the user to a partner. The event type says which step this line is. AUTHN_ATTEMPT is an attempt at an adapter. SSO and OAuth are the issued transaction. The tracking id ties the lines of one user session together.
+  - title: Audit file
+    body: The default fields are the time, tracking id, transaction id, event, subject, incoming address, application, partner or client id, protocol, the PingFederate host, the role it played, the status, the adapter id, a description, and the response time in milliseconds. Outbound provisioning is a different file, provisioner-audit.log.
+traffic:
+  handles:
+    - SAML
+    - OAuth
+    - WS-Trust
+  flow:
+    - step: Authenticate
+      desc: The user attempts an adapter, or a partner connection is asked to authenticate them.
+    - step: Issue
+      desc: PingFederate issues the assertion or the token, or it records the failure.
+    - step: Audit
+      desc: One pipe-separated line is appended to audit.log.
+logs:
+  - type: Security audit
+    sourcetype: pingfederate_audit
+    format: text
+    share: one line per transaction
+    avg: a few hundred bytes
+    desc: One default audit line. The fields are in PingFederate's default order.
+    pattern: '(?<time>[^|]+)\|(?<trackingid>[^|]+)\|(?<transactionid>[^|]+)\|(?<event>[^|]+)\|(?<subject>[^|]+)\|(?<ip>[^|]+)\|(?<app>[^|]+)\|(?<connectionid>[^|]+)\|(?<protocol>[^|]+)\|(?<host>[^|]+)\|(?<role>[^|]+)\|(?<status>[^|]+)\|(?<adapterid>[^|]+)\|(?<description>[^|]*)\|(?<responsetime>\d+)'
+    sample: '2026-11-16 08:42:00,000|tid-1001|txn-2002|AUTHN_ATTEMPT|ada@example.com|192.0.2.60|app.example.com|sp-example|SAML20|pf.example.com|IdP|failure|htmlform|Account Locked|12'
+    key:
+      - event
+      - subject
+      - ip
+      - app
+      - protocol
+      - status
+      - description
+    noise:
+      - responsetime
+cves: []
+detections:
+  - title: Authentication attempt failed
+    severity: medium
+    signals:
+      - subject
+      - ip
+      - description
+      - app
+    why: An AUTHN_ATTEMPT whose status is a failure is the adapter rejecting the user. The description says why, including an account lock. Repeated failures for one subject are the brute-force view of this file.
+    kql: |
+      dataset="pingfederate_logs"
+      | where sourcetype == "pingfederate_audit" and event == "AUTHN_ATTEMPT" and status == "failure"
+      | project time, subject, ip, app, protocol, description
+    mitre:
+      - T1110
+optimizations:
+  - title: Drop successful SSO
+    saving: the successful sign-on volume
+    fn: Drop
+    how: A successful SSO line is an ordinary sign-in. Keep authentication failures, session revocation, and OAuth failures.
+    expr: event == 'SSO' && status == 'success'
+references:
+  - title: PingFederate — Security audit logging
+    url: https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_security_audit_logging.html
+  - title: PingFederate — Log files
+    url: https://docs.pingidentity.com/pingfederate/13.0/administrators_reference_guide/pf_log_files.html
+related:
+  - ping-one
+  - ping-directory

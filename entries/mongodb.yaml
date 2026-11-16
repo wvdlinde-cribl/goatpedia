@@ -69,3 +69,5 @@ optimizations: []
 references:
   - title: MongoDB log messages
     url: https://www.mongodb.com/docs/manual/reference/log-messages/
+related:
+  - mongo

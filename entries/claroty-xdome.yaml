@@ -114,3 +114,7 @@ detections:
       - T0845
 optimizations: []
 references: []
+related:
+  - dragos
+  - claroty-ctd
+  - nozomi-networks

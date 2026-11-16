@@ -393,6 +393,8 @@ references:
   - title: MITRE ATT&CK T1070.001 Clear Windows Event Logs
     url: https://attack.mitre.org/techniques/T1070/001/
 related:
+  - windows
+  - system
   - sysmon
   - windows-powershell
   - active-directory

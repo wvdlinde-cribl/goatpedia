@@ -1,0 +1,96 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: f5-bigip
+name: F5 BIG-IP
+short: F5 BIG-IP
+vendor: F5
+category: netinfra
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - BIG-IP LTM
+  - Local Traffic Manager
+tags:
+  - load-balancer
+  - http
+  - hsl
+summary: F5's application delivery appliance. Local Traffic Manager publishes a virtual server and load-balances HTTP to a pool of servers. A Request Logging profile on that virtual server writes one line per request, using a template you choose, and High Speed Logging sends the line from the traffic plane to a pool of log servers. This is the request log. The Advanced WAF security log is a separate profile on the same box.
+sourcetypes:
+  - st: f5_bigip_request
+    desc: One HTTP request logged by a Request Logging profile
+facts:
+  Product: BIG-IP Local Traffic Manager. Virtual servers, pools, and an HTTP profile
+  Log transport: High Speed Logging from the traffic plane to a pool of log servers. The Request Logging profile is remote only. Local request logging is an iRule, and F5 warns against doing that in volume
+  Log format: Whatever the request template emits. A usual template prints the client address, the NCSA date, the request line, the status code, and the response size
+  What a request line answers: Who called which virtual server, which URL, and what status came back
+placement:
+  slots:
+    - dmz
+    - internal
+  items:
+    - slot: dmz
+      title: In front of the application
+      desc: The virtual server is the address clients use. The pool members are the application servers behind it.
+howItWorks:
+  - title: Virtual server
+    body: A client connects to the virtual server. An HTTP profile has to be attached before the Request Logging profile can record HTTP data. The pool members are the servers that answer.
+  - title: Request Logging profile
+    body: The profile has its own template and its own logging pool. F5's published example of a template is the client address, an NCSA date, the request line, the status code, and the response size. The line is sent from the traffic plane, not from the management syslog path that writes /var/log/ltm.
+traffic:
+  handles:
+    - HTTP and HTTPS through a virtual server
+  flow:
+    - step: Accept
+      desc: The virtual server accepts the client connection.
+    - step: Balance
+      desc: Local Traffic Manager picks a pool member and returns the response.
+    - step: Log
+      desc: The Request Logging profile formats one line and High Speed Logging sends it to the log pool.
+logs:
+  - type: Request
+    sourcetype: f5_bigip_request
+    format: text
+    share: one line per logged request
+    avg: a few hundred bytes
+    desc: A line from the template client address, NCSA date, request line, status code, and response size. The template is yours to change.
+    pattern: '(?<client_ip>\S+) - - \[(?<when>[^\]]+)\] "(?<method>\S+) (?<uri>\S+) (?<protocol>[^"]+)" (?<status>\d+) (?<bytes>\d+)'
+    sample: '192.0.2.10 - - [16/Nov/2026 08:41:00 +0000] "GET /admin HTTP/1.1" 401 128'
+    key:
+      - client_ip
+      - method
+      - uri
+      - status
+    noise:
+      - protocol
+cves: []
+detections:
+  - title: Repeated client errors on the virtual server
+    severity: medium
+    signals:
+      - client_ip
+      - uri
+      - status
+    why: A 401 or 403 on a management or admin path is a client failing authentication at the application the virtual server publishes.
+    kql: |
+      dataset="f5_bigip_logs"
+      | where sourcetype == "f5_bigip_request" and status in ("401", "403")
+      | project when, client_ip, method, uri, status
+    mitre:
+      - T1190
+optimizations:
+  - title: Drop health checks
+    saving: the successful poll lines
+    fn: Drop
+    how: A monitor that hits a health URL with status 200 is the largest part of a request log. Keep errors and everything that is not that URL.
+    expr: status == '200' && uri == '/health'
+references:
+  - title: F5 — Configuring Request Logging
+    url: https://techdocs.f5.com/en-us/bigip-16-0-0/external-monitoring-of-big-ip-systems-implementations/configuring-request-logging.html
+  - title: F5 K00847516 — Configuring request logging using the Request Logging profile
+    url: https://my.f5.com/manage/s/article/K00847516
+  - title: F5 K000159057 — Forwarding BIG-IP log sources, including the LTM request-logging template
+    url: https://my.f5.com/manage/s/article/K000159057
+related:
+  - f5-awaf
+  - nginx

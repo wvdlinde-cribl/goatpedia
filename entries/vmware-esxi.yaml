@@ -324,6 +324,7 @@ references:
   - title: Splunk Add-on for VMware ESXi Logs — Install and configure
     url: https://docs.splunk.com/Documentation/AddOns/released/VMWesxilogs/Install
 related:
+  - vmware-horizon
   - vmware-nsx
   - active-directory
   - linux-syslog

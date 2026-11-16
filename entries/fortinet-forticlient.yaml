@@ -91,3 +91,6 @@ optimizations: []
 references:
   - title: FortiClient documentation
     url: https://docs.fortinet.com/product/forticlient
+related:
+  - fortiedr
+  - fortigate

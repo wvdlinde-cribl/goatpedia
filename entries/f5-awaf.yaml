@@ -333,6 +333,7 @@ references:
   - title: CISA AA22-138A — Threat actors exploiting F5 BIG-IP CVE-2022-1388
     url: https://www.cisa.gov/news-events/cybersecurity-advisories/aa22-138a
 related:
+  - f5-bigip
   - imperva-waf
   - cloudflare-waf
   - aws-waf

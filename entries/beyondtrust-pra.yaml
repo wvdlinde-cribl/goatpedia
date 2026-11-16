@@ -93,3 +93,5 @@ detections:
       - T1021
 optimizations: []
 references: []
+related:
+  - beyondtrust-privileged-remote-access

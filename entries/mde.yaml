@@ -350,6 +350,8 @@ references:
   - title: CISA Known Exploited Vulnerabilities catalog
     url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
 related:
+  - defender-for-identity
+  - microsoft-defender-endpoint
   - crowdstrike
   - sentinelone
   - sysmon

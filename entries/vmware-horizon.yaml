@@ -1,0 +1,95 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
+id: vmware-horizon
+name: VMware Horizon
+short: Horizon
+vendor: Omnissa
+category: os
+status: full
+updated: '2026-11-16'
+contributors:
+  - wlinde
+aka:
+  - Omnissa Horizon
+  - VMware Horizon 8
+  - Horizon Connection Server
+tags:
+  - vdi
+  - syslog
+  - desktop
+summary: A virtual-desktop broker. Users authenticate to a Connection Server, which assigns a desktop or an application from a pool running on vSphere. The Connection Server writes an event for each of those steps and can send the events as key-value syslog, or keep them in an event database. ESXi logs the hypervisor. This article is the broker.
+sourcetypes:
+  - st: horizon_event
+    desc: One Connection Server event in the syslog key-value form
+facts:
+  Product: Virtual desktops and published applications. The Connection Server brokers the session. The desktop runs on vSphere
+  Log transport: Syslog UDP, port 514 by default, configured once for a Connection Server group. The same events can be written as syslog-formatted files or stored in an event database. The syslog path is not encrypted by the product
+  Log format: Key-value pairs. Each event has a type, such as BROKER_USERLOGGEDIN, and a severity such as AUDIT_SUCCESS or AUDIT_FAIL. Attributes include the user display name
+  What an event answers: Which user authenticated or failed, and which pool or machine the broker was handling
+placement:
+  slots:
+    - internal
+  items:
+    - slot: internal
+      title: Connection Server
+      desc: Users connect to the broker. The desktops stay on the vSphere hosts. One host in the group is enough to configure syslog for the group.
+howItWorks:
+  - title: Broker
+    body: A user authenticates and the Connection Server assigns a machine from a pool. Omnissa publishes the event catalog as a type, a severity, and a message. BROKER_USERLOGGEDIN is a successful sign-in. The authentication-failure types say why, including a bad password, a disabled account, and a locked account.
+  - title: Attributes
+    body: The message attributes include UserDisplayName, written as DOMAIN\username, plus machine, pool, and user-name attributes on the events that have them. In the syslog file those values are key-value pairs.
+traffic:
+  handles:
+    - Desktop and application session requests
+  flow:
+    - step: Authenticate
+      desc: The user signs in to the Connection Server.
+    - step: Assign
+      desc: The broker assigns a desktop or an application from a pool.
+    - step: Record
+      desc: The Connection Server emits the event to syslog, to a file, or to the event database.
+logs:
+  - type: Broker event
+    sourcetype: horizon_event
+    format: kv
+    share: one event per broker action
+    avg: a few hundred bytes
+    desc: A synthetic key-value event for a failed sign-in. The event type is the one Omnissa lists for a bad password.
+    sample: 'Module=Broker Severity=AUDIT_FAIL EventType=BROKER_USER_AUTHFAILED_BAD_USER_PASSWORD UserDisplayName=EXAMPLE\ada DesktopId=pool-finance Node=cs1.example.com'
+    key:
+      - EventType
+      - Severity
+      - UserDisplayName
+      - DesktopId
+    noise:
+      - Module
+cves: []
+detections:
+  - title: Desktop sign-in failed
+    severity: medium
+    signals:
+      - EventType
+      - UserDisplayName
+      - Node
+    why: A bad-password failure is someone failing the broker's authentication. Repeated failures for one display name are the brute-force view of the Connection Server.
+    kql: |
+      dataset="horizon_logs"
+      | where sourcetype == "horizon_event" and EventType == "BROKER_USER_AUTHFAILED_BAD_USER_PASSWORD"
+      | project Severity, EventType, UserDisplayName, DesktopId, Node
+    mitre:
+      - T1110
+optimizations:
+  - title: Drop successful sign-ins
+    saving: the ordinary session starts
+    fn: Drop
+    how: BROKER_USERLOGGEDIN repeats for every desktop session. Keep AUDIT_FAIL events.
+    expr: EventType == 'BROKER_USERLOGGEDIN'
+references:
+  - title: Omnissa — Configure Horizon event logging to a file or a syslog server
+    url: https://docs.omnissa.com/Horizon8InstallUpgrade-V2606/ConfigureEventLoggingtoFileorSyslogServerinHorizon8
+  - title: Omnissa — Horizon Connection Server events
+    url: https://docs.omnissa.com/Horizon-Administration-V2309/HorizonConnectionServerEvents
+  - title: Omnissa — Event message attributes
+    url: https://docs.omnissa.com/Horizon-Administration-V2212/EventMessageAttributes/
+related:
+  - vmware-esxi
+  - vmware-nsx

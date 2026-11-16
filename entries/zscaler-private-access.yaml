@@ -69,3 +69,5 @@ references:
     url: https://github.com/DataDog/integrations-core/blob/faa3db574bb0a2d218968c7bc2134f34f1ec9155/zscaler_private_access/assets/logs/zscaler-private-access_tests.yaml
   - title: Pack Generator sample zscaler_private_access.json
     url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zscaler_private_access.json
+related:
+  - zscaler-zpa
