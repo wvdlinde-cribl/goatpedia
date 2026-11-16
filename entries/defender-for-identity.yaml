@@ -88,6 +88,18 @@ optimizations:
     fn: Drop
     how: Successful logons are the bulk of IdentityLogonEvents. Keep failures. Keep NTLM if you alert on legacy authentication.
     expr: ActionType == 'LogonSuccess' && Protocol == 'Kerberos'
+    stream:
+      log: Logon
+      functions:
+        - id: drop
+          filter: ActionType == 'LogonSuccess' && Protocol == 'Kerberos'
+          description: Drop successful Kerberos logons; keep failures and NTLM or other legacy protocols
+          conf: {}
+      test:
+        - '{"Timestamp":"2026-11-16T08:41:00Z","ActionType":"LogonSuccess","Application":"Active Directory","Protocol":"Kerberos","FailureReason":"","AccountName":"ada","AccountDomain":"example","AccountUpn":"ada@example.com","DeviceName":"pc-01.example.com","IPAddress":"192.0.2.50","DestinationDeviceName":"dc1.example.com","ReportId":"a1b2c3d5"}'
+        - '{"Timestamp":"2026-11-16T08:41:00Z","ActionType":"LogonSuccess","Application":"Active Directory","Protocol":"Ntlm","FailureReason":"","AccountName":"ada","AccountDomain":"example","AccountUpn":"ada@example.com","DeviceName":"pc-01.example.com","IPAddress":"192.0.2.50","DestinationDeviceName":"dc1.example.com","ReportId":"a1b2c3d6"}'
+      expect:
+        out: 2
 references:
   - title: Microsoft Learn — IdentityLogonEvents table
     url: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-identitylogonevents-table

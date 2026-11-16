@@ -303,6 +303,34 @@ optimizations:
     fn: Aggregations
     how: NonInteractiveUserSignInLogs repeat the same user/app/IP every few minutes as tokens refresh. Keep failures raw; roll successes up to count per user, app, IP and resultType per 15 minutes, raw copy to Lake.
     expr: category=='NonInteractiveUserSignInLogs' && resultType=='0'
+    stream:
+      log: Sign-in (SignInLogs)
+      functions:
+        - id: aggregation
+          filter: category == 'NonInteractiveUserSignInLogs' && resultType == '0'
+          description: Roll successful non-interactive sign-ins up to one count per user, app, IP and resultType per 15 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 900s
+            aggregations:
+              - count().as(signins)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - properties.userPrincipalName
+              - properties.appId
+              - callerIpAddress
+              - resultType
+      test:
+        - '{"time":"2026-11-12T08:21:40.3376521Z","resourceId":"/tenants/0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e/providers/Microsoft.aadiam","operationName":"Sign-in activity","operationVersion":"1.0","category":"NonInteractiveUserSignInLogs","tenantId":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","resultType":"0","resultSignature":"None","resultDescription":"","durationMs":0,"callerIpAddress":"198.51.100.61","correlationId":"6a7b8c9d-0e1f-4a2b-9c3d-4e5f6a7b8c9d","identity":"John Doe","Level":4,"location":"NL","properties":{"id":"1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b","createdDateTime":"2026-11-12T08:21:40.3376521+00:00","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.61","status":{"errorCode":0},"clientAppUsed":"Browser","isInteractive":false,"userType":"Member","tokenIssuerType":"AzureAD"}}'
+        - '{"time":"2026-11-12T08:24:40.3376521Z","resourceId":"/tenants/0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e/providers/Microsoft.aadiam","operationName":"Sign-in activity","operationVersion":"1.0","category":"NonInteractiveUserSignInLogs","tenantId":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","resultType":"0","resultSignature":"None","resultDescription":"","durationMs":0,"callerIpAddress":"198.51.100.61","correlationId":"6a7b8c9d-0e1f-4a2b-9c3d-4e5f6a7b8c9d","identity":"John Doe","Level":4,"location":"NL","properties":{"id":"1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5c","createdDateTime":"2026-11-12T08:24:40.3376521+00:00","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.61","status":{"errorCode":0},"clientAppUsed":"Browser","isInteractive":false,"userType":"Member","tokenIssuerType":"AzureAD"}}'
+        - '{"time":"2026-11-12T08:27:40.3376521Z","resourceId":"/tenants/0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e/providers/Microsoft.aadiam","operationName":"Sign-in activity","operationVersion":"1.0","category":"NonInteractiveUserSignInLogs","tenantId":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","resultType":"0","resultSignature":"None","resultDescription":"","durationMs":0,"callerIpAddress":"198.51.100.61","correlationId":"6a7b8c9d-0e1f-4a2b-9c3d-4e5f6a7b8c9d","identity":"John Doe","Level":4,"location":"NL","properties":{"id":"1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5d","createdDateTime":"2026-11-12T08:27:40.3376521+00:00","userDisplayName":"John Doe","userPrincipalName":"jdoe@example.com","userId":"9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b","appId":"00000002-0000-0ff1-ce00-000000000000","appDisplayName":"Office 365 Exchange Online","ipAddress":"198.51.100.61","status":{"errorCode":0},"clientAppUsed":"Browser","isInteractive":false,"userType":"Member","tokenIssuerType":"AzureAD"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Trim heavy nested arrays
     saving: 20–40 %
     fn: Eval
@@ -313,11 +341,50 @@ optimizations:
     fn: Eval
     how: The Azure Monitor envelope repeats values found under properties (identity, location, callerIpAddress vs properties.ipAddress, resultDescription vs status.failureReason). Remove one copy before the SIEM.
     expr: "remove: resourceId, operationVersion, Level, durationMs, identity, resultSignature"
+    stream:
+      log: Sign-in (SignInLogs)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove Azure Monitor envelope fields that duplicate values under properties
+          conf:
+            remove:
+              - resourceId
+              - operationVersion
+              - Level
+              - durationMs
+              - identity
+              - resultSignature
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - resourceId
+          - operationVersion
+          - Level
+          - durationMs
+          - identity
+          - resultSignature
+        present:
+          - properties
+          - category
+        smaller: true
   - title: Route by category
     saving: SIEM licence
     fn: Routes
     how: SignInLogs, AuditLogs, RiskyUsers, UserRiskEvents and ServicePrincipalSignInLogs → SIEM at full fidelity; aggregated NonInteractive and ManagedIdentity sign-ins → SIEM, raw → Lake for investigations.
     expr: category in ('SignInLogs','AuditLogs','RiskyUsers','UserRiskEvents','ServicePrincipalSignInLogs') → SIEM
+    stream:
+      routes:
+        - name: Entra high-value categories → SIEM
+          filter: /"category":"(SignInLogs|AuditLogs|RiskyUsers|UserRiskEvents|ServicePrincipalSignInLogs)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Entra non-interactive and managed identity sign-ins → Lake raw, SIEM aggregated
+          filter: /"category":"(NonInteractiveUserSignInLogs|ManagedIdentitySignInLogs)"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline above
+          final: true
+      note: Routes see the raw event, so they match the category key inside the JSON text. Put the full-fidelity route first.
 references:
   - title: Sign-in logs in Microsoft Entra ID
     url: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins

@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop machine-account and krbtgt ticket noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6a2e915b074fb506",
+    "in": {
+      "events": 2,
+      "bytes": 2236
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1119
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip XML boilerplate",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7163dded9865e2fa",
+    "in": {
+      "events": 1,
+      "bytes": 1119
+    },
+    "out": {
+      "events": 1,
+      "bytes": 857
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repetitive 4662 object reads",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1a7ffac72011708d",
+    "in": {
+      "events": 3,
+      "bytes": 3724
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2591
+    },
+    "ok": true
+  }
+}
