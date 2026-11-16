@@ -336,26 +336,94 @@ optimizations:
     fn: Drop
     how: rdsadmin queries the instance every second. Add it to SERVER_AUDIT_EXCL_USERS at source, or drop it in Stream (CONNECT is still logged for all users).
     expr: username=='rdsadmin' && operation!='FAILED_CONNECT'
+    stream:
+      log: RDS MySQL audit (MariaDB plugin)
+      functions:
+        - id: drop
+          filter: username == 'rdsadmin' && operation != 'FAILED_CONNECT'
+          description: Drop the rdsadmin health-check activity; keep its failed connects
+          conf: {}
+      test:
+        - 20261112 09:14:23,payments-db-1,rdsadmin,localhost,12,4411,QUERY,mysql,'SELECT 1',0,SOCKET
+      expect:
+        out: 1
   - title: Unwrap the CloudWatch envelope
     saving: 20–40 %
     fn: Parser → Serialize
     how: Firehose/subscription batches carry messageType, owner, logGroup, logStream and subscriptionFilters for every batch. Unroll logEvents, keep logGroup → serverhost/log type, and drop the rest before parsing the CSV or pgAudit line.
     expr: unroll logEvents → _raw = logEvents.message; remove messageType, owner, subscriptionFilters
+    stream:
+      note: On the Firehose or CloudWatch subscription source, add an Unroll on logEvents that sets _raw to each logEvents message and keeps logGroup as a field for the server and log type, then remove messageType, owner, logStream and subscriptionFilters before the CSV or pgAudit parser. The samples here are already unwrapped lines, so this cannot be shown on them.
   - title: Audit DDL/DCL and connections; sample read DML
     saving: 40–80 %
     fn: Drop / Sampling
     how: Prefer QUERY_DDL,QUERY_DCL,CONNECT (MySQL) or pgaudit.log='ddl,role' plus per-table object audit. In Stream, sample READ/SELECT from application roles and keep everything from humans.
     expr: (class=='READ' || /^'?SELECT/i.test(object)) && username.startsWith('app_')
+    stream:
+      log: Aurora MySQL Advanced Auditing
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 SELECT statements from application roles; keep everything else
+          conf:
+            rules:
+              - filter: /^'?SELECT/i.test(object) && /^app_/.test(username)
+                rate: 10
+      test:
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+        - 1762938995412877,aurora-pay-instance-1,app_rw,10.20.4.17,9921,1183453,QUERY,payments,'SELECT id FROM payments.orders',0
+      expect:
+        outMin: 1
+        outMax: 2
+        smaller: true
   - title: Suppress brute-force floods
     saving: 5–20 %
     fn: Suppress
     how: Keep one FAILED_CONNECT / password failure per host+user per minute with a count, so a spray doesn't dominate SIEM ingest.
     expr: "key: `${host}:${username}`  allow 1 / 60s  when operation=='FAILED_CONNECT'"
+    stream:
+      log: RDS MySQL audit (MariaDB plugin)
+      functions:
+        - id: suppress
+          filter: operation == 'FAILED_CONNECT'
+          description: Keep one failed connect per host and user per minute
+          conf:
+            keyExpr: host + ':' + username
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 20261112 09:14:22,payments-db-1,admin,203.0.113.45,7781,0,FAILED_CONNECT,,,1045,TCP/IP
+        - 20261112 09:14:22,payments-db-1,admin,203.0.113.45,7781,0,FAILED_CONNECT,,,1045,TCP/IP
+      expect:
+        out: 1
   - title: Route by statement class
     saving: SIEM licence
     fn: Routes
     how: Failed logins, DCL, DDL and S3 export statements → SIEM. Full query audit → Cribl Lake / S3 for compliance retention (PCI, SOX) and replay.
     expr: operation!='QUERY' || class in ('ROLE','DDL') → SIEM | else → Lake
+    stream:
+      routes:
+        - name: RDS failed logins, DCL, DDL and S3 exports → SIEM
+          filter: '/,FAILED_CONNECT,|password authentication failed|AUDIT: \w+,\d+,\d+,(ROLE|DDL),|,''(GRANT|REVOKE|CREATE|ALTER|DROP)\b|INTO OUTFILE S3|aws_s3\./i.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: RDS full query audit → Lake
+          filter: 'true'
+          to: Cribl Lake / S3 for compliance retention and replay
+          final: true
+      note: Routes see the raw line, so they match the operation column, the pgAudit class or the statement text. Put the SIEM route first.
 references:
   - title: MariaDB Audit Plugin support for RDS for MySQL
     url: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.MySQL.Options.AuditPlugin.html

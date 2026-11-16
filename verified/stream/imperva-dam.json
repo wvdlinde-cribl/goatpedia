@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop empty and redundant custom strings",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "eaec53f4d1ac685e",
+    "in": {
+      "events": 1,
+      "bytes": 1034
+    },
+    "out": {
+      "events": 1,
+      "bytes": 518
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate repetitive application queries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "691817d19c9f52fb",
+    "in": {
+      "events": 4,
+      "bytes": 4025
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1314
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop bind variables",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "fbfc601c831f2339",
+    "in": {
+      "events": 1,
+      "bytes": 1034
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1034
+    },
+    "ok": true
+  }
+}

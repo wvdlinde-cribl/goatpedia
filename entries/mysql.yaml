@@ -316,21 +316,78 @@ optimizations:
     fn: Drop
     how: Set server_audit_events=CONNECT,QUERY_DDL,QUERY_DCL (or an Enterprise filter on connection + specific sql_commands) at source; in Stream drop READ/WRITE table events for known application accounts and keep them for humans.
     expr: operation in ('READ','WRITE') && username in ('app_ro','app_rw')
+    stream:
+      log: Audit (server_audit CSV)
+      functions:
+        - id: drop
+          filter: (operation == 'READ' || operation == 'WRITE') && (username == 'app_ro' || username == 'app_rw')
+          description: Drop table READ/WRITE events from known application accounts; keep them for human users
+          conf: {}
+      test:
+        - 20261112 09:14:22,db-prod-01,app_rw,192.0.2.17,48212,1001,READ,shop,orders,0
+        - 20261112 09:14:22,db-prod-01,jdoe,192.0.2.18,48213,1002,READ,shop,orders,0
+      expect:
+        out: 2
   - title: Suppress repeated failed connects
     saving: 10–30 %
     fn: Suppress
     how: A brute-force run produces thousands of identical FAILED_CONNECT lines. Keep one per host/username per minute with a count field for the SIEM.
     expr: "key: `${host}:${username}`  allow 1 / 60s  when operation=='FAILED_CONNECT'"
+    stream:
+      log: Audit (server_audit CSV)
+      functions:
+        - id: suppress
+          filter: operation == 'FAILED_CONNECT'
+          description: Keep one failed connect per host and username per minute
+          conf:
+            keyExpr: host + ':' + username
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 20261112 09:14:22,db-prod-01,root,203.0.113.45,48211,0,FAILED_CONNECT,,,1045
+        - 20261112 09:14:22,db-prod-01,root,203.0.113.45,48211,0,FAILED_CONNECT,,,1045
+      expect:
+        out: 1
   - title: Normalise and truncate query text
     saving: 15–40 %
     fn: Eval
     how: Long INSERT … VALUES batches blow up event size. Truncate object to 2 KB and add a query fingerprint (literals replaced) so you can group without storing every value.
     expr: "object = object.length > 2048 ? object.substring(0,2048) : object"
+    stream:
+      log: Audit (server_audit CSV)
+      functions:
+        - id: eval
+          filter: object && object.length > 2048
+          description: Truncate long query text in object to 2 KB
+          conf:
+            add:
+              - name: object
+                value: object.substring(0, 2048)
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - operation
   - title: Route DBA and privileged activity to the SIEM, the rest to Lake
     saving: SIEM licence
     fn: Routes
     how: Connections, failures, DCL/DDL and anything from human accounts → SIEM. Application DML and table access → Cribl Lake for investigations.
     expr: "operation!='QUERY' || /\\b(GRANT|CREATE|ALTER|DROP)\\b/i.test(object) → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: MySQL connections, failures, DDL/DCL → SIEM
+          filter: '!/^(?:[^,]*,){6}(READ|WRITE|QUERY),/.test(_raw) || /\b(GRANT|CREATE|ALTER|DROP)\b/i.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: MySQL application DML and table access → Lake
+          filter: /^(?:[^,]*,){6}(READ|WRITE|QUERY),/.test(_raw)
+          to: Cribl Lake for investigations
+          final: true
+      note: Routes see the raw CSV line, so they match the operation column (7th) and the query text. Put the SIEM route first.
 references:
   - title: MySQL 8.4 Reference Manual — Audit log file formats
     url: https://dev.mysql.com/doc/refman/8.4/en/audit-log-file-formats.html

@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Exclude the rdsadmin health check",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d85bcd3723d359c3",
+    "in": {
+      "events": 2,
+      "bytes": 176
+    },
+    "out": {
+      "events": 1,
+      "bytes": 86
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Audit DDL/DCL and connections; sample read DML",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1a72c35562f43851",
+    "in": {
+      "events": 11,
+      "bytes": 1316
+    },
+    "out": {
+      "events": 2,
+      "bytes": 245
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress brute-force floods",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bcdb26cf89ac9a8d",
+    "in": {
+      "events": 3,
+      "bytes": 258
+    },
+    "out": {
+      "events": 1,
+      "bytes": 86
+    },
+    "ok": true
+  }
+}

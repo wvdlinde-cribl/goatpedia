@@ -377,11 +377,49 @@ optimizations:
     fn: Drop
     how: Attach EXECUTE/CONTEXT policies to sensitive tables, privileged authorities (SYSADM, DBADM, SECADM) and human users rather than the whole database. In Stream, drop CONTEXT COMMIT/ROLLBACK/CONNECT_RESET records that carry no statement text.
     expr: category=='CONTEXT' && ['COMMIT','ROLLBACK','CONNECT_RESET','DESCRIBE','CLOSE_CURSOR'].includes(audit_event)
+    stream:
+      log: CONTEXT (statement text)
+      functions:
+        - id: drop
+          filter: category == 'CONTEXT' && ['COMMIT','ROLLBACK','CONNECT_RESET','DESCRIBE','CLOSE_CURSOR'].indexOf(audit_event) >= 0
+          description: Drop CONTEXT records for commit, rollback, connect reset, describe and close cursor; they carry no statement text
+          conf: {}
+      test:
+        - timestamp=2026-11-12-09.31.05.190220; category=CONTEXT; audit event=COMMIT; event correlator=5; database=PAYDB; userid=dbadm1; authid=DBADM1; application id=0A140411.C1F2.261112093105; application name=db2bp; package schema=NULLID; package name=SQLC2P31; package section=0; text=;
+      expect:
+        out: 1
   - title: Strip empty and package columns
     saving: 30–50 %
     fn: Parser → Serialize
     how: Delasc rows carry many empty client-register, trusted-context, transaction-id and package columns. Parse with the per-category header, drop empties and package_*/txn ids, then serialise to JSON or keep CSV if the SIEM parser expects it.
     expr: "remove: package_*, local_txn_id, global_txn_id, tenant_name; drop empty"
+    stream:
+      log: VALIDATE (authentication)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove package, transaction id and tenant columns
+          conf:
+            remove:
+              - package_schema
+              - package_name
+              - package_section
+              - package_version
+              - local_txn_id
+              - global_txn_id
+              - tenant_name
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - package_schema
+          - package_name
+          - package_section
+          - package_version
+          - local_txn_id
+          - global_txn_id
+          - tenant_name
+        smaller: true
   - title: Decode the client IP from application_id
     saving: Analyst time
     fn: Eval
@@ -392,11 +430,41 @@ optimizations:
     fn: Suppress
     how: A misconfigured service retries with a stale password thousands of times. Keep one per userid + client per minute with a count.
     expr: "key: `${userid}:${application_id.substr(0,8)}`  allow 1 / 60s  when category=='VALIDATE' && event_status<0"
+    stream:
+      log: VALIDATE (authentication)
+      functions:
+        - id: suppress
+          filter: category == 'VALIDATE' && Number(event_status) < 0
+          description: Keep one failed authentication per user and client per minute
+          conf:
+            keyExpr: userid + ':' + (application_id || '').substr(0,8)
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '"2026-11-12-09.14.22.185321","VALIDATE","AUTHENTICATION",2,-30082,"PAYDB   ","jdoe","JDOE","jdoe",0,0,"CB00712D.BC53.261112091422","db2jcc_application","SERVER","","",0,"","IBMOSauthserver","","","","WS-FIN-0042","","","","","","","db2inst1","db2prd01",""'
+        - '"2026-11-12-09.14.22.185321","VALIDATE","AUTHENTICATION",2,-30082,"PAYDB   ","jdoe","JDOE","jdoe",0,0,"CB00712D.BC53.261112091422","db2jcc_application","SERVER","","",0,"","IBMOSauthserver","","","","WS-FIN-0042","","","","","","","db2inst1","db2prd01",""'
+      expect:
+        out: 1
   - title: Route by category
     saving: SIEM licence
     fn: Routes
     how: VALIDATE failures, SECMAINT, SYSADMIN and OBJMAINT → SIEM. CONTEXT/EXECUTE → Cribl Lake for compliance retention and investigations.
     expr: category in ('CONTEXT','EXECUTE') → Lake | else → SIEM
+    stream:
+      routes:
+        - name: Db2 CONTEXT/EXECUTE → Lake
+          filter: /^"[^"]*","(CONTEXT|EXECUTE)",|; category=(CONTEXT|EXECUTE);/.test(_raw)
+          to: Cribl Lake for compliance retention and investigations
+          final: true
+        - name: Db2 other audit categories → SIEM
+          filter: /^"[^"]*","(VALIDATE|SECMAINT|SYSADMIN|OBJMAINT|CHECKING|AUDIT)",|; category=[A-Z]+;/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event, so they match the category column in delasc rows or the category= key in text records. Put the Lake route first.
 references:
   - title: Db2 12.1 — db2audit command (extract delasc / file)
     url: https://www.ibm.com/docs/en/db2/12.1.x?topic=commands-db2audit-audit-facility-administrator-tool

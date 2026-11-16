@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop successful RFC calls from technical users",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e1336bf0980fd482",
+    "in": {
+      "events": 2,
+      "bytes": 380
+    },
+    "out": {
+      "events": 1,
+      "bytes": 190
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Trim fixed-width padding",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a6995fcbb5ba92fb",
+    "in": {
+      "events": 1,
+      "bytes": 190
+    },
+    "out": {
+      "events": 1,
+      "bytes": 190
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop empty HANA XS/XSA columns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9be4a32a981560d2",
+    "in": {
+      "events": 1,
+      "bytes": 272
+    },
+    "out": {
+      "events": 1,
+      "bytes": 272
+    },
+    "ok": true
+  }
+}

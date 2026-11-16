@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Audit EXECUTE/CONTEXT only where it matters",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e3089366c477f975",
+    "in": {
+      "events": 2,
+      "bytes": 617
+    },
+    "out": {
+      "events": 1,
+      "bytes": 337
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip empty and package columns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e398cd9a9c03624b",
+    "in": {
+      "events": 1,
+      "bytes": 255
+    },
+    "out": {
+      "events": 1,
+      "bytes": 202
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress repeated failed authentications",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2bf781eeb5cec820",
+    "in": {
+      "events": 3,
+      "bytes": 765
+    },
+    "out": {
+      "events": 1,
+      "bytes": 255
+    },
+    "ok": true
+  }
+}
