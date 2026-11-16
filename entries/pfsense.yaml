@@ -305,11 +305,41 @@ optimizations:
     fn: Drop
     how: Internet background radiation hitting the default block rule is the bulk of filterlog on most WANs. Disable "Default Firewall block rules" logging and add explicit logged block rules only where needed, or drop them in Stream (keep a sampled copy for trends).
     expr: action=='block' && direction=='in' && tracker=='1000000103'
+    stream:
+      log: Filter log (filterlog)
+      functions:
+        - id: drop
+          filter: action == 'block' && direction == 'in' && tracker == '1000000103'
+          description: Drop inbound hits on the default block rule (internet background noise)
+          conf: {}
+      test:
+        - '<134>Nov 12 09:14:22 filterlog[72237]: 5,,,1700000123,igb1,match,pass,in,4,0x0,,64,12345,0,DF,6,tcp,60,192.0.2.15,203.0.113.10,51544,443,0,S,1891286705,,64240,,'
+      expect:
+        out: 1
   - title: Suppress repeated blocks
     saving: 10–30 %
     fn: Suppress
     how: One line per packet means a single scanner retry storm produces hundreds of identical lines. Keep one per src_ip/dst_ip/dst_port per minute with a count.
     expr: "key: `${src_ip}:${dst_ip}:${dst_port}`  allow 1 / 60s  when action=='block'"
+    stream:
+      log: Filter log (filterlog)
+      functions:
+        - id: suppress
+          filter: action == 'block'
+          description: Keep one block per source, destination and port per minute
+          conf:
+            keyExpr: src_ip + ':' + dst_ip + ':' + dst_port
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<134>Nov 12 09:14:22 filterlog[72237]: 4,,,1000000103,igb0,match,block,in,4,0x0,,239,54321,0,none,6,tcp,40,198.51.100.23,203.0.113.10,49724,3389,0,S,1891286705,,1024,,'
+        - '<134>Nov 12 09:14:22 filterlog[72237]: 4,,,1000000103,igb0,match,block,in,4,0x0,,239,54321,0,none,6,tcp,40,198.51.100.23,203.0.113.10,49724,3389,0,S,1891286705,,1024,,'
+      expect:
+        out: 1
   - title: Drop low-value TCP header fields
     saving: 20–35 %
     fn: Parser → Serialize
@@ -320,11 +350,24 @@ optimizations:
     fn: Lookup
     how: filterlog carries only the tracker number. Export rule descriptions from config.xml to a lookup (tracker → description, interface name) so analysts see "Allow LAN to DNS" instead of 1700000123.
     expr: "lookup pfsense_rules.csv on tracker → rule_descr, iface_name"
+    stream:
+      note: Export the rule tracker ids and descriptions from pfSense config.xml into a pfsense_rules.csv lookup file (tracker, rule_descr, iface_name) and upload it to Cribl. Then add a Lookup function on the filterlog pipeline matching tracker to add rule_descr and iface_name.
   - title: Route packages to their own destinations
     saving: SIEM licence
     fn: Routes
     how: Suricata, webConfigurator, OpenVPN and sshguard messages → SIEM. filterlog pass records → Cribl Lake or aggregated metrics; filterlog blocks → suppressed copy to SIEM.
     expr: "!/filterlog/.test(_raw) → SIEM  |  filterlog → Lake + SIEM(suppressed)"
+    stream:
+      routes:
+        - name: pfSense filterlog → Lake raw, SIEM suppressed
+          filter: / filterlog\[\d+\]:/.test(_raw)
+          to: Cribl Lake (raw, passes aggregated), and the SIEM through the suppress pipeline
+          final: true
+        - name: pfSense packages (Suricata, webConfigurator, OpenVPN, sshguard) → SIEM
+          filter: / (suricata|php-fpm|openvpn|sshguard)\[\d+\]:/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw syslog line, so they match the program name. Put the filterlog route first.
 references:
   - title: pfSense raw filter log format
     url: https://docs.netgate.com/pfsense/en/latest/monitoring/logs/raw-filter-format.html

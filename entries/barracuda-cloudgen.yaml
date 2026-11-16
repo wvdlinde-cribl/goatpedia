@@ -306,26 +306,109 @@ optimizations:
     fn: Drop
     how: LB (loopback) and LOUT entries to Barracuda update / Azure platform endpoints are pure housekeeping. Drop them or route to Lake only.
     expr: type=='LB' || (type=='LOUT' && dstIP=='168.63.129.16')
+    stream:
+      log: Firewall activity (syslog)
+      functions:
+        - id: drop
+          filter: type == 'LB' || (type == 'LOUT' && dstIP == '168.63.129.16')
+          description: Drop loopback traffic and box housekeeping connections to the Azure platform endpoint
+          conf: {}
+      test:
+        - '<134>Nov 12 09:14:22 cgf01 box_Firewall_Activity: Allow: type=LB|proto=TCP|srcIF=lo|srcIP=127.0.0.1|srcPort=51544|srcMAC=00:00:00:00:00:00|dstIP=127.0.0.1|dstPort=801|dstService=|dstIF=lo|rule=LOCALHOST|info=0|srcNAT=127.0.0.1|dstNAT=127.0.0.1|duration=0|count=1|receivedBytes=0|sentBytes=0|receivedPackets=0|sentPackets=0|user=|protocol=|application=|target=|content=|urlcat='
+      expect:
+        out: 1
   - title: Suppress repeated host-firewall blocks
     saving: 10–30 %
     fn: Suppress
     how: Internet scanning of LIN services repeats per packet burst. Keep one record per srcIP/dstPort per minute.
     expr: "key: `${srcIP}:${dstPort}`  allow 1 / 60s  when action=='Block' && type=='LIN'"
+    stream:
+      log: Firewall activity (syslog)
+      functions:
+        - id: suppress
+          filter: action == 'Block' && type == 'LIN'
+          description: Keep one host-firewall block per source IP and destination port per minute
+          conf:
+            keyExpr: srcIP + ':' + dstPort
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<134>Nov 12 09:14:22 cgf01 box_Firewall_Activity: Block: type=LIN|proto=TCP|srcIF=p1|srcIP=198.51.100.23|srcPort=51544|srcMAC=00:0d:3a:46:14:a3|dstIP=203.0.113.10|dstPort=807|dstService=|dstIF=|rule=BLOCKALL|info=4003|srcNAT=198.51.100.23|dstNAT=203.0.113.10|duration=0|count=1|receivedBytes=0|sentBytes=0|receivedPackets=0|sentPackets=0|user=|protocol=|application=|target=|content=|urlcat='
+        - '<134>Nov 12 09:14:22 cgf01 box_Firewall_Activity: Block: type=LIN|proto=TCP|srcIF=p1|srcIP=198.51.100.23|srcPort=51544|srcMAC=00:0d:3a:46:14:a3|dstIP=203.0.113.10|dstPort=807|dstService=|dstIF=|rule=BLOCKALL|info=4003|srcNAT=198.51.100.23|dstNAT=203.0.113.10|duration=0|count=1|receivedBytes=0|sentBytes=0|receivedPackets=0|sentPackets=0|user=|protocol=|application=|target=|content=|urlcat='
+      expect:
+        out: 1
   - title: Strip MACs, empty keys and NAT duplicates
     saving: 20–35 %
     fn: Parser → Serialize
     how: The key=value activity list carries a dozen empty keys (target, content, urlcat, user …) and NAT fields that equal the original address. Remove empties, MACs and identical NAT values, then re-serialise.
     expr: "remove: srcMAC, dstMAC, info, count, empty values; drop srcNAT if srcNAT==srcIP; drop dstNAT if dstNAT==dstIP"
+    stream:
+      log: Firewall activity (syslog)
+      parse: false
+      functions:
+        - id: eval
+          filter: /box_Firewall_Activity:/.test(_raw)
+          description: Remove MAC, info and count keys, NAT values equal to the original address, and empty keys from the raw event
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/\|(srcMAC|dstMAC|info|count)=[^|]*/g, '').replace(/(srcIP=([^|]*)\|[\s\S]*?)\|srcNAT=\2(?=\||$)/, '$1').replace(/(dstIP=([^|]*)\|[\s\S]*?)\|dstNAT=\2(?=\||$)/, '$1').replace(/\|\w+=(?=\||$)/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Aggregate allowed internal flows
     saving: 20–40 %
     fn: Aggregations
     how: Allowed DNS, NTP and internal file-share sessions are rarely queried individually. Roll up bytes and sessions per src/dst/app per minute.
     expr: action=='End' && dst_port in (53, 123, 445)
+    stream:
+      log: Firewall activity (Insights JSON)
+      functions:
+        - id: aggregation
+          filter: action == 'End' && (dst_port == 53 || dst_port == 123 || dst_port == 445)
+          description: Roll allowed DNS, NTP and SMB sessions up to one event per source, destination and port per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(sessions)
+              - sum(fwd_bytes).as(fwd_bytes)
+              - sum(rev_bytes).as(rev_bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dst_ip
+              - dst_port
+      test:
+        - '{"version":1,"timestamp":1794474862,"action":"End","duration":20,"src_iface":"eth0","src_ip":"10.17.35.171","src_port":40533,"src_mac":"00:0c:29:9a:0a:78","dst_iface":"eth1","dst_ip":"198.51.100.53","dst_port":53,"dst_mac":"00:0c:29:00:d6:00","fw_rule":"BOX-LAN-2-INTERNET","app_rule":"<App>:ALL-APPS","fw_info":2007,"src_ip_nat":"198.51.100.20","dst_ip_nat":"198.51.100.53","fwd_bytes":70,"rev_bytes":150,"fwd_packets":1,"rev_packets":1,"ip_proto":17,"protos":["DNS"],"apps":["DNS"]}'
+        - '{"version":1,"timestamp":1794474862,"action":"End","duration":22,"src_iface":"eth0","src_ip":"10.17.35.171","src_port":40534,"src_mac":"00:0c:29:9a:0a:78","dst_iface":"eth1","dst_ip":"198.51.100.53","dst_port":53,"dst_mac":"00:0c:29:00:d6:00","fw_rule":"BOX-LAN-2-INTERNET","app_rule":"<App>:ALL-APPS","fw_info":2007,"src_ip_nat":"198.51.100.20","dst_ip_nat":"198.51.100.53","fwd_bytes":72,"rev_bytes":160,"fwd_packets":1,"rev_packets":1,"ip_proto":17,"protos":["DNS"],"apps":["DNS"]}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route threats at full fidelity
     saving: SIEM licence
     fn: Routes
     how: Threat (IPS / Virus / ATD), auth and config-change logs → SIEM. Activity and web logs → Cribl Lake raw + SIEM optimised.
     expr: isnotempty(type) && type in ('IPS','Virus','ATD') → SIEM  |  else → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: Barracuda threats → SIEM
+          filter: /"type":"(IPS|Virus|ATD)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Barracuda activity and web logs → Lake raw, SIEM optimised
+          filter: /box_Firewall_Activity:|"fw_rule"|"traffic_type"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the threat type key in the JSON text. Put the threat route first; send auth and config-change logs to the SIEM the same way.
 references:
   - title: Barracuda CGF — Available log files and structure
     url: https://documentation.campus.barracuda.com/wiki/spaces/CGFv90/pages/9571594/Available+Log+Files+and+Structure

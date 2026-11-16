@@ -24,7 +24,7 @@ const { pipelineFor, logOf } = globalThis.GoatpediaStream;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'verified', 'stream.json');
 
-function loadEnv() {
+export function loadEnv() {
   const env = { ...process.env };
   const file = path.join(ROOT, '.env');
   if (fs.existsSync(file)) {
@@ -37,7 +37,7 @@ function loadEnv() {
   return env;
 }
 
-async function connect(env) {
+export async function connect(env) {
   const tr = await fetch(env.CRIBL_TOKEN_URL || 'https://login.cribl.cloud/oauth/token', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ grant_type: 'client_credentials', client_id: env.CRIBL_CLIENT_ID, client_secret: env.CRIBL_CLIENT_SECRET, audience: env.CRIBL_AUDIENCE || 'https://api.cribl.cloud' }),
@@ -62,7 +62,7 @@ const bytes = (s) => Buffer.byteLength(String(s ?? ''), 'utf8');
 const visible = (ev) => Object.fromEntries(Object.entries(ev).filter(([k]) => !k.startsWith('__') && k !== 'cribl_pipe'));
 const outSize = (ev) => (typeof ev._raw === 'string' ? bytes(ev._raw) : bytes(JSON.stringify(visible(ev))));
 
-async function verifyOne(api, group, entry, opt, index) {
+export async function verifyOne(api, group, entry, opt, index) {
   const s = opt.stream;
   const log = logOf(entry, s);
   const events = [log.sample, ...(s.test || [])];
@@ -138,4 +138,14 @@ async function main() {
   if (failed) process.exit(1);
 }
 
-main().catch((x) => { console.error(`✗ ${x.message}`); process.exit(1); });
+/** Merge results into verified/stream.json. */
+export function saveResults(results) {
+  const store = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : {};
+  Object.assign(store, results);
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, `${JSON.stringify(Object.fromEntries(Object.entries(store).sort()), null, 2)}\n`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((x) => { console.error(`✗ ${x.message}`); process.exit(1); });
+}

@@ -347,26 +347,125 @@ optimizations:
     fn: Drop
     how: With session-start logging enabled every session is written twice. Disable logtraffic-start on policies, or drop start records in Stream — the close record has the same 5-tuple plus bytes and duration.
     expr: type=='traffic' && action=='start'
+    stream:
+      log: Traffic
+      functions:
+        - id: drop
+          filter: type == 'traffic' && action == 'start'
+          description: Drop session-start traffic records; the close record has the same 5-tuple plus bytes and duration
+          conf: {}
+      test:
+        - <189>date=2026-11-12 time=09:13:51 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935231412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.20.30.44 srcport=51544 srcintf="port2" srcintfrole="lan" dstip=203.0.113.80 dstport=443 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" sessionid=48211907 proto=6 action="start" policyid=12 policytype="policy" poluuid="5c1f7e2a-1b2c-51ee-8d6e-0a1b2c3d4e5f" policyname="allow-web-out" service="HTTPS" trandisp="snat" transip=198.51.100.10 transport=31544 appid=40568 app="HTTPS.BROWSER" appcat="Web.Client" apprisk="medium" duration=0 sentbyte=0 rcvdbyte=0 sentpkt=0 rcvdpkt=0 utmaction="allow" countapp=1 srcmac="00:50:56:aa:bb:01" mastersrcmac="00:50:56:aa:bb:01" srcserver=0
+      expect:
+        out: 1
   - title: Strip redundant and empty fields
     saving: 20–35 %
     fn: Parser → Serialize
     how: Parse the key=value pairs, drop eventtime (date/time duplicate), tz, poluuid, devid (map to a lookup), mastersrcmac, srcserver, zero counters and "N/A" values, then re-serialise as key=value or JSON.
     expr: "remove: eventtime, tz, poluuid, mastersrcmac, srcserver, count*; drop values '' / 'N/A'"
+    stream:
+      log: Traffic
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove duplicate timestamp, timezone, policy UUID, master MAC, srcserver and count fields
+          conf:
+            remove:
+              - eventtime
+              - tz
+              - poluuid
+              - mastersrcmac
+              - srcserver
+              - countapp
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - eventtime
+          - tz
+          - poluuid
+          - mastersrcmac
+          - srcserver
+          - countapp
+        present:
+          - srcip
+          - dstip
+        smaller: true
   - title: Suppress repetitive implicit denies
     saving: 5–20 %
     fn: Suppress
     how: Internet scanning produces floods of policyid=0 denies on the WAN. Keep one per srcip/dstip/dstport every 60 s with a count field.
     expr: "key: `${srcip}:${dstip}:${dstport}`  allow 1 / 60s  when action=='deny' && policyid==0"
+    stream:
+      log: Traffic
+      functions:
+        - id: suppress
+          filter: action == 'deny' && String(policyid) == '0'
+          description: Keep one implicit deny per source, destination and port per minute
+          conf:
+            keyExpr: srcip + ':' + dstip + ':' + dstport
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - <189>date=2026-11-12 time=09:14:22 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935262412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=198.51.100.23 srcport=51544 srcintf="wan1" srcintfrole="wan" dstip=203.0.113.10 dstport=23 dstintf="root" dstintfrole="undefined" srccountry="Netherlands" dstcountry="Reserved" sessionid=48211907 proto=6 action="deny" policyid=0 policytype="policy" service="TELNET" trandisp="noop" duration=0 sentbyte=0 rcvdbyte=0 sentpkt=0 rcvdpkt=0
+        - <189>date=2026-11-12 time=09:14:22 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935262412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=198.51.100.23 srcport=51544 srcintf="wan1" srcintfrole="wan" dstip=203.0.113.10 dstport=23 dstintf="root" dstintfrole="undefined" srccountry="Netherlands" dstcountry="Reserved" sessionid=48211907 proto=6 action="deny" policyid=0 policytype="policy" service="TELNET" trandisp="noop" duration=0 sentbyte=0 rcvdbyte=0 sentpkt=0 rcvdpkt=0
+        - <189>date=2026-11-12 time=09:14:22 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935262412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=198.51.100.23 srcport=51544 srcintf="wan1" srcintfrole="wan" dstip=203.0.113.10 dstport=23 dstintf="root" dstintfrole="undefined" srccountry="Netherlands" dstcountry="Reserved" sessionid=48211907 proto=6 action="deny" policyid=0 policytype="policy" service="TELNET" trandisp="noop" duration=0 sentbyte=0 rcvdbyte=0 sentpkt=0 rcvdpkt=0
+      expect:
+        out: 2
   - title: Aggregate allowed DNS/NTP/local traffic
     saving: 10–30 %
     fn: Aggregations
     how: Allowed DNS (port 53), NTP and internal service traffic is rarely searched per session. Roll up bytes and sessions per srcip/dstip/service per minute for the SIEM; keep raw in Cribl Lake.
     expr: type=='traffic' && action!='deny' && (service=='DNS' || service=='NTP')
+    stream:
+      log: Traffic
+      functions:
+        - id: aggregation
+          filter: type == 'traffic' && action != 'deny' && (service == 'DNS' || service == 'NTP')
+          description: Roll allowed DNS and NTP sessions up to one event per source, destination and service per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(sessions)
+              - sum(sentbyte).as(sentbyte)
+              - sum(rcvdbyte).as(rcvdbyte)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - srcip
+              - dstip
+              - service
+      test:
+        - <189>date=2026-11-12 time=09:14:22 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935262412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.20.30.44 srcport=51544 srcintf="port2" srcintfrole="lan" dstip=198.51.100.53 dstport=53 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" sessionid=48211907 proto=17 action="accept" policyid=12 policytype="policy" policyname="allow-web-out" service="DNS" trandisp="snat" transip=198.51.100.10 transport=31544 duration=1 sentbyte=74 rcvdbyte=130 sentpkt=1 rcvdpkt=1
+        - <189>date=2026-11-12 time=09:14:23 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935263412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.20.30.44 srcport=51545 srcintf="port2" srcintfrole="lan" dstip=198.51.100.53 dstport=53 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" sessionid=48211908 proto=17 action="accept" policyid=12 policytype="policy" policyname="allow-web-out" service="DNS" trandisp="snat" transip=198.51.100.10 transport=31545 duration=1 sentbyte=80 rcvdbyte=150 sentpkt=1 rcvdpkt=1
+        - <189>date=2026-11-12 time=09:14:24 devname="FGT-EDGE-01" devid="FG100FTK21000001" eventtime=1762935264412345678 tz="+0100" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.20.30.44 srcport=51546 srcintf="port2" srcintfrole="lan" dstip=198.51.100.53 dstport=53 dstintf="wan1" dstintfrole="wan" srccountry="Reserved" dstcountry="United States" sessionid=48211909 proto=17 action="accept" policyid=12 policytype="policy" policyname="allow-web-out" service="DNS" trandisp="snat" transip=198.51.100.10 transport=31546 duration=1 sentbyte=70 rcvdbyte=120 sentpkt=1 rcvdpkt=1
+      expect:
+        out: 2
+        smaller: true
   - title: Route by type
     saving: SIEM licence
     fn: Routes
     how: type=event and type=utm go to the SIEM at full fidelity; type=traffic goes raw to Cribl Lake and optimised to the SIEM. Replay from Lake during investigations.
     expr: type!='traffic' → SIEM  |  type=='traffic' → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: FortiGate traffic → Lake raw, SIEM optimised
+          filter: / type="traffic" /.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+        - name: FortiGate event and UTM → SIEM
+          filter: / type="(event|utm)" /.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the type="..." pair in _raw. Put the traffic route first.
 references:
   - title: FortiOS log message reference — list of log types and subtypes
     url: https://docs.fortinet.com/document/fortigate/7.4.11/fortios-log-message-reference/160372

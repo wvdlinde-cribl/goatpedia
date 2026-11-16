@@ -314,21 +314,98 @@ optimizations:
     fn: Drop
     how: Connection Closed (m=537) carries the same 5-tuple plus bytes and duration; drop m=98 unless you need session start times.
     expr: m=='98'
+    stream:
+      log: Connection Closed (m=537)
+      functions:
+        - id: drop
+          filter: m == '98'
+          description: Drop Connection Opened records; Connection Closed carries the same 5-tuple plus bytes and duration
+          conf: {}
+      test:
+        - <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=262144 m=98 msg="Connection Opened" srcMac=00:00:5e:00:53:02 src=10.20.30.44:51544:X0 srcZone=LAN natSrc=203.0.113.1:23011 dstMac=00:00:5e:00:53:01 dst=198.51.100.80:443:X1 dstZone=WAN natDst=198.51.100.80:443 usr="jdoe" proto=tcp/https sent=0 rcvd=0 spkt=0 rpkt=0 cdur=0 rule="LAN->WAN Allow Web" app=49177 appName='General HTTPS' n=112742080 dpi=1 fw_action="NA"
+      expect:
+        out: 1
   - title: Drop broadcast and NTP noise
     saving: 5–15 %
     fn: Drop
     how: Broadcast packet dropped (m=46), NTP status (m=1230, 1232, 1107) and unhandled IPv6 multicast (m=1233) have no detection value.
     expr: "['46','1107','1230','1232','1233'].includes(m)"
+    stream:
+      log: Connection Closed (m=537)
+      functions:
+        - id: drop
+          filter: '[''46'',''1107'',''1230'',''1232'',''1233''].indexOf(String(m)) > -1'
+          description: Drop broadcast, NTP status and unhandled IPv6 multicast messages
+          conf: {}
+      test:
+        - <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=1024 m=46 msg="Broadcast packet dropped" srcMac=00:00:5e:00:53:02 src=10.20.30.44:137:X0 srcZone=LAN natSrc=10.20.30.44:137 dstMac=ff:ff:ff:ff:ff:ff dst=10.20.30.255:137:X0 dstZone=LAN natDst=10.20.30.255:137 usr="jdoe" proto=udp/netbios-ns sent=0 rcvd=0 spkt=0 rpkt=0 cdur=0 rule="LAN->WAN Allow Web" app=49177 appName='General HTTPS' n=112742082 dpi=1 fw_action="drop"
+      expect:
+        out: 1
   - title: Strip MACs, sequence and constant fields
     saving: 15–25 %
     fn: Eval
     how: Remove srcMac, dstMac, n, sn, dpi, fw_action="NA" and the id= header before the SIEM; keep sn as a lookup to device name instead.
     expr: "remove: srcMac, dstMac, n, dpi, fw_action (when 'NA')"
+    stream:
+      log: Connection Closed (m=537)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove MAC addresses, sequence number, DPI flag and fw_action when it is NA
+          conf:
+            remove:
+              - srcMac
+              - dstMac
+              - 'n'
+              - dpi
+            add:
+              - name: fw_action
+                value: 'fw_action == ''NA'' ? undefined : fw_action'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - srcMac
+          - dstMac
+          - 'n'
+          - dpi
+          - fw_action
+        present:
+          - src
+          - dst
+        smaller: true
   - title: Aggregate WAN drops
     saving: 10–30 %
     fn: Aggregations
     how: Internet scanning drops (TCP/UDP packet dropped, m=36/37/38) become 1-minute counts per source/destination port; raw to Lake.
     expr: "count() by src, dst, proto  window 60s  where ['36','37','38'].includes(m)"
+    stream:
+      log: Connection Closed (m=537)
+      functions:
+        - id: aggregation
+          filter: '[''36'',''37'',''38''].indexOf(String(m)) > -1'
+          description: Roll WAN packet drops up to one count per source, destination and protocol per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(drops)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src
+              - dst
+              - proto
+      test:
+        - <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=1024 m=36 msg="TCP packet dropped" srcMac=00:00:5e:00:53:02 src=198.51.100.23:51544:X1 srcZone=WAN natSrc=198.51.100.23:51544 dstMac=00:00:5e:00:53:01 dst=203.0.113.1:23:X1 dstZone=WAN natDst=203.0.113.1:23 usr="" proto=tcp/telnet sent=0 rcvd=0 spkt=0 rpkt=0 cdur=0 rule="WAN->WAN Deny" app=0 appName='General TCP' n=112742083 dpi=0 fw_action="drop"
+        - <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=1024 m=36 msg="TCP packet dropped" srcMac=00:00:5e:00:53:02 src=198.51.100.23:51544:X1 srcZone=WAN natSrc=198.51.100.23:51544 dstMac=00:00:5e:00:53:01 dst=203.0.113.1:23:X1 dstZone=WAN natDst=203.0.113.1:23 usr="" proto=tcp/telnet sent=0 rcvd=0 spkt=0 rpkt=0 cdur=0 rule="WAN->WAN Deny" app=0 appName='General TCP' n=112742084 dpi=0 fw_action="drop"
+        - <134>id=firewall sn=0017C5000001 time="2026-11-12 09:14:02 UTC" fw=203.0.113.1 pri=6 c=1024 m=36 msg="TCP packet dropped" srcMac=00:00:5e:00:53:02 src=198.51.100.23:51544:X1 srcZone=WAN natSrc=198.51.100.23:51544 dstMac=00:00:5e:00:53:01 dst=203.0.113.1:23:X1 dstZone=WAN natDst=203.0.113.1:23 usr="" proto=tcp/telnet sent=0 rcvd=0 spkt=0 rpkt=0 cdur=0 rule="WAN->WAN Deny" app=0 appName='General TCP' n=112742085 dpi=0 fw_action="drop"
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: SonicOS/X 7.0.1 Log Events Reference Guide (message IDs and syslog tags)
     url: https://www.sonicwall.com/techdocs/pdf/SonicOS-X_7.0.1_LogEvents_ReferenceGuide.pdf

@@ -302,21 +302,86 @@ optimizations:
     fn: Aggregations
     how: Summarise per src_ip, dst_ip, dst_port, rule_id and action per minute for segmentation dashboards; ship raw to Cribl Lake.
     expr: count by src_ip, dst_ip, dst_port, rule_id, action per 60s
+    stream:
+      log: Distributed Firewall packet log (ESXi)
+      functions:
+        - id: aggregation
+          filter: /FIREWALL-PKTLOG/.test(_raw)
+          description: Summarise DFW hits per source, destination, port, rule and action per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(hits)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dst_ip
+              - dst_port
+              - rule_id
+              - action
+      test:
+        - '2026-11-12T09:15:04.519Z esx-node-03.example.com FIREWALL-PKTLOG[1057591]: b569cb6a INET match DROP 2047 OUT 52 TCP 10.20.4.15/49823->10.20.8.31/445 S'
+        - '2026-11-12T09:15:05.519Z esx-node-03.example.com FIREWALL-PKTLOG[1057591]: b569cb6a INET match DROP 2047 OUT 52 TCP 10.20.4.15/49824->10.20.8.31/445 S'
+      expect:
+        out: 1
+        smaller: true
   - title: Flatten the nsx@6876 structured data
     saving: 10–15 %
     fn: Parser → Serialize
     how: Extract comp / subcomp / level / audit from the structured data once, drop pri, procid, s2comp and reqId, and serialise as JSON instead of repeating the RFC 5424 header.
     expr: "parse nsx@6876 kv → remove: pri, procid, s2comp, req_id → JSON"
+    stream:
+      log: Gateway / Edge firewall packet log
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove pri, procid and s2comp
+          conf:
+            remove:
+              - pri
+              - procid
+              - s2comp
+        - id: eval
+          filter: 'true'
+          description: Write the extracted fields out as JSON instead of the RFC 5424 header
+          conf:
+            add:
+              - name: _raw
+                value: JSON.stringify({ts:ts,host:host,msgid:msgid,comp:comp,subcomp:subcomp,level:level,flow_id:flow_id,af:af,reason:reason,action:action,rule_id:rule_id,direction:direction,pkt_len:pkt_len,protocol:protocol,src_ip:src_ip,src_port:src_port,dst_ip:dst_ip,dst_port:dst_port,tcp_flags:tcp_flags})
+      expect:
+        out: 1
+        absent:
+          - pri
+          - procid
+          - s2comp
   - title: Enrich rule IDs with policy names
     saving: triage time
     fn: Lookup
     how: Export rule ID → section / rule name / groups from the NSX Policy API into a lookup so analysts see the policy, not a number.
     expr: "lookup nsx_rules.csv on rule_id → rule_name, section, group"
+    stream:
+      note: Export rule ID, section, rule name and groups from the NSX Policy API into nsx_rules.csv and upload it to Cribl. Then add a Lookup function on rule_id that outputs rule_name, section and group.
   - title: Route audit and errors at full fidelity
     saving: SIEM licence
     fn: Routes
     how: audit="true" and error-level system / routing events → SIEM; packet logs → Lake plus aggregated SIEM copy.
     expr: /audit="true"|level="(ERROR|CRIT|ALERT|EMERG)"/.test(_raw) → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: NSX audit and errors → SIEM
+          filter: /audit="true"|level="(ERROR|CRIT|ALERT|EMERG)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: NSX packet logs → Lake + aggregated SIEM
+          filter: / FIREWALL |FIREWALL-PKTLOG/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline
+          final: true
+      note: Routes see the raw event. Put the audit and error route first.
 references:
   - title: NSX 4.2 — Log Messages and Error Codes
     url: https://techdocs.broadcom.com/us/en/vmware-cis/nsx/vmware-nsx/4-2/administration-guide/operations-and-management/log-messages-and-error-codes.html

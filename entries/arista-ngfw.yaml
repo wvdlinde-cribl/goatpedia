@@ -71,4 +71,16 @@ optimizations:
     fn: Drop
     how: Session events are sent for every connection. If security monitoring relies on the intrusion, threat and web filter classes, drop SessionEvent before the SIEM or send it only to cheaper storage.
     expr: message.indexOf('SessionEvent') >= 0
+    stream:
+      log: Session events
+      functions:
+        - id: drop
+          filter: message.indexOf('SessionEvent') >= 0
+          description: Drop per-connection SessionEvent records; keep intrusion, threat and web filter classes
+          conf: {}
+      test:
+        - '<174>May 19 11:52:37 INFO  uvm[0]:  {"entitled":true,"protocol":6,"hostname":"Host1","blocked":true,"class":"class com.untangle.app.web_filter.WebFilterEvent","localAddr":"192.0.2.10","remoteAddr":"198.51.100.15","host":"www.example.com","sessionId":110221863965042,"timeStamp":"2023-05-19 11:52:38.101","policyId":1,"tagsString":""}'
+      expect:
+        out: 1
+        smaller: true
 references: []
