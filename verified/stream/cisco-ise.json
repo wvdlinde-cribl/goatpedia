@@ -1,0 +1,47 @@
+{
+  "1": {
+    "title": "Strip the Step= trail",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "dc40612f00a4e9a5",
+    "in": {
+      "events": 1,
+      "bytes": 1132
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1024
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Thin or roll up interim accounting",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d926801c4e7c2251",
+    "in": {
+      "events": 2,
+      "bytes": 1525
+    },
+    "out": {
+      "events": 1,
+      "bytes": 757
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress repeated failures from broken supplicants",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5e7aed15f95ec9f4",
+    "in": {
+      "events": 3,
+      "bytes": 2589
+    },
+    "out": {
+      "events": 1,
+      "bytes": 863
+    },
+    "ok": true
+  }
+}

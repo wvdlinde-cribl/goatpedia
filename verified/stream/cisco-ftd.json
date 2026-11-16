@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Log connections at end only",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "64aa99a03b262c3c",
+    "in": {
+      "events": 2,
+      "bytes": 1626
+    },
+    "out": {
+      "events": 1,
+      "bytes": 813
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip eStreamer bulk fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cf0b8ed09dcea6bc",
+    "in": {
+      "events": 1,
+      "bytes": 1082
+    },
+    "out": {
+      "events": 1,
+      "bytes": 865
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress repeated LINA denies and teardowns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3a68a2deed5a1abc",
+    "in": {
+      "events": 4,
+      "bytes": 673
+    },
+    "out": {
+      "events": 2,
+      "bytes": 335
+    },
+    "ok": true
+  }
+}

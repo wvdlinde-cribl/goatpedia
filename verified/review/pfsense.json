@@ -1,5 +1,5 @@
 {
-  "pfsense#2": {
+  "2": {
     "title": "Drop low-value TCP header fields",
     "problems": [
       "field tos is still in the output",
@@ -9,12 +9,6 @@
       "field window is still in the output",
       "field tcp_options is still in the output",
       "output (167 B) is not smaller than input (167 B)"
-    ]
-  },
-  "vmware-nsx#0": {
-    "title": "Stop logging the default allow rule",
-    "problems": [
-      "expected 1 event(s) out, got 2"
     ]
   }
 }

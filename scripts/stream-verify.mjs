@@ -7,7 +7,7 @@
 // For each optimization: upload the article's sample (plus its stream.test events) as a
 // temporary sample in the worker group, run pipelineFor(entry, opt) in the preview, delete the
 // sample, and check stream.expect (events left, fields gone, output smaller). Results, with
-// events and bytes in and out, go to verified/stream.json. Each result carries a fingerprint
+// events and bytes in and out, go to verified/stream/<id>.json. Each result carries a fingerprint
 // of the pipeline and events; the site shows "checked in Cribl" only while they still match.
 //
 // Needs a Cribl API client in .env (gitignored) or the environment:
@@ -18,11 +18,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { fingerprint } from './stream-fingerprint.mjs';
+import { saveChecks } from './verified-store.mjs';
 import '../site/stream.js';
 
 const { pipelineFor, logOf } = globalThis.GoatpediaStream;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'verified', 'stream.json');
 
 export function loadEnv() {
   const env = { ...process.env };
@@ -109,7 +109,7 @@ async function main() {
   const env = loadEnv();
   const group = env.CRIBL_GROUP || 'default';
   const api = await connect(env);
-  const store = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : {};
+  const store = {};
   const dir = path.join(ROOT, 'entries');
   let ran = 0, failed = 0;
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.yaml')).sort()) {
@@ -132,19 +132,11 @@ async function main() {
       }
     }
   }
-  fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, `${JSON.stringify(Object.fromEntries(Object.entries(store).sort()), null, 2)}\n`);
-  console.log(`\n${ran} checked in Cribl (group ${group}), ${failed} failed. Results in verified/stream.json.`);
+  saveChecks(store);
+  console.log(`\n${ran} checked in Cribl (group ${group}), ${failed} failed. Results in verified/stream/<id>.json.`);
   if (failed) process.exit(1);
 }
 
-/** Merge results into verified/stream.json. */
-export function saveResults(results) {
-  const store = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : {};
-  Object.assign(store, results);
-  fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, `${JSON.stringify(Object.fromEntries(Object.entries(store).sort()), null, 2)}\n`);
-}
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((x) => { console.error(`✗ ${x.message}`); process.exit(1); });

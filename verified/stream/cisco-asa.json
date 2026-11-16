@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop connection-built messages",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8bff188f7f514452",
+    "in": {
+      "events": 2,
+      "bytes": 358
+    },
+    "out": {
+      "events": 1,
+      "bytes": 181
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated ACL denies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "08502749de7b0713",
+    "in": {
+      "events": 3,
+      "bytes": 471
+    },
+    "out": {
+      "events": 1,
+      "bytes": 157
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop low-value message IDs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "acd8db4706973467",
+    "in": {
+      "events": 2,
+      "bytes": 332
+    },
+    "out": {
+      "events": 1,
+      "bytes": 181
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate teardowns to flow metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ad76122d49da0794",
+    "in": {
+      "events": 4,
+      "bytes": 702
+    },
+    "out": {
+      "events": 2,
+      "bytes": 399
+    },
+    "ok": true
+  }
+}

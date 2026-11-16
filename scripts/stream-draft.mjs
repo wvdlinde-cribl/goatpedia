@@ -10,9 +10,9 @@
 // rules and three worked examples (the pilot articles) are a cached system prompt shared by
 // every request. Each returned block is checked (function ids, ES5 expressions) and run in
 // Cribl's preview (scripts/stream-verify.mjs). Failures go back once with the exact errors;
-// what still fails is left out of the article and listed in verified/needs-review.json.
+// what still fails is left out of the article and listed in verified/review/<id>.json.
 // Only passing blocks are written to entries/<id>.yaml, with their checks in
-// verified/stream.json.
+// verified/stream/<id>.json.
 //
 // AI: Cribl's Aperture gateway (Tailscale), Claude Messages API. APERTURE_URL (default
 // http://ai), AI_MODEL (default anthropic.claude-opus-5-5), AI_EFFORT (default low).
@@ -25,12 +25,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { parse as parseJs } from 'acorn';
-import { connect, loadEnv, saveResults, verifyOne } from './stream-verify.mjs';
+import { connect, loadEnv, verifyOne } from './stream-verify.mjs';
+import { saveChecks, setReview } from './verified-store.mjs';
 import '../site/stream.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRIES = path.join(ROOT, 'entries');
-const REVIEW = path.join(ROOT, 'verified', 'needs-review.json');
 const { FUNCTIONS } = globalThis.GoatpediaStream;
 const PILOTS = ['pan-ngfw', 'cisco-ise', 'okta'];
 
@@ -237,9 +237,11 @@ async function draftArticle({ client, model, effort, system, cribl, group, id, u
     const updated = insertBlocks(text, accepted);
     yaml.load(updated); // still valid YAML
     fs.writeFileSync(file, updated);
-    saveResults(results);
+    saveChecks(results);
   }
-  return { id, done: accepted.size, failed: Object.keys(problems).length, problems: Object.fromEntries(Object.entries(problems).map(([i, p]) => [`${id}#${i}`, { title: entry.optimizations[i].title, problems: p }])) };
+  const review = Object.fromEntries(Object.entries(problems).map(([i, p]) => [i, { title: entry.optimizations[i].title, problems: p }]));
+  if (!dryRun) setReview(id, review);
+  return { id, done: accepted.size, failed: Object.keys(problems).length, review };
 }
 
 async function main() {
@@ -268,7 +270,6 @@ async function main() {
   const client = new Anthropic({ baseURL: process.env.APERTURE_URL || 'http://ai', apiKey: process.env.APERTURE_API_KEY || 'aperture', maxRetries: 3, timeout: 10 * 60 * 1000 });
   const system = [{ type: 'text', text: `${RULES}\n\nWorked examples (articles already done and checked in Cribl):\n${examples()}`, cache_control: { type: 'ephemeral' } }];
   const usage = { calls: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  const review = fs.existsSync(REVIEW) ? JSON.parse(fs.readFileSync(REVIEW, 'utf8')) : {};
   let done = 0, failed = 0;
   console.log(`${ids.length} article(s) · model ${model} · effort ${effort} · Cribl group ${group}${dryRun ? ' · dry run' : ''}`);
   for (const id of ids) {
@@ -276,15 +277,12 @@ async function main() {
       const r = await draftArticle({ client, model, effort, system, cribl, group, id, usage, dryRun });
       if (r.skipped) { console.log(`- ${id}: ${r.skipped}`); continue; }
       done += r.done; failed += r.failed;
-      Object.assign(review, r.problems);
-      for (const k of Object.keys(review)) if (k.startsWith(`${id}#`) && !r.problems[k]) delete review[k];
       console.log(`${r.failed ? '◐' : '✓'} ${id}: ${r.done} written${r.failed ? `, ${r.failed} need review` : ''}`);
     } catch (err) {
       console.log(`✗ ${id}: ${err.message}`);
     }
   }
-  if (!dryRun) { fs.mkdirSync(path.dirname(REVIEW), { recursive: true }); fs.writeFileSync(REVIEW, `${JSON.stringify(Object.fromEntries(Object.entries(review).sort()), null, 2)}\n`); }
-  console.log(`\n${done} block(s) written and checked, ${failed} need review (verified/needs-review.json).`);
+  console.log(`\n${done} block(s) written and checked, ${failed} need review (verified/review/<id>.json).`);
   console.log(`Tokens: ${usage.calls} calls · input ${usage.input} · cache write ${usage.cacheWrite} · cache read ${usage.cacheRead} · output ${usage.output}`);
 }
 

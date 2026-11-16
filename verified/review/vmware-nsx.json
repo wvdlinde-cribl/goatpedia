@@ -1,0 +1,8 @@
+{
+  "0": {
+    "title": "Stop logging the default allow rule",
+    "problems": [
+      "expected 1 event(s) out, got 2"
+    ]
+  }
+}

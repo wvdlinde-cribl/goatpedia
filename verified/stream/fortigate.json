@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Log at session end only",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ca71ef094f48e29e",
+    "in": {
+      "events": 2,
+      "bytes": 1648
+    },
+    "out": {
+      "events": 1,
+      "bytes": 829
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip redundant and empty fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "99e90d4ff3b3d428",
+    "in": {
+      "events": 1,
+      "bytes": 829
+    },
+    "out": {
+      "events": 1,
+      "bytes": 636
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repetitive implicit denies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b6aa40ad193fd3ea",
+    "in": {
+      "events": 4,
+      "bytes": 2449
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1369
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate allowed DNS/NTP/local traffic",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "98e8e71363056f2a",
+    "in": {
+      "events": 4,
+      "bytes": 2644
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1059
+    },
+    "ok": true
+  }
+}

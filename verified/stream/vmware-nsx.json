@@ -1,0 +1,32 @@
+{
+  "1": {
+    "title": "Aggregate DFW hits to flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "198f591ca178e962",
+    "in": {
+      "events": 3,
+      "bytes": 450
+    },
+    "out": {
+      "events": 1,
+      "bytes": 134
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Flatten the nsx@6876 structured data",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "503a946a66fd2d73",
+    "in": {
+      "events": 1,
+      "bytes": 265
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2
+    },
+    "ok": true
+  }
+}
