@@ -1,0 +1,11 @@
+{
+  "2": {
+    "title": "Drop constant and duplicate fields",
+    "problems": [
+      "field @timestamp is still in the output",
+      "field business_id is still in the output",
+      "field org_id is still in the output",
+      "field request_access_security_header is still in the output"
+    ]
+  }
+}

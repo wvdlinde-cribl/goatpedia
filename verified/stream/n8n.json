@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Aggregate node started/finished events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "75589fb5b614ac24",
+    "in": {
+      "events": 4,
+      "bytes": 1495
+    },
+    "out": {
+      "events": 2,
+      "bytes": 794
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop redundant envelope fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "07dd47f8f297a678",
+    "in": {
+      "events": 1,
+      "bytes": 586
+    },
+    "out": {
+      "events": 1,
+      "bytes": 520
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Mask personal data in transit",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3dfcd03053197978",
+    "in": {
+      "events": 1,
+      "bytes": 532
+    },
+    "out": {
+      "events": 1,
+      "bytes": 511
+    },
+    "ok": true
+  }
+}

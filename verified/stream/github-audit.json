@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Deduplicate at-least-once delivery",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b3c2cad3f3f014fb",
+    "in": {
+      "events": 3,
+      "bytes": 1590
+    },
+    "out": {
+      "events": 1,
+      "bytes": 530
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate CI git.fetch / git.clone",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "40eb966d0cd49089",
+    "in": {
+      "events": 3,
+      "bytes": 1957
+    },
+    "out": {
+      "events": 2,
+      "bytes": 891
+    },
+    "ok": true
+  }
+}

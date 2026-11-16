@@ -279,21 +279,98 @@ optimizations:
     fn: Drop
     how: TFE forwards all application logs or none. Drop every line without the [Audit Log] marker before the SIEM (send the rest to cheap storage if operations wants it).
     expr: "!_raw.includes('[Audit Log]')"
+    stream:
+      log: Terraform Enterprise [Audit Log] line
+      parse: false
+      functions:
+        - id: drop
+          filter: _raw.indexOf('[Audit Log]') == -1
+          description: Drop TFE application log lines that are not audit events
+          conf: {}
+      test:
+        - 2026-11-12 09:20:42 [INFO] [7a233ad1-c50c-4737-a925-3be901e55fcb] [Worker] job completed in 120ms
+      expect:
+        out: 1
   - title: Split API pages into events and dedupe
     saving: Clean events, no double counting
     fn: Unroll + Suppress
     how: The API returns data[] arrays with pagination. Unroll data[] into one event per record and suppress on id, because overlapping since= windows return the same records twice.
     expr: "unroll data[] → event;  key: `${id}`  allow 1 / 1h"
+    stream:
+      log: Audit trail event (HCP Terraform API)
+      functions:
+        - id: suppress
+          filter: 'true'
+          description: Drop audit records returned twice by overlapping since= windows
+          conf:
+            keyExpr: id
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"id":"5b1e9a42-0d1f-4d8b-9a7c-3f0e2a6c1d77","version":"0","type":"Resource","timestamp":"2026-11-12T09:14:22.000Z","auth":{"accessor_id":"user-Q7mXa2Lb9cPdE4fG","description":"jdoe","type":"Client","impersonator_id":null,"organization_id":"org-Ab12Cd34Ef56Gh78"},"request":{"id":"8c2d4e6f-1a3b-4c5d-9e7f-0a1b2c3d4e5f"},"resource":{"id":"var-Zx9Yw8Vu7Ts6Rq5P","type":"var","action":"show","meta":null}}'
+      expect:
+        out: 1
   - title: Summarise routine run lifecycle events
     saving: 20–40 %
     fn: Aggregations
     how: Runs, plans and policy checks that pass generate many events per run. Aggregate passing lifecycle events to counts per workspace per hour; keep overrides, failures and all var/state/token events raw.
     expr: resource.type=='run' && resource.action=='create'
+    stream:
+      log: Audit trail event (HCP Terraform API)
+      functions:
+        - id: aggregation
+          filter: (resource || {}).type == 'run' && (resource || {}).action == 'create'
+          description: Roll routine run creations up to counts per organization per hour
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 3600s
+            aggregations:
+              - count().as(runs)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - auth.organization_id
+      test:
+        - '{"id":"11111111-0d1f-4d8b-9a7c-3f0e2a6c1d77","version":"0","type":"Resource","timestamp":"2026-11-12T09:14:22.000Z","auth":{"accessor_id":"user-Q7mXa2Lb9cPdE4fG","description":"jdoe","type":"Client","impersonator_id":null,"organization_id":"org-Ab12Cd34Ef56Gh78"},"request":{"id":"8c2d4e6f-1a3b-4c5d-9e7f-0a1b2c3d4e5f"},"resource":{"id":"run-Aa1","type":"run","action":"create","meta":null}}'
+        - '{"id":"22222222-0d1f-4d8b-9a7c-3f0e2a6c1d77","version":"0","type":"Resource","timestamp":"2026-11-12T09:15:22.000Z","auth":{"accessor_id":"user-Q7mXa2Lb9cPdE4fG","description":"jdoe","type":"Client","impersonator_id":null,"organization_id":"org-Ab12Cd34Ef56Gh78"},"request":{"id":"8c2d4e6f-1a3b-4c5d-9e7f-0a1b2c3d4e5f"},"resource":{"id":"run-Bb2","type":"run","action":"create","meta":null}}'
+        - '{"id":"33333333-0d1f-4d8b-9a7c-3f0e2a6c1d77","version":"0","type":"Resource","timestamp":"2026-11-12T09:16:22.000Z","auth":{"accessor_id":"user-Q7mXa2Lb9cPdE4fG","description":"jdoe","type":"Client","impersonator_id":null,"organization_id":"org-Ab12Cd34Ef56Gh78"},"request":{"id":"8c2d4e6f-1a3b-4c5d-9e7f-0a1b2c3d4e5f"},"resource":{"id":"run-Cc3","type":"run","action":"create","meta":null}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop null meta and constant fields
     saving: 10–20 %
     fn: Eval
     how: Remove version, type (always Resource) and resource.meta when null; parse the TFE log prefix away once fields are extracted.
     expr: "remove: version, type; resource.meta==null → remove resource.meta"
+    stream:
+      log: Audit trail event (HCP Terraform API)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant version/type and null resource.meta
+          conf:
+            remove:
+              - version
+              - type
+            add:
+              - name: resource.meta
+                value: '(resource || {}).meta === null ? undefined : (resource || {}).meta'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - version
+          - type
+        present:
+          - resource
+        smaller: true
 references:
   - title: HCP Terraform — Audit trails API reference
     url: https://developer.hashicorp.com/terraform/cloud-docs/api-docs/audit-trails

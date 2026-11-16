@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Keep only [Audit Log] lines from TFE log forwarding",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5ac6e4883f85d5d2",
+    "in": {
+      "events": 2,
+      "bytes": 411
+    },
+    "out": {
+      "events": 1,
+      "bytes": 314
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Split API pages into events and dedupe",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a4a68b1676131e52",
+    "in": {
+      "events": 2,
+      "bytes": 804
+    },
+    "out": {
+      "events": 1,
+      "bytes": 402
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Summarise routine run lifecycle events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "113369b4e018b94f",
+    "in": {
+      "events": 4,
+      "bytes": 1575
+    },
+    "out": {
+      "events": 2,
+      "bytes": 582
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop null meta and constant fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "92b9fa3d5727b714",
+    "in": {
+      "events": 1,
+      "bytes": 402
+    },
+    "out": {
+      "events": 1,
+      "bytes": 358
+    },
+    "ok": true
+  }
+}
