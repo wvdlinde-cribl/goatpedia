@@ -311,26 +311,114 @@ optimizations:
     fn: Routes
     how: Text mail logs write 8–20 lines per message; the consolidated log writes one line with all verdicts. Send consolidated events to the SIEM, text mail logs to Lake for deep investigations.
     expr: sourcetype=='cisco:esa:cef' → SIEM  |  sourcetype=='cisco_esa' → Lake
+    stream:
+      routes:
+        - name: ESA consolidated (CEF) → SIEM
+          filter: /CEF:0\|Cisco\|[^|]*(Secure Email|Email Security)/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ESA text mail logs → Lake
+          filter: '/ mail_logs: /.test(_raw)'
+          to: Cribl Lake only, for deep investigations
+          final: true
+      note: Routes see the raw event, so they match the CEF header or the mail_logs log name. Put the consolidated route first.
   - title: Aggregate text mail lines per MID
     saving: 40–70 % (if only text logs exist)
     fn: Aggregations
     how: Where consolidated logs are not available, join lines by mid into one event (ICID, From, To, Subject, verdicts, delivery status) and drop the per-step lines.
     expr: "group by: mid  window: 120s"
+    stream:
+      log: Text mail log
+      functions:
+        - id: aggregation
+          filter: mid
+          description: Join text mail log lines into one event per MID over 120 seconds
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 120s
+            aggregations:
+              - count().as(lines)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - mid
+      test:
+        - '<22>Nov 12 09:14:22 mail_logs: Info: MID 200257070 ICID 282204970 From: <billing@example.org>'
+        - '<22>Nov 12 09:14:23 mail_logs: Info: MID 200257070 Subject ''Invoice 11111 overdue'''
+      expect:
+        out: 1
+        smaller: true
   - title: Drop housekeeping lines
     saving: 10–25 %
     fn: Drop
     how: "Lines such as 'ICID n close', 'Delivery start', 'queued for delivery', TLS negotiation details and 'Message finished' add little once the message summary exists."
     expr: /^(ICID \d+ close|Delivery start|queued for delivery|Message finished)/.test(message)
+    stream:
+      log: Text mail log
+      parse: false
+      functions:
+        - id: drop
+          filter: '/: (ICID \d+ close|Delivery start|.*queued for delivery|.*Message finished)/.test(_raw)'
+          description: Drop housekeeping lines once the message summary exists
+          conf: {}
+      test:
+        - '<22>Nov 12 09:14:23 mail_logs: Info: ICID 282204970 close'
+        - '<22>Nov 12 09:14:24 mail_logs: Info: Delivery start DCID 857 MID 200257070 to RID [0]'
+      expect:
+        out: 1
   - title: Remove CEF label fields
     saving: 10–15 % of CEF
     fn: Eval
     how: Rename cs1/cs4/cs6/cfp1 to their labels (mail_policy, message_id, sdr_reputation, sbrs) and drop the *Label fields and deviceExternalId.
     expr: "rename cs1→mail_policy, cs4→message_id, cfp1→sbrs; remove: *Label, deviceExternalId"
+    stream:
+      log: Consolidated Event Log
+      parse: false
+      functions:
+        - id: eval
+          filter: /CEF:0\|Cisco\|/.test(_raw)
+          description: Rename custom CEF keys to their labels and drop label keys and deviceExternalId in the raw event
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ ?\b(cs\d|cfp\d)Label=\S+/g, '').replace(/deviceExternalId=\S+ ?/, '').replace(/ cs1=/, ' mail_policy=').replace(/ cs4=/, ' message_id=').replace(/ cs6=/, ' sdr_reputation=').replace(/ cfp1=/, ' sbrs=')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress clean bulk and graymail
     saving: 5–15 %
     fn: Sampling
     how: Graymail and marketing mail with negative spam and virus verdicts are rarely investigated individually — sample them for the SIEM, keep all in Lake.
     expr: ESAGMVerdict=='POSITIVE' && ESAAMPVerdict!='MALICIOUS' && act=='DELIVERED'
+    stream:
+      log: Consolidated Event Log
+      parse: false
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 delivered, non-malicious graymail messages
+          conf:
+            rules:
+              - filter: /ESAGMVerdict=POSITIVE/.test(_raw) && !/ESAAMPVerdict=MALICIOUS/.test(_raw) && /act=DELIVERED/.test(_raw)
+                rate: 10
+      test:
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+        - '<22>Nov 12 09:14:30 consolidated_logs: CEF:0|Cisco|C600V Secure Email Gateway Virtual|16.0.4-016|ESA_CONSOLIDATED_LOG_EVENT|Consolidated Log Event|5|deviceExternalId=4215DA06E2F3F6D98116-000000000000 ESAMID=200257071 ESAICID=282204971 ESAAMPVerdict=NEGATIVE ESAASVerdict=NEGATIVE ESAAVVerdict=NEGATIVE ESAGMVerdict=POSITIVE ESACFVerdict=NO MATCH dvc=192.0.2.10 suser=news@example.org duser=jdoe@example.com cs1Label=MailPolicy cs1=DEFAULT act=DELIVERED src=203.0.113.77 msg=''Weekly offers'''
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
 references:
   - title: AsyncOS 16.5 for Secure Email Gateway — Logging
     url: https://www.cisco.com/c/en/us/td/docs/security/esa/esa16-5_MD/user_guide/b_ESA_Admin_Guide_16-5_MD/b_ESA_Admin_Guide_12_1_chapter_0100111.html

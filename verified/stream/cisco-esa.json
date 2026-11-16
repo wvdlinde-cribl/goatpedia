@@ -1,0 +1,62 @@
+{
+  "1": {
+    "title": "Aggregate text mail lines per MID",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ccd138d644354758",
+    "in": {
+      "events": 3,
+      "bytes": 269
+    },
+    "out": {
+      "events": 1,
+      "bytes": 153
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop housekeeping lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5b8c43fbbb93351c",
+    "in": {
+      "events": 3,
+      "bytes": 236
+    },
+    "out": {
+      "events": 1,
+      "bytes": 94
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Remove CEF label fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1ccc3b07d579465b",
+    "in": {
+      "events": 1,
+      "bytes": 924
+    },
+    "out": {
+      "events": 1,
+      "bytes": 815
+    },
+    "ok": true
+  },
+  "4": {
+    "title": "Suppress clean bulk and graymail",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "da1ad50ea5db13bd",
+    "in": {
+      "events": 11,
+      "bytes": 5814
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1413
+    },
+    "ok": true
+  }
+}

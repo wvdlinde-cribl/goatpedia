@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Collapse PPS lines per message",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a87d09cca129670e",
+    "in": {
+      "events": 3,
+      "bytes": 1031
+    },
+    "out": {
+      "events": 1,
+      "bytes": 278
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop clean-mail module chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "858e8ad9860740a6",
+    "in": {
+      "events": 2,
+      "bytes": 685
+    },
+    "out": {
+      "events": 1,
+      "bytes": 341
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip TAP envelope arrays",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "02226349f07b3557",
+    "in": {
+      "events": 1,
+      "bytes": 1188
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1048
+    },
+    "ok": true
+  }
+}
