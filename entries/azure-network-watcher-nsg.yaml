@@ -1,52 +1,66 @@
 id: azure-network-watcher-nsg
-name: Azure Network Watcher Nsg
-short: Nsg
-vendor: Azure
+name: Azure Network Watcher NSG flow logs
+short: NSG Flow Logs
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_network_watcher_nsg
-  - Elastic integrations
+  - NSG flow logs
+  - Network security group flow logs
 tags:
-  - elastic
+  - azure
+  - flow-logs
+  - network
+  - firewall
   - json
-summary: Azure Network Watcher Nsg is logged by the Elastic integrations package azure_network_watcher_nsg. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Network security group (NSG) flow logs are a feature of Azure Network Watcher. An NSG is a set of allow and deny rules attached to a subnet or a network interface in an Azure virtual network. With flow logging on, Azure records every IP flow the NSG evaluates, which rule matched it, and whether it was allowed or denied, so the logs show who talked to which workload on which port.
 sourcetypes:
   - st: azure_network_watcher_nsg
-    desc: 'Elastic integrations fixture, 1 events. Upstream: azure_network_watcher_nsg/data_stream/log/_dev/test/pipeline/test-nsg.log'
+    desc: NSG flow log records (NetworkSecurityGroupFlowEvent), grouped by NSG rule and network interface, each holding flow tuples with source, destination, ports, protocol, direction and allow or deny decision
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_network_watcher_nsg
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: time, systemId, category, resourceId, operationName, properties.Version
+  Product: Flow logging for Azure network security groups, part of Azure Network Watcher
+  Scope: One flow log per network security group, covering every subnet and NIC the NSG is attached to
+  Log transport: Written as JSON blobs to an Azure storage account (insights-logs-networksecuritygroupflowevent container), from where a collector reads them. Traffic Analytics can also process them
+  Log format: JSON. One record per NSG per interval, with properties.flows grouped by rule, then by MAC address, then comma-separated flowTuples
+  Flow tuple: Unix time, source IP, destination IP, source port, destination port, protocol (T or U), direction (I or O), decision (A or D), and in version 2 the flow state (B, C, E) with packet and byte counts
+  What a record answers: Which flows an NSG allowed or denied, under which rule, to and from which addresses and ports
+  Lifecycle: Microsoft has announced the retirement of NSG flow logs in favour of virtual network flow logs
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Network security group
+      desc: The NSG sits in an Azure virtual network, on a subnet or a VM network interface, and filters traffic to and from the workloads behind it. Network Watcher in the same region writes the flow log for that NSG to a storage account.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure Network Watcher Nsg events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, systemId, category, resourceId, operationName, properties.Version. Values in the sample were rewritten to documentation addresses.
+  - title: Rules and decisions
+    body: An NSG holds prioritised security rules plus default rules such as DefaultRule_AllowInternetOutBound and DefaultRule_DenyAllInBound. Every new flow through the NSG is matched against them. The flow log records the name of the matching rule and the decision, A for allowed or D for denied.
+  - title: Flow tuples
+    body: Each record is grouped per rule and per network interface MAC address. Inside, flowTuples is a list of comma-separated strings. Version 2 adds the flow state (B for begin, C for continuing, E for end) and packet and byte counts in each direction, so the end tuple tells you how much data moved.
+  - title: How the logs leave Azure
+    body: Network Watcher writes the records as JSON blobs to a storage account, one blob per hour per NSG, appended about once a minute. A collector reads those blobs, usually triggered by blob-created notifications through an event hub or queue. The destination is a choice of the pipeline, not a property of the NSG.
 traffic:
   handles:
-    - json
+    - Inbound and outbound IPv4 flows through Azure subnets and NICs
+    - TCP and UDP connections evaluated against NSG rules
+    - Allow and deny decisions of network security rules
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_network_watcher_nsg and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Flow hits the NSG
+      desc: A packet starts a new flow into or out of a subnet or network interface that has an NSG attached.
+    - step: Rule decides
+      desc: The NSG matches the flow against its rules in priority order and allows or denies it.
+    - step: Network Watcher records it
+      desc: The flow is added as a tuple under the matching rule and MAC address, and the record is appended to the hourly blob in the storage account.
+    - step: Collector reads the blob
+      desc: A collector picks up the new blob content and splits it into JSON records.
 logs:
-  - type: Log
+  - type: NSG flow record
     sourcetype: azure_network_watcher_nsg
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per NSG per interval. resourceId names the NSG and category is NetworkSecurityGroupFlowEvent. properties.flows lists rules, and each rule lists flowTuples. This sample has one version 2 tuple under DefaultRule_AllowInternetOutBound, an allowed outbound TCP flow to port 443 in its end state. The sample uses documentation addresses.
     sample: '{"time":"2018-11-13T12:00:35.3899262Z","systemId":"a0fca5ce-022c-47b1-9735-89943b42f2fa","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_AllowInternetOutBound","flows":[{"mac":"000D3AF87856","flowTuples":["1542110379,203.0.113.40,192.0.2.10,59932,443,T,O,A,E,1,66,1,66"]}]}]}}'
     key:
       - time
@@ -54,18 +68,12 @@ logs:
       - category
       - resourceId
 cves: []
-detections:
-  - title: Azure Network Watcher Nsg events arriving
-    severity: low
-    signals:
-      - time
-      - systemId
-      - category
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_network_watcher_nsg"'
-optimizations: []
+detections: []
+optimizations:
+  - title: Summarise allowed flows, keep denies in full
+    saving: most of the flow log volume
+    fn: Aggregations
+    how: Most tuples are allowed flows on default or broad allow rules. Split the tuples into one event per flow, keep denied flows and flows to sensitive ports in full, and aggregate allowed flows to counts per source, destination and port before the SIEM.
 references:
-  - title: elastic/integrations azure_network_watcher_nsg/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_network_watcher_nsg/data_stream/log/_dev/test/pipeline/test-nsg.log
-  - title: Pack Generator sample azure_network_watcher_nsg.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_network_watcher_nsg.json
+  - title: Flow logging for network security groups
+    url: https://learn.microsoft.com/en-us/azure/network-watcher/nsg-flow-logs-overview

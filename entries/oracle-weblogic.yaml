@@ -1,67 +1,75 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: oracle-weblogic
-name: Oracle Weblogic
-short: Weblogic
+name: Oracle WebLogic Server
+short: WebLogic
 vendor: Oracle
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - oracle_weblogic
-  - Elastic integrations
+  - WebLogic
+  - Oracle Fusion Middleware WebLogic
 tags:
-  - elastic
+  - application-server
+  - java
+  - web
+  - access-log
   - text
-summary: Oracle Weblogic is logged by the Elastic integrations package oracle_weblogic. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: 'Oracle''s Java EE application server, used to host enterprise Java applications and many Oracle products. Each WebLogic server instance writes an HTTP access log in common log format: the client, the request, the status and the size of every request it served. That log is the web view of the applications running on it.'
 sourcetypes:
   - st: oracle_weblogic_access
-    desc: 'Elastic integrations fixture, 7 events. Upstream: oracle_weblogic/data_stream/access/_dev/test/pipeline/test-access.log'
+    desc: HTTP access log of a WebLogic server instance, one line per request served
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: oracle_weblogic
-  Sourcetypes: '1'
-  Fixture events: '7'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Java EE / Jakarta EE application server
+  Deployment: Domains of admin and managed servers on premises or in the cloud, often behind a load balancer or web tier
+  Log transport: access.log file in each server's logs directory, read by a file collector
+  Log format: Common log format by default, or extended log format when configured
+  What an access line answers: Which client requested which URL with which method, and the status and bytes returned
 placement:
   slots:
-    - cloud
+    - internal
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: WebLogic managed server
+      desc: Applications run on managed servers in the application tier, usually behind a load balancer or Oracle HTTP Server. Each server writes its own access log on its host.
+    - slot: dmz
+      title: Web tier
+      desc: A reverse proxy or load balancer in front of WebLogic often terminates client connections, so the client address in the access log can be the proxy unless forwarding headers are logged.
 howItWorks:
-  - title: What the fixture shows
-    body: Oracle Weblogic events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Servers and domains
+    body: A WebLogic domain has an admin server and managed servers. Applications are deployed to managed servers or clusters.
+  - title: HTTP access logging
+    body: 'Each server can log every HTTP request it serves. The default format is common log format: client, identity, user, time, request line, status and bytes.'
+  - title: How the log leaves the product
+    body: The log is written to access.log under the server's logs directory and rotated by size or time. A collector tails the file.
 traffic:
   handles:
-    - text
+    - HTTP and HTTPS requests to Java applications
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads oracle_weblogic and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client requests
+      desc: A browser or service calls an application URL on the server.
+    - step: Server responds
+      desc: WebLogic routes the request to the application and returns a status and body.
+    - step: Access line written
+      desc: The server appends one line to access.log, which a collector tails.
 logs:
-  - type: Access
+  - type: HTTP access
     sourcetype: oracle_weblogic_access
     format: text
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: 'One line per request in common log format: client address, user, timestamp, request line, status and bytes. This sample is a successful GET for an image resource of the MedRec sample application. The sample uses documentation addresses.'
     sample: 203.0.113.8 - - [26/Mar/2022:23:40:05 +0530] "GET /medrec/javax.faces.resource/welcome.jpg.xhtml?ln=img&amp;con=bayland HTTP/1.1" 200 844071
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Oracle Weblogic events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "oracle_weblogic_access"'
-optimizations: []
-references:
-  - title: elastic/integrations oracle_weblogic/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/oracle_weblogic/data_stream/access/_dev/test/pipeline/test-access.log
-  - title: Pack Generator sample oracle_weblogic_access.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/oracle_weblogic_access.json
+detections: []
+optimizations:
+  - title: Drop static resource requests
+    saving: much of the access volume
+    fn: Drop
+    how: Images, stylesheets and scripts make up a large share of requests and say little about application security. Drop them and keep page, API and error requests.
+    expr: /\.(jpg|jpeg|png|gif|css|js|ico)(\.xhtml)?(\?|\s)/.test(message)
+references: []

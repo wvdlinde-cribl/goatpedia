@@ -1,64 +1,74 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: logstash
 name: Logstash
 short: Logstash
-vendor: Logstash
+vendor: Elastic
 category: pipeline
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - logstash
-  - Elastic integrations
+  - Elastic Logstash
 tags:
   - elastic
+  - log-pipeline
+  - etl
   - json
-summary: Logstash is logged by the Elastic integrations package logstash. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: An open-source data processing pipeline from Elastic. It receives events from inputs such as Beats, syslog or Kafka, transforms them with filters and sends them to outputs. Logstash runs on servers or containers between the log sources and the storage. Its own log records pipeline and plugin status, such as lost or restored output connections, and its slow log records events that took too long in a filter or output.
 sourcetypes:
   - st: logstash
-    desc: 'Elastic integrations fixture, 9 events. Upstream: logstash/data_stream/log/_dev/test/pipeline/test-log-json.log'
+    desc: The Logstash application log in JSON, one object per message from a pipeline component or plugin
   - st: logstash_slowlog
-    desc: 'Elastic integrations fixture, 1 events. Upstream: logstash/data_stream/slowlog/_dev/test/pipeline/test-slowlog-json.log'
+    desc: The Logstash slow log, one object per event that exceeded a plugin's processing-time threshold
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: logstash
-  Sourcetypes: '2'
-  Fixture events: '10'
-  Log format seen: json
-  Fields in the first fixture: level, loggerName, timeMillis, thread, logEvent.message, logEvent.url
+  Product: Server-side data processing pipeline (inputs, filters, outputs)
+  Deployment: JVM service on servers, VMs or containers
+  Log transport: Log4j2 files in the Logstash logs directory, read by a file agent
+  Log format: One JSON object per line when log.format is json
+  What an application-log object answers: Which pipeline component logged what, at which level, on which thread
+  What a slow-log object answers: Which plugin took how long on which event
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Logstash nodes
+      desc: Logstash nodes sit between log sources and the outputs they write to. Each node writes its application log and slow log on local disk.
 howItWorks:
-  - title: What the fixture shows
-    body: Logstash events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries level, loggerName, timeMillis, thread, logEvent.message, logEvent.url. Values in the sample were rewritten to documentation addresses.
+  - title: Pipelines and plugins
+    body: A Logstash pipeline chains input, filter and output plugins. Worker threads take batches from a memory or persisted queue and run them through the filters and outputs.
+  - title: Application log
+    body: Logstash logs through Log4j2. In JSON format each message has level, loggerName (for example logstash.outputs.elasticsearch), timeMillis, thread and a logEvent with the message and context. Output connection loss and recovery appear here.
+  - title: Slow log
+    body: Each plugin can have slow-log thresholds. An event that takes longer is logged under a slowlog.* logger with the plugin parameters, took_in_nanos and the event itself.
 traffic:
   handles:
-    - json
+    - Event ingestion from inputs
+    - Filter processing
+    - Delivery to outputs
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads logstash and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Pipeline runs
+      desc: Worker threads process events through filters and outputs.
+    - step: Logstash logs
+      desc: A plugin writes a status message, or a slow event crosses a threshold.
+    - step: JSON on disk
+      desc: Log4j2 writes one JSON line per message. A file agent ships it. Goatpedia reads the samples as JSON.
 logs:
-  - type: Log
+  - type: Application log
     sourcetype: logstash
     format: json
-    desc: 9 fixture events in the samples pool (elastic).
+    desc: One object per log message. level and loggerName say who logged and how severe, thread which pipeline, and logEvent.message what happened. This sample is the output plugin reporting a restored connection to its destination.
     sample: '{"level":"WARN","loggerName":"logstash.outputs.elasticsearch","timeMillis":1663084834955,"thread":"[pipeline-with-memory-queue]-pipeline-manager","logEvent":{"message":"Restored connection to ES instance","url":"https://elastic:xxxxxx@elasticsearch:9200/"}}'
     key:
       - level
       - loggerName
       - timeMillis
       - thread
-  - type: Slowlog
+  - type: Slow log
     sourcetype: logstash_slowlog
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per slow event. loggerName names the plugin, logEvent.took_in_nanos the time spent and logEvent.event the event that was slow. This sample is a sleep filter exceeding its threshold.
     sample: '{"level":"WARN","loggerName":"slowlog.logstash.filters.sleep","timeMillis":1663093597055,"thread":"[pipeline-with-persisted-queue]>worker5","logEvent":{"message":"event processing time","plugin_params":{"every":10,"time":1,"id":"e24d45cc4f3bb9981356480856120ed5f68127abbc3af7f47e7bca32460e5019"},"took_in_nanos":15000,"took_in_millis":0,"event":"{\"hostname\":\"66b70fb1a96b\",\"sequence\":430370,\"message\":\"Hello world!\",\"@version\":\"1\",\"@timestamp\":\"2022-09-13T18:26:26.574073600Z\",\"thread_number\":0}"}}'
     key:
       - level
@@ -66,18 +76,8 @@ logs:
       - timeMillis
       - thread
 cves: []
-detections:
-  - title: Logstash events arriving
-    severity: low
-    signals:
-      - level
-      - loggerName
-      - timeMillis
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "logstash"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations logstash/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/logstash/data_stream/log/_dev/test/pipeline/test-log-json.log
-  - title: Pack Generator sample logstash.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/logstash.json
+  - title: Logstash logging
+    url: https://www.elastic.co/guide/en/logstash/current/logging.html

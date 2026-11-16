@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: redis
 name: Redis
 short: Redis
-vendor: Redis
+vendor: Redis Ltd.
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - redis
-  - Elastic integrations
+  - Redis OSS
+  - Redis server
+  - redis-server
 tags:
-  - elastic
-  - text
-summary: Redis is logged by the Elastic integrations package redis. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - database
+  - key-value
+  - cache
+  - server-log
+summary: An in-memory key-value data store, used as a cache, message broker and database behind applications. It runs as the redis-server process on a server, a VM or a container on the internal network. Its server log records the lifecycle of that process — startup, version, persistence (RDB saves and AOF rewrites), replication and warnings — not individual client commands.
 sourcetypes:
   - st: redis
-    desc: 'Elastic integrations fixture, 20 events. Upstream: redis/data_stream/log/_dev/test/pipeline/test-redis-windows-2-4-6.log'
+    desc: The redis-server log file, one line per server message such as startup, background saves, replication state and warnings
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: redis
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: In-memory key-value store used as cache, broker and database
+  Form factor: redis-server process on Linux, Windows ports, containers or a managed cloud service
+  Log transport: Written to the file named by the logfile directive, or to stdout, or to syslog when syslog-enabled is set
+  Log format: Plain text. pid, timestamp, a role or level marker, then the message
+  What a server log line answers: When the server started or stopped, which version ran, and what happened to persistence and replication
+  What it does not answer: Which client ran which command. That needs the slowlog, MONITOR or ACL LOG, which are not in this stream
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Redis server
+      desc: Redis runs next to the application tier, usually on a private network segment. The server writes its log on the same host. A file reader or syslog forwarder on that host ships the lines to any collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Redis events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: The server process
+    body: redis-server keeps the whole dataset in memory and serves clients over its own protocol, by default on TCP 6379. Persistence is optional. RDB snapshots and the append-only file (AOF) write the data to disk in the background.
+  - title: What gets logged
+    body: 'The server log is operational. Each line starts with the pid, the time, and in newer versions a role letter (M master, S replica, C child) followed by a level marker such as * for notice or # for warning. Startup, the running version, background saves, AOF rewrites, replica sync and memory warnings appear here.'
+  - title: How the log leaves the host
+    body: The loglevel directive sets how much is written (debug, verbose, notice, warning). The logfile directive picks a file or stdout. syslog-enabled sends the same messages to the local syslog daemon. Any collector can read the file or receive the syslog stream.
 traffic:
   handles:
-    - text
+    - Redis protocol client connections
+    - RDB and AOF persistence
+    - Primary to replica replication
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads redis and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Server acts
+      desc: The redis-server process starts, saves a snapshot, rewrites the AOF, or syncs with a replica.
+    - step: Line is written
+      desc: The server writes one text line with its pid, time and a level marker to its log file, stdout or syslog.
+    - step: Collector reads
+      desc: A file reader or syslog receiver ships the line. Goatpedia reads it as text with the whole line in message.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: redis
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per server message. message holds the whole line. This sample is the server starting and announcing its version (pid 2932, Redis 2.4.6).
     sample: '[2932] 31 May 04:32:08 * Server started, Redis version 2.4.6'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Redis events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "redis"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations redis/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/redis/data_stream/log/_dev/test/pipeline/test-redis-windows-2-4-6.log
-  - title: Pack Generator sample redis.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/redis.json
+  - title: Redis documentation
+    url: https://redis.io/docs/latest/

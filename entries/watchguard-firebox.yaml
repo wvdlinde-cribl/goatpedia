@@ -1,67 +1,83 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: watchguard-firebox
-name: Watchguard Firebox
+name: WatchGuard Firebox
 short: Firebox
-vendor: Watchguard
+vendor: WatchGuard
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - watchguard_firebox
-  - Elastic integrations
+  - Firebox
+  - WatchGuard firewall
+  - Fireware
 tags:
-  - elastic
+  - firewall
+  - syslog
   - text
-summary: Watchguard Firebox is logged by the Elastic integrations package watchguard_firebox. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A WatchGuard Firebox is a firewall. It sits on the edge of a network, applies policies to traffic, and writes a syslog line for the connections it allows or denies. The line names the disposition, the interfaces, the protocol and the two endpoints. Any syslog collector can receive it. This stream keeps each line as one text message.
 sourcetypes:
   - st: watchguard_firebox
-    desc: 'Elastic integrations fixture, 20 events. Upstream: watchguard_firebox/data_stream/log/_dev/test/pipeline/test-traffic.log'
+    desc: One Firebox syslog line. The sample is an allowed HTTP connection
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: watchguard_firebox
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Network firewall running Fireware. Physical appliances and virtual Firebox models
+  Where it sits: At the network edge, between internal networks and an external or untrusted network
+  Log transport: Syslog, in Fireware's syslog text or in LEEF. A Firebox can send the same messages to a syslog server
+  Log format: One text line. msg_id identifies the message. The disposition word Allow or Deny is in the line
+  What a traffic line answers: Whether the policy allowed or denied the flow, which interfaces and policy, and the source, destination, protocol and ports
 placement:
   slots:
-    - cloud
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Firebox
+      desc: The firewall is the device that sees the packet and writes the log. Interfaces in the line (for example External) are the Firebox's own interfaces. A collector on the management network receives the syslog. The firewall is not a log product for one SIEM.
 howItWorks:
-  - title: What the fixture shows
-    body: Watchguard Firebox events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Policy and the traffic log
+    body: Fireware evaluates a connection against a policy and writes a traffic log when logging is enabled for that policy. Message id 3000-0148 is the packet-filter traffic message. The line states Allow or Deny, the interfaces, the protocol, the source and destination addresses and ports, and the policy name in parentheses. The sample policy is HTTP-00 and the destination port is 80.
+  - title: How to read the line
+    body: This stream does not split the line into fields. message is the whole syslog string, including the priority, the timestamp, the serial or hostname, and the firewall process text. Search the line for Deny when the question is blocked traffic, and for the policy name when the question is which rule matched. Allowed traffic is most of the volume on a busy firewall.
+  - title: How the line is sent
+    body: The Firebox sends syslog to up to three servers the operator configures, as syslog text or LEEF. Any of those servers can be the collector. Goatpedia reads these samples as text.
 traffic:
   handles:
-    - text
+    - Connections the firewall allows
+    - Connections the firewall denies
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads watchguard_firebox and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Packet hits a policy
+      desc: The Firebox matches a connection to a policy and decides allow or deny.
+    - step: Firebox writes a traffic line
+      desc: The line carries msg_id, the disposition, the interfaces, the endpoints and the policy name.
+    - step: Syslog leaves the firewall
+      desc: The appliance sends the line to the configured syslog collector.
 logs:
-  - type: Log
+  - type: Traffic log
     sourcetype: watchguard_firebox
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line in message. This sample is msg_id 3000-0148, disposition Allow, from a documentation address on port 62443 to a documentation address on port 80, policy HTTP-00. A denied connection uses the same message id with Deny in the line.
     sample: '<142>May 10 15:19:06 WatchGuard-Firebox FVE6035FD3AE3 (2024-01-10T09:49:05) firewall[10]: msg_id="3000-0148" Allow Firebox 0-External 52 tcp 20 127 198.51.100.25 203.0.113.8 62443 80 offset 8 S 832026162 win 8192 (HTTP-00)'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Watchguard Firebox events arriving
-    severity: low
+  - title: Firewall denied the connection
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "watchguard_firebox"'
-optimizations: []
+    why: Deny in a 3000-0148 line is traffic the policy blocked. The sample line is an allow, which is ordinary. Denied connections, especially to management ports or from outside, are the lines worth an alert.
+    kql: |
+      dataset="watchguard-firebox_logs"
+      | where sourcetype == "watchguard_firebox" and message has "Deny"
+      | project message
+optimizations:
+  - title: Drop allowed traffic
+    saving: most of the traffic-log volume
+    fn: Drop
+    how: A Firebox logs every allowed connection when traffic logging is on, and those allows are almost all of the volume. Security monitoring needs the Deny lines. Drop lines whose disposition word is Allow before the SIEM, and keep Deny. The disposition is inside the message text, so the filter is a text match on that word rather than a separate field.
 references:
-  - title: elastic/integrations watchguard_firebox/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/watchguard_firebox/data_stream/log/_dev/test/pipeline/test-traffic.log
-  - title: Pack Generator sample watchguard_firebox.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/watchguard_firebox.json
+  - title: Send Firebox logs to a syslog server
+    url: https://www.watchguard.com/help/docs/help-center/en-us/content/en-US/Fireware/logging/send_logs_to_syslog_c.html
+  - title: Fireware log catalog
+    url: https://www.watchguard.com/help/docs/fireware/12/en-US/log_catalog/12_12_Log-Catalog.pdf

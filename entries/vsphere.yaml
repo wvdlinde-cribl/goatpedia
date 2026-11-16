@@ -1,67 +1,78 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: vsphere
-name: Vsphere
-short: Vsphere
-vendor: Vsphere
+name: VMware vSphere
+short: vSphere
+vendor: Broadcom
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - vsphere
-  - Elastic integrations
+  - vSphere
+  - VMware vCenter Server
+  - vCenter
 tags:
-  - elastic
+  - virtualization
+  - syslog
+  - audit
   - text
-summary: Vsphere is logged by the Elastic integrations package vsphere. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: VMware vSphere is the virtualization platform that runs virtual machines under ESXi and is managed by vCenter Server. vCenter and the appliance it runs on write syslog for administration, including who was authorized to call the appliance management service. This stream is that syslog, kept as one text line. Any syslog collector can receive it.
 sourcetypes:
   - st: vsphere
-    desc: 'Elastic integrations fixture, 20 events. Upstream: vsphere/data_stream/log/_dev/test/pipeline/test-format-common.log'
+    desc: One syslog line from vCenter or the vCenter appliance. The sample is an appliance-management authorization decision
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: vsphere
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Virtualization platform. ESXi hosts run the virtual machines. vCenter Server manages the hosts, clusters and the appliance itself
+  Where it sits: On the internal management network. Administrators reach vCenter from their workstations
+  Log transport: Syslog from vCenter and the appliance. A collector receives it on the syslog port the operator configured
+  Log format: One text line per event. This stream keeps the line in message
+  What the sample line answers: Whether an appliance-management call was authorized, and whether the method was local
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: vCenter Server
+      desc: vCenter sits on the management network and is the control plane for the ESXi hosts. Appliance management audit (applmgmt-audit) is the vCenter appliance deciding whether a local or remote caller may run a management action. The syslog hostname in the sample is vcenter.
 howItWorks:
-  - title: What the fixture shows
-    body: Vsphere events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: The appliance management audit
+    body: vCenter writes more than one log. This stream is the syslog the appliance emits. The sample program is applmgmt-audit. The message is an AuthorizationResponse with authorized true or false and a method such as LOCAL. authorized is the decision. method is how the caller authenticated.
+  - title: How to read the line
+    body: The line is RFC 5424 syslog plus the appliance's own text. Because the stream stores it as message, a search looks for AuthorizationResponse and the authorized flag inside that string. A true result is a call that was allowed. A false result is a call the appliance refused.
+  - title: How the line is collected
+    body: vCenter forwards syslog to a collector. The product does not bind that collector to one SIEM. Goatpedia reads these samples as text.
 traffic:
   handles:
-    - text
+    - Appliance management authorization decisions
+    - Other vCenter syslog the host forwards on the same stream
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads vsphere and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Administrator calls vCenter
+      desc: Someone or a local process calls the appliance management service.
+    - step: Appliance writes the decision
+      desc: applmgmt-audit logs an AuthorizationResponse with the authorized flag and the method.
+    - step: Syslog leaves the appliance
+      desc: vCenter sends the line to the configured syslog collector.
 logs:
-  - type: Log
+  - type: Appliance syslog
     sourcetype: vsphere
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line in message. This sample is applmgmt-audit reporting AuthorizationResponse authorized=True and method=LOCAL, so a local caller was allowed. A refused call has authorized=False in the same text.
     sample: '<14>1 2021-09-06T14:40:05.753710+00:00 vcenter applmgmt-audit - - -  2021-09-06T14:40:05.753: INFO AuthorizationResponse = { authorized=True, method=LOCAL }'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Vsphere events arriving
-    severity: low
+  - title: Appliance management call refused
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "vsphere"'
+    why: authorized=False is the appliance refusing a management call. Repeated refusals are someone, or a script, failing to administer vCenter. The sample line is an allowed local call, which is the ordinary case.
+    kql: |
+      dataset="vsphere_logs"
+      | where sourcetype == "vsphere" and message has "authorized=False"
+      | project message
 optimizations: []
 references:
-  - title: elastic/integrations vsphere/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/vsphere/data_stream/log/_dev/test/pipeline/test-format-common.log
-  - title: Pack Generator sample vsphere.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vsphere.json
+  - title: VMware vSphere documentation
+    url: https://docs.vmware.com/en/VMware-vSphere/index.html

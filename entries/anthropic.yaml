@@ -1,52 +1,63 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: anthropic
-name: Anthropic
+name: Anthropic Claude
 short: Anthropic
 vendor: Anthropic
 category: ai
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - anthropic
-  - Elastic integrations
+  - Claude
+  - Claude Console
+  - Anthropic API
 tags:
-  - elastic
+  - ai
+  - llm
+  - saas
   - json
-summary: Anthropic is logged by the Elastic integrations package anthropic. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: Anthropic provides the Claude models through claude.ai, the Claude apps and the Anthropic API, administered as an organization in the Claude Console. Administrators manage members, workspaces and API keys there. The organization's audit activity records who did what to the organization, such as deleting an account, with the actor, IP and user agent.
 sourcetypes:
   - st: anthropic_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: anthropic/data_stream/audit/_dev/test/pipeline/test-anthropic-audit-generated.log'
+    desc: Audit activity in the Anthropic organization, one event per action with the type and the actor who performed it
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: anthropic
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: id, created_at, organization_id, organization_uuid, type, actor.type
+  Product: AI model provider (Claude) with an organization console for members, workspaces and API keys
+  Clients: Web console, claude.ai and apps, and API clients using keys
+  Log transport: HTTPS JSON from Anthropic's administrative API, polled by a collector holding an admin key
+  Log format: One JSON object per activity, with type, created_at, organization and actor
+  What an audit event answers: Which member or key did which action in the organization, from which IP and client
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Anthropic organization
+      desc: The organization, its members, workspaces and API keys live in Anthropic's service. Activity is recorded there and pulled by a collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Anthropic events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, created_at, organization_id, organization_uuid, type, actor.type. Values in the sample were rewritten to documentation addresses.
+  - title: Organization administration
+    body: An Anthropic organization has members with roles, workspaces that group API keys and limits, and API keys used by applications. Changing any of these is an administrative action.
+  - title: Activity events
+    body: Each action becomes an activity with an id, a created_at time, the organization id and uuid, and a type such as account_deleted. actor says who did it, a user_actor with email, user id, IP and user agent, or an API key.
+  - title: How the events leave the product
+    body: A collector with an administrative key calls Anthropic's API for new activity and keeps its place with the last id or time. Any collector can do this.
 traffic:
   handles:
-    - json
+    - Member and account changes in the organization
+    - Workspace and API key administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads anthropic and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Administrator acts
+      desc: A member changes the organization in the console, or a key calls an administrative endpoint.
+    - step: Organization records it
+      desc: Anthropic stores an activity with the type and the actor.
+    - step: Collector polls
+      desc: A collector requests new activity from the API.
 logs:
-  - type: Audit
+  - type: Audit activity
     sourcetype: anthropic_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per organization action. type is the action, here account_deleted. actor.email_address, actor.ip_address and actor.user_agent say who did it and from where. The address is a documentation address and the email uses example.com.
     sample: '{"id":"activity_01EXAMPLEaccdel00","created_at":"2026-05-26T09:00:00Z","organization_id":"org_01EXAMPLEabcdef123456789","organization_uuid":"91011112-1314-4151-6171-8191a1b1c1d1","type":"account_deleted","actor":{"type":"user_actor","email_address":"user@example.com","user_id":"user_01EXAMPLEadmin01","ip_address":"192.0.2.20","user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}}'
     key:
       - id
@@ -55,17 +66,18 @@ logs:
       - organization_uuid
 cves: []
 detections:
-  - title: Anthropic events arriving
-    severity: low
+  - title: Account deleted in the organization
+    severity: medium
     signals:
-      - id
-      - created_at
-      - organization_id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "anthropic_audit"'
+      - type
+      - actor.email_address
+      - actor.ip_address
+    why: Deleting accounts removes access and history. Deletions by an unexpected admin or from an unfamiliar IP are worth confirming.
+    kql: |
+      dataset="anthropic_logs"
+      | where sourcetype == "anthropic_audit" and type == "account_deleted"
+      | project created_at, type, actor.email_address, actor.ip_address, actor.user_agent
+    mitre:
+      - T1531
 optimizations: []
-references:
-  - title: elastic/integrations anthropic/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/anthropic/data_stream/audit/_dev/test/pipeline/test-anthropic-audit-generated.log
-  - title: Pack Generator sample anthropic_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/anthropic_audit.json
+references: []

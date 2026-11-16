@@ -1,52 +1,66 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: azure-app-service
 name: Azure App Service
-short: Service
-vendor: Azure
+short: App Service
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_app_service
-  - Elastic integrations
+  - Azure Web Apps
+  - Azure Websites
 tags:
-  - elastic
+  - paas
+  - web-hosting
+  - azure
+  - web
   - json
-summary: Azure App Service is logged by the Elastic integrations package azure_app_service. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's managed platform for hosting web apps and APIs on Azure. Each app runs on a managed web server, and the Kudu (SCM) site beside it handles deployment and console access. App Service writes HTTP logs of every request, plus console, application, audit and platform logs, through diagnostic settings.
 sourcetypes:
   - st: azure_app_service_app_service_logs
-    desc: 'Elastic integrations fixture, 11 events. Upstream: azure_app_service/data_stream/app_service_logs/_dev/test/pipeline/test-appservicehttplogs-raw.log'
+    desc: App Service HTTP logs, one record per request to the app or its SCM site, with client IP, method, URI, status, bytes and time taken
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_app_service
-  Sourcetypes: '1'
-  Fixture events: '11'
-  Log format seen: json
-  Fields in the first fixture: time, resourceId, category, properties.CsMethod, properties.CsUriStem, properties.SPort
+  Product: Managed web app and API hosting
+  Endpoints: The app at <name>.azurewebsites.net, and the deployment site at <name>.scm.azurewebsites.net
+  Log transport: Diagnostic settings send categories such as AppServiceHTTPLogs to Event Hubs, a Log Analytics workspace or storage
+  Log format: Azure diagnostic JSON with W3C-style properties (CsMethod, CsUriStem, ScStatus, CIp)
+  What an HTTP log answers: Which client requested which path on which host, and what status, size and time it got
 placement:
   slots:
     - cloud
+    - dmz
   items:
+    - slot: dmz
+      title: App front end
+      desc: Requests reach the app's front end from the internet. The HTTP log is written here for both the app and the SCM site.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: App Service plan
+      desc: The app runs on workers in an App Service plan in an Azure region. Logs leave through the app's diagnostic settings.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure App Service events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, resourceId, category, properties.CsMethod, properties.CsUriStem, properties.SPort. Values in the sample were rewritten to documentation addresses.
+  - title: App and SCM site
+    body: Every app has a public host name and an SCM (Kudu) host name used for deployment, the web console and the file API. Requests to the scm host are administrative access to the app.
+  - title: HTTP logs
+    body: Each request becomes an AppServiceHTTPLogs record with CIp, CsMethod, CsUriStem, CsHost, ScStatus, ScBytes, CsBytes, TimeTaken, UserAgent and the instance that served it.
+  - title: How the logs leave Azure
+    body: A diagnostic setting on the app picks the categories and the destination. Any collector that reads Event Hubs or the workspace can consume them.
 traffic:
   handles:
-    - json
+    - HTTP and HTTPS requests to hosted web apps and APIs
+    - Deployment and console access through the SCM site
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_app_service and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client requests
+      desc: A browser, API client or deployment tool sends a request to the app or SCM host.
+    - step: App serves it
+      desc: The front end routes it to an instance, which answers.
+    - step: Platform logs
+      desc: App Service writes an HTTP log record, routed by the diagnostic setting.
 logs:
-  - type: App Service Logs
+  - type: HTTP logs
     sourcetype: azure_app_service_app_service_logs
     format: json
-    desc: 11 fixture events in the samples pool (elastic).
+    desc: One record per request. properties.CIp is the client, CsMethod and CsUriStem the request, CsHost the host, ScStatus the status, TimeTaken the duration. This sample is a POST to /api/command on the SCM host. The client is a documentation address.
     sample: '{"time":"2022-12-14T12:18:26.4843064Z","resourceId":"/SUBSCRIPTIONS/12CA3CB4-86E8-404F-A352-1DC1000F45CA/RESOURCEGROUPS/USER-TEST/PROVIDERS/MICROSOFT.WEB/SITES/APP-TEST","category":"AppServiceHTTPLogs","properties":{"CsMethod":"POST","CsUriStem":"/api/command","SPort":"443","CIp":"198.51.100.15","UserAgent":"Mozilla/5.0+(Windows+NT+10.0;+Win64;+x64)+AppleWebKit/537.36+(KHTML,+like+Gecko)+Chrome/198.51.100.25+Safari/537.36","CsHost":"user-test.scm.azurewebsites.net","ScStatus":200,"ScSubStatus":"0","ScWin32Status":"0","ScBytes":778,"CsBytes":1523,"TimeTaken":1793,"Result":"Success","Cookie":"-","CsUriQuery":"X-ARR-LOG-ID=820d6db3-32ed-4b18-b1d2-2ce575080071","CsUsername":"-","Referer":"-","ComputerName":"WEBWK00000A"}}'
     key:
       - time
@@ -55,17 +69,20 @@ logs:
       - properties.CsMethod
 cves: []
 detections:
-  - title: Azure App Service events arriving
-    severity: low
+  - title: Requests to the SCM site
+    severity: medium
     signals:
-      - time
-      - resourceId
-      - category
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_app_service_app_service_logs"'
+      - properties.CsHost
+      - properties.CIp
+      - properties.CsUriStem
+    why: The SCM site can deploy code and run commands in the app. Requests to it from addresses outside the deployment pipeline deserve review.
+    kql: |
+      dataset="azure-app-service_logs"
+      | where sourcetype == "azure_app_service_app_service_logs" and properties.CsHost has ".scm."
+      | project time, properties.CIp, properties.CsMethod, properties.CsUriStem, properties.ScStatus, properties.UserAgent
+    mitre:
+      - T1505.003
 optimizations: []
 references:
-  - title: elastic/integrations azure_app_service/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_app_service/data_stream/app_service_logs/_dev/test/pipeline/test-appservicehttplogs-raw.log
-  - title: Pack Generator sample azure_app_service_app_service_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_app_service_app_service_logs.json
+  - title: Enable diagnostic logging for apps in Azure App Service
+    url: https://learn.microsoft.com/en-us/azure/app-service/troubleshoot-diagnostic-logs

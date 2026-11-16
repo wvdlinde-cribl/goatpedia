@@ -1,52 +1,60 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: lumos
 name: Lumos
 short: Lumos
 vendor: Lumos
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - lumos
-  - Elastic integrations
+  - Lumos identity governance
 tags:
-  - elastic
+  - identity-governance
+  - access-management
+  - saas
+  - audit
   - json
-summary: Lumos is logged by the Elastic integrations package lumos. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A SaaS identity governance and access management platform. Employees request app access through Lumos, approvers grant it, and admins run access reviews and separation-of-duties policies across the company's applications. Its activity log records who did what in Lumos, with the actor, the action, the target and the outcome.
 sourcetypes:
   - st: lumos_activity_logs
-    desc: 'Elastic integrations fixture, 2 events. Upstream: lumos/data_stream/activity_logs/_dev/test/pipeline/test-activity-logs.log'
+    desc: Activity in the Lumos platform, such as access requests, approvals and policy changes, with actor, event type, targets and outcome
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: lumos
-  Sourcetypes: '1'
-  Fixture events: '2'
-  Log format seen: json
-  Fields in the first fixture: actor.actor_type, actor.email, actor.family_name, actor.given_name, event_began_at, event_hash
+  Product: SaaS identity governance (access requests, access reviews, app inventory, separation-of-duties policies)
+  Clients: Web app and chat integrations for requesters and approvers
+  Log transport: HTTPS REST API pulled by a collector
+  Log format: One JSON object per activity
+  What an activity answers: Which Lumos user did which action (event_type) to which object (targets), when, and whether it succeeded
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Lumos platform
+      desc: Lumos runs as a SaaS service connected to the company's identity provider and applications. Activity is recorded there and read by a collector from its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Lumos events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries actor.actor_type, actor.email, actor.family_name, actor.given_name, event_began_at, event_hash. Values in the sample were rewritten to documentation addresses.
+  - title: Access governance
+    body: Lumos keeps an inventory of applications and their accounts. Employees request access, approvers decide, and Lumos provisions or deprovisions through the app connectors. Access reviews and separation-of-duties (SOD) policies are configured in the same place.
+  - title: Activity log
+    body: Each action in Lumos is an activity. actor names the Lumos user, event_type the machine name of the action with event_type_user_friendly the readable text, targets the objects affected, and outcome whether it succeeded.
 traffic:
   handles:
-    - json
+    - App access requests and approvals
+    - Access reviews
+    - Separation-of-duties policy administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads lumos and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User acts
+      desc: A requester, approver or admin does something in Lumos, such as approving access or deleting an SOD policy.
+    - step: Lumos records it
+      desc: Lumos stores an activity with actor, event type, targets and outcome.
+    - step: Collector polls
+      desc: A collector reads activities from the API. Goatpedia reads them as JSON.
 logs:
-  - type: Activity Logs
+  - type: Activity log
     sourcetype: lumos_activity_logs
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per activity. actor.email says who acted, event_type what they did, targets on which object, and outcome the result. This sample is a user deleting a separation-of-duties policy. Values are documentation addresses.
     sample: '{"actor":{"actor_type":"Lumos user","email":"user@example.com","family_name":"Wile","given_name":"Coyote"},"event_began_at":"2024-03-12T16:09:14","event_hash":"630b90cedc35a8a5f43361534099bee51e032f42dd442085fc76ef094d228f543c78fbe59c132df992cf71a6b8496504e8ebbc6020fbae1f34206676985412e7","event_metadata":{},"event_type":"SOD_POLICY_DELETED","event_type_user_friendly":"A user deleted a SOD Policy","outcome":"Succeeded","targets":[{"name":"Untitled Rule","target_type":"SOD Policy"}]}'
     key:
       - actor.actor_type
@@ -55,17 +63,19 @@ logs:
       - actor.given_name
 cves: []
 detections:
-  - title: Lumos events arriving
-    severity: low
+  - title: Governance object deleted
+    severity: medium
     signals:
-      - actor.actor_type
+      - event_type
       - actor.email
-      - actor.family_name
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "lumos_activity_logs"'
+      - targets
+      - outcome
+    why: Deleting a policy such as an SOD rule removes a control on who may hold which access. Deletions should be rare and done by known admins.
+    kql: |
+      dataset="lumos_logs"
+      | where sourcetype == "lumos_activity_logs" and event_type endswith "_DELETED"
+      | project event_began_at, actor.email, event_type_user_friendly, targets, outcome
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations lumos/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/lumos/data_stream/activity_logs/_dev/test/pipeline/test-activity-logs.log
-  - title: Pack Generator sample lumos_activity_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lumos_activity_logs.json
+references: []

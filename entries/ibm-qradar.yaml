@@ -1,52 +1,61 @@
 id: ibm-qradar
-name: IBM Qradar
-short: IBM Qradar
+name: QRadar
+short: QRadar
 vendor: IBM
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - ibm_qradar
-  - Elastic integrations
+  - IBM QRadar
+  - IBM Security QRadar
 tags:
-  - elastic
+  - offense
+  - detection
   - json
-summary: IBM Qradar is logged by the Elastic integrations package ibm_qradar. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: QRadar is IBM's security information and event management console. It receives logs, correlates them with rules, and opens an offense when a rule matches. An offense is the case, not the raw log. This stream is one offense as JSON from the QRadar API. Magnitude, severity, the categories and the log source say what the rule thought it saw. A collector can poll the API.
 sourcetypes:
   - st: ibm_qradar_offense
-    desc: 'Elastic integrations fixture, 3 events. Upstream: ibm_qradar/data_stream/offense/_dev/test/pipeline/test-offense.log'
+    desc: One QRadar offense. description, magnitude, severity, categories and the log sources say what was correlated and how the console scored it.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: ibm_qradar
-  Sourcetypes: '1'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: last_persisted_time, username_count, description, rules[0].type, rules[0].owner, rules[0].identifier
+  Product: Security information and event management console. Rules correlate logs into offenses.
+  Form factor: Consoles and processors you run, or IBM's hosted QRadar
+  Log transport: HTTPS JSON from the offenses API. A collector polls it. The raw logs that built the offense are a different stream.
+  Log format: One JSON object per offense. id is the offense id. rules is the rule that contributed. log_sources is the device the events came from.
+  What an offense answers: Which rule opened a case, how QRadar scored it, whether it is still active, and which log source the events came from
+  What an unknown category answers: QRadar could not classify the underlying events. The offense is a coverage gap as well as a case.
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: QRadar console
+      desc: The console stores offenses. Log sources and rules are configured here. A collector calls the offenses API and can forward each offense anywhere. The raw device logs remain on their own path.
 howItWorks:
-  - title: What the fixture shows
-    body: IBM Qradar events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries last_persisted_time, username_count, description, rules[0].type, rules[0].owner, rules[0].identifier. Values in the sample were rewritten to documentation addresses.
+  - title: An offense
+    body: A rule watches incoming events and opens or updates an offense. id is the offense number. description is the title. magnitude, severity and credibility are QRadar's scores. inactive true means the offense has gone quiet. close_time null means nobody has closed it. assigned_to is the owner. categories are the classification of the underlying events. log_sources names the device and the DSM that parsed it. rules names the rule, and that rule's enabled flag says whether the rule is still turned on.
+  - title: This sample
+    body: The description is Unknown log event. The category is Unknown Generic Log Event. The log source type is GenericLogDSM, which is the parser QRadar uses when it does not have a specific one. magnitude and severity are both 1. inactive is true. The contributing rule is named Devices with High Event Rates and its enabled flag is false.
+  - title: How a collector reads it
+    body: QRadar serves offenses on its API, one JSON object per offense. Any collector with permission can poll that API. Pulling offenses does not replace collecting the original device logs.
 traffic:
   handles:
-    - json
+    - Correlated offenses
+    - Rule name, magnitude and severity
+    - Log source and event category of the underlying events
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads ibm_qradar and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Events reach the console
+      desc: A log source delivers events. A DSM parses them, or they stay unclassified.
+    - step: A rule opens an offense
+      desc: QRadar correlates the events and stores one offense with scores, categories and the log source.
+    - step: Collector polls the API
+      desc: A collector requests offenses and can forward each object anywhere.
 logs:
   - type: Offense
     sourcetype: ibm_qradar_offense
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One correlated case. description, magnitude and severity are the title and the scores. categories and log_sources say what the events were and which device sent them. This sample is an inactive low-magnitude offense titled as an unknown log event, from a generic log source.
     sample: '{"last_persisted_time":1756882705000,"username_count":0,"description":"Unknown log event\n","rules":[{"type":"CRE_RULE","owner":"admin","identifier":"SYSTEM-1443","base_host_id":0,"capacity_timestamp":0,"origin":"SYSTEM","creation_date":1273171233573,"rule_type":"EVENT","enabled":false,"modification_date":1756982944636,"linked_rule_identifier":null,"name":"Devices with High Event Rates","average_capacity":0,"id":100408,"base_capacity":0}],"event_count":1,"flow_count":0,"assigned_to":"temp_user","security_category_count":1,"follow_up":false,"source_address_ids":[12],"source_count":1,"inactive":true,"protected":false,"closing_user":null,"destination_networks":["other"],"source_network":"other","category_count":1,"close_time":null,"remote_destination_count":1,"start_time":1756378368336,"magnitude":1,"last_updated_time":1756378368336,"credibility":1,"id":14,"categories":["Unknown Generic Log Event"],"severity":1,"policy_category_count":0,"log_sources":[{"type_name":"GenericLogDSM","type_id":67,"name":"SIM Generic Log DSM-7 :: qradardev522","id":62}],"closing_reason_id":null,"device_count":1}'
     key:
       - last_persisted_time
@@ -55,17 +64,19 @@ logs:
       - rules[0].type
 cves: []
 detections:
-  - title: IBM Qradar events arriving
+  - title: Offense built from unclassified events
     severity: low
     signals:
-      - last_persisted_time
-      - username_count
       - description
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "ibm_qradar_offense"'
+      - categories
+      - log_sources
+      - magnitude
+    why: An unknown generic log event means the console opened a case from traffic it could not parse. The device is sending logs, and the content of those logs is not visible in the offense. That is a parsing gap.
+    kql: |
+      dataset="ibm-qradar_logs"
+      | where sourcetype == "ibm_qradar_offense" and description has "Unknown log event"
+      | project id, description, magnitude, severity, categories, log_sources, inactive
 optimizations: []
 references:
-  - title: elastic/integrations ibm_qradar/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ibm_qradar/data_stream/offense/_dev/test/pipeline/test-offense.log
-  - title: Pack Generator sample ibm_qradar_offense.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ibm_qradar_offense.json
+  - title: IBM QRadar SIEM documentation
+    url: https://www.ibm.com/docs/en/qsip

@@ -1,67 +1,71 @@
 id: hpe-aruba-cx
-name: HPE Aruba CX
-short: HPE Aruba CX
+name: Aruba CX
+short: Aruba CX
 vendor: HPE
 category: netinfra
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - hpe_aruba_cx
-  - Elastic integrations
+  - AOS-CX
+  - HPE Aruba CX
 tags:
-  - elastic
-  - text
-summary: HPE Aruba CX is logged by the Elastic integrations package hpe_aruba_cx. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - switch
+  - syslog
+  - network
+summary: Aruba CX is HPE's switch operating system, AOS-CX. The switch writes a syslog line when a protocol, an interface or an administrator action changes. Each line names the switch, the process and an event id, a severity and a message. This stream is that syslog. Any collector can receive it. The sample is an informational LLDP event saying LLDP was enabled.
 sourcetypes:
   - st: hpe_aruba_cx
-    desc: 'Elastic integrations fixture, 20 events. Upstream: hpe_aruba_cx/data_stream/log/_dev/test/pipeline/test-aruba-fabricated.log'
+    desc: AOS-CX syslog. One line is one event from a process on the switch, with an event id and a severity.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: hpe_aruba_cx
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Network operating system for HPE Aruba CX switches
+  Form factor: CX switch models, including the 8000 series. The sample host name is an 8360.
+  Log transport: Syslog from the switch
+  Log format: One text line. After the process name the payload is Event, then an id, a severity such as LOG_INFO, a module and the message.
+  What a line answers: Which switch, which process, which event id and severity, and the message text
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Access and distribution switches
+      desc: CX switches sit at the edge of the campus and in the distribution layer. LLDP, interfaces and authentication events are written on the switch that saw them.
+    - slot: internal
+      title: Core switches
+      desc: The same syslog format is used on core switches. A collector receives the lines from whichever switches you point at it.
 howItWorks:
-  - title: What the fixture shows
-    body: HPE Aruba CX events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: One event
+    body: 'The line starts with the timestamp and the switch host name, then the process and its process id. The payload uses vertical bars: the word Event, a numeric id, a severity such as LOG_INFO, a module, and the message. The sample is lldpd on a switch named 8360-Primaire, event 101, severity LOG_INFO, message LLDP Enabled.'
+  - title: What LLDP enabled means
+    body: LLDP is the link discovery protocol. This line says the process turned it on. It is an informational configuration state, not a denied login and not a blocked packet. Other lines on the same stream carry other processes and other severities.
+  - title: How the lines leave
+    body: The switch sends syslog. Any collector can receive it.
 traffic:
   handles:
-    - text
+    - Switch process events
+    - Protocol state such as LLDP
+    - Informational, warning and error severities in the event text
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads hpe_aruba_cx and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: The switch changes state
+      desc: A process such as lldpd starts a protocol, an interface changes, or an administrator acts.
+    - step: AOS-CX writes a line
+      desc: The line carries the host, the process, the event id, the severity and the message.
+    - step: Collector receives syslog
+      desc: A collector takes the line and can forward it anywhere.
 logs:
-  - type: Log
+  - type: Switch event
     sourcetype: hpe_aruba_cx
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One AOS-CX syslog line. The host, the process, the event id and the severity are in the text. This sample is lldpd reporting event 101 at LOG_INFO, message LLDP Enabled.
     sample: '2024-06-18T12:45:38.182641-05:00 8360-Primaire lldpd[1234]: Event|101|LOG_INFO|AMM|-|LLDP Enabled'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: HPE Aruba CX events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "hpe_aruba_cx"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations hpe_aruba_cx/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hpe_aruba_cx/data_stream/log/_dev/test/pipeline/test-aruba-fabricated.log
-  - title: Pack Generator sample hpe_aruba_cx.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hpe_aruba_cx.json
+  - title: HPE Aruba Networking documentation
+    url: https://arubanetworking.hpe.com/

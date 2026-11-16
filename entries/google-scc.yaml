@@ -1,68 +1,82 @@
 id: google-scc
-name: Google Scc
-short: Google Scc
+name: Security Command Center
+short: SCC
 vendor: Google
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - google_scc
-  - Elastic integrations
+  - Google Security Command Center
+  - Cloud SCC
 tags:
-  - elastic
+  - cloud
+  - findings
+  - audit
   - json
-summary: Google Scc is logged by the Elastic integrations package google_scc. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Security Command Center is Google Cloud's posture and threat service for an organization. It keeps an inventory of cloud resources, records findings from security sources, and can carry Cloud Audit Log events such as a failed sign-in. A collector exports each stream as JSON. Findings and denied sign-ins are the security decisions. Asset updates are the inventory churn around them.
 sourcetypes:
   - st: google_scc_asset
-    desc: 'Elastic integrations fixture, 7 events. Upstream: google_scc/data_stream/asset/_dev/test/pipeline/test-asset.log'
+    desc: One resource inventory change. The event has the asset as it is now and, when SCC has it, the asset as it was.
   - st: google_scc_audit
-    desc: 'Elastic integrations fixture, 1 events. Upstream: google_scc/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: One Cloud Audit Log event collected with Security Command Center. The sample is a failed Google sign-in.
   - st: google_scc_finding
-    desc: 'Elastic integrations fixture, 7 events. Upstream: google_scc/data_stream/finding/_dev/test/pipeline/test-finding.log'
+    desc: One finding. state, severity and category say whether it is still active and how serious the source rated it.
   - st: google_scc_source
-    desc: 'Elastic integrations fixture, 2 events. Upstream: google_scc/data_stream/source/_dev/test/pipeline/test-source.log'
+    desc: One finding source registered in the organization. displayName is the source's label.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: google_scc
-  Sourcetypes: '4'
-  Fixture events: '17'
-  Log format seen: json
-  Fields in the first fixture: asset.ancestors[0], asset.ancestors[1], asset.assetType, asset.name, asset.resource.data.description, asset.resource.data.lifecycleState
+  Product: Google Cloud security posture and findings for an organization or a project
+  Where it runs: Security Command Center in a Google Cloud organization. Assets come from Cloud Asset Inventory. Findings come from detectors you enable or from a source you add.
+  Log transport: The Security Command Center API and Cloud Logging, as JSON. A collector pages the API or exports the log.
+  Log format: One JSON object per asset change, audit event, finding or source
+  What a finding answers: Which resource, which category, whether the finding is still active, and the severity the source assigned
+  What an audit event answers: Who called which Google API, from which address, including a failed sign-in
+  What an asset event answers: Which resource changed, and what it looked like before and after
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Security Command Center
+      desc: The service lives in the Google Cloud organization. Findings, assets and sources are records there. A collector reads them from the API.
+    - slot: cloud
+      title: Cloud Audit Logs
+      desc: Sign-in failures and other audited API calls keep their Cloud Audit Log shape. principalEmail and methodName are the caller and the call. callerIp is the client.
 howItWorks:
-  - title: What the fixture shows
-    body: Google Scc events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries asset.ancestors[0], asset.ancestors[1], asset.assetType, asset.name, asset.resource.data.description, asset.resource.data.lifecycleState. Values in the sample were rewritten to documentation addresses.
+  - title: Findings and sources
+    body: A finding is one issue a detector raised. finding.state ACTIVE means it is still open. severity is the source's rating. category is the detector's label. resourceName is the cloud resource. A source is the detector itself. name is its id. displayName is the label a person sees. The finding sample is an active critical finding. The source sample is one registered source.
+  - title: Assets and audit
+    body: An asset event is an inventory update. asset.assetType and asset.name identify the resource. priorAsset is the previous copy when SCC has one. The asset sample is a log bucket whose configuration changed. An audit event is a Cloud Audit Log. The audit sample is a failed sign-in, method google.login.LoginService.loginFailure. principalEmail and callerIp are the account and the client. Those values in the sample are documentation addresses.
+  - title: How a collector reads them
+    body: Security Command Center stores the records in the organization. A collector with permission lists assets, findings and sources, and exports the audit log. Any collector can do this.
 traffic:
   handles:
-    - json
+    - Cloud resource inventory changes
+    - Security findings and the sources that raise them
+    - Audited API calls, including failed sign-ins
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads google_scc and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Something changes in the organization
+      desc: A resource is updated, a detector raises a finding, or someone calls an audited API.
+    - step: Security Command Center records it
+      desc: The service stores an asset delta, a finding, a source, or the audit event.
+    - step: Collector exports JSON
+      desc: A collector pages the API or the log and can forward each object anywhere.
 logs:
-  - type: Asset
+  - type: Asset change
     sourcetype: google_scc_asset
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One inventory update. asset.assetType and asset.name identify the resource. priorAsset is the previous copy. This sample is a log bucket whose attributes changed.
     sample: '{"asset":{"ancestors":["projects/123456987522","folders/123456987520"],"assetType":"logging.googleapis.com/LogBucket","name":"//logging.googleapis.com/projects/123456987522/locations/global/buckets/_Default","resource":{"data":{"description":"Default bucket","lifecycleState":"ACTIVE","name":"projects/123456987522/locations/global/buckets/_Default","retentionDays":30},"discoveryDocumentUri":"https://logging.googleapis.com/$discovery/rest","discoveryName":"LogBucket","location":"global","parent":"//cloudresourcemanager.googleapis.com/projects/123456987522","version":"v2"},"updateTime":"2023-05-28T06:59:48.052491Z"},"priorAsset":{"ancestors":["projects/123456987522","folders/123456987520"],"assetType":"logging.googleapis.com/LogBucket","name":"//logging.googleapis.com/projects/123456987522/locations/global/buckets/_Default","resource":{"data":{"analyticsEnabled":true,"description":"Default bucket","lifecycleState":"ACTIVE","name":"projects/123456987522/locations/global/buckets/_Default","retentionDays":30},"discoveryDocumentUri":"https://logging.googleapis.com/$discovery/rest","discoveryName":"LogBucket","location":"global","parent":"//cloudresourcemanager.googleapis.com/projects/123456987522","version":"v2"},"updateTime":"2023-05-27T18:53:48.843904Z"},"priorAssetState":"PRESENT","window":{"startTime":"2023-05-28T06:59:48.052491Z"}}'
     key:
       - asset.ancestors[0]
       - asset.ancestors[1]
       - asset.assetType
       - asset.name
-  - type: Audit
+  - type: Audit event
     sourcetype: google_scc_audit
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One Cloud Audit Log event. methodName is the call. principalEmail is the account. callerIp is the client. This sample is a failed sign-in. The email and the addresses are documentation values.
     sample: '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","authenticationInfo":{"principalEmail":"user@example.com"},"requestMetadata":{"callerIp":"203.0.113.40","requestAttributes":{},"destinationAttributes":{}},"serviceName":"login.googleapis.com","methodName":"google.login.LoginService.loginFailure","resourceName":"organizations/123"},"insertId":"-nahbepd4l1x","resource":{"type":"audited_resource"},"httpRequest":{"remoteIp":"2001:db8::1"},"timestamp":"2021-09-24T16:16:57.183212Z","severity":"NOTICE","logName":"organizations/123/logs/cloudaudit.googleapis.com%2Fdata_access","receiveTimestamp":"2021-09-24T17:51:25.034361197Z"}'
     key:
       - protoPayload.@type
@@ -72,17 +86,17 @@ logs:
   - type: Finding
     sourcetype: google_scc_finding
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One finding. state ACTIVE means it is still open. severity and category are the source's rating and label. resourceName is the resource. This sample is an active critical finding. The mute note uses a documentation email.
     sample: '{"finding":{"name":"organizations/515665165161/sources/98481484454154454545/findings/414rfrhjebhrbhjbr444454hv54545","parent":"organizations/515665165161/sources/98481484454154454545","resourceName":"//cloudresourcemanager.googleapis.com/projects/45455445554","state":"ACTIVE","category":"application","externalUri":"http://www.adwait.com","sourceProperties":{},"securityMarks":{"name":"organizations/515665165161/sources/98481484454154454545/findings/414rfrhjebhrbhjbr444454hv54545/securityMarks"},"eventTime":"2023-06-02T05:17:41.936Z","createTime":"2020-02-19T13:37:43.858Z","severity":"CRITICAL","canonicalName":"organizations/515665165161/sources/98481484454154454545/findings/414rfrhjebhrbhjbr444454hv54545","mute":"UNMUTED","muteUpdateTime":"2022-03-23T05:50:21.804Z","externalSystems":{"test":{"name":"organizations/515665165161/sources/98481484454154454545/findings/414rfrhjebhrbhjbr444454hv54545/externalSystems/test","assignees":["primary"],"externalUid":"test_scc_finding_2","status":"updated1","externalSystemUpdateTime":"2022-01-05T05:00:35.674Z"}},"muteInitiator":"Unmuted by user@example.com"},"resource":{"name":"//cloudresourcemanager.googleapis.com/projects/45455445554"}}'
     key:
       - finding.name
       - finding.parent
       - finding.resourceName
       - finding.state
-  - type: Source
+  - type: Finding source
     sourcetype: google_scc_source
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One registered source. name is the resource id. displayName and description are the label and the summary a person sees.
     sample: '{"name":"organizations/595779152576/sources/10134421585261057824","displayName":"Cloudflare Security Events","description":"Extend your security view from the edge.","canonicalName":"organizations/595779152576/sources/10134421585261057824"}'
     key:
       - name
@@ -91,17 +105,37 @@ logs:
       - canonicalName
 cves: []
 detections:
-  - title: Google Scc events arriving
-    severity: low
+  - title: Active critical finding
+    severity: high
     signals:
-      - asset.ancestors[0]
-      - asset.ancestors[1]
-      - asset.assetType
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "google_scc_asset"'
-optimizations: []
+      - finding.state
+      - finding.severity
+      - finding.category
+      - finding.resourceName
+    why: An active finding is one the source has not closed. Critical is the highest severity in this stream. The sample is an active critical finding.
+    kql: |
+      dataset="google-scc_logs"
+      | where sourcetype == "google_scc_finding" and finding.state == "ACTIVE" and finding.severity == "CRITICAL"
+      | project finding.eventTime, finding.severity, finding.category, finding.state, finding.resourceName, finding.canonicalName
+  - title: Google sign-in failed
+    severity: medium
+    signals:
+      - protoPayload.methodName
+      - protoPayload.authenticationInfo.principalEmail
+      - protoPayload.requestMetadata.callerIp
+    why: loginFailure is a sign-in that did not succeed. Repeated failures for one principal are the brute-force view of this audit event.
+    kql: |
+      dataset="google-scc_logs"
+      | where sourcetype == "google_scc_audit" and protoPayload.methodName == "google.login.LoginService.loginFailure"
+      | project timestamp, protoPayload.authenticationInfo.principalEmail, protoPayload.requestMetadata.callerIp, protoPayload.resourceName
+    mitre:
+      - T1110
+optimizations:
+  - title: Keep findings and sign-in failures
+    saving: most of the inventory volume
+    fn: Drop
+    how: Asset updates fire for ordinary resource churn and dwarf findings. Keep findings, sources and audit events. Asset history is context. Keep it in cheaper storage.
+    expr: sourcetype == 'google_scc_asset'
 references:
-  - title: elastic/integrations google_scc/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/google_scc/data_stream/asset/_dev/test/pipeline/test-asset.log
-  - title: Pack Generator sample google_scc_asset.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/google_scc_asset.json
+  - title: Security Command Center
+    url: https://cloud.google.com/security-command-center/docs

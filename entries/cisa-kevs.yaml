@@ -1,52 +1,64 @@
 id: cisa-kevs
-name: Cisa Kevs
-short: Cisa Kevs
-vendor: Cisa
+name: CISA Known Exploited Vulnerabilities Catalog
+short: CISA KEV
+vendor: CISA
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cisa_kevs
-  - Elastic integrations
+  - KEV catalog
+  - Known Exploited Vulnerabilities
+  - Cybersecurity and Infrastructure Security Agency KEV
 tags:
-  - elastic
+  - threat-intel
+  - vulnerability
+  - feed
   - json
-summary: Cisa Kevs is logged by the Elastic integrations package cisa_kevs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: The Known Exploited Vulnerabilities (KEV) catalog is a list published by the US Cybersecurity and Infrastructure Security Agency (CISA) of vulnerabilities that are confirmed to be exploited in the wild. US federal agencies must remediate each entry by its due date, and many other organisations use the list to decide what to patch first. Each entry names the CVE, the vendor and product, what the flaw is, the required action, the due date and whether it is known to be used in ransomware campaigns.
 sourcetypes:
   - st: cisa_kevs_vulnerability
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cisa_kevs/data_stream/vulnerability/_dev/test/pipeline/test-cisakev-ndjson.log'
+    desc: KEV catalog entries, one record per exploited vulnerability with CVE id, vendor, product, name, date added, description, required action, due date, ransomware use and notes
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cisa_kevs
-  Sourcetypes: '1'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: cveID, vendorProject, product, vulnerabilityName, dateAdded, shortDescription
+  Product: Public catalog of vulnerabilities with confirmed exploitation, maintained by CISA
+  Audience: Mandatory for US federal civilian agencies under Binding Operational Directive 22-01, widely used elsewhere for patch prioritisation
+  Log transport: HTTPS download of the catalog as JSON or CSV from cisa.gov, fetched by any collector on a schedule
+  Log format: The JSON feed wraps a vulnerabilities array. Each entry is one record with cveID, vendorProject, product, vulnerabilityName, dateAdded, shortDescription, requiredAction, dueDate, knownRansomwareCampaignUse and notes
+  What an entry answers: Which CVE in which vendor's product is being exploited, since when it is listed, what must be done by when, and whether ransomware operators use it
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: cisa.gov catalog feed
+      desc: CISA publishes the catalog on its website as a web page and as JSON and CSV feeds. It is reference data, not a device on the network. A collector downloads it and the entries are joined with vulnerability scan and asset data.
 howItWorks:
-  - title: What the fixture shows
-    body: Cisa Kevs events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries cveID, vendorProject, product, vulnerabilityName, dateAdded, shortDescription. Values in the sample were rewritten to documentation addresses.
+  - title: How an entry is added
+    body: CISA adds a vulnerability when it has an assigned CVE, reliable evidence of active exploitation and clear remediation guidance, such as a vendor update. The entry records the date added and a due date for federal agencies to act.
+  - title: What an entry carries
+    body: cveID, vendorProject and product identify the flaw and where it lives. vulnerabilityName and shortDescription describe it. requiredAction says what to do, and dueDate by when. knownRansomwareCampaignUse is Known or Unknown. notes links to the vendor advisory.
+  - title: How the catalog is consumed
+    body: A collector fetches the JSON feed on a schedule and splits it into one record per entry, keeping only entries that are new or changed. The records are then matched against scanner findings or asset inventories to see which exploited vulnerabilities exist in the environment. Any pipeline can do this.
 traffic:
   handles:
-    - json
+    - Exploited vulnerability listings
+    - Remediation actions and due dates
+    - Ransomware use flags
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cisa_kevs and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: CISA confirms exploitation
+      desc: CISA finds reliable evidence that a CVE is being exploited and that remediation exists.
+    - step: Catalog is updated
+      desc: The entry is added to the catalog web page and the JSON and CSV feeds.
+    - step: Collector downloads the feed
+      desc: A collector fetches the JSON feed and splits it into one record per vulnerability.
+    - step: Entries are joined
+      desc: The records are matched against vulnerability scans and asset data to drive patching.
 logs:
-  - type: Vulnerability
+  - type: KEV entry
     sourcetype: cisa_kevs_vulnerability
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One record per catalog entry. cveID, vendorProject and product name the flaw, dateAdded and dueDate the timeline, requiredAction what to do and knownRansomwareCampaignUse whether ransomware uses it. This sample is CVE-2020-3259, a Cisco ASA and FTD information disclosure added in February 2024 and known to be used in ransomware campaigns.
     sample: '{"cveID":"CVE-2020-3259","vendorProject":"Cisco","product":"Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD)","vulnerabilityName":"Cisco ASA and FTD Information Disclosure Vulnerability","dateAdded":"2024-02-15","shortDescription":"Cisco Adaptive Security Appliance (ASA) and Firepower Threat Defense (FTD) contain an information disclosure vulnerability. An attacker could retrieve memory...","requiredAction":"Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.","dueDate":"2024-03-07","knownRansomwareCampaignUse":"Known","notes":"https://tools.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-asaftd-info-disclose-9eJtycMB"}'
     key:
       - cveID
@@ -55,17 +67,20 @@ logs:
       - vulnerabilityName
 cves: []
 detections:
-  - title: Cisa Kevs events arriving
-    severity: low
+  - title: Exploited vulnerability used by ransomware
+    severity: medium
     signals:
       - cveID
       - vendorProject
       - product
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cisa_kevs_vulnerability"'
+      - knownRansomwareCampaignUse
+      - dueDate
+    why: Entries with knownRansomwareCampaignUse Known are the flaws ransomware operators rely on. Joined with scanner findings, they are the first ones to patch, ahead of their due date.
+    kql: |
+      dataset="cisa-kevs_logs"
+      | where sourcetype == "cisa_kevs_vulnerability" and knownRansomwareCampaignUse == "Known"
+      | project dateAdded, cveID, vendorProject, product, vulnerabilityName, dueDate
 optimizations: []
 references:
-  - title: elastic/integrations cisa_kevs/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisa_kevs/data_stream/vulnerability/_dev/test/pipeline/test-cisakev-ndjson.log
-  - title: Pack Generator sample cisa_kevs_vulnerability.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisa_kevs_vulnerability.json
+  - title: Known Exploited Vulnerabilities Catalog
+    url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog

@@ -1,76 +1,83 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: nagios-xi
-name: Nagios Xi
-short: Nagios Xi
-vendor: Nagios
+name: Nagios XI
+short: Nagios XI
+vendor: Nagios Enterprises
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - nagios_xi
-  - Elastic integrations
+  - Nagios
 tags:
-  - elastic
+  - monitoring
+  - infrastructure
+  - availability
   - json
-summary: Nagios Xi is logged by the Elastic integrations package nagios_xi. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: A commercial infrastructure monitoring server built on Nagios Core. It runs active checks against hosts and services such as HTTP, SSH and ping, keeps their current state, and alerts when something goes down. Nagios XI sits inside the network with reach to the systems it watches. Its API exposes the engine's log entries and the current status of each host and service with check output and performance data.
 sourcetypes:
   - st: nagios_xi
-    desc: 'Elastic integrations fixture, 1 events. Upstream: nagios_xi/data_stream/events/_dev/test/pipeline/test-events.log'
+    desc: Nagios engine log entries, one per log line with entry time, type and text
   - st: nagios_xi_host
-    desc: 'Elastic integrations fixture, 2 events. Upstream: nagios_xi/data_stream/host/_dev/test/pipeline/test-host.log'
+    desc: Current host status, one host with address, state, check output and performance data
   - st: nagios_xi_service
-    desc: 'Elastic integrations fixture, 12 events. Upstream: nagios_xi/data_stream/service/_dev/test/pipeline/test-service.log'
+    desc: Current service status, one service on a host with state, check output and performance data
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: nagios_xi
-  Sourcetypes: '3'
-  Fixture events: '15'
-  Log format seen: json
-  Fields in the first fixture: logentry_id, entry_time, logentry_type, logentry_data, instance_id
+  Product: Infrastructure and application monitoring server based on Nagios Core
+  Deployment: On-premises server or VM inside the monitored network
+  Log transport: Nagios XI REST API (objects such as logentries, hoststatus and servicestatus) polled by a collector with an API key
+  Log format: One JSON object per log entry or status record
+  What a host or service record answers: Is it up, what did the last check return, and how long did it take
+  What a log entry answers: What the monitoring engine did, such as check worker results, notifications and state changes
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Nagios XI server
+      desc: The server runs inside the network and checks hosts and services it can reach. Status and log entries are kept in its database and read through its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Nagios Xi events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries logentry_id, entry_time, logentry_type, logentry_data, instance_id. Values in the sample were rewritten to documentation addresses.
+  - title: Active checks
+    body: Nagios runs plugins on a schedule against each host and service. A plugin returns a state (0 OK, 1 warning, 2 critical, 3 unknown for services; 0 up, 1 down for hosts), a line of output and performance data.
+  - title: Status and history
+    body: The latest result per host and service is the status record, with current_state, output, perfdata and check timing. Engine messages, including check worker results, state changes and notifications, are log entries.
 traffic:
   handles:
-    - json
+    - Host and service availability checks
+    - State changes and notifications
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads nagios_xi and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Check runs
+      desc: Nagios runs a plugin against a host or service.
+    - step: State recorded
+      desc: The result updates the status record, and the engine writes log entries.
+    - step: Collector polls
+      desc: A collector reads status and log entries from the API. Goatpedia reads them as JSON.
 logs:
-  - type: Events
+  - type: Engine log entries
     sourcetype: nagios_xi
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per engine log line. entry_time, logentry_type and logentry_data say when and what. This sample is a check worker reporting a finished job with its exit status.
     sample: '{"logentry_id":"211300","entry_time":"2022-03-17 01:05:42","logentry_type":"1","logentry_data":"wproc:   early_timeout=0; exited_ok=1; wait_status=65280; error_code=0;","instance_id":"1"}'
     key:
       - logentry_id
       - entry_time
       - logentry_type
       - logentry_data
-  - type: Host
+  - type: Host status
     sourcetype: nagios_xi_host
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per host. host_name, address, current_state and output give its state and last check result, and perfdata the measurements. This sample is a web host whose HTTP check is OK with a 301 redirect.
     sample: '{"host_object_id":"191","host_name":"www.twitter.com","host_alias":"","display_name":"www.twitter.com","address":"www.twitter.com","icon_image":"www_server.png","icon_image_alt":"","notes":"","notes_url":"","action_url":"","hoststatus_id":"59","instance_id":"1","status_update_time":"2022-03-16 07:26:45","output":"HTTP OK: HTTP/1.1 301 Moved Permanently - 311 bytes in 0.036 second response time","long_output":"","perfdata":"time=0.036431s;;;0.000000 size=311B;;;0","current_state":"0","has_been_checked":"1","should_be_scheduled":"1","current_check_attempt":"1","max_check_attempts":"5","last_check":"2022-03-16 07:26:45","next_check":"2022-03-16 07:31:45","check_type":"0","check_options":"0","last_state_change":"2018-09-04 11:52:29","last_hard_state_change":"2010-08-06 13:39:16","last_hard_state":"0","last_time_up":"2022-03-16 07:26:45","last_time_down":"2018-09-04 11:52:29"}'
     key:
       - host_object_id
       - host_name
       - host_alias
       - display_name
-  - type: Service
+  - type: Service status
     sourcetype: nagios_xi_service
     format: json
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: One object per service on a host. host_name, service_description, current_state and output give the state and last check result. This sample is an SSH service that is OK and reports its OpenSSH version.
     sample: '{"host_name":"vs1.nagios.org","service_description":"SSH","display_name":"SSH","host_object_id":"120","host_address":"vs1.nagios.org","host_alias":"","icon_image":"","icon_image_alt":"","notes":"","notes_url":"","action_url":"","servicestatus_id":"872","instance_id":"1","service_object_id":"123","status_update_time":"2022-03-16 22:12:34","output":"SSH OK - OpenSSH_8.0 (protocol 2.0)","long_output":"","perfdata":"time=0.014744s;;;0.000000;10.000000","current_state":"0","has_been_checked":"1","should_be_scheduled":"1","current_check_attempt":"1","max_check_attempts":"5","last_check":"2022-03-16 22:12:34","next_check":"2022-03-16 22:17:34","check_type":"0","check_options":"0","last_state_change":"2010-07-15 15:52:36","last_hard_state_change":"2010-06-13 07:55:36","last_hard_state":"0"}'
     key:
       - host_name
@@ -78,18 +85,11 @@ logs:
       - display_name
       - host_object_id
 cves: []
-detections:
-  - title: Nagios Xi events arriving
-    severity: low
-    signals:
-      - logentry_id
-      - entry_time
-      - logentry_type
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "nagios_xi"'
-optimizations: []
-references:
-  - title: elastic/integrations nagios_xi/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/nagios_xi/data_stream/events/_dev/test/pipeline/test-events.log
-  - title: Pack Generator sample nagios_xi.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nagios_xi.json
+detections: []
+optimizations:
+  - title: Drop unchanged OK status
+    saving: most status volume
+    fn: Drop
+    how: Polling status returns every healthy host and service each time. Keep records that are not OK, and the engine log entries for state changes.
+    expr: current_state == '0'
+references: []

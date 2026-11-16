@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: nats
-name: Nats
-short: Nats
-vendor: Nats
+name: NATS
+short: NATS
+vendor: Synadia (CNCF project)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - nats
-  - Elastic integrations
+  - nats-server
+  - NATS.io
 tags:
-  - elastic
+  - messaging
+  - middleware
+  - pub-sub
   - text
-summary: Nats is logged by the Elastic integrations package nats. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source messaging system for publish-subscribe, request-reply and, with JetStream, persistent streams. Applications connect to nats-server clusters inside the data centre, in cloud networks or at the edge. The server log records startup, listeners, cluster routes, client connection errors, authorization failures and slow consumers.
 sourcetypes:
   - st: nats
-    desc: 'Elastic integrations fixture, 19 events. Upstream: nats/data_stream/log/_dev/test/pipeline/test-log-sample.log'
+    desc: The nats-server log, one line per message with process ID, timestamp, level and text
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: nats
-  Sourcetypes: '1'
-  Fixture events: '19'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Messaging server for pub-sub, request-reply and JetStream persistence
+  Clients: Applications through NATS client libraries, default port 4222; cluster routes on 6222; monitoring on 8222
+  Log transport: Log file or standard output of nats-server, or syslog, read by an agent
+  Log format: Plain text, one line as [pid] date time [LEVEL] message
+  What a log line answers: What the server did, such as starting a listener or rejecting a client, at which level and when
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: NATS servers
+      desc: nats-server nodes run between the applications that publish and subscribe. Each node writes its own log.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud and edge clusters
+      desc: NATS also runs on Kubernetes, cloud VMs and edge sites. The log format is the same.
 howItWorks:
-  - title: What the fixture shows
-    body: Nats events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Subjects and connections
+    body: Clients connect to a server and publish or subscribe on subjects. Servers join into clusters through routes, and superclusters through gateways.
+  - title: Server log
+    body: Each line starts with the process ID in brackets, the date and time, and the level such as [INF], [WRN], [ERR] or [DBG]. Startup lines give the version and listeners; later lines report client errors, authorization violations and slow consumers.
 traffic:
   handles:
-    - text
+    - Publish-subscribe and request-reply messaging
+    - Client connections and authorization
+    - Cluster routes
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads nats and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Server acts
+      desc: nats-server starts, accepts or rejects a client, or forms a route.
+    - step: Line written
+      desc: The server writes one line to its log.
+    - step: Collector reads it
+      desc: An agent ships the line. Goatpedia reads it as text.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: nats
     format: text
-    desc: 19 fixture events in the samples pool (elastic).
+    desc: One line per server message, with process ID, timestamp, level and text. This sample is the startup line giving nats-server version 1.3.0.
     sample: '[1] 2019/02/06 07:19:40.624334 [INF] Starting nats-server version 1.3.0'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Nats events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "nats"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations nats/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/nats/data_stream/log/_dev/test/pipeline/test-log-sample.log
-  - title: Pack Generator sample nats.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nats.json
+  - title: NATS documentation
+    url: https://docs.nats.io/

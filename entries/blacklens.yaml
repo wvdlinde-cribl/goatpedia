@@ -1,52 +1,66 @@
 id: blacklens
-name: Blacklens
-short: Blacklens
-vendor: Blacklens
+name: blacklens.io
+short: blacklens
+vendor: blacklens
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - blacklens
-  - Elastic integrations
+  - blacklens platform
 tags:
-  - elastic
+  - attack-surface
+  - vulnerability
+  - alerts
   - json
-summary: Blacklens is logged by the Elastic integrations package blacklens. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: blacklens.io is a cloud security platform that watches an organisation's external attack surface and security data and raises alerts for what it finds, such as exposed services, external vulnerabilities and threat activity. Its alerts stream gives each alert a type, category, severity and status, together with the activity trail that led to it, so the logs say what was found, on which asset, how serious it is and whether anyone has handled it.
 sourcetypes:
   - st: blacklens_alerts
-    desc: 'Elastic integrations fixture, 1 events. Upstream: blacklens/data_stream/alerts/_dev/test/pipeline/test-alerts.log'
+    desc: Platform alerts, one record per alert with its type, category, severity, status and analysis state, plus the list of activities (detections and updates) attached to it
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: blacklens
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: updated_date, created_date, id, name, type, severity
+  Product: Cloud security platform with external attack surface monitoring and alerting
+  Deployment: Hosted service. It scans and monitors the organisation's internet-facing assets from outside
+  Log transport: Alerts are read from the platform's REST API by any collector with an API key
+  Log format: One JSON object per alert. activities is an array of the events behind the alert, each with its own type, category and description
+  What an alert answers: What was detected (name, type), how it is classed (category), how serious it is (severity), whether it is new or handled (status), and which asset it concerns (in the activity description)
 placement:
   slots:
     - cloud
+    - edge
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: blacklens tenant
+      desc: The platform runs as a hosted service. Alerts are created, analysed and stored in the organisation's tenant.
+    - slot: edge
+      title: Monitored external assets
+      desc: What the platform reports on is the organisation's internet-facing footprint, such as web applications and exposed hosts, seen from outside.
 howItWorks:
-  - title: What the fixture shows
-    body: Blacklens events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries updated_date, created_date, id, name, type, severity. Values in the sample were rewritten to documentation addresses.
+  - title: Alerts and activities
+    body: An alert groups one or more activities. An activity is a single detection or change, for example an external vulnerability being created on an asset. The alert carries the overall name, type, category and severity, and moves through statuses as analysts work it.
+  - title: Analysis
+    body: The analysis field shows whether the platform has finished assessing the alert. Severity on the alert and in the activity description can differ, because the alert rates the overall case while the activity describes the original finding.
+  - title: How the alerts leave the product
+    body: A collector calls the platform API with an API key and reads alerts created or updated since its last poll. Each alert comes back as a JSON object with its activities. The destination is a choice of the pipeline, not a property of the platform.
 traffic:
   handles:
-    - json
+    - External vulnerability discoveries
+    - Attack surface and exposure findings
+    - Threat alerts and their analyst status
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads blacklens and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Platform detects
+      desc: Monitoring of the external attack surface or other data finds a vulnerability, exposure or threat.
+    - step: Alert is raised
+      desc: The detection becomes an activity, attached to a new or existing alert with type, category and severity.
+    - step: Analysts work it
+      desc: The alert's status and analysis change as it is reviewed, and updated_date moves.
+    - step: Collector polls
+      desc: A collector reads new and updated alerts from the API and forwards each JSON object.
 logs:
-  - type: Alerts
+  - type: Security alert
     sourcetype: blacklens_alerts
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per alert. name and type say what was found, category how it is classed, severity how serious, status and analysis where it stands, and activities the detections behind it. This sample is a new high-severity External Vulnerability Detected alert whose activity reports a critical blind SQL injection via an HTTP header on an asset. The sample uses documentation addresses.
     sample: '{"updated_date":"2025-12-31T16:10:56.155874Z","created_date":"2025-12-30T16:11:57.194393Z","id":"7ea10c5d-559a-4c55-8608-2e060956de68","name":"External Vulnerability Detected","type":"ExternalVulnerabilityDiscovered","severity":"high","status":"new","analysis":"completed","category":"vulnerability","activities":[{"updated_date":null,"created_date":"2025-12-30T16:11:40.195989Z","id":"73dcaa88-09e1-4c58-9fa5-5495f8dac2a4","type":"ExternalVulnerabilityCreated","description":"A Critical severity external vulnerability ''Blind SQL Injection via HTTP Header'' has been detected on asset ''demo.example.com''","category":"threat","trace_id":"40eda190-83fd-4a1b-8155-3a1c7434b319","data":{}}]}'
     key:
       - updated_date
@@ -55,17 +69,20 @@ logs:
       - name
 cves: []
 detections:
-  - title: Blacklens events arriving
-    severity: low
+  - title: New high or critical alert
+    severity: high
     signals:
-      - updated_date
-      - created_date
-      - id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "blacklens_alerts"'
+      - name
+      - type
+      - severity
+      - status
+      - category
+    why: A new alert of high or critical severity, such as an external vulnerability on an internet-facing asset, is something an attacker can find too. These should reach the team that owns the asset while the status is still new.
+    kql: |
+      dataset="blacklens_logs"
+      | where sourcetype == "blacklens_alerts" and status == "new" and severity in ("high", "critical")
+      | project created_date, name, type, category, severity, status
+    mitre:
+      - T1190
 optimizations: []
-references:
-  - title: elastic/integrations blacklens/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/blacklens/data_stream/alerts/_dev/test/pipeline/test-alerts.log
-  - title: Pack Generator sample blacklens_alerts.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/blacklens_alerts.json
+references: []

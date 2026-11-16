@@ -1,52 +1,70 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cursor
 name: Cursor
 short: Cursor
-vendor: Cursor
+vendor: Anysphere
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cursor
-  - Elastic integrations
+  - Cursor AI
+  - Cursor editor
 tags:
-  - elastic
+  - developer-tools
+  - ai
+  - saas
+  - audit
   - json
-summary: Cursor is logged by the Elastic integrations package cursor. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An AI code editor used by developers, with team plans that an organisation administers centrally. Administrators manage members, roles, privacy mode and team settings in the Cursor dashboard. Team audit logs record those administrative and membership actions, such as a user being added to the team, and can be exported as JSON for any collector.
 sourcetypes:
   - st: cursor_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cursor/data_stream/audit/_dev/test/pipeline/test-cursor-audit-s3.log'
+    desc: Team audit log events, such as members being added or changed, with the actor, team, role and request context
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cursor
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: add_user.invite_id, add_user.invited_by_email, add_user.invited_by_user_id, add_user.role, add_user.source, add_user.team_id
+  Product: AI-assisted code editor with team and enterprise administration
+  Clients: Desktop editor on macOS, Windows and Linux
+  Account plane: Cursor team (organisation) with administrators, members and privacy settings
+  Log transport: Audit log export from the Cursor service as JSON, for example delivered to object storage and read by a collector
+  Log format: One JSON object per audit event. The action is the name of a nested object (for example add_user) with its details
+  What an audit event answers: Which team member or system action changed the team, which user was affected, with what role, and under which privacy mode
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cursor team administration
+      desc: The team, its members, roles and settings live in the Cursor service. Administrative actions are recorded there and exported as audit events.
+    - slot: endpoint
+      title: Cursor editor on developer machines
+      desc: Developers sign in to the editor with their team account. The editor is where code is written; team membership and policy are decided in the service.
 howItWorks:
-  - title: What the fixture shows
-    body: Cursor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries add_user.invite_id, add_user.invited_by_email, add_user.invited_by_user_id, add_user.role, add_user.source, add_user.team_id. Values in the sample were rewritten to documentation addresses.
+  - title: Teams and members
+    body: A team has administrators and members. Users join by invitation, by SSO, or by automatic enrolment for their email domain. Each member has a role, and the team can enforce privacy mode so code is not stored by the service.
+  - title: Audit events
+    body: Each audit event carries a team_id, the user_email and ip_address of the actor where known, and metadata with a timestamp, id and request context (auth id, privacy mode, request id). The action itself is a nested object named after it, such as add_user with the added user's email, role, source and inviter.
+  - title: How the events leave the product
+    body: Audit events are exported from the Cursor service as JSON. A collector reads the export, for example from an object storage bucket, and forwards each event. The destination is a choice of the pipeline.
 traffic:
   handles:
-    - json
+    - Team membership changes
+    - Role and invitation management
+    - Team privacy and settings changes
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cursor and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Admin or system acts
+      desc: An administrator invites a user, or a user is auto-enrolled into the team, or a setting changes.
+    - step: Service records it
+      desc: Cursor writes an audit event naming the action, the team and the affected user.
+    - step: Export
+      desc: The audit log is exported as JSON.
+    - step: Collector reads
+      desc: A collector reads the export and forwards one event per audit record.
 logs:
-  - type: Audit
+  - type: Team audit events
     sourcetype: cursor_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per audit event. add_user says a user was added, add_user.user_email is who, add_user.role is their role (member), and add_user.source is how (autoEnroll, so invited_by is empty). metadata.timestamp is when and metadata.context.privacy_mode shows the team's privacy setting. The sample uses example.com.
     sample: '{"add_user":{"invite_id":"","invited_by_email":"","invited_by_user_id":"0","role":"member","source":"autoEnroll","team_id":"15767141","user_email":"user@example.com"},"ip_address":"unknown","metadata":{"context":{"auth_id":"auth0|anon-6","ghost_mode":true,"privacy_mode":"{\"privacyMode\":\"PRIVACY_MODE_NO_STORAGE\"}","request_id":"serverGenReqId_4c7bb18b-66b4-495a-83a2-6ae55358da22"},"id":"7b28f4de-925f-4ff4-8837-7f0912553879","timestamp":"2026-04-08T16:20:57.867Z"},"team_id":"15767141","user_email":"unknown"}'
     key:
       - add_user.invite_id
@@ -55,17 +73,19 @@ logs:
       - add_user.role
 cves: []
 detections:
-  - title: Cursor events arriving
-    severity: low
+  - title: User added to the team as admin
+    severity: medium
     signals:
-      - add_user.invite_id
+      - add_user.user_email
+      - add_user.role
       - add_user.invited_by_email
-      - add_user.invited_by_user_id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cursor_audit"'
+      - add_user.source
+    why: A new administrator can change team policy, including privacy mode, and add or remove members. An admin added outside the normal invitation path, or by an unexpected inviter, is worth confirming.
+    kql: |
+      dataset="cursor_logs"
+      | where sourcetype == "cursor_audit" and add_user.role == "admin"
+      | project metadata.timestamp, team_id, add_user.user_email, add_user.role, add_user.source, add_user.invited_by_email
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations cursor/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cursor/data_stream/audit/_dev/test/pipeline/test-cursor-audit-s3.log
-  - title: Pack Generator sample cursor_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cursor_audit.json
+references: []

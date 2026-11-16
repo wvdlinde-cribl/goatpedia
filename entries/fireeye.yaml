@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: fireeye
-name: Fireeye
-short: Fireeye
-vendor: Fireeye
+name: FireEye Network Security (NX)
+short: FireEye NX
+vendor: Trellix (FireEye)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - fireeye
-  - Elastic integrations
+  - FireEye NX
+  - Trellix Network Security
 tags:
-  - elastic
+  - nds
+  - ids
+  - sandbox
+  - network-security
   - json
-summary: Fireeye is logged by the Elastic integrations package fireeye. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A network threat-prevention appliance that inspects traffic at the internet edge and detonates suspicious objects in its MVX virtual-execution engine to find exploits, malware downloads and callbacks. FireEye NX is now sold as Trellix Network Security. Besides alerts, the appliance can emit network metadata about flows it observed; in these records the original event is kept as rawmsg next to collector metadata such as the reporting device and source address.
 sourcetypes:
   - st: fireeye_nx
-    desc: 'Elastic integrations fixture, 8 events. Upstream: fireeye/data_stream/nx/_dev/test/pipeline/test-nx.log'
+    desc: Events from a FireEye NX appliance, with the original event in rawmsg (such as a flow record with addresses, ports and event type) and collector metadata
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: fireeye
-  Sourcetypes: '1'
-  Fixture events: '8'
-  Log format seen: json
-  Fields in the first fixture: rawmsg, meta_sip4, meta_oml, deviceid, meta_cbname
+  Product: Network threat detection and prevention with virtual-execution sandboxing
+  Form factor: Physical or virtual appliance inline or on a SPAN/TAP at the network edge
+  Log transport: Syslog, or a log forwarder that wraps each appliance event with its own metadata
+  Log format: JSON. rawmsg holds the appliance's event (here a JSON flow record); meta_sip4, deviceid and meta_cbname describe where it came from
+  What an event answers: Which flow or alert the appliance reported, between which addresses and ports, and from which appliance
 placement:
   slots:
-    - cloud
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: NX appliance
+      desc: The appliance sits at the internet edge, inline or on a mirror port, and inspects web and other outbound traffic. It sends events to a log receiver.
 howItWorks:
-  - title: What the fixture shows
-    body: Fireeye events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries rawmsg, meta_sip4, meta_oml, deviceid, meta_cbname. Values in the sample were rewritten to documentation addresses.
+  - title: Inspection and detonation
+    body: The appliance matches traffic against signatures and intelligence and sends suspicious objects, such as downloaded files and URLs, to its MVX engine, which runs them in virtual machines to see whether they exploit or infect.
+  - title: Alerts and metadata
+    body: Confirmed attacks become alerts (malware object, web infection, callback). The appliance can also record network metadata such as flows, with source and destination addresses and ports and an event type.
+  - title: How the events leave the appliance
+    body: Events go out as syslog or through a forwarder. In these samples a forwarder has wrapped each event, keeping the original text as rawmsg and adding the source address, length and device id. Any receiver can take them.
 traffic:
   handles:
-    - json
+    - Web and outbound traffic at the internet edge
+    - File downloads and URLs for sandbox analysis
+    - Malware callbacks
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads fireeye and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Traffic inspected
+      desc: Traffic passes the appliance, inline or on a mirror port.
+    - step: Analysis
+      desc: The appliance records flow metadata and detonates suspicious objects.
+    - step: Event emitted
+      desc: The appliance sends a flow record or alert.
+    - step: Forwarder wraps it
+      desc: A log forwarder keeps the original as rawmsg, adds its metadata and sends it on.
 logs:
-  - type: Nx
+  - type: NX events
     sourcetype: fireeye_nx
     format: json
-    desc: 8 fixture events in the samples pool (elastic).
+    desc: One object per event. rawmsg is the original appliance event, here a flow record with event_type flow, src_ip, src_port and dest_ip. meta_sip4 is the address of the sender, deviceid and meta_cbname identify the appliance, and meta_oml is the message length. Addresses are documentation addresses.
     sample: '{"rawmsg":"{\"timestamp\":\"2020-09-22T08:34:44.991339+0000\",\"flow_id\":721570461162990,\"event_type\":\"flow\",\"src_ip\":\"2001:db8::1\",\"src_port\":45944,\"dest_ip\":\"2001:db8::1\",...","meta_sip4":"192.0.2.20","meta_oml":520,"deviceid":"860665216674","meta_cbname":"fireeye-7e0de1"}'
     key:
       - rawmsg
@@ -54,18 +67,6 @@ logs:
       - meta_oml
       - deviceid
 cves: []
-detections:
-  - title: Fireeye events arriving
-    severity: low
-    signals:
-      - rawmsg
-      - meta_sip4
-      - meta_oml
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "fireeye_nx"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations fireeye/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fireeye/data_stream/nx/_dev/test/pipeline/test-nx.log
-  - title: Pack Generator sample fireeye_nx.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fireeye_nx.json
+references: []

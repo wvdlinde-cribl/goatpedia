@@ -1,52 +1,65 @@
 id: goflow2
-name: Goflow2
-short: Goflow2
-vendor: Goflow2
+name: GoFlow2
+short: GoFlow2
+vendor: netsampler
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - goflow2
-  - Elastic integrations
+  - GoFlow
 tags:
-  - elastic
+  - sflow
+  - netflow
+  - ipfix
   - json
-summary: Goflow2 is logged by the Elastic integrations package goflow2. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: GoFlow2 is an open-source collector for sFlow, NetFlow and IPFIX. Routers and switches send sampled packet headers to it, and GoFlow2 decodes them into one JSON object per sample. It does not store the flows and it does not alert. A collector downstream of GoFlow2 does. This stream is sFlow v5. The project is the maintained fork of the GoFlow collector first published by Cloudflare.
 sourcetypes:
   - st: goflow2_sflow
-    desc: 'Elastic integrations fixture, 12 events. Upstream: goflow2/data_stream/sflow/_dev/test/pipeline/test-goflow2-sflow-sample.log'
+    desc: One sFlow v5 sample decoded by GoFlow2. The sampler, the interfaces, the addresses, the ports and the sampling rate are the flow.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: goflow2
-  Sourcetypes: '1'
-  Fixture events: '12'
-  Log format seen: json
-  Fields in the first fixture: type, time_flow_start_ns, sampler_address, sequence_num, in_if, out_if
+  Product: Open-source NetFlow, IPFIX and sFlow collector. It decodes samples and emits them. It is not a router.
+  Where it runs: A host or container you run. By default it listens for sFlow on UDP 6343 and for NetFlow and IPFIX on UDP 2055.
+  Log transport: The samples arrive as UDP from the network devices. GoFlow2 writes JSON, to stdout or to a log shipper.
+  Log format: One JSON object per flow sample. type SFLOW_5 is an sFlow v5 record.
+  What a sample answers: Which device sampled the packet, which interfaces it crossed, who talked to whom, on which ports, and how many packets the one sample stands for
+  What sampling_rate answers: How many real packets one record represents. A rate of 1000 means the counters under-count by that factor.
 placement:
   slots:
-    - cloud
+    - internal
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: GoFlow2 collector
+      desc: The collector process sits where it can receive UDP from the routers and switches. It prints one JSON object per sample. A log collector reads that output.
+    - slot: edge
+      title: Sampler
+      desc: sampler_address is the router or switch that took the sample, not the host running GoFlow2. in_if and out_if are interfaces on that device.
 howItWorks:
-  - title: What the fixture shows
-    body: Goflow2 events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries type, time_flow_start_ns, sampler_address, sequence_num, in_if, out_if. Values in the sample were rewritten to documentation addresses.
+  - title: Sampling
+    body: sFlow copies one packet in every N and sends the header, plus the sampler's address and interface numbers, to a collector. GoFlow2 decodes the sFlow v5 datagram and emits one JSON object per sample. NetFlow and IPFIX are the other listeners. They use templates and can take a minute to start decoding. This stream is the sFlow output.
+  - title: One JSON sample
+    body: type SFLOW_5 says the protocol. sampler_address is the device that sampled. src_addr, dst_addr, src_port, dst_port and proto are the conversation. in_if and out_if are the interfaces. bytes is the sample size. sampling_rate is the multiplier. The addresses in the sample are documentation addresses.
+  - title: How the JSON leaves
+    body: GoFlow2 writes the objects itself, by default as JSON on standard output. Any collector that can read a process's output, or a file, or a socket GoFlow2 is pointed at, can take them. GoFlow2 does not choose the destination.
 traffic:
   handles:
-    - json
+    - sFlow v5 samples
+    - NetFlow and IPFIX flows on the collector's other listeners
+    - Sampled packet headers, interfaces and sampling rate
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads goflow2 and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A device samples a packet
+      desc: A router or switch copies a packet header and sends an sFlow datagram to GoFlow2.
+    - step: GoFlow2 decodes it
+      desc: The collector turns one sample into one JSON object with the addresses, ports, interfaces and sampling rate.
+    - step: A collector reads the JSON
+      desc: Something downstream reads the JSON and can forward it anywhere.
 logs:
-  - type: Sflow
+  - type: sFlow sample
     sourcetype: goflow2_sflow
     format: json
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: One sFlow v5 sample. sampler_address is the device that sampled. src_addr, dst_addr, proto and the ports are the conversation. sampling_rate is how many packets this one record stands for. The addresses in this sample are documentation addresses.
     sample: '{"type":"SFLOW_5","time_flow_start_ns":1722384059314899700,"sampler_address":"198.51.100.15","sequence_num":44555,"in_if":563,"out_if":573,"src_addr":"198.51.100.25","dst_addr":"203.0.113.8","etype":"IPv4","proto":"TCP","src_port":10876,"dst_port":443,"src_vlan":1500,"dst_vlan":1500,"sampling_rate":1000,"bytes":70}'
     key:
       - type
@@ -54,18 +67,8 @@ logs:
       - sampler_address
       - sequence_num
 cves: []
-detections:
-  - title: Goflow2 events arriving
-    severity: low
-    signals:
-      - type
-      - time_flow_start_ns
-      - sampler_address
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "goflow2_sflow"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations goflow2/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/goflow2/data_stream/sflow/_dev/test/pipeline/test-goflow2-sflow-sample.log
-  - title: Pack Generator sample goflow2_sflow.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/goflow2_sflow.json
+  - title: GoFlow2
+    url: https://github.com/netsampler/goflow2

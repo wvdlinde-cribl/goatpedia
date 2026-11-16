@@ -1,67 +1,78 @@
 id: juniper-netscreen
-name: Juniper Netscreen
-short: Netscreen
-vendor: Juniper
+name: NetScreen
+short: NetScreen
+vendor: Juniper Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - juniper_netscreen
-  - Elastic integrations
+  - ScreenOS
+  - Juniper NetScreen
 tags:
-  - elastic
-  - text
-summary: Juniper Netscreen is logged by the Elastic integrations package juniper_netscreen. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - firewall
+  - syslog
+  - vpn
+summary: NetScreen is Juniper's older firewall and VPN appliance family, running ScreenOS. It filters traffic between zones and writes a syslog line for traffic, policy and system events. This stream is that syslog. The sample says the event alarm log was overwritten, which means older alarm events on that firewall were discarded. Any collector can receive the syslog.
 sourcetypes:
   - st: juniper_netscreen
-    desc: 'Elastic integrations fixture, 20 events. Upstream: juniper_netscreen/data_stream/log/_dev/test/pipeline/test-generated.log'
+    desc: ScreenOS syslog from a NetScreen firewall. One line is one traffic, policy or system message.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: juniper_netscreen
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Firewall and VPN appliance running ScreenOS. Juniper ended the product line. The syslog is still what those appliances emit.
+  Form factor: NetScreen and SSG appliances
+  Log transport: Syslog from the firewall
+  Log format: One text line. device_id names the firewall. The message text is the event.
+  What an overwritten-log message answers: The appliance discarded older events because the alarm log wrapped or was overwritten
 placement:
   slots:
-    - cloud
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: NetScreen firewall
+      desc: The appliance sits between zones and writes syslog for the traffic and system events it handles. device_id in the line is that box. A collector receives the syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Juniper Netscreen events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: ScreenOS syslog
+    body: A NetScreen line names the device and a message. Traffic lines describe a policy decision. System lines describe the box itself, including the state of its own logs. device_id is the firewall.
+  - title: This sample
+    body: The message says the audit log queue's event alarm log was overwritten. When that happens, older alarm events on the firewall are gone. The line is the gap in the audit trail. device_id in the sample is olab.
+  - title: How the lines leave
+    body: ScreenOS sends syslog to the addresses configured on the appliance. Any collector can receive it.
 traffic:
   handles:
-    - text
+    - Traffic matching a policy
+    - System and alarm messages
+    - Loss of the local alarm log when it is overwritten
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads juniper_netscreen and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: The firewall acts
+      desc: A packet matches a policy, or the appliance hits a system condition such as a full log.
+    - step: ScreenOS writes a line
+      desc: The line names the device and the message.
+    - step: Collector receives syslog
+      desc: A collector takes the line and can forward it anywhere.
 logs:
-  - type: Log
+  - type: Firewall log
     sourcetype: juniper_netscreen
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One ScreenOS syslog line. device_id names the firewall. The message text is the event. This sample says the event alarm log was overwritten, so older alarm events on that box were discarded.
     sample: 'modtempo: NetScreen device_id=olab system-low-00628(rci): audit log queue Event Alarm Log is overwritten (2016-1-29 06:09:59)'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Juniper Netscreen events arriving
-    severity: low
+  - title: Alarm log was overwritten
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "juniper_netscreen"'
+    why: An overwritten event alarm log means the firewall discarded older events. Anything that happened before the wrap is missing from the box. The sample is that message.
+    kql: |
+      dataset="juniper-netscreen_logs"
+      | where sourcetype == "juniper_netscreen" and message has "overwritten"
+      | project message
+    mitre:
+      - T1562
 optimizations: []
 references:
-  - title: elastic/integrations juniper_netscreen/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/juniper_netscreen/data_stream/log/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample juniper_netscreen.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_netscreen.json
+  - title: Juniper documentation
+    url: https://www.juniper.net/documentation/

@@ -1,52 +1,67 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: keycloak
 name: Keycloak
 short: Keycloak
-vendor: Keycloak
+vendor: Keycloak (CNCF project, Red Hat)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - keycloak
-  - Elastic integrations
+  - Red Hat build of Keycloak
+  - Red Hat Single Sign-On
 tags:
-  - elastic
+  - identity
+  - sso
+  - iam
   - json
-summary: Keycloak is logged by the Elastic integrations package keycloak. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source identity and access management server. Applications send users to Keycloak to sign in with OpenID Connect or SAML, and Keycloak issues the tokens. It usually runs in the data centre, a DMZ or a Kubernetes cluster in front of the applications it protects. Its server log, written as JSON, records startup, configuration warnings and errors, and the login events of the event logger when that listener is enabled.
 sourcetypes:
   - st: keycloak
-    desc: 'Elastic integrations fixture, 20 events. Upstream: keycloak/data_stream/log/_dev/test/pipeline/test-ecs-log.log'
+    desc: The Keycloak server log in JSON, one object per log message with logger, level, thread and message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: keycloak
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: '@timestamp, event.sequence, log.logger, log.level, message, process.thread.name'
+  Product: Identity and access management server (SSO with OpenID Connect, OAuth 2.0 and SAML)
+  Deployment: Self-hosted Java (Quarkus) server, often as a container or on Kubernetes
+  Log transport: Console or file output of the server, read by a container log agent or file agent
+  Log format: One JSON object per message, with ECS-style keys such as log.logger, log.level, process.thread.name and service.version
+  What a server-log object answers: Which Keycloak component logged what, at which level, on which host and version
+  Login events: With the jboss-logging event listener enabled, user events such as LOGIN and LOGIN_ERROR appear under the org.keycloak.events logger
 placement:
   slots:
-    - cloud
+    - internal
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Keycloak server
+      desc: Keycloak runs as one or more nodes beside the applications it protects, often on Kubernetes. Each node writes its own server log to the console or a file.
+    - slot: dmz
+      title: Public login endpoint
+      desc: The login pages and token endpoints are often published behind a reverse proxy so that users and external apps can reach them. Sign-ins arrive here; the log is written on the node.
 howItWorks:
-  - title: What the fixture shows
-    body: Keycloak events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @timestamp, event.sequence, log.logger, log.level, message, process.thread.name. Values in the sample were rewritten to documentation addresses.
+  - title: Realms, clients and users
+    body: A realm holds users, roles and the client applications that trust it. An application redirects a user to the realm's login page. Keycloak checks the credentials, applies flows such as MFA, and returns tokens to the application.
+  - title: Server log
+    body: Keycloak logs through JBoss Logging. In JSON mode each message becomes one object with the logger name, level, thread, host name, process and the Keycloak version. Startup and configuration messages, such as hostname settings, come from loggers under org.keycloak.
+  - title: Login events
+    body: Keycloak keeps user and admin events per realm. The jboss-logging event listener also writes them to the server log under org.keycloak.events. Successful logins are written at a low level and errors such as LOGIN_ERROR at WARN, so the server log can carry failed sign-ins when the listener is on.
 traffic:
   handles:
-    - json
+    - OpenID Connect and SAML sign-in
+    - Token issue and refresh
+    - Realm and client administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads keycloak and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User or admin acts
+      desc: A user signs in through a realm, or an admin changes a realm, or the server starts and reads its configuration.
+    - step: Keycloak logs it
+      desc: The component, or the event listener for user events, writes one log message.
+    - step: JSON on the console
+      desc: The server writes the message as a JSON object. A container or file agent ships it. Goatpedia reads the sample as JSON.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: keycloak
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One JSON object per log message. log.logger names the component and log.level the severity. This sample is an INFO startup message from the hostname provider about the hostname-strict setting, on Keycloak 26.2.2. Values are documentation addresses.
     sample: '{"@timestamp":"2025-05-01T01:16:31.591777597Z","event.sequence":44,"log.logger":"org.keycloak.url.HostnameV2ProviderFactory","log.level":"INFO","message":"If hostname is specified, hostname-strict is effectively ignored","process.thread.name":"main","process.thread.id":1,"mdc":{},"ndc":"","host.hostname":"068a18c2f627","process.name":"/usr/lib/jvm/java-21-openjdk-198.51.100.15.6-1.el9.x86_64/bin/java","process.pid":1,"ecs.version":"1.12.2","data_stream.type":"logs","service.name":"Keycloak","service.version":"26.2.2","service.environment":"prod"}'
     key:
       - '@timestamp'
@@ -55,17 +70,22 @@ logs:
       - log.level
 cves: []
 detections:
-  - title: Keycloak events arriving
-    severity: low
+  - title: Failed Keycloak login
+    severity: medium
     signals:
-      - '@timestamp'
-      - event.sequence
       - log.logger
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "keycloak"'
+      - log.level
+      - message
+    why: When the jboss-logging event listener is enabled, a failed sign-in is written under the org.keycloak.events logger with type LOGIN_ERROR. Many errors for one user or from one address is password guessing against the identity provider.
+    kql: |
+      dataset="keycloak_logs"
+      | where sourcetype == "keycloak" and log.logger == "org.keycloak.events" and message contains "LOGIN_ERROR"
+      | project @timestamp, log.level, host.hostname, message
+    mitre:
+      - T1110
 optimizations: []
 references:
-  - title: elastic/integrations keycloak/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/keycloak/data_stream/log/_dev/test/pipeline/test-ecs-log.log
-  - title: Pack Generator sample keycloak.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/keycloak.json
+  - title: Keycloak logging configuration
+    url: https://www.keycloak.org/server/logging
+  - title: Keycloak documentation
+    url: https://www.keycloak.org/documentation

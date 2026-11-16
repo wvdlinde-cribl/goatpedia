@@ -1,64 +1,79 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: kibana
 name: Kibana
 short: Kibana
-vendor: Kibana
+vendor: Elastic
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - kibana
-  - Elastic integrations
+  - Elastic Kibana
 tags:
   - elastic
+  - analytics
+  - web-ui
+  - audit
   - json
-summary: Kibana is logged by the Elastic integrations package kibana. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: The web interface and API server of the Elastic Stack. Users open dashboards, search data and manage Elasticsearch, Fleet and security settings through it. Kibana is a Node.js server that sits between users' browsers and the Elasticsearch cluster. It writes a server log of its own operations and, when enabled, an audit log of who requested which Kibana API.
 sourcetypes:
   - st: kibana
-    desc: 'Elastic integrations fixture, 3 events. Upstream: kibana/data_stream/log/_dev/test/pipeline/test-kibana-logs.log'
+    desc: The Kibana server log in JSON, including the requests Kibana itself sends to Elasticsearch
   - st: kibana_audit
-    desc: 'Elastic integrations fixture, 4 events. Upstream: kibana/data_stream/audit/_dev/test/pipeline/test-kibana-audit-logs.log'
+    desc: The Kibana audit log, one JSON event per user request or security action, with user, roles, space and outcome
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: kibana
-  Sourcetypes: '2'
-  Fixture events: '7'
-  Log format seen: json
-  Fields in the first fixture: http.request.id, http.request.method, http.request.headers.user-agent, http.request.headers.x-elastic-product-origin, http.request.headers.x-elastic-client-meta, http.request.headers.authorization
+  Product: Web UI and API server for Elasticsearch (dashboards, search, Fleet and stack management)
+  Clients: Web browsers and API clients over HTTPS, default port 5601
+  Log transport: Log files or console output of the Kibana server, read by a file or container agent
+  Log format: One JSON object per event in ECS layout
+  What a server-log event answers: Which Kibana logger did what, and for query logs which request Kibana sent to Elasticsearch and what came back
+  What an audit event answers: Which user, with which roles and in which space, asked for which Kibana endpoint or action, and the outcome
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Kibana server
+      desc: Kibana runs as one or more Node.js instances next to the Elasticsearch cluster. Users reach it over HTTPS. The server and audit logs are written on each instance.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Hosted deployments
+      desc: In hosted Elastic deployments Kibana runs in the provider's cloud. The same log types exist there.
 howItWorks:
-  - title: What the fixture shows
-    body: Kibana events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries http.request.id, http.request.method, http.request.headers.user-agent, http.request.headers.x-elastic-product-origin, http.request.headers.x-elastic-client-meta, http.request.headers.authorization. Values in the sample were rewritten to documentation addresses.
+  - title: Server between browser and cluster
+    body: Browsers and API clients call Kibana on port 5601. Kibana turns those calls into Elasticsearch requests, and background tasks such as reporting and alerting run in the same server process (node roles background_tasks and ui).
+  - title: Server log
+    body: Kibana logs through named loggers. The elasticsearch.query loggers record each request Kibana sends to Elasticsearch at DEBUG, with method, path, status and response size. Most of this is Kibana's own housekeeping.
+  - title: Audit log
+    body: When audit logging is enabled, Kibana writes one ECS event per security-relevant action. event.action is the action, such as http_request or a saved-object operation. user.name and user.roles name the caller, kibana.space_id the space, and event.outcome the result.
 traffic:
   handles:
-    - json
+    - Dashboard and search use
+    - Kibana API requests
+    - Fleet and stack management actions
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads kibana and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User or task acts
+      desc: A user calls a Kibana page or API, or a background task runs.
+    - step: Kibana writes the event
+      desc: The server logger writes its message, and the audit logger writes an audit event for user actions.
+    - step: JSON leaves the server
+      desc: Each event is one JSON object in a file or on the console. A file agent ships it. Goatpedia reads the samples as JSON.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: kibana
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One JSON object per server message. This sample is a DEBUG elasticsearch.query.data entry, a POST to /_bulk that Kibana's task manager sent to Elasticsearch, answered with status 200. http.request.headers.x-elastic-product-origin says the request came from Kibana itself.
     sample: '{"http":{"request":{"id":"unknownId","method":"POST","headers":{"user-agent":"elastic-transport-js/8.2.0 (linux 5.10.124-linuxkit-arm64; Node.js v16.16.0)","x-elastic-product-origin":"kibana","x-elastic-client-meta":"es=8.3.0p,js=16.16.0,t=8.2.0,hc=16.16.0","authorization":"[REDACTED]","x-opaque-id":"unknownId","content-type":"application/vnd.elasticsearch+x-ndjson; compatible-with=8","accept":"application/vnd.elasticsearch+json; compatible-with=8","content-length":"927"}},"response":{"body":{"bytes":609},"status_code":200,"headers":{"x-opaque-id":"unknownId","x-elastic-product":"Elasticsearch","content-type":"application/vnd.elasticsearch+json;compatible-with=8","content-length":"609"}}},"url":{"path":"/_bulk","query":"refresh=false&_source_includes=originId&require_alias=true"},"service":{"node":{"roles":["background_tasks","ui"]}},"ecs":{"version":"8.4.0"},"@timestamp":"2022-09-09T13:26:12.639+00:00","message":"200 - 609.0B\nPOST /_bulk?refresh=false&_source_includes=originId&require_alias=true\n{\"update\":{\"_id\":\"task:reports:monitor\",\"_index\":\".kibana_task_manager_8....","log":{"level":"DEBUG","logger":"elasticsearch.query.data"},"process":{"pid":6},"trace":{"id":"367daf7c4cd706043f301712e2fcc505"},"transaction":{"id":"a1d046c765ff35a9"}}'
     key:
       - http.request.id
       - http.request.method
       - http.request.headers.user-agent
       - http.request.headers.x-elastic-product-origin
-  - type: Audit
+  - type: Audit log
     sourcetype: kibana_audit
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One JSON object per audited request or action. event.action, event.outcome and http.request.method say what happened. This sample is a superuser named elastic requesting a Fleet enrollment API key endpoint in the default space.
     sample: '{"event":{"action":"http_request","category":["web"],"outcome":"unknown"},"http":{"request":{"method":"get"}},"url":{"domain":"kibana","path":"/api/fleet/enrollment_api_keys/e0a0d409-b22f-4cd0-b417-c934c621ce07","port":5601,"scheme":"https"},"user":{"name":"elastic","roles":["superuser"]},"kibana":{"space_id":"default"},"trace":{"id":"2eeefc09-26a2-4aea-840d-9170b0a9c95f"},"service":{"node":{"roles":["background_tasks","ui"]}},"ecs":{"version":"8.4.0"},"@timestamp":"2022-09-09T13:15:24.041+00:00","message":"User is requesting [/api/fleet/enrollment_api_keys/e0a0d409-b22f-4cd0-b417-c934c621ce07] endpoint","log":{"level":"INFO","logger":"plugins.security.audit.ecs"},"process":{"pid":7},"transaction":{"id":"858c45e94edb1814"}}'
     key:
       - event.action
@@ -67,17 +82,37 @@ logs:
       - http.request.method
 cves: []
 detections:
-  - title: Kibana events arriving
-    severity: low
+  - title: Kibana action denied or failed
+    severity: medium
     signals:
-      - http.request.id
-      - http.request.method
-      - http.request.headers.user-agent
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "kibana"'
-optimizations: []
+      - event.action
+      - event.outcome
+      - user.name
+      - url.path
+    why: An audit event with outcome failure is a user trying an action Kibana refused, often because the user lacks the privilege. Repeated failures from one user can be privilege probing.
+    kql: |
+      dataset="kibana_logs"
+      | where sourcetype == "kibana_audit" and event.outcome == "failure"
+      | project @timestamp, user.name, event.action, url.path, kibana.space_id
+  - title: Fleet enrollment keys requested
+    severity: medium
+    signals:
+      - url.path
+      - user.name
+      - user.roles
+    why: Fleet enrollment API keys let a new agent join a policy. A user reading them outside agent rollout work is worth a look.
+    kql: |
+      dataset="kibana_logs"
+      | where sourcetype == "kibana_audit" and url.path contains "enrollment_api_keys"
+      | project @timestamp, user.name, user.roles, http.request.method, url.path
+    mitre:
+      - T1552
+optimizations:
+  - title: Drop Elasticsearch query debug lines
+    saving: most of the server-log volume when debug logging is on
+    fn: Drop
+    how: The elasticsearch.query loggers at DEBUG record every request Kibana sends to the cluster, mostly task-manager housekeeping. Keep warnings, errors and the audit log.
+    expr: log.level == 'DEBUG'
 references:
-  - title: elastic/integrations kibana/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/kibana/data_stream/log/_dev/test/pipeline/test-kibana-logs.log
-  - title: Pack Generator sample kibana.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kibana.json
+  - title: Kibana audit logging
+    url: https://www.elastic.co/guide/en/kibana/current/xpack-security-audit-logging.html

@@ -1,64 +1,82 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: lite-llm
-name: Lite Llm
-short: Lite Llm
-vendor: Lite
+name: LiteLLM
+short: LiteLLM
+vendor: BerriAI
 category: ai
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - lite_llm
-  - Elastic integrations
+  - LiteLLM Proxy
+  - LiteLLM AI Gateway
 tags:
-  - elastic
+  - ai
+  - llm-gateway
+  - api-gateway
+  - audit
   - json
-summary: Lite Llm is logged by the Elastic integrations package lite_llm. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: An open-source LLM gateway. Applications call one OpenAI-compatible endpoint, and the LiteLLM proxy forwards each call to the configured model provider, enforcing virtual API keys, budgets and rate limits. It is self-hosted in the company network or cloud between internal apps and the AI providers. Its audit log records changes to keys, teams and users, and its spend log records every model call with model, tokens, cost and errors.
 sourcetypes:
   - st: lite_llm_audit
-    desc: 'Elastic integrations fixture, 10 events. Upstream: lite_llm/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: Changes made through the LiteLLM admin API or UI, such as creating, updating or deleting virtual keys, teams and users
   - st: lite_llm_spend_tracking
-    desc: 'Elastic integrations fixture, 5 events. Upstream: lite_llm/data_stream/spend_tracking/_dev/test/pipeline/test-spend-tracking.log'
+    desc: One record per model request through the proxy, with key, user, team, model, tokens, spend, status and error
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: lite_llm
-  Sourcetypes: '2'
-  Fixture events: '15'
-  Log format seen: json
-  Fields in the first fixture: id, updated_at, changed_by, changed_by_api_key, action, table_name
+  Product: Self-hosted LLM gateway with an OpenAI-compatible API in front of many model providers
+  Clients: Internal applications and users calling the proxy with virtual keys (sk-...)
+  Log transport: Records stored in the proxy's database and read through its API by a collector; callbacks can also push logs
+  Log format: One JSON object per record
+  What an audit record answers: Who (changed_by, changed_by_api_key) created, updated or deleted which object (table_name, object_id), with the before and after values
+  What a spend record answers: Which key, user and team called which model, how many tokens and how much it cost, and whether the call failed
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: LiteLLM proxy
+      desc: The proxy runs as a container inside the company network or VPC. Applications send model calls to it instead of to the providers. Keys, spend and audit records live in its database.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Model providers
+      desc: The proxy forwards calls to cloud model APIs such as OpenAI, Azure OpenAI or Bedrock. Provider errors, such as a rejected provider key, come back into the spend record.
 howItWorks:
-  - title: What the fixture shows
-    body: Lite Llm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, updated_at, changed_by, changed_by_api_key, action, table_name. Values in the sample were rewritten to documentation addresses.
+  - title: Virtual keys
+    body: Admins create virtual keys for users and teams, each with allowed models, routes and budgets. An application presents a virtual key; the proxy maps it to the real provider credential.
+  - title: Spend tracking
+    body: For each request the proxy writes a spend record with request_id, the hashed api_key, user, team, model and model group, token counts, spend, timing and the requester IP. status is success or failure, and metadata.error_information carries the provider error.
+  - title: Audit log
+    body: When audit logging is enabled, every change through the management API is stored. action is created, updated or deleted, table_name says which kind of object (for example LiteLLM_VerificationToken for keys), and before_value and updated_values show the change.
 traffic:
   handles:
-    - json
+    - OpenAI-compatible model calls
+    - Virtual key and budget management
+    - Team and user administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads lite_llm and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: App or admin acts
+      desc: An app sends a model call with a virtual key, or an admin creates or edits a key, team or user.
+    - step: Proxy handles it
+      desc: The proxy routes the call to a provider and meters it, or applies the admin change.
+    - step: Record stored
+      desc: A spend record or an audit record is written to the proxy's database.
+    - step: Collector reads JSON
+      desc: A collector pulls the records through the proxy API. Goatpedia reads them as JSON.
 logs:
-  - type: Audit
+  - type: Audit log
     sourcetype: lite_llm_audit
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One object per admin change. action, table_name and object_id say what changed and changed_by who did it. This sample is a new virtual key being created, with its settings in updated_values. Values are documentation addresses.
     sample: '{"id":"621d20b6-2e02-432f-8b98-345d2d1c3ce8","updated_at":"2026-07-03T11:46:50.269000Z","changed_by":"user@example.com","changed_by_api_key":"bd1d442577d03f30cbc3957b0235155468fbf3b9d3aa4eac23a1e4d730c41b7c","action":"created","table_name":"LiteLLM_VerificationToken","object_id":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","before_value":null,"updated_values":{"key":"sk-example","spend":0,"token":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","config":{},"models":[],"aliases":{},"user_id":"default_user_id","key_name":"sk-example","metadata":{},"token_id":"7f97480dc541594a1f584bbcbdf56212617a1eaeeec37f9d14a0227d15aab97b","key_alias":"******","created_at":"2026-07-03T11:46:50.263000Z","created_by":"default_user_id","updated_at":"2026-07-03T11:46:50.263000Z","updated_by":"default_user_id","permissions":{},"allowed_routes":["llm_api_routes"],"router_settings":{"model_group_alias":{}},"access_group_ids":[],"model_max_budget":{},"allowed_cache_controls":[]}}'
     key:
       - id
       - updated_at
       - changed_by
       - changed_by_api_key
-  - type: Spend Tracking
+  - type: Spend log
     sourcetype: lite_llm_spend_tracking
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per model request. api_key, user and team_id say who called, model which model, spend and the token counts the cost, and status the result. This sample is a failed gpt-4o-mini call where the provider answered 401 Incorrect API key. Values are documentation addresses.
     sample: '{"request_id":"bcfdde71-ec6c-469c-ba5e-bba248d12b23","call_type":"","api_key":"f0c41b248c7396133777f28fddfc2ae0fe0789e0dcdc17cda1ede29adc522dbf","spend":0,"total_tokens":0,"prompt_tokens":0,"completion_tokens":0,"start_time":"2026-07-18T10:12:39.353+00:00","end_time":"2026-07-18T10:12:39.353+00:00","model":"openai/gpt-4o-mini","model_group":"gpt-4o-mini","user":"default_user_id","team_id":"litellm-dashboard","requester_ip_address":"203.0.113.8","status":"failure","metadata":{"error_information":{"error_code":"401","error_class":"AuthenticationError","error_message":"Incorrect API key provided"}}}'
     key:
       - request_id
@@ -67,17 +85,33 @@ logs:
       - spend
 cves: []
 detections:
-  - title: Lite Llm events arriving
+  - title: Virtual key created or deleted
+    severity: medium
+    signals:
+      - action
+      - table_name
+      - changed_by
+      - object_id
+    why: Virtual keys grant model access and budget. A new or deleted key outside normal provisioning, or a key made by an unexpected admin, is an access change worth review.
+    kql: |
+      dataset="lite-llm_logs"
+      | where sourcetype == "lite_llm_audit" and table_name == "LiteLLM_VerificationToken" and action in ("created", "deleted")
+      | project updated_at, changed_by, action, object_id
+    mitre:
+      - T1098
+  - title: Model calls failing authentication
     severity: low
     signals:
-      - id
-      - updated_at
-      - changed_by
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "lite_llm_audit"'
+      - status
+      - metadata.error_information.error_code
+      - api_key
+      - requester_ip_address
+    why: A 401 from the provider means the call reached the gateway but the credential behind it was rejected. Many such failures from one requester can mean someone trying keys.
+    kql: |
+      dataset="lite-llm_logs"
+      | where sourcetype == "lite_llm_spend_tracking" and status == "failure" and metadata.error_information.error_code == "401"
+      | project start_time, api_key, user, team_id, model, requester_ip_address
 optimizations: []
 references:
-  - title: elastic/integrations lite_llm/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/lite_llm/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample lite_llm_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/lite_llm_audit.json
+  - title: LiteLLM documentation
+    url: https://docs.litellm.ai/docs/

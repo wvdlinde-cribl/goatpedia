@@ -1,88 +1,112 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: m365-defender
-name: Microsoft 365 Defender
-short: Defender
+name: Microsoft Defender XDR
+short: Defender XDR
 vendor: Microsoft
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - m365_defender
-  - Elastic integrations
+  - Microsoft 365 Defender
+  - M365 Defender
+  - Microsoft Defender portal
 tags:
-  - elastic
+  - xdr
+  - edr
+  - email-security
+  - vulnerability-management
   - json
-summary: Microsoft 365 Defender is logged by the Elastic integrations package m365_defender. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's extended detection and response suite. It joins signals from Defender for Endpoint, Office 365, Identity and Cloud Apps into one portal, correlates alerts into incidents, and keeps advanced hunting tables of raw device, email and identity activity. The service runs in Microsoft's cloud with sensors on endpoints and in Microsoft 365. Its streams give raw hunting events, alerts, incidents and per-device vulnerabilities.
 sourcetypes:
   - st: m365_defender
-    desc: 'Elastic integrations fixture, 20 events. Upstream: m365_defender/data_stream/event/_dev/test/pipeline/test-device.log'
+    desc: Advanced hunting events streamed from Defender XDR, such as DeviceEvents, with the action type, device and initiating process
   - st: m365_defender_alert
-    desc: 'Elastic integrations fixture, 5 events. Upstream: m365_defender/data_stream/alert/_dev/test/pipeline/test-alert.log'
+    desc: Security alerts from the Defender products, with title, severity, status, category, detection source and MITRE techniques
   - st: m365_defender_incident
-    desc: 'Elastic integrations fixture, 6 events. Upstream: m365_defender/data_stream/incident/_dev/test/pipeline/test-incident.log'
+    desc: Incidents that group related alerts, with status, severity, classification, assignment, comments and the alerts and evidence inside
   - st: m365_defender_vulnerability
-    desc: 'Elastic integrations fixture, 6 events. Upstream: m365_defender/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+    desc: Vulnerabilities found on devices by vulnerability management, with CVE, CVSS, exploitability and the recommended update
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: m365_defender
-  Sourcetypes: '4'
-  Fixture events: '37'
-  Log format seen: json
-  Fields in the first fixture: Tenant, category, operationName, properties.AccountDomain, properties.AccountName, properties.AccountSid
+  Product: Cloud XDR suite combining Defender for Endpoint, Office 365, Identity and Cloud Apps
+  Sensors: Defender for Endpoint on Windows, macOS, Linux and mobile; Microsoft 365 mail and identity services
+  Log transport: Streaming API to Azure Event Hubs or storage for hunting events; Microsoft Graph security API for alerts and incidents; vulnerability data through the Defender API
+  Log format: One JSON object per event, alert, incident or vulnerability record
+  What a hunting event answers: What happened on which device, which process caused it and under which account (ActionType, DeviceName, InitiatingProcess fields)
+  What an alert answers: What was detected, by which Defender product, how severe and whether it is being handled
+  What an incident answers: Which alerts belong together, who owns the case and how it was classified
+  What a vulnerability record answers: Which device has which CVE, how severe and exploitable it is, and which update fixes it
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Microsoft Defender portal
+      desc: Correlation, alerts, incidents and hunting tables live in the Defender XDR service in Microsoft's cloud. Collectors read Event Hubs or call the Graph and Defender APIs for the tenant.
+    - slot: endpoint
+      title: Defender sensors
+      desc: The Defender for Endpoint sensor on each device produces the device events and the inventory behind vulnerability findings. The device acts; the event is stored in the tenant.
 howItWorks:
-  - title: What the fixture shows
-    body: Microsoft 365 Defender events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Tenant, category, operationName, properties.AccountDomain, properties.AccountName, properties.AccountSid. Values in the sample were rewritten to documentation addresses.
+  - title: Sensors and hunting tables
+    body: Defender sensors send device, email, identity and cloud-app activity to the tenant. It lands in advanced hunting tables such as DeviceEvents, DeviceProcessEvents and EmailEvents. The Streaming API can send those rows to an Event Hub as they arrive; each message names its table in category, such as AdvancedHunting-DeviceEvents.
+  - title: Alerts and incidents
+    body: Detections from any Defender product become alerts. Defender XDR correlates related alerts into an incident. Both are exposed through the Microsoft Graph security API with status, severity, classification, determination, assignment and links to the portal.
+  - title: Vulnerability management
+    body: Defender vulnerability management uses the sensor's software inventory to list each CVE that applies to a device, with the CVSS score, exploitability level and the security update that fixes it.
 traffic:
   handles:
-    - json
+    - Device process
+    - file
+    - network and registry activity
+    - Email and identity signals
+    - Alert triage and incident handling
+    - Software vulnerability findings
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads m365_defender and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Sensor observes
+      desc: A Defender sensor records activity on a device, in mail or in identity traffic.
+    - step: Defender analyses
+      desc: The service stores the raw rows, raises alerts, correlates incidents and computes vulnerability findings.
+    - step: Data is exported
+      desc: Hunting rows stream to an Event Hub; alerts, incidents and vulnerabilities are read from the APIs.
+    - step: Events are JSON
+      desc: Each record is one JSON object. Goatpedia reads the samples as JSON.
 logs:
-  - type: Event
+  - type: Advanced hunting events
     sourcetype: m365_defender
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One streamed hunting row. category names the table and properties holds the row; properties.ActionType says what happened and the InitiatingProcess fields which process did it. This sample is a DeviceEvents row where backgroundTaskHost.exe accessed DPAPI on testmachine5.
     sample: '{"Tenant":"DefaultTenant","category":"AdvancedHunting-DeviceEvents","operationName":"Publish","properties":{"AccountDomain":null,"AccountName":null,"AccountSid":null,"ActionType":"DpapiAccessed","AdditionalFields":"{\"CallerProcessID\":4248}","AppGuardContainerId":null,"DeviceId":"de6509d550e605faf3bbeac0905ab9590fe12345","DeviceName":"testmachine5","FileName":null,"FileOriginIP":null,"FileOriginUrl":null,"FileSize":329,"FolderPath":null,"InitiatingProcessAccountDomain":"testmachine5","InitiatingProcessAccountName":"administrator1","InitiatingProcessAccountObjectId":null,"InitiatingProcessAccountSid":"S-1-5-21-375308137-164487297-2828222098-111","InitiatingProcessAccountUpn":null,"InitiatingProcessCommandLine":"\"backgroundTaskHost.exe\" -ServerName:App.AppXmtcan0h2tfbfy7k9kn8hbxb6dmzz1zh0.mca","InitiatingProcessCreationTime":"2022-11-07T17:07:41.698868Z","InitiatingProcessFileName":"backgroundtaskhost.exe","InitiatingProcessFileSize":19776,"InitiatingProcessFolderPath":"c:\\windows\\system32\\backgroundtaskhost.exe","InitiatingProcessId":4248,"InitiatingProcessLogonId":1431021,"InitiatingProcessMD5":"b7f884c1b74a263f746ee12a5f7c9f6a","InitiatingProcessParentCreationTime":"2022-11-07T16:34:27.0112578Z","InitiatingProcessParentFileName":"svchost.exe","InitiatingProcessParentId":948,"InitiatingProcessSHA1":"1bc5066ddf693fc034d6514618854e26a84fd0d1"},"tenantId":"12345af3-bc0e-4f36-b08e-27759e912345","time":"2022-11-07T17:45:56.3057929Z"}'
     key:
       - Tenant
       - category
       - operationName
       - properties.AccountDomain
-  - type: Alert
+  - type: Alerts
     sourcetype: m365_defender_alert
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per alert. title, severity, status, category and mitreTechniques describe the detection and serviceSource the product that raised it. This sample is a medium Suspicious PowerShell command line alert from Defender for Endpoint, still new.
     sample: '{"id":"daefa1828b-dd4e-405c-8a3b-aa28596830dd_1","providerAlertId":"efa1828b-dd4e-405c-8a3b-aa28596830dd_1","incidentId":"23","status":"new","severity":"medium","classification":null,"determination":null,"serviceSource":"microsoftDefenderForEndpoint","detectionSource":"microsoftDefenderForEndpoint","productName":"Microsoft Defender for Endpoint","detectorId":"7f1c3609-a3ff-40e2-995b-c01770161d68","tenantId":"3adb963c-8e61-48e8-a06d-6dbb0dacea39","title":"Suspicious PowerShell command line","description":"A suspicious PowerShell activity was observed on the machine. \nThis behavior may indicate that PowerShell was used during installation, exploration, or in so...","recommendedActions":"1. Examine the PowerShell command line to understand what commands were executed. Note: the content may need to be decoded if it is Base64-encoded.\n2. Search...","category":"Execution","assignedTo":null,"alertWebUrl":"https://security.microsoft.com/alerts/daefa1828b-dd4e-405c-8a3b-aa28596830dd_1?tid=3adb963c-8e61-48e8-a06d-6dbb0dacea39","incidentWebUrl":"https://security.microsoft.com/incidents/23?tid=3adb963c-8e61-48e8-a06d-6dbb0dacea39","actorDisplayName":null,"threatDisplayName":null,"threatFamilyName":null,"mitreTechniques":["T1059.001"],"createdDateTime":"2023-10-20T09:53:09.8839373Z","lastUpdateDateTime":"2023-10-20T09:54:07.5033333Z","resolvedDateTime":null,"firstActivityDateTime":"2023-10-20T09:51:39.5154802Z","lastActivityDateTime":"2023-10-20T09:51:41.9939003Z","alertPolicyId":null,"additionalData":null}'
     key:
       - id
       - providerAlertId
       - incidentId
       - status
-  - type: Incident
+  - type: Incidents
     sourcetype: m365_defender_incident
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per incident. displayName, status, severity, classification, determination and assignedTo describe the case, and alerts holds the alerts with their evidence. This sample is an active multi-stage incident classified as a true positive. Values are documentation addresses.
     sample: '{"@odata.type":"#microsoft.graph.security.incident","id":"2872395","incidentWebUrl":"https://security.microsoft.com/incidents/2972395?tid=12f988bf-16f1-11af-11ab-1d7cd011db47","redirectIncidentId":null,"tenantId":"b3c2b5fc-828c-45fa-a1e1-10d74f6d6e9c","displayName":"Multi-stage incident involving Initial access & Command and control on multiple endpoints reported by multiple sources","createdDateTime":"2020-08-13T08:43:35.5533333Z","lastUpdateDateTime":"2021-09-29T09:35:45.1133333Z","assignedTo":"user@example.com","classification":"truePositive","determination":"multiStagedAttack","status":"active","severity":"medium","tags":["Demo"],"comments":[{"comment":"Demo incident","createdBy":"user@example.com","createdTime":"2021-09-30T12:07:37.2756993Z"}],"alerts":{"@odata.type":"#microsoft.graph.security.alert","id":"da637551227677560813_-961444813","providerAlertId":"da637551227677560813_-961444813","incidentId":"28282","status":"new","severity":"low","classification":"unknown","determination":"unknown","serviceSource":"microsoftDefenderForEndpoint","detectionSource":"antivirus","detectorId":"e0da400f-affd-43ef-b1d5-afc2eb6f2756","tenantId":"b3c1b5fc-828c-45fa-a1e1-10d74f6d6e9c","title":"Suspicious execution of hidden file","description":"A hidden file has been launched. This activity could indicate a compromised host. Attackers often hide files associated with malicious tools to evade file sy...","recommendedActions":"Collect artifacts and determine scope\n�\tReview the machine timeline for suspicious activities that may have occurred before and after the time of the alert, ...","category":"DefenseEvasion","assignedTo":null,"alertWebUrl":"https://security.microsoft.com/alerts/da637551227677560813_-961444813?tid=b3c1b5fc-828c-45fa-a1e1-10d74f6d6e9c","incidentWebUrl":"https://security.microsoft.com/incidents/28282?tid=b3c1b5fc-828c-45fa-a1e1-10d74f6d6e9c","actorDisplayName":null,"threatDisplayName":null,"threatFamilyName":null,"mitreTechniques":["T1564.001"],"createdDateTime":"2021-04-27T12:19:27.7211305Z","lastUpdateDateTime":"2021-05-02T14:19:01.3266667Z","resolvedDateTime":null,"firstActivityDateTime":"2021-04-26T07:45:50.116Z","lastActivityDateTime":"2021-05-02T07:56:58.222Z","comments":[],"evidence":[{"@odata.type":"#microsoft.graph.security.deviceEvidence","createdDateTime":"2021-04-27T12:19:27.7211305Z","verdict":"unknown","remediationStatus":"none","remediationStatusDetails":null,"firstSeenDateTime":"2020-09-12T07:28:32.4321753Z","mdeDeviceId":"73e7e2de709dff64ef64b1d0c30e67fab63279db","azureAdDeviceId":null,"deviceDnsName":"tempDns","osPlatform":"Windows10","osBuild":22424,"version":"Other","healthStatus":"active","riskScore":"medium","rbacGroupId":75,"rbacGroupName":"UnassignedGroup","onboardingStatus":"onboarded","defenderAvStatus":"unknown","loggedOnUsers":[{"accountName":"system"}],"roles":["compromised"],"tags":["Test Machine"],"vmMetadata":{"vmId":"ca1b0d41-5a3b-4d95-b48b-f220aed11d78","cloudProvider":"azure","resourceId":"/subscriptions/8700d3a3-3bb7-4fbe-a090-488a1ad04161/resourceGroups/WdatpApi-EUS-STG/providers/Microsoft.Compute/virtualMachines/NirLaviTests","subscriptionId":"8700d3a3-3bb7-4fbe-a090-488a1ad04161"}},{"@odata.type":"#microsoft.graph.security.fileEvidence","createdDateTime":"2021-04-27T12:19:27.7211305Z","verdict":"unknown","remediationStatus":"none","remediationStatusDetails":null,"detectionStatus":"detected","mdeDeviceId":"73e7e2de709dff64ef64b1d0c30e67fab63279db","roles":[],"tags":[],"fileDetails":{"sha1":"5f1e8acedc065031aad553b710838eb366cfee9a","sha256":"8963a19fb992ad9a76576c5638fd68292cffb9aaac29eb8285f9abf6196a7dec","fileName":"MsSense.exe","filePath":"C:\\Program Files\\temp","fileSize":6136392,"filePublisher":"Microsoft Corporation","signer":null,"issuer":null}}]}}'
     key:
       - '@odata.type'
       - id
       - incidentWebUrl
       - redirectIncidentId
-  - type: Vulnerability
+  - type: Device vulnerabilities
     sourcetype: m365_defender_vulnerability
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per CVE on a device. CveId, CvssScore and ExploitabilityLevel say how bad it is, DeviceName where, and RecommendedSecurityUpdate what fixes it. This sample is a Red Hat kernel CVE on a Linux host, with no known exploit.
     sample: '{"CveBatchTitle":"Red_hat February 2025 Vulnerabilities","CveBatchUrl":"https://security.access.redhat.com/data/oval/v2/RHEL9/rhel-9.8-eus.oval.xml.bz2","CveId":"CVE-2022-49226","CvssScore":5.5,"DeviceId":"1212121212121212121212","DeviceName":"sample-host-1","EventTimestamp":"2025-10-06 12:00:00","ExploitabilityLevel":"NoExploit","FirstSeenTimestamp":"2025-10-06 10:43:58","Id":"1212121212121212121212_red_hat_kernel_0:5.14.0-427.42.1.el9_4_CVE-2022-49226","IsOnboarded":true,"LastSeenTimestamp":"2025-10-06 22:45:00","OSArchitecture":"x64","OSPlatform":"Linux","OSVersion":"enterprise_linux_9.4","RbacGroupId":0,"RbacGroupName":"Unassigned","RecommendationReference":"va-_-red_hat-_-kernel","RecommendedSecurityUpdate":"CVE-2022-49226_oval:com.redhat.rhsa:def:20249315","RecommendedSecurityUpdateId":"RHSA-2024:9315","RecommendedSecurityUpdateUrl":"https://access.redhat.com/errata/RHSA-2024:9315","RegistryPaths":[],"SoftwareName":"kernel","SoftwareVendor":"red_hat","SoftwareVersion":"0:5.14.0-427.42.1.el9_4","Status":"New","VulnerabilitySeverityLevel":"Medium"}'
     key:
       - CveBatchTitle
@@ -91,17 +115,38 @@ logs:
       - CvssScore
 cves: []
 detections:
-  - title: Microsoft 365 Defender events arriving
-    severity: low
+  - title: New high or medium Defender alert
+    severity: high
     signals:
-      - Tenant
-      - category
-      - operationName
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "m365_defender"'
+      - severity
+      - status
+      - title
+      - serviceSource
+      - mitreTechniques
+    why: Alerts are Defender's own detections. New high and medium alerts that nobody has picked up are the triage queue.
+    kql: |
+      dataset="m365-defender_logs"
+      | where sourcetype == "m365_defender_alert" and severity in ("high", "medium") and status == "new"
+      | project createdDateTime, severity, title, category, serviceSource, mitreTechniques, incidentId
+  - title: Exploitable vulnerability on a device
+    severity: medium
+    signals:
+      - CveId
+      - CvssScore
+      - ExploitabilityLevel
+      - DeviceName
+    why: A CVE with a public exploit or exploit kit on a device is the patching priority. NoExploit findings can wait for normal patch cycles.
+    kql: |
+      dataset="m365-defender_logs"
+      | where sourcetype == "m365_defender_vulnerability" and ExploitabilityLevel != "NoExploit"
+      | project EventTimestamp, DeviceName, CveId, CvssScore, ExploitabilityLevel, RecommendedSecurityUpdate
+    mitre:
+      - T1190
 optimizations: []
 references:
-  - title: elastic/integrations m365_defender/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/m365_defender/data_stream/event/_dev/test/pipeline/test-device.log
-  - title: Pack Generator sample m365_defender.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/m365_defender.json
+  - title: Advanced hunting overview
+    url: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-overview
+  - title: Microsoft Graph security incident resource
+    url: https://learn.microsoft.com/en-us/graph/api/resources/security-incident
+  - title: Microsoft Graph security alert resource
+    url: https://learn.microsoft.com/en-us/graph/api/resources/security-alert

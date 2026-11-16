@@ -1,76 +1,96 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cybereason
-name: Cybereason
+name: Cybereason Defense Platform
 short: Cybereason
 vendor: Cybereason
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cybereason
-  - Elastic integrations
+  - Cybereason EDR
+  - Cybereason XDR
 tags:
-  - elastic
+  - edr
+  - xdr
+  - endpoint
+  - malware
   - json
-summary: Cybereason is logged by the Elastic integrations package cybereason. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: An endpoint detection and response platform. Sensors on Windows, macOS and Linux machines stream process, network, logon and file activity to a Cybereason server, which correlates it into Malops (malicious operations) and also records individual malware detections. The server's API returns logon sessions, malware detections and Malops as JSON, so you can see who logged on where, what was detected and which attacks are open.
 sourcetypes:
   - st: cybereason_logon_session
-    desc: 'Elastic integrations fixture, 1 events. Upstream: cybereason/data_stream/logon_session/_dev/test/pipeline/test-logon-session.log'
+    desc: Logon sessions seen by the sensors, with logon type, user, machine and remote machine
   - st: cybereason_malware
-    desc: 'Elastic integrations fixture, 1 events. Upstream: cybereason/data_stream/malware/_dev/test/pipeline/test-malware.log'
+    desc: Individual malware detections, with the file, machine, detection engine, score and status
   - st: cybereason_poll_malop
-    desc: 'Elastic integrations fixture, 1 events. Upstream: cybereason/data_stream/poll_malop/_dev/test/pipeline/test-poll-malop.log'
+    desc: Malops (correlated malicious operations), with root cause, affected machines and users, severity and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cybereason
-  Sourcetypes: '3'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: '[0].simpleValues.logonType.totalValues, [0].simpleValues.logonType.values[0], [0].simpleValues.creationTime.totalValues, [0].simpleValues.creationTime.values[0], [0].simpleValues.group.totalValues, [0].simpleValues.group.values[0]'
+  Product: Endpoint detection and response (EDR) with prevention and correlation into Malops
+  Clients: Sensor on Windows, macOS and Linux endpoints and servers
+  Account plane: Cybereason server (SaaS or on-premises) with the investigation and Malop inbox
+  Log transport: HTTPS REST API of the Cybereason server, polled by any collector with an API user
+  Log format: JSON. Logon sessions come back in the visual-search element format (simpleValues and elementValues); malware and Malops as flat objects
+  What a logon session answers: Which user logged on to which machine, from which remote machine, with what logon type, and whether the elements are suspicious
+  What a malware record answers: Which file on which machine was detected, by which engine, with what name and score, and what its status is
+  What a Malop answers: Which attack is open, what its root cause is, which machines and users it touches, how severe it is and whether it is still active
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Cybereason sensor
+      desc: The sensor on each machine records process, network, logon and file activity and enforces prevention. It streams this to the server.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cybereason server
+      desc: The server, usually hosted by Cybereason, correlates sensor data into Malops and malware detections and serves them through its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Cybereason events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries [0].simpleValues.logonType.totalValues, [0].simpleValues.logonType.values[0], [0].simpleValues.creationTime.totalValues, [0].simpleValues.creationTime.values[0], [0].simpleValues.group.totalValues, [0].simpleValues.group.values[0]. Values in the sample were rewritten to documentation addresses.
+  - title: Elements and suspicions
+    body: The server models activity as elements (Process, File, Machine, User, LogonSession, Connection) with properties and links. Suspicions mark elements that look malicious, and Malops are the attack stories built from linked suspicions.
+  - title: Malware and Malops
+    body: A malware detection is a single file judged malicious by an engine (static analysis, signatures, behaviour). A Malop groups the root cause process, affected machines and users, detection engines and types, and carries a severity, priority and status such as Active or Closed.
+  - title: How the data leaves the server
+    body: A collector logs in to the server API and queries logon sessions through the visual search API, the malware endpoint and the Malop inbox. Each returns JSON pages. Any collector can do this.
 traffic:
   handles:
-    - json
+    - Process execution and file activity on endpoints
+    - Interactive and remote logons
+    - Malware detection and prevention
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cybereason and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Sensor observes
+      desc: The sensor records a process start, file write, network connection or logon on the machine.
+    - step: Server correlates
+      desc: The server links the activity, raises suspicions, records malware detections and builds Malops.
+    - step: API exposes it
+      desc: Logon sessions, malware and Malops are available from the server API.
+    - step: Collector polls
+      desc: A collector queries the API on a schedule and forwards each record.
 logs:
-  - type: Logon Session
+  - type: Logon sessions
     sourcetype: cybereason_logon_session
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One element per logon session, in the visual-search format. simpleValues.logonType is SLT_RemoteInteractive (an RDP logon), creationTime is when, elementValues.user names the user and elementValues.remoteMachine the machine they came from, with hasSuspicions and hasMalops flags.
     sample: '[{"simpleValues":{"logonType":{"totalValues":1,"values":["SLT_RemoteInteractive"]},"creationTime":{"totalValues":1,"values":["1710332435086"]},"group":{"totalValues":1,"values":["00000000-0000-0000-0000-000000000000"]},"elementDisplayName":{"totalValues":1,"values":["Unknown host > desktop-f2nf4st"]}},"elementValues":{"user":{"totalValues":1,"elementValues":[{"elementType":"User","guid":"AAAAGKxw2bFBmcGU","name":"desktop-f2nf4st\\eden","hasSuspicions":false,"hasMalops":false,"elementValues":{"user":"myd"},"simpleValues":{"usersimple":"value"}}],"totalSuspicious":0,"totalMalicious":0,"guessedTotal":0},"remoteMachine":{"totalValues":1,"elementValues":[{"elementType":"Remote","guid":"AAAAGKxw2bFBmcGUssss","name":"desktop-f2nf4stmjremote","hasSuspicions":true,"hasMalops":false,"elementValues":{"remote":"myd"},"simpleValues":{"remotesimple":"value"}}],"totalSuspicious":0,"totalMalicious":0,"guessedTotal":0},"ownerMachine":{"totalValues":1,"elementValues":[{"elementType":"Machine","guid":"_MlzCxCi55eyTiwX","name":"desktop-f2nf4st","hasSuspicions":false,"hasMalops":false,"elementValues":{"ownermachine":"myd"},"simpleValues":{"machinesimple":"value"}}],"totalSuspicious":0,"totalMalicious":0,"guessedTotal":0},"processes":{"totalValues":320,"elementValues":[{"elementType":"MachineProcess","guid":"_MlzCxCi55eyTiwXYX","name":"desktop-f2nf4stgy","hasSuspicions":true,"hasMalops":true,"elementValues":{"process":"myd"},"simpleValues":{"processsimple":"value"}}],"totalSuspicious":0,"totalMalicious":0,"guessedTotal":0}},"suspicions":{"xyz":"dhyg"},"filterData":{"sortInGroupValue":"hyefilter","groupByValue":"{guid=AAAAGKxw2bFBmcGU, __typename=User, elementDisplayName=desktop-f2nf4st\\eden, group=7af5074f-ab26-43b3-b0f1-acc962920615, hasSuspicions=false, hasMalops=..."},"isMalicious":false,"suspicionCount":0,"guidString":"_MlzC6rnLebZ2aBh","labelsIds":"l1","malopPriority":"HIGH","suspect":false,"malicious":false},{"suspicions":"map"}]'
     key:
       - '[0].simpleValues.logonType.totalValues'
       - '[0].simpleValues.logonType.values[0]'
       - '[0].simpleValues.creationTime.totalValues'
       - '[0].simpleValues.creationTime.values[0]'
-  - type: Malware
+  - type: Malware detections
     sourcetype: cybereason_malware
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per detection. name and malwareDataModel.filePath identify the file, machineName the machine, detectionEngine (StaticAnalysis) and malwareDataModel.detectionName the verdict, score the confidence, and status Detected the current state.
     sample: '{"guid":"-286218732.7910817006083139531","timestamp":1710147417000,"name":"cymulatelm64.exe","type":"UnknownMalware","elementType":"File","machineName":"dim-win10","status":"Detected","needsAttention":false,"referenceGuid":"-286218732.7910817006083139531","referenceElementType":"File","score":0.7721870783056456,"detectionValue":"62b9e0dfd0ef2cd88fdcd412523c7d9f","detectionValueType":"DVT_FILE","detectionEngine":"StaticAnalysis","malwareDataModel":{"@class":".BaseFileMalwareDataModel","type":"UnknownMalware","detectionName":"IL:Trojan.MSILZilla.30425","filePath":"c:\\programdata\\cymulate\\hopper\\boot64_1da739212534cbd666bc903c25b812e0\\cymulatelm64.exe","processName":"remotefxvgpudisablement.exe","url":"https://malware_data_model","detectionRule":"Formatting (1106)","module":"Formatting (1106)","description":"EXECUTE_MALICIOUS_ACTIVITY"},"id":{"guid":"-286218732.7910817006083139531","timestamp":1710147417000,"malwareType":"UnknownMalware","elementType":"File"},"schedulerScan":false}'
     key:
       - guid
       - timestamp
       - name
       - type
-  - type: Poll Malop
+  - type: Malops
     sourcetype: cybereason_poll_malop
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per Malop. displayName and primaryRootCauseName are the root cause process, detectionEngines and malopDetectionType say how it was found (a custom EDR rule), malopSeverity and malopStatus say it is High and Active, and machines and users list who is affected, including isolation state.
     sample: '{"@class":".MalopInboxModel","guid":"AAAA05JzW7vmNhCD","closerName":"Closer Name","displayName":"register-cimprovider.exe","rootCauseElementType":"Process","primaryRootCauseName":"register-cimprovider.exe","rootCauseElementNamesCount":1,"detectionEngines":["EDR"],"detectionTypes":["calc_Custom_Rule"],"malopDetectionType":"CUSTOM_RULE","creationTime":1694821955604,"lastUpdateTime":1709579576110,"iconBase64":"muhk","priority":"HIGH","group":"72a61eac-6f79-4670-8607-a1334ddd2ff0","rootCauseElementHashes":"f7b32703e444fdc75c09840afa3dcda8286f3b24","status":"Active","severity":"High","machines":[{"@class":".MachineInboxModel","guid":"lbnnvBCi55eyTiwX","displayName":"d3dock-poc","osType":"WINDOWS","connected":false,"isolated":false,"lastConnected":1704608610725,"empty":true},{"@class":".MachineInboxModel","guid":"zpP73xCi55eyTiwX","displayName":"cybereason","osType":"linux","connected":true,"isolated":true,"lastConnected":1710750650941,"empty":true}],"users":[{"guid":"AAAAGGHyKbMGbI4y","displayName":"d3dock-poc\\administrator","admin":false,"localSystem":false,"domainUser":false},{"guid":"AAAAGK97gKTvmLc3","displayName":"cybereason\\system","admin":false,"localSystem":true,"domainUser":false}],"containers":["Testing"],"labels":["IT-Pending","Testing"],"decisionStatuses":["Testing"],"malopCloseTime":1700721915015,"escalated":false,"malopStatus":"Active","malopSeverity":"High","edr":true,"malopType":"CUSTOM_RULE","malopPriority":"LOW"}'
     key:
       - '@class'
@@ -79,17 +99,31 @@ logs:
       - displayName
 cves: []
 detections:
-  - title: Cybereason events arriving
-    severity: low
+  - title: Active high-severity Malop
+    severity: high
     signals:
-      - '[0].simpleValues.logonType.totalValues'
-      - '[0].simpleValues.logonType.values[0]'
-      - '[0].simpleValues.creationTime.totalValues'
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cybereason_logon_session"'
+      - malopSeverity
+      - malopStatus
+      - primaryRootCauseName
+      - machines
+    why: A Malop is the platform's own correlated attack. Active Malops with High severity need a response, and the machines list shows whether endpoints are already isolated.
+    kql: |
+      dataset="cybereason_logs"
+      | where sourcetype == "cybereason_poll_malop" and malopStatus == "Active" and malopSeverity == "High"
+      | project lastUpdateTime, displayName, primaryRootCauseName, malopDetectionType, malopSeverity, malopStatus, machines
+  - title: Malware detected on a machine
+    severity: high
+    signals:
+      - name
+      - machineName
+      - status
+      - detectionEngine
+    why: Each malware record is a file the platform judged malicious on a named machine. Detections that are not remediated, or that repeat across machines, point to an active infection.
+    kql: |
+      dataset="cybereason_logs"
+      | where sourcetype == "cybereason_malware" and status == "Detected"
+      | project timestamp, machineName, name, type, detectionEngine, malwareDataModel.detectionName, score
+    mitre:
+      - T1204
 optimizations: []
-references:
-  - title: elastic/integrations cybereason/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cybereason/data_stream/logon_session/_dev/test/pipeline/test-logon-session.log
-  - title: Pack Generator sample cybereason_logon_session.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cybereason_logon_session.json
+references: []

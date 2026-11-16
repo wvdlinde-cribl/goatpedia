@@ -1,258 +1,276 @@
 id: tychon
-name: Tychon
-short: Tychon
-vendor: Tychon
+name: TYCHON
+short: TYCHON
+vendor: TYCHON
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - tychon
-  - Elastic integrations
+  - TYCHON Enterprise
+  - TYCHON Agentless
 tags:
-  - elastic
+  - endpoint
+  - compliance
+  - stig
   - json
-summary: Tychon is logged by the Elastic integrations package tychon. The Pack Generator samples pool holds fixture events for 19 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: TYCHON collects a master record of each endpoint. It inventories hardware, software, certificates and network state, and it reports CVE matches, STIG benchmarks and endpoint-protection posture. The collection runs from scripts on the host, including an agentless mode that does not install a new service. Nineteen JSON streams are those datasets. A collector receives the JSON. Any collector the operator points the export at can do this.
 sourcetypes:
   - st: tychon_arp
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/arp/_dev/test/pipeline/test-base.log'
+    desc: One ARP neighbor a host observed, with the remote address and MAC
   - st: tychon_browser
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/browser/_dev/test/pipeline/test-base.log'
+    desc: One browser-configuration result on a host
   - st: tychon_ciphers
-    desc: 'Elastic integrations fixture, 2 events. Upstream: tychon/data_stream/ciphers/_dev/test/pipeline/test-base.log'
+    desc: One cipher observation. The sample ties a listening connection to a signed executable
   - st: tychon_cmrs
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/cmrs/_dev/test/pipeline/test-base.log'
+    desc: One asset-output record. The sample marks output_type as asset
   - st: tychon_coams
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/coams/_dev/test/pipeline/test-base.log'
+    desc: One organizational attribute attached to a host, with its name and path
   - st: tychon_cpu
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/cpu/_dev/test/pipeline/test-base.log'
+    desc: One CPU inventory record for a host
   - st: tychon_cve
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/cve/_dev/test/pipeline/test-base.log'
+    desc: One CVE a host matched, with the script that ran the scan
   - st: tychon_epp
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/epp/_dev/test/pipeline/test-base.log'
+    desc: Endpoint-protection posture on a host, including whether malware protection is set to prevent
   - st: tychon_exposedservice
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/exposedservice/_dev/test/pipeline/test-base.log'
+    desc: One listening service, with the process and the transport
   - st: tychon_externaldevicecontrol
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/externaldevicecontrol/_dev/test/pipeline/test-base.log'
+    desc: One external-device policy result, and whether applying it succeeded
   - st: tychon_features
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/features/_dev/test/pipeline/test-base.log'
+    desc: One Windows feature or optional component installed on the host
   - st: tychon_harddrive
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/harddrive/_dev/test/pipeline/test-base.log'
+    desc: One physical disk, including whether it is the boot disk
   - st: tychon_hardware
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/hardware/_dev/test/pipeline/test-base.log'
+    desc: One hardware device enumerated on the host
   - st: tychon_host
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/host/_dev/test/pipeline/test-base.log'
+    desc: One host posture record, including Device Guard and secure boot
   - st: tychon_networkadapter
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/networkadapter/_dev/test/pipeline/test-base.log'
+    desc: One network adapter, with its address, driver and link state
   - st: tychon_softwareinventory
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/softwareinventory/_dev/test/pipeline/test-base.log'
+    desc: One installed package on the host
   - st: tychon_stig
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/stig/_dev/test/pipeline/test-base.log'
+    desc: One STIG benchmark identified on the host
   - st: tychon_systemcerts
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/systemcerts/_dev/test/pipeline/test-base.log'
+    desc: One certificate file, and whether it is expired or weak
   - st: tychon_volume
-    desc: 'Elastic integrations fixture, 1 events. Upstream: tychon/data_stream/volume/_dev/test/pipeline/test-base.log'
+    desc: One volume inventory record, with the script that collected it
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: tychon
-  Sourcetypes: '19'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: destination.hostname, destination.ip, destination.mac, destination.name, host.biossn, host.cloud.hosted
+  Product: Endpoint readiness and compliance. Enterprise and agentless editions collect a master endpoint record, including CVE, STIG and protection status
+  Where it runs: Scripts or an agent on the endpoint. Results are exported as JSON for whatever collector the operator uses
+  Log transport: JSON documents per dataset. The sample scripts are PowerShell (Invoke-CveScan.ps1, Get-TychonVolumeInfo.ps1)
+  Log format: One JSON object per observation. Almost every object also carries host.hostname, host.biossn and host.ip so the row can be tied to a machine
+  What a CVE row answers: Which CVE id the host matched, and which scan script produced the row
+  What a certificate row answers: Whether the certificate file is expired, expiring soon, or weak
+  What an exposed-service row answers: Which process is listening, on which transport
+  What the inventory rows answer: CPU, disk, volume, adapter, hardware, features, software and ARP neighbors of that same host
 placement:
   slots:
-    - cloud
+    - endpoint
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Scanned host
+      desc: The scripts run on the workstation or server. host.hostname, host.biossn and host.ip identify it. Addresses in the samples are documentation addresses. The host is where the CVE, the certificate and the listening port actually are.
+    - slot: internal
+      title: Collection point
+      desc: Agentless collection is aimed at an existing internal stack the operator already runs. TYCHON does not require that stack to be a particular product. The JSON is the same either way.
 howItWorks:
-  - title: What the fixture shows
-    body: Tychon events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries destination.hostname, destination.ip, destination.mac, destination.name, host.biossn, host.cloud.hosted. Values in the sample were rewritten to documentation addresses.
+  - title: One host, many datasets
+    body: Each stream is a different question about the same computer. The host block (hostname, BIOS serial, OS, IP) is repeated so a row stands alone. host.id is TYCHON's id for that computer. script.name, when present, is the scanner that produced the row. The CVE sample was produced by Invoke-CveScan.ps1. The volume sample was produced by Get-TychonVolumeInfo.ps1.
+  - title: Findings versus inventory
+    body: CVE, STIG, certificates, exposed services, endpoint-protection posture and external-device policy are the security and compliance results. ARP, CPU, disk, volume, adapter, hardware, features, software and the host record are inventory. A certificate row sets certificate.is_expired, certificate.is_weak and certificate.is_expiring_soon. The sample certificate is expired, expiring soon and weak. An exposed-service row names network.transport and process.executable. The sample is tcp and services.exe. Endpoint-protection posture uses the fields elastic.service.endpoint.malware, behavior_protection and memory_protection. In the sample all three are prevent. Those fields are the endpoint agent TYCHON recorded on the host.
+  - title: Organizational attributes
+    body: Two streams carry organization context rather than a technical finding. The COAMS sample is host.attribute.name and host.attribute.path, an organizational attribute on the computer, and host.attribute.cmrs points at a DISA address in the sample. The CMRS sample is a thin asset record whose output_type is asset and whose other fields are empty. This article does not expand those two names beyond what the fields show.
+  - title: How the JSON is produced
+    body: A scan writes one JSON object per observation. A collector receives that object. Any collector can be the receiver. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - CVE matches and STIG benchmark identities
+    - Certificate, listening-service and endpoint-protection posture
+    - Hardware, software and network inventory of the same host
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads tychon and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A script scans the host
+      desc: TYCHON runs a scan for one dataset, such as CVEs, certificates or the disk inventory.
+    - step: One JSON object is written
+      desc: The object carries the finding or the inventory fields plus the host identity.
+    - step: A collector receives it
+      desc: The object is forwarded as JSON. Inventory datasets repeat on each scan and are the bulk of the volume.
 logs:
-  - type: Arp
+  - type: ARP neighbor
     sourcetype: tychon_arp
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One neighbor. destination.ip and destination.mac are the remote side. This sample neighbor timed out, so destination.hostname is that timeout text. host.hostname is the computer that saw it. Addresses are documentation addresses.
     sample: '{"destination.hostname":"Request timed out (700 ms)","destination.ip":"198.51.100.15","destination.mac":"04-d5-90-f6-de-a3","destination.name":"Request timed out (700 ms)","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"198.51.100.25","host.ipv4":"203.0.113.8","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation","host.uptime":"44743.4042923","host.workgroup":"WORKGROUP"}'
     key:
       - destination.hostname
       - destination.ip
       - destination.mac
       - destination.name
-  - type: Browser
+  - type: Browser configuration
     sourcetype: tychon_browser
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One browser-configuration result. event.reason is the finding. This sample reason says the minimum and maximum came from the default application value. host.hostname is the computer. Addresses on the host are documentation addresses.
     sample: '{"event.reason":"Minimum values source: Default application value; Maximum value source: Default application value","host.biossn":"1CDA4D56-CF0A-AA55-FF70-B5C7BAEF9AEB","host.cloud.compute.location":"","host.cloud.compute.name":"","host.cloud.compute.resource_group_name":"","host.cloud.compute.resource_id":"","host.cloud.compute.subscription_id":"","host.cloud.compute.tags":"","host.cloud.compute.vm_id":"","host.cloud.hosted":"false","host.cloud.network.mac_address":"","host.cloud.network.public_ipv4":"","host.cloud.network.public_ipv6":"","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"dcuser","host.hardware.serial_number":"VMware-56 4d da 1c 0a cf 55 aa-ff 70 b5 c7 ba ef 9a eb","host.hostname":"DESKTOP-TIUKL1R","host.id":"25240cabef484ccea3eec170b50bbab5_1CDA4D56-CF0A-AA55-FF70-B5C7BAEF9AEB_DESKTOP-TIUKL1R_WORKGROUP","host.ip":"198.51.100.15,2001:db8::1","host.ipv4":"198.51.100.25","host.ipv6":"2001:db8::1","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"22000","host.os.description":""}'
     key:
       - event.reason
       - host.biossn
       - host.cloud.compute.location
       - host.cloud.compute.name
-  - type: Ciphers
+  - type: Cipher observation
     sourcetype: tychon_ciphers
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One cipher record. This sample is a listening connection (connection.state Listen) tied to a signed file. file.name, file.path and the file hashes identify it, and file.code_signature.subject_name is the signer. The file version text contains a documentation address.
     sample: '{"connection.state":"Listen","error.message":"","file.accessed":"2024-01-11T05:05:47Z","file.attributes":["System.Enum",null],"file.code_signature.issuer":"CN=DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1, O=\"DigiCert, Inc.\", C=US","file.code_signature.issuer_name":"CN=DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1, O=\"DigiCert, Inc.\", C=US","file.code_signature.subject_name":"CN=\"Datadog, Inc\", O=\"Datadog, Inc\", L=New York, S=New York, C=US","file.code_signature.thumbprint":"B03F29CC07566505A718583E9270A6EE17678742","file.created":"2023-10-16T15:27:34Z","file.extension":".exe","file.hash.md5":"3D4B8BFB95EC0FDA55903D7D2DEB9973","file.hash.sha1":"AD78E681F7774F0B7F4295C952AB296BB6D40A03","file.hash.sha256":"01BC93C1C748ADDDE68A8356263969A05B3CD31D6B72CCA5BDF715AA36654FE2","file.mtime":"2023-10-16T15:27:34Z","file.name":"agent.exe","file.path":"C:\\Program Files\\Datadog\\Datadog Agent\\bin\\agent.exe","file.size":"106083616","file.version":"203.0.113.40","host.biossn":"6391B8B8-3EF3-2083-2E6A-8F89DF691194","host.cloud.compute.location":"","host.cloud.compute.name":"","host.cloud.compute.resource_group_name":"","host.cloud.compute.resource_id":"","host.cloud.compute.subscription_id":"","host.cloud.compute.tags":"","host.cloud.compute.vm_id":"","host.cloud.hosted":"false","host.cloud.network.mac_address":"","host.cloud.network.public_ipv4":"","host.cloud.network.public_ipv6":""}'
     key:
       - connection.state
       - error.message
       - file.accessed
       - file.attributes[0]
-  - type: Cmrs
+  - type: Asset output
     sourcetype: tychon_cmrs
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One asset-output record. output_type in this sample is asset. managed_asset, op_attr, software_inventory and vulnerability are empty. There is no host address in this sample.
     sample: '{"managed_asset":"","op_attr":"","output_type":"asset","software_inventory":"","vulnerability":""}'
     key:
       - managed_asset
       - op_attr
       - output_type
       - software_inventory
-  - type: Coams
+  - type: Organizational attribute
     sourcetype: tychon_coams
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One attribute on a host. host.attribute.name and host.attribute.path are the attribute. This sample name is pmo_org. host.attribute.cmrs is a URL carried on the row. host.hostname is the computer. Addresses on the host are documentation addresses, and the owner email is a documentation address.
     sample: '{"host.attribute.cmrs":"https://dpms.disa.mil?name=pmo_org","host.attribute.id":"0000000299","host.attribute.name":"pmo_org","host.attribute.path":"pmo_org.dod.mil:Global:Gov:_United States:DOD:USN:","host.attribute.timestamp":"2023-11-07T18:13:42Z","host.biossn":"6391B8B8-3EF3-2083-2E6A-8F89DF691194","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Microsoft Corporation","host.hardware.bios.version":"17.101.140","host.hardware.cpu.caption":"Intel64 Family 6 Model 126 Stepping 5","host.hardware.manufacturer":"Microsoft Corporation","host.hardware.owner":"user@example.com","host.hardware.serial_number":"023545204557","host.hostname":"DESKTOP-11TJBNG","host.id":"502e234da5b44860af7791b618c1cd6b_6391B8B8-3EF3-2083-2E6A-8F89DF691194_DESKTOP-11TJBNG_WORKGROUP","host.ip":"203.0.113.8,2001:db8::1,203.0.113.40,2001:db8::1,192.0.2.10,2001:db8::1,192.0.2.20,2001:db8::1,2001:db8::1,2001:db8::1","host.ipv4":"198.51.100.15,198.51.100.25,203.0.113.8,203.0.113.40","host.ipv6":"2001:db8::1,2001:db8::1,2001:db8::1,2001:db8::1,2001:db8::1,2001:db8::1","host.mac":"2001:db8::1,2001:db8::1,2001:db8::1,2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"22621","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 11 Pro","host.os.organization":"TYCHON","host.os.version":"2009","host.type":"Workstation","host.uptime":"1056359.3799075"}'
     key:
       - host.attribute.cmrs
       - host.attribute.id
       - host.attribute.name
       - host.attribute.path
-  - type: Cpu
+  - type: CPU
     sourcetype: tychon_cpu
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One processor inventory. host.cpu.name, host.cpu.clockspeed and host.cpu.number_of_cores describe it. This sample is a single-core Xeon on host.hostname. host.ip is a documentation address.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.cpu.clockspeed":"2400","host.cpu.family":"Unknown","host.cpu.manufacturer":"GenuineIntel","host.cpu.name":"Intel(R) Xeon(R) CPU E5-4640 0 @ 2.40GHz","host.cpu.number_of_cores":"1","host.cpu.number_of_logical_processors":"1","host.cpu.speed":"2400","host.cpu.virtualization_firmware_enabled":"true","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro"}'
     key:
       - host.biossn
       - host.cloud.hosted
       - host.cpu.caption
       - host.cpu.clockspeed
-  - type: Cve
+  - type: CVE match
     sourcetype: tychon_cve
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One CVE result. The id ends in the CVE identifier. This sample id ends in CVE-2023-31102. script.name is Invoke-CveScan.ps1. host.hostname is the computer. host.ip is a documentation address.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":false,"host.domain":null,"host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"203.0.113.8","host.ipv4":"203.0.113.40","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":null,"host.oem.model":null,"host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation","host.uptime":50063.497456599995,"host.workgroup":"WORKGROUP","id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP_CVE-2023-31102","script.current_duration":"63173.08","script.current_time":"2023-11-15T15:33:23Z","script.name":"Invoke-CveScan.ps1"}'
     key:
       - host.biossn
       - host.cloud.hosted
       - host.domain
       - host.hardware.bios.name
-  - type: Epp
+  - type: Protection posture
     sourcetype: tychon_epp
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One endpoint-protection posture. elastic.service.endpoint.malware, behavior_protection and memory_protection are the modes. In this sample all three are prevent. host.hostname is the computer. host.ip is a documentation address. The field names are the protection product TYCHON recorded on that host.
     sample: '{"elastic.service.agent.status":"","elastic.service.agent.version":"","elastic.service.endpoint.behavior_protection":"prevent","elastic.service.endpoint.malware":"prevent","elastic.service.endpoint.memory_protection":"prevent","elastic.service.endpoint.status":"","elastic.service.endpoint.version":"","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009"}'
     key:
       - elastic.service.agent.status
       - elastic.service.agent.version
       - elastic.service.endpoint.behavior_protection
       - elastic.service.endpoint.malware
-  - type: Exposedservice
+  - type: Listening service
     sourcetype: tychon_exposedservice
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One listening service. network.transport and process.executable say what is bound. This sample is tcp and services.exe. The id contains the host name and the port. host.ip is a documentation address.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation","host.uptime":"51876.4147242","host.workgroup":"WORKGROUP","id":"BOTANYBAYEP1#::#49674#tcp","network.transport":"tcp","process.command_line":"","process.executable":"services.exe"}'
     key:
       - host.biossn
       - host.cloud.hosted
       - host.domain
       - host.hardware.bios.name
-  - type: Externaldevicecontrol
+  - type: Device-control policy
     sourcetype: tychon_externaldevicecontrol
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One policy result. policy.execution.action is the outcome and type is policy. This sample action is success and policy.execution.changed is false. script.type is powershell. host.ip is a documentation address. The owner email is a documentation address.
     sample: '{"policy.execution.changed":"false","tychon.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.os.version":"2009","host.os.build":"22631","host.ip":"203.0.113.8","script.version":"203.0.113.40","host.hostname":"BOTANYBAYEP1","host.hardware.manufacturer":"Microsoft Corporation","policy.execution.action":"success","script.start":"2024-04-18T23:52:54Z","host.os.name":"Microsoft Windows 11 Pro","host.hardware.cpu.caption":"Intel64 Family 6 Model 126 Stepping 5","host.os.organization":"TYCHON","host.hardware.owner":"user@example.com","host.cloud.network.public_ipv6":"","host.workgroup":"WORKGROUP","host.hardware.serial_number":"123456789123","host.ipv4":"192.0.2.10","host.cloud.compute.tags":"","host.hardware.bios.name":"Microsoft Corporation","host.type":"Workstation","host.cloud.compute.resource_id":"","script.type":"powershell","host.os.description":"","tychon.data.version":"2.5","type":"policy","host.cloud.compute.resource_group_name":"","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.mac":"2001:db8::1","host.os.family":"Windows"}'
     key:
       - policy.execution.changed
       - tychon.id
       - host.os.version
       - host.os.build
-  - type: Features
+  - type: Windows feature
     sourcetype: tychon_features
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One optional feature. host.os.feature.name and host.os.feature.display_name name it. This sample is the TFTP client. host.os.feature.cpe is the CPE. host.ip is a documentation address.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.feature.cpe":"cpe:/a:microsoft:tftp_client:10.0.19041.3636","host.os.feature.display_name":"TFTP Client","host.os.feature.major_version":"","host.os.feature.minor_version":"","host.os.feature.name":"TFTP","host.os.feature.type":"Feature","host.os.feature.version":"10.0.19041.3636","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009"}'
     key:
       - host.biossn
       - host.cloud.hosted
       - host.domain
       - host.hardware.bios.name
-  - type: Harddrive
+  - type: Disk
     sourcetype: tychon_harddrive
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One physical disk. disk.model, disk.size and disk.bus_type describe it. This sample is a virtual disk, bus SAS, and disk.is_boot is true. disk.health_status is Healthy. The host address fields on the row are documentation addresses where they are present.
     sample: '{"disk.adapter.serial_number":"","disk.boot_from":"true","disk.bus_type":"SAS","disk.clustered":"false","disk.firmware.version":"2.0 ","disk.health_status":"Healthy","disk.highly_available":"false","disk.id":"{1}\\\\BOTANYBAYEP1\\root/Microsoft/Windows/Storage/Providers_v2\\WSP_Disk.ObjectId=\"{c3aa4c8f-3a0e-11ed-91c8-806e6f6e6963}:DI:\\\\?\\scsi#disk&ven_vmware&prod_virt...","disk.is_boot":"true","disk.location.adapter":"0","disk.location.bus":"3","disk.location.device":"0","disk.location.function":"0","disk.location.pci_slot":"160","disk.manufacturer":"VMware  ","disk.model":"Virtual disk    ","disk.name":"VMware Virtual disk","disk.number":"0","disk.number_of_partitions":"3","disk.offline":"false","disk.operational_status":"Online","disk.partition_style":"MBR","disk.serial_number":"","disk.size":"42949672960","disk.system":"true","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00"}'
     key:
       - disk.adapter.serial_number
       - disk.boot_from
       - disk.bus_type
       - disk.clustered
-  - type: Hardware
+  - type: Hardware device
     sourcetype: tychon_hardware
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One enumerated device. device.friendly_name and device.id identify it. This sample is motherboard resources, device.status OK, device.present true. host.hostname is the computer. host.ip is a documentation address.
     sample: '{"device.class":"System","device.description":"Motherboard resources","device.friendly_name":"Motherboard resources","device.id":"ACPI\\PNP0C02\\4","device.manufacturer":"(Standard system devices)","device.name":"Motherboard resources","device.present":"true","device.status":"OK","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":""}'
     key:
       - device.class
       - device.description
       - device.friendly_name
       - device.id
-  - type: Host
+  - type: Host posture
     sourcetype: tychon_host
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One host posture record. The event.deviceguard fields say whether credential guard, secure boot and virtualization-based security are on. In this sample those flags are false or Off. host.architecture is 64-bit. host.hostname is the computer.
     sample: '{"event.deviceguard.basevirtualizationsupport.available":"false","event.deviceguard.credentialguard.enabled":"false","event.deviceguard.credentialguard.running":"false","event.deviceguard.dmaprotection.available":"false","event.deviceguard.hypervisorenforcedcodeint.enabled":"false","event.deviceguard.hypervisorenforcedcodeint.running":"false","event.deviceguard.secureboot.available":"false","event.deviceguard.securememoverwrite.available":"false","event.deviceguard.smmsecuritymigrations.available":"false","event.deviceguard.systemguardsecurelaunch.enabled":"false","event.deviceguard.systemguardsecurelaunch.running":"false","event.deviceguard.ueficodereadonly.available":"false","event.deviceguard.usermodecodeintegrity.policyenforcement":"Off","event.deviceguard.version":"1.0","event.deviceguard.virtualizationbasedsecurity.status":"Off","event.ufi.enabled":"false","host.architecture":"64-bit","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.cpu.count":"2","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP"}'
     key:
       - event.deviceguard.basevirtualizationsupport.available
       - event.deviceguard.credentialguard.enabled
       - event.deviceguard.credentialguard.running
       - event.deviceguard.dmaprotection.available
-  - type: Networkadapter
+  - type: Network adapter
     sourcetype: tychon_networkadapter
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One adapter. host.adapter.alias, host.adapter.mac and host.adapter.ip identify it. This sample alias is Ethernet0, media connection state Connected, DHCP disabled. host.adapter.ip and host.adapter.gateway are documentation addresses. The driver version text also contains a documentation address.
     sample: '{"host.adapter.alias":"Ethernet0","host.adapter.description":"Intel(R) 82574L Gigabit Network Connection","host.adapter.dhcp.enabled":"false","host.adapter.dhcp.lease_expires":"","host.adapter.dhcp.lease_obtained":"","host.adapter.dhcp.server":"","host.adapter.domain":"","host.adapter.driver.date":"2018-06-12","host.adapter.driver.description":"Intel(R) 82574L Gigabit Network Connection","host.adapter.driver.file_name":"e1i65x64.sys","host.adapter.driver.name":"Driver Date 2018-06-12 Version 198.51.100.25 NDIS 6.50","host.adapter.driver.provider":"Microsoft","host.adapter.driver.version":"203.0.113.8","host.adapter.gateway":"203.0.113.40","host.adapter.id":"{8CF7047B-04F9-48B6-8928-0593504DBA4D}","host.adapter.ip":"192.0.2.10","host.adapter.ip_filter.enabled":"false","host.adapter.link_speed":"1 Gbps","host.adapter.mac":"00-0C-29-93-6A-F3","host.adapter.media.connection_state":"Connected","host.adapter.media.type":"802.3","host.adapter.mtu":"1500","host.adapter.ndis.version":"6.50","host.adapter.subnet_bit":"24","host.adapter.virtual":"false","host.adapter.vlan.id":"","host.adapter.wifi.authentication":"","host.adapter.wifi.band":"","host.adapter.wifi.bssid":"","host.adapter.wifi.channel":""}'
     key:
       - host.adapter.alias
       - host.adapter.description
       - host.adapter.dhcp.enabled
       - host.adapter.dhcp.lease_expires
-  - type: Softwareinventory
+  - type: Installed software
     sourcetype: tychon_softwareinventory
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One installed package. package.cpe names it. This sample CPE is a Microsoft OneDrive version. package.architecture is x64. host.hostname is the computer. host.ip is a documentation address.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"203.0.113.8","host.ipv4":"203.0.113.40","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation","host.uptime":"12425.1306269","host.workgroup":"WORKGROUP","id":"a0a21f059b5be093b1037bffb83640596a2a3879","package.architecture":"x64","package.cpe":"cpe:/a:Microsoft OneDrive:23.221.1024.0002","package.description":""}'
     key:
       - host.biossn
       - host.cloud.hosted
       - host.domain
       - host.hardware.bios.name
-  - type: Stig
+  - type: STIG benchmark
     sourcetype: tychon_stig
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One benchmark identity. benchmark.id and benchmark.title name the STIG. This sample title is the Microsoft Defender Antivirus STIG SCAP benchmark, version in benchmark.version. host.hostname is the computer that was assessed. host.ip is a documentation address.
     sample: '{"benchmark.generated_utc":"1680025239000","benchmark.hash":"441B31B1F06443CAAD5D1CC3EE1559B3D2F8CAB650C91336FEA2CAAAB40BDB1D","benchmark.id":"xccdf_mil.disa.stig_benchmark_MS_Defender_Antivirus","benchmark.name":"Microsoft Defender Antivirus STIG SCAP Benchmark","benchmark.title":"Microsoft Defender Antivirus STIG SCAP Benchmark","benchmark.version":"002.004","host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.20","host.ipv4":"198.51.100.15","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation"}'
     key:
       - benchmark.generated_utc
       - benchmark.hash
       - benchmark.id
       - benchmark.name
-  - type: Systemcerts
+  - type: Certificate
     sourcetype: tychon_systemcerts
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One certificate file. certificate.is_expired, certificate.is_weak and certificate.is_expiring_soon are the flags. This sample is expired, weak and expiring soon. file.path is the certificate file. file.version contains a documentation address.
     sample: '{"certificate.is_expired":"true","certificate.is_expiring_soon":"true","certificate.is_file":"true","certificate.is_long_lived":"false","certificate.is_weak":"true","certificate.location.trust_category":"US","event.windows_certificate_store_path":"","file.accessed":"2024-01-09T11:47:44Z","file.attributes":["System.Enum",null],"file.created":"2021-07-29T19:34:20Z","file.extension":".cer","file.hash.md5":"88D3A8B271FC0D697D5B944CCC924E14","file.hash.sha1":"EB255EE2946368B75F76BEDBF9565A5C0460CB73","file.hash.sha256":"BE6C59ED9DB0279C002F314955038398E2B7D0696875953D62C6531F15AA02AA","file.mtime":"2021-07-29T19:34:20Z","file.name":"e30200981b6c77df475d21bc65fdb4b94533d8bbf08eb7447602cf55d7685a88.cer","file.path":"C:\\Program Files\\McAfee\\Solidcore\\Certificates\\e30200981b6c77df475d21bc65fdb4b94533d8bbf08eb7447602cf55d7685a88.cer","file.size":"1952","file.version":"203.0.113.8","host.biossn":"6391B8B8-3EF3-2083-2E6A-8F89DF691194","host.cloud.compute.location":"","host.cloud.compute.name":"","host.cloud.compute.resource_group_name":"","host.cloud.compute.resource_id":"","host.cloud.compute.subscription_id":"","host.cloud.compute.tags":"","host.cloud.compute.vm_id":"","host.cloud.hosted":"false","host.cloud.network.mac_address":"","host.cloud.network.public_ipv4":""}'
     key:
       - certificate.is_expired
@@ -262,7 +280,7 @@ logs:
   - type: Volume
     sourcetype: tychon_volume
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One volume record. script.name is the collector. This sample script is Get-TychonVolumeInfo.ps1. host.hostname is the computer. host.ip is a documentation address. The id is the volume identity.
     sample: '{"host.biossn":"737C4D56-5714-9415-3B54-352BA8936AF3","host.cloud.hosted":"false","host.domain":"","host.hardware.bios.name":"Phoenix Technologies LTD","host.hardware.bios.version":"6.00","host.hardware.cpu.caption":"Intel64 Family 6 Model 45 Stepping 7","host.hardware.manufacturer":"VMware, Inc.","host.hardware.owner":"admin","host.hardware.serial_number":"VMware-56 4d 7c 73 14 57 15 94-3b 54 35 2b a8 93 6a f3","host.hostname":"BOTANYBAYEP1","host.id":"c698e42cc0794fd19b2f9157a8a2c88b_737C4D56-5714-9415-3B54-352BA8936AF3_BOTANYBAYEP1_WORKGROUP","host.ip":"192.0.2.10","host.ipv4":"192.0.2.20","host.ipv6":"","host.mac":"2001:db8::1","host.oem.manufacturer":"","host.oem.model":"","host.os.build":"19045","host.os.description":"","host.os.family":"Windows","host.os.name":"Microsoft Windows 10 Pro","host.os.organization":"","host.os.version":"2009","host.type":"Workstation","host.uptime":"66498.5633393","host.workgroup":"WORKGROUP","id":"10aa4446888ff52f03574182167ec9bd7e8e1454","script.current_duration":"6290.37","script.current_time":"2023-11-15T20:06:22Z","script.name":"Get-TychonVolumeInfo.ps1"}'
     key:
       - host.biossn
@@ -271,17 +289,37 @@ logs:
       - host.hardware.bios.name
 cves: []
 detections:
-  - title: Tychon events arriving
-    severity: low
+  - title: Certificate is expired or weak
+    severity: medium
     signals:
-      - destination.hostname
-      - destination.ip
-      - destination.mac
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "tychon_arp"'
-optimizations: []
+      - certificate.is_expired
+      - certificate.is_weak
+      - file.path
+      - host.hostname
+    why: An expired or weak certificate on a host is a credential the scan found past its date or below the strength bar. The sample certificate is both. Inventory of CPUs and disks does not answer that question.
+    kql: |
+      dataset="tychon_logs"
+      | where sourcetype == "tychon_systemcerts" and (certificate.is_expired == "true" or certificate.is_weak == "true")
+      | project file.path, file.name, certificate.is_expired, certificate.is_weak, certificate.is_expiring_soon, host.hostname
+  - title: External-device policy did not succeed
+    severity: medium
+    signals:
+      - policy.execution.action
+      - policy.execution.changed
+      - host.hostname
+    why: policy.execution.action other than success means the device-control policy did not apply. The sample action is success, which is the ordinary case. A failed apply is the row worth an alert.
+    kql: |
+      dataset="tychon_logs"
+      | where sourcetype == "tychon_externaldevicecontrol" and policy.execution.action != "success"
+      | project script.start, policy.execution.action, policy.execution.changed, host.hostname, type
+optimizations:
+  - title: Sample hardware inventory
+    saving: most of the inventory volume
+    fn: Drop
+    how: CPU, disk, volume, adapter, hardware, feature and software rows repeat for every host on every scan, and they are most of the volume. CVE matches, expired certificates, listening services and failed device-control results are the security-relevant subset. Drop or sample the inventory streams before the SIEM.
+    expr: "sourcetype == 'tychon_cpu' || sourcetype == 'tychon_harddrive' || sourcetype == 'tychon_volume' || sourcetype == 'tychon_networkadapter' || sourcetype == 'tychon_hardware' || sourcetype == 'tychon_features' || sourcetype == 'tychon_softwareinventory'"
 references:
-  - title: elastic/integrations tychon/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tychon/data_stream/arp/_dev/test/pipeline/test-base.log
-  - title: Pack Generator sample tychon_arp.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tychon_arp.json
+  - title: TYCHON Enterprise
+    url: https://tychon.io/products/tychon/
+  - title: TYCHON Agentless
+    url: https://tychon.io/products/tychon-agentless/

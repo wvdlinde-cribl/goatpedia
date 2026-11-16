@@ -1,52 +1,62 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: atlassian-confluence
-name: Atlassian Confluence
+name: Atlassian Confluence Data Center
 short: Confluence
 vendor: Atlassian
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - atlassian_confluence
-  - Elastic integrations
+  - Confluence Server
+  - Confluence Data Center
 tags:
-  - elastic
+  - wiki
+  - collaboration
   - json
-summary: Atlassian Confluence is logged by the Elastic integrations package atlassian_confluence. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: Atlassian's self-managed team wiki, run on a company's own servers or cloud instances as Confluence Server or Data Center. People create and share pages in spaces, and administrators manage users, permissions, apps and global settings. Its audit log records administrative and security-relevant actions with the author, source IP, affected objects and changed values.
 sourcetypes:
   - st: atlassian_confluence_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: atlassian_confluence/data_stream/audit/_dev/test/pipeline/test-audit-api.log'
+    desc: The Confluence audit log, one event per audited action with author, category, action, affected objects, changed values and source IP
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: atlassian_confluence
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: timestamp, author.name, author.type, author.id, author.uri, author.avatarUri
+  Product: Self-managed team wiki and knowledge base
+  Clients: Web browser and REST API
+  Log transport: Audit REST API (/rest/auditing/1.0/events), or audit log files on each node read by a file agent
+  Log format: One JSON object per audit event, the same structure across Atlassian Data Center products
+  What an audit event answers: Who did which action to which space, page, user or setting, from where, and what changed
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Confluence nodes
+      desc: Confluence runs on internal servers or a private cloud. Each node writes the audit log, and the audit API returns events for the whole cluster.
 howItWorks:
-  - title: What the fixture shows
-    body: Atlassian Confluence events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, author.name, author.type, author.id, author.uri, author.avatarUri. Values in the sample were rewritten to documentation addresses.
+  - title: Audited actions
+    body: Confluence audits actions in categories such as Users and groups, Permissions, Spaces, Apps, Security and Auditing. Each event has a type with a category and an action. Searching the audit log is itself audited.
+  - title: Author, objects and changes
+    body: author is who acted. affectedObjects lists the spaces, pages or users the action applied to, and changedValues holds before and after values. source is the client IP, method says Browser or API. extraAttributes add details, such as the query and id range of an audit search.
+  - title: How the events leave the product
+    body: A collector with an admin token reads the audit REST API with a time window, or an agent tails the audit log files on each node.
 traffic:
   handles:
-    - json
+    - Page and space editing and sharing
+    - User, group and permission administration
+    - App installation and global settings
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads atlassian_confluence and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Someone acts
+      desc: A user or admin changes a space, permission, app or setting.
+    - step: Confluence audits
+      desc: The node writes an audit event with the author, action and affected objects.
+    - step: Collector reads
+      desc: A collector polls the audit API or tails the audit files.
 logs:
-  - type: Audit
+  - type: Audit events
     sourcetype: atlassian_confluence_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per audited action. type.category and type.action say what happened, here an audit log search. author.name is who did it, source the client IP, extraAttributes the search details. The source is a documentation address.
     sample: '{"timestamp":"2021-11-23T00:44:36.398Z","author":{"name":"test user","type":"user","id":"2c9680837d4a3682017d4a375a280000","uri":"http://confluence.internal:8090/admin/users/viewuser.action?username=admin","avatarUri":""},"type":{"categoryI18nKey":"atlassian.audit.event.category.audit","category":"Auditing","actionI18nKey":"atlassian.audit.event.action.audit.search","action":"Audit Log search performed"},"affectedObjects":[],"changedValues":[],"source":"192.0.2.10","system":"http://confluence.internal:8090","method":"Browser","extraAttributes":[{"nameI18nKey":"atlassian.audit.event.attribute.id","name":"ID Range","value":"79 - 178"},{"nameI18nKey":"atlassian.audit.event.attribute.query","name":"Query","value":""}]}'
     key:
       - timestamp
@@ -55,17 +65,19 @@ logs:
       - author.id
 cves: []
 detections:
-  - title: Atlassian Confluence events arriving
-    severity: low
+  - title: Permission or user administration
+    severity: medium
     signals:
-      - timestamp
+      - type.category
+      - type.action
       - author.name
-      - author.type
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "atlassian_confluence_audit"'
+      - source
+    why: Permission and user changes decide who can read internal documentation. Changes by an unexpected author are a common sign of a misused admin account.
+    kql: |
+      dataset="atlassian-confluence_logs"
+      | where sourcetype == "atlassian_confluence_audit" and (type.category == "Permissions" or type.category == "Users and groups")
+      | project timestamp, type.action, author.name, affectedObjects, source, method
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations atlassian_confluence/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/atlassian_confluence/data_stream/audit/_dev/test/pipeline/test-audit-api.log
-  - title: Pack Generator sample atlassian_confluence_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/atlassian_confluence_audit.json
+references: []

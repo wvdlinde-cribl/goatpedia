@@ -1,52 +1,65 @@
 id: fortinet-fortimanager
-name: Fortinet Fortimanager
-short: Fortimanager
+name: FortiManager
+short: FortiManager
 vendor: Fortinet
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - fortinet_fortimanager
-  - Elastic integrations
+  - Fortinet FortiManager
+  - FortiManager Cloud
 tags:
-  - elastic
+  - firewall-management
+  - admin
   - kv
-summary: Fortinet Fortimanager is logged by the Elastic integrations package fortinet_fortimanager. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: FortiManager is Fortinet's central manager for FortiGate firewalls and the rest of a Fortinet deployment. Administrators sign in and change policy, objects and device settings once, and FortiManager pushes that configuration to the managed devices. It records sign-ins and those changes as key-value syslog. Any collector on that syslog path can store them.
 sourcetypes:
   - st: fortinet_fortimanager
-    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_fortimanager/data_stream/log/_dev/test/pipeline/test-fortimanager.log'
+    desc: FortiManager system events. Each line is one sign-in, sign-out or administrative action on the manager.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: fortinet_fortimanager
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: header, date, time, tz, devname, device_id
+  Product: Central manager for FortiGate policy, objects and managed devices
+  Form factor: Appliance, virtual machine, or FortiManager Cloud
+  Log transport: Syslog. A priority value such as <134> is the syslog header.
+  Log format: One key-value line per event. type, subtype and operation classify it.
+  What a login event answers: Who signed in, with which admin profile, from which client, and whether the manager accepted it
+  What devname answers: Which FortiManager wrote the event
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Management server
+      desc: FortiManager sits in the management network, not on the traffic path. The firewalls it manages stay at the edge. Sign-ins and configuration changes are recorded on the manager.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: FortiManager Cloud
+      desc: The same manager is also offered as a cloud service. The event shape is the same. A collector receives the syslog either way.
 howItWorks:
-  - title: What the fixture shows
-    body: Fortinet Fortimanager events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, date, time, tz, devname, device_id. Values in the sample were rewritten to documentation addresses.
+  - title: What administrators do
+    body: An administrator opens FortiManager and works on policy packages, objects and the devices those packages are installed on. The manager then installs the package onto the FortiGates. The log line for a sign-in carries operation login or logout, the user, the admin profile, and the client address.
+  - title: Reading one line
+    body: type event and subtype system are the manager's own audit, as opposed to a log forwarded from a managed device. desc is the short reason. msg repeats it with the user and profile filled in. adom is the administrative domain when the manager is split into more than one. The sample is a successful login of an account whose profile is Super_User.
+  - title: How the lines leave
+    body: FortiManager sends syslog. Any collector can receive it. The place those events are stored is a choice of the pipeline, not a property of FortiManager.
 traffic:
   handles:
-    - kv
+    - Administrator sign-in and sign-out
+    - Changes to policy, objects and managed devices
+    - Install of a policy package onto FortiGates
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads fortinet_fortimanager and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Administrator acts
+      desc: Someone signs in to FortiManager, or changes policy, objects or a managed device.
+    - step: Manager writes a line
+      desc: FortiManager appends one key-value record with the user, the operation and the device name.
+    - step: Collector receives syslog
+      desc: A collector takes the syslog and can forward the parsed fields anywhere.
 logs:
-  - type: Log
+  - type: System event
     sourcetype: fortinet_fortimanager
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One key-value line. operation is the action and adminprof is the privilege profile. This sample is a successful login (operation login) by a Super_User account. devname is the FortiManager. The client addresses are documentation addresses.
     sample: <134>date=2023-02-23 time=22:49:29 tz="+0500" devname=ABC-XYZ-FMG-VM64 device_id=FMGVMSTM23000100 log_id=0001010018 type=event subtype=system pri=information desc="User login/logout successful" user="__docker_fortiportal" userfrom="JSON(198.51.100.15)" msg="user '__docker_fortiportal' with profile 'Super_User' login accepted from JSON(198.51.100.25)" adom="" adom_oid=0 session_id=11203 operation="login" performed_on="JSON(203.0.113.8)" changes="user '__docker_fortiportal' with profile 'Super_User' login accepted from JSON(203.0.113.40)" adminprof="Super_User"
     key:
       - date
@@ -55,17 +68,22 @@ logs:
       - devname
 cves: []
 detections:
-  - title: Fortinet Fortimanager events arriving
-    severity: low
+  - title: Super_User signed in
+    severity: medium
     signals:
-      - header
-      - date
-      - time
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "fortinet_fortimanager"'
+      - operation
+      - adminprof
+      - user
+      - userfrom
+      - devname
+    why: Super_User is the profile that can change every managed firewall. A login with that profile is an administrator opening the console that pushes configuration. The sample is one accepted login.
+    kql: |
+      dataset="fortinet-fortimanager_logs"
+      | where sourcetype == "fortinet_fortimanager" and operation == "login" and adminprof == "Super_User"
+      | project date, time, devname, user, adminprof, userfrom, msg
+    mitre:
+      - T1078
 optimizations: []
 references:
-  - title: elastic/integrations fortinet_fortimanager/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_fortimanager/data_stream/log/_dev/test/pipeline/test-fortimanager.log
-  - title: Pack Generator sample fortinet_fortimanager.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortimanager.json
+  - title: FortiManager documentation
+    url: https://docs.fortinet.com/product/fortimanager

@@ -1,52 +1,60 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: tines
 name: Tines
 short: Tines
 vendor: Tines
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - tines
-  - Elastic integrations
+  - Tines Stories
 tags:
-  - elastic
+  - automation
+  - workflow
+  - audit
   - json
-summary: Tines is logged by the Elastic integrations package tines. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Tines is a workflow product for security and operations teams. People build stories that call other systems, and administrators manage users, credentials and tokens in a tenant. Tines writes an audit log for changes in that tenant. A collector pulls the log as JSON from the tenant API. Any collector with permission to read audit logs can do this.
 sourcetypes:
   - st: tines_audit_logs
-    desc: 'Elastic integrations fixture, 7 events. Upstream: tines/data_stream/audit_logs/_dev/test/pipeline/test-audit-logs.json'
+    desc: One audit record for a change in the Tines tenant, naming the operation, the user and the client IP
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: tines
-  Sourcetypes: '1'
-  Fixture events: '7'
-  Log format seen: json
-  Fields in the first fixture: created_at, id, inputs.inputs.isServiceToken, inputs.inputs.name, operation_name, request_ip
+  Product: Workflow automation for security and operations teams. Work is organized as stories in a tenant
+  Who uses it: Story authors, and tenant admins who manage users, credentials and access tokens
+  Log transport: HTTPS JSON from the tenant audit-log API. Admins can also export the same log to an S3 bucket on a schedule
+  Log format: One JSON object per operation. created_at, operation_name, the user, request_ip and the inputs of the operation
+  What an audit event answers: Who did what in the tenant, from which IP and user agent, and whether the operation created a service token
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Tines tenant
+      desc: Stories, credentials and users live in the Tines tenant. The audit log is stored there. A collector calls the tenant's audit-log API, or Tines writes the same log out to object storage. The destination is a choice of the pipeline.
 howItWorks:
-  - title: What the fixture shows
-    body: Tines events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries created_at, id, inputs.inputs.isServiceToken, inputs.inputs.name, operation_name, request_ip. Values in the sample were rewritten to documentation addresses.
+  - title: Stories and the tenant
+    body: A Tines tenant holds stories, credentials, users and tokens. When someone changes tenant data, Tines appends an audit record. operation_name is the change, such as creating a story, editing an action, or creating a token. The record names the user (user_id, user_name, user_email), the client (request_ip, request_user_agent) and the tenant.
+  - title: What the inputs mean
+    body: inputs is the payload of the operation, with sensitive values such as credential secrets left out. For a token creation, inputs.inputs.isServiceToken says whether the new token is a service token, and inputs.inputs.name is the token's name. Read operation_name together with those inputs. A service-token creation is an access grant, not a story edit.
+  - title: How the log leaves the tenant
+    body: Tines does not emit this stream as syslog. A collector that the tenant has allowed to read audit logs calls the audit-log API and pages through results. Tenant admins can also schedule an export. Any collector can receive the JSON. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Changes to stories, credentials, users and tokens
+    - Creation of authentication tokens, including service tokens
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads tines and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Someone changes the tenant
+      desc: A person or an API client creates or edits a story, a credential, a user or a token.
+    - step: Tenant writes an audit record
+      desc: Tines stores one JSON record with the operation name, the user, the client address and the inputs.
+    - step: Collector reads it
+      desc: A collector polls the audit-log API, or picks up a scheduled export. It can forward each object anywhere.
 logs:
-  - type: Audit Logs
+  - type: Audit logs
     sourcetype: tines_audit_logs
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One object per tenant change. operation_name is the change. This sample is AuthenticationTokenCreation, and inputs.inputs.isServiceToken is true, so a service token was created. user_email and request_ip say who did it and from where. Addresses in the sample are documentation addresses.
     sample: '{"created_at":"2023-01-20T12:15:14Z","id":3656256,"inputs":{"inputs":{"isServiceToken":true,"name":"Elastic"}},"operation_name":"AuthenticationTokenCreation","request_ip":"192.0.2.20","request_user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.15 Safari/537.36","tenant_id":1234,"updated_at":"2023-01-20T12:15:14Z","user_email":"user@example.com","user_id":1234,"user_name":"Example User"}'
     key:
       - created_at
@@ -55,17 +63,23 @@ logs:
       - inputs.inputs.name
 cves: []
 detections:
-  - title: Tines events arriving
-    severity: low
+  - title: Service token created
+    severity: high
     signals:
-      - created_at
-      - id
+      - operation_name
       - inputs.inputs.isServiceToken
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "tines_audit_logs"'
+      - user_email
+      - request_ip
+    why: Creating an authentication token grants API access to the tenant. A service token is not tied to a person signing in. That creation is the audit event worth an alert.
+    kql: |
+      dataset="tines_logs"
+      | where sourcetype == "tines_audit_logs" and operation_name == "AuthenticationTokenCreation" and inputs.inputs.isServiceToken == true
+      | project created_at, operation_name, user_email, request_ip, inputs.inputs.name
+    mitre:
+      - T1098
 optimizations: []
 references:
-  - title: elastic/integrations tines/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tines/data_stream/audit_logs/_dev/test/pipeline/test-audit-logs.json
-  - title: Pack Generator sample tines_audit_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tines_audit_logs.json
+  - title: Tines audit logs
+    url: https://www.tines.com/stories/docs/admin/audit-logs/
+  - title: Tines audit logs API
+    url: https://www.tines.com/stories/docs/api/audit-logs/

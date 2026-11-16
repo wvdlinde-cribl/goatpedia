@@ -1,76 +1,98 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: darktrace
 name: Darktrace
 short: Darktrace
 vendor: Darktrace
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - darktrace
-  - Elastic integrations
+  - Darktrace Enterprise Immune System
+  - Darktrace DETECT
+  - Darktrace / NETWORK
 tags:
-  - elastic
+  - ndr
+  - anomaly-detection
+  - network-monitoring
+  - ai
   - json
-summary: Darktrace is logged by the Elastic integrations package darktrace. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: A network detection and response platform that learns the normal behaviour of every device and user and flags deviations. Physical or virtual probes and sensors feed traffic to a master appliance, which raises model breaches when activity matches a detection model, and its Cyber AI Analyst groups breaches into investigated incidents. Model breaches, AI Analyst incidents and system status alerts can be read as JSON from its API.
 sourcetypes:
   - st: darktrace_ai_analyst_alert
-    desc: 'Elastic integrations fixture, 2 events. Upstream: darktrace/data_stream/ai_analyst_alert/_dev/test/pipeline/test-ai-analyst-alert.log'
+    desc: Cyber AI Analyst incidents, each a summarised investigation of related activity with a score, category and the devices involved
   - st: darktrace_model_breach_alert
-    desc: 'Elastic integrations fixture, 9 events. Upstream: darktrace/data_stream/model_breach_alert/_dev/test/pipeline/test-model-breach-alert.log'
+    desc: Model breaches, raised when a device's activity matches a detection model, with the model, device, triggering components and score
   - st: darktrace_system_status_alert
-    desc: 'Elastic integrations fixture, 2 events. Upstream: darktrace/data_stream/system_status_alert/_dev/test/pipeline/test-system-status-alert.log'
+    desc: System health alerts about the Darktrace deployment itself, such as probes not reporting or features failing
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: darktrace
-  Sourcetypes: '3'
-  Fixture events: '13'
-  Log format seen: json
-  Fields in the first fixture: summariser, acknowledged, pinned, createdAt, attackPhases[0], title
+  Product: Network detection and response using self-learning behavioural models
+  Form factor: Master appliance (physical, virtual or SaaS-hosted) with probes, vSensors and cloud or SaaS modules
+  Log transport: HTTPS REST API of the master, polled by any collector with an API token; syslog and other outputs also exist
+  Log format: One JSON object per incident, model breach or system alert
+  What an AI Analyst incident answers: What the investigated activity was, how confident and severe it is, which devices it involved and over which periods
+  What a model breach answers: Which detection model fired, for which device, how strongly (score), and which filter conditions triggered it
+  What a system status alert answers: Which part of the Darktrace deployment is unhealthy, on which host, and how urgent it is
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Master and probes
+      desc: Probes and vSensors take mirrored traffic from core switches and virtual networks. The master appliance models devices, raises model breaches and runs the AI Analyst.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud and SaaS modules
+      desc: Optional modules read cloud provider and SaaS activity into the same models. Their breaches appear alongside network ones.
 howItWorks:
-  - title: What the fixture shows
-    body: Darktrace events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries summariser, acknowledged, pinned, createdAt, attackPhases[0], title. Values in the sample were rewritten to documentation addresses.
+  - title: Device models
+    body: Darktrace builds a pattern of life for every device, user and subnet from the traffic it sees. Detection models combine those patterns with conditions (filters) such as unusual connections, new external endpoints or data volume.
+  - title: Model breaches
+    body: When a device meets a model's conditions, Darktrace records a model breach with the model definition, the device, the triggered components and filters, and a score between 0 and 1. Model category and priority describe how serious the model is.
+  - title: Cyber AI Analyst
+    body: The AI Analyst investigates breaches and groups related activity into incidents with a title, summary, category (critical, suspicious, compliance, informational), score, attack phases and the devices involved.
+  - title: How the alerts leave the master
+    body: A collector calls the master's API (modelbreaches, aianalyst incidents, system status) with a public and private token and receives JSON. Syslog, email and other alert outputs are configured separately. Any collector can do this.
 traffic:
   handles:
-    - json
+    - Internal and external network connections
+    - Device and user behaviour anomalies
+    - Deployment health
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads darktrace and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Traffic observed
+      desc: Probes see network traffic and send metadata to the master.
+    - step: Models evaluated
+      desc: The master updates device patterns of life and checks detection models.
+    - step: Breach or incident
+      desc: Matching activity becomes a model breach, and the AI Analyst may group breaches into an incident.
+    - step: Collector polls
+      desc: A collector reads breaches, incidents and system status from the API.
 logs:
-  - type: AI Analyst Alert
+  - type: AI Analyst incidents
     sourcetype: darktrace_ai_analyst_alert
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per incident. title is "Extensive Unusual SSH Connections", category critical, aiaScore 98, summary explains the activity, breachDevices names the devices, and periods gives the time window. Addresses are documentation addresses.
     sample: '{"summariser":"AdminConnSummary","acknowledged":false,"pinned":true,"createdAt":1628002089240,"attackPhases":[5],"title":"Extensive Unusual SSH Connections","id":"eabc0011-1234-1234-1234-cabcdefg0011","children":["eabcdef0-1234-1234-1234-cabcdefghij9"],"category":"critical","currentGroup":"eabc1234-1234-1234-1234-cabcdefg0011","groupCategory":"critical","groupScore":"72.9174234","groupPreviousGroups":null,"activityId":"abcd1234","groupingIds":["abcdef12"],"groupByActivity":false,"userTriggered":false,"externalTriggered":false,"aiaScore":98,"summary":"The device 192.0.2.20 was observed making unusual internal SSH connections to a wide range of devices.\n\nThough this behaviour could be the result of legitima...","periods":[{"start":1627985298683,"end":1628000141220}],"breachDevices":[{"identifier":null,"hostname":"linux.local","ip":"198.51.100.15","mac":null,"subnet":"VPN","did":10,"sid":12}],"relatedBreaches":[{"modelName":"Unusual Activity / Unusual Activity from Re-Activated Device","pbid":1234,"threatScore":37,"timestamp":1627997157000}],"details":[[{"header":"Breaching Device","contents":[{"key":null,"type":"device","values":[{"identifier":null,"hostname":null,"ip":"198.51.100.25","mac":null,"subnet":"VPN","did":10,"sid":12}]}]}],[{"header":"SSH Activity","contents":[{"key":"Time","type":"timestampRange","values":[{"start":1627985298683,"end":1628000141220}]},{"key":"Number of unique IPs","type":"integer","values":[16]}]}]]}'
     key:
       - summariser
       - acknowledged
       - pinned
       - createdAt
-  - type: Model Breach Alert
+  - type: Model breaches
     sourcetype: darktrace_model_breach_alert
     format: json
-    desc: 9 fixture events in the samples pool (elastic).
+    desc: One object per breach. model.name and model.category identify the model (an informational system model here), device.did the device (-1 means the Darktrace system itself), triggeredComponents shows the filters that matched ("Probe error"), and score is the breach strength.
     sample: '{"model":{"name":"System2001:db8::1System","pid":802,"phid":802,"uuid":"8abcdefh-1234-1234-1234-5abababab","logic":{"data":[1594],"type":"componentList","version":1},"throttle":10,"sharedEndpoints":false,"actions":{"alert":true,"antigena":{},"breach":true,"model":true,"setPriority":false,"setTag":false,"setType":false},"tags":[],"interval":0,"delay":0,"sequenced":true,"active":true,"modified":"2022-07-11 11:41:08","activeTimes":{"devices":{},"tags":{},"type":"exclusions","version":2},"autoUpdatable":true,"autoUpdate":true,"autoSuppress":true,"description":"An issue with the system has been detected. This system alert is generated for system information that may merit further investigation. This may be due to th...","behaviour":"decreasing","defeats":[],"created":{"by":"System"},"edited":{"by":"Nobody"},"version":16,"priority":3,"category":"Informational","compliance":false},"device":{"did":-1},"triggeredComponents":[{"time":1657678365000,"cbid":5,"cid":1594,"chid":1594,"size":1,"threshold":0,"interval":3600,"logic":{"data":{"left":{"left":"A","operator":"AND","right":"B"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"C"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"D"},"operator":"OR","right":{"left":{"left":"A","operator":"AND","right":"E"},"operator":"OR","right":{"left":"A","operator":"AND","right":"F"}}}}},"version":"v0.1"},"metric":{"mlid":207,"name":"dtsystem","label":"System"},"triggeredFilters":[{"cfid":18136,"id":"A","filterType":"Event details","arguments":{"value":"analyze credential ignore list"},"comparatorType":"does not contain","trigger":{"value":"Probe 192.0.2.20 last contact was 18 minutes ago"}},{"cfid":18137,"id":"B","filterType":"System message","arguments":{"value":"Probe error"},"comparatorType":"is","trigger":{"value":"Probe error"}}]}],"breachUrl":"https://example.com/#modelbreach/5","pbid":5,"score":0.674,"commentCount":0,"creationTime":1657678365000,"time":1657678366000,"mitreTechniques":[]}'
     key:
       - model.name
       - model.pid
       - model.phid
       - model.uuid
-  - type: System Status Alert
+  - type: System status alerts
     sourcetype: darktrace_system_status_alert
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per health alert. alert_name and name say what is unhealthy (Advanced Search), hostname and ip_address which Darktrace host, priority_level how urgent, message the detail and status whether it is active. The address is a documentation address.
     sample: '{"last_updated":1618760651,"uuid":"abcdabcd-1234-1234-1234-3abababcdcd3","priority":43,"priority_level":"medium","hostname":"example-vsensor","ip_address":"198.51.100.25","message":"There have been no Advanced Search hits for this instance seen since Sun 18 April 2021 13:20:23 (UTC). If this is not expected behaviour, please open a ticke...","name":"advanced_search","acknowledge_timeout":null,"alert_name":"Advanced Search","child_id":1,"last_updated_status":1618760651,"status":"active"}'
     key:
       - last_updated
@@ -79,17 +101,29 @@ logs:
       - priority_level
 cves: []
 detections:
-  - title: Darktrace events arriving
+  - title: Critical AI Analyst incident
+    severity: high
+    signals:
+      - category
+      - aiaScore
+      - title
+      - breachDevices
+    why: Critical AI Analyst incidents are the investigations Darktrace itself rates most severe, already correlated across breaches. They are the alerts to triage first.
+    kql: |
+      dataset="darktrace_logs"
+      | where sourcetype == "darktrace_ai_analyst_alert" and category == "critical"
+      | project createdAt, title, category, aiaScore, groupScore, breachDevices, summary
+  - title: Darktrace sensor or feature unhealthy
     severity: low
     signals:
-      - summariser
-      - acknowledged
-      - pinned
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "darktrace_ai_analyst_alert"'
+      - status
+      - priority_level
+      - alert_name
+      - hostname
+    why: A probe that stops reporting or a failing feature leaves part of the network unwatched. Active system alerts are a visibility gap, not an attack.
+    kql: |
+      dataset="darktrace_logs"
+      | where sourcetype == "darktrace_system_status_alert" and status == "active"
+      | project last_updated, alert_name, hostname, ip_address, priority_level, message
 optimizations: []
-references:
-  - title: elastic/integrations darktrace/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/darktrace/data_stream/ai_analyst_alert/_dev/test/pipeline/test-ai-analyst-alert.log
-  - title: Pack Generator sample darktrace_ai_analyst_alert.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/darktrace_ai_analyst_alert.json
+references: []

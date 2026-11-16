@@ -1,62 +1,79 @@
 id: barracuda
-name: Barracuda
-short: Barracuda
-vendor: Barracuda
+name: Barracuda Web Application Firewall
+short: Barracuda WAF
+vendor: Barracuda Networks
 category: netinfra
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - barracuda
-  - Elastic integrations
+  - Barracuda WAF
+  - Barracuda WAF-as-a-Service
 tags:
-  - elastic
-  - text
-summary: Barracuda is logged by the Elastic integrations package barracuda. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - waf
+  - web-security
+  - reverse-proxy
+  - syslog
+summary: Barracuda Web Application Firewall is a reverse proxy that sits in front of web applications and inspects HTTP and HTTPS traffic for attacks such as SQL injection, cross-site scripting and forceful browsing. It ships as a hardware appliance, a virtual appliance, a public cloud image and a SaaS service. It sends access logs for every request and web firewall logs for every request it flagged or blocked, as syslog.
 sourcetypes:
   - st: barracuda_waf
-    desc: 'Elastic integrations fixture, 20 events. Upstream: barracuda/data_stream/waf/_dev/test/pipeline/test-access.log'
+    desc: Access logs (log type TR), one syslog line per HTTP request the WAF proxied, with client and server addresses, method, URL, status, sizes, timing and the service and rule context
   - st: barracuda_wf
-    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_barracuda.py'
+    desc: Web firewall logs (log type WF), one key-value syslog line per request that matched a security rule, with the action taken, attack group and attack description
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: barracuda
-  Sourcetypes: '2'
-  Fixture events: '22'
-  Log format seen: text, kv
-  Fields in the first fixture: message
+  Product: Web application firewall and reverse proxy for HTTP and HTTPS applications
+  Form factor: Hardware appliance, virtual appliance, Azure, AWS and Google Cloud images, and WAF-as-a-Service
+  Log transport: Syslog over UDP, TCP or TLS to an external log server, configured per log type
+  Log format: Access logs are positional space-separated fields. Web firewall logs can be sent as key-value pairs (as in this sample) or in CEF
+  Log types: Web firewall (WF), access (TR), audit (AUDIT), network firewall (NF) and system (SYS)
+  What an access log answers: Which client requested which URL on which service, the response code, bytes and how long it took
+  What a web firewall log answers: Which client triggered which attack rule, on which URL, and whether the WAF denied or only logged it
 placement:
   slots:
-    - cloud
+    - dmz
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: dmz
+      title: WAF in front of the web servers
+      desc: The WAF runs as a reverse proxy in the DMZ or in the cloud network in front of the application servers. Clients connect to its virtual service, it inspects the request and forwards clean traffic to the back end.
+    - slot: edge
+      title: Internet-facing virtual service
+      desc: The virtual service address is what the internet sees. Every request to it is an access log line, and every rule match is a web firewall log line.
 howItWorks:
-  - title: What the fixture shows
-    body: Barracuda events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Services and security policies
+    body: Each protected application is a service on the WAF with an IP and port. A security policy attached to the service checks requests against signatures, URL and parameter rules, protocol limits, GeoIP and bot policies. A match is logged with an attack group, an attack id and the action the policy allows, such as DENY or LOG.
+  - title: Access logs
+    body: The WAF writes one TR line per proxied request. The fields are positional. They include the client and server addresses and ports, the HTTP method and protocol, the TLS version, the response status, request and response sizes, the time taken, the URL and query string, the referer and user agent, and the service and rule context.
+  - title: How the logs leave the device
+    body: Under Advanced, Export Logs, the administrator adds a syslog server and picks which log types go to it and in which format. Any syslog collector can receive them. The destination is a choice of the pipeline, not a property of the WAF.
 traffic:
   handles:
-    - text
+    - HTTP and HTTPS requests to protected web applications
+    - TLS termination for virtual services
+    - Attack detection and blocking (SQL injection, XSS, forceful browsing, GeoIP)
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads barracuda and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text / kv.
+    - step: Client sends a request
+      desc: A browser or tool connects to the WAF's virtual service and sends an HTTP request.
+    - step: WAF inspects it
+      desc: The security policy checks the request. A rule match produces a web firewall event and the configured action.
+    - step: Request is served or blocked
+      desc: Clean requests are forwarded to the back-end server and the response is returned. The access log line records the outcome.
+    - step: Syslog is sent
+      desc: The access and web firewall lines are sent to the configured syslog server.
 logs:
-  - type: WAF
+  - type: Access log
     sourcetype: barracuda_waf
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line per proxied request, with positional fields after the TR log type. This sample is a GET over TLS 1.2 that returned 404, for a URL carrying an XDEBUG_SESSION_START parameter, a common debugger-probe pattern. The sample uses documentation addresses.
     sample: <134>2023-03-20 17:24:08.959 +0100  barracuda TR 198.51.100.25 443 203.0.113.8 8210 "-" "-" GET TLSv1.2 203.0.113.40 HTTP/1.1 404 791 293 0 3 192.0.2.10 443 0 "-" INTERNAL DEFAULT PROTECTED INVALID / XDEBUG_SESSION_START=phpstorm http://192.0.2.20:80/?XDEBUG_SESSION_START=phpstorm "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36" 198.51.100.15 8210 "-" "-" "-" "-" 186ffd5d3fc-db6c9f3
     pattern: (?<message>[\s\S]+)
     key:
       - message
-  - type: Barracuda Wf
+  - type: Web firewall log
     sourcetype: barracuda_wf
     format: kv
-    desc: 2 fixture events in the samples pool (sc4s).
+    desc: One key-value line per request that matched a security rule. actionTaken is what the WAF did, attackGroup and attackDescription name the rule, src and dst are the client and service, and request and requestMethod are the URL. This sample is a GET denied by a GeoIP policy from a scanner user agent. The sample uses documentation addresses.
     sample: <132>1 2026-06-15T13:45:07.123456+00:00 Barracuda - - - - src=198.51.100.25 spt=33217 dst=203.0.113.8 dpt=39971 actionTaken=DENY attackDescription=GEO_IP_BLOCK attackDetails=GeoIP Policy Match sc4s-lab-01 attackGroup=Forceful Browsing attackId=1111 logType=WF app=TLSv1.2 request=/apps/ requestMethod=GET rt=1649197620642 userAgent=Mozilla/5.0 [en] (X11, U; OpenVAS-VT 9.0.3) referer=
     key:
       - src
@@ -65,15 +82,25 @@ logs:
       - dpt
 cves: []
 detections:
-  - title: Barracuda events arriving
-    severity: low
+  - title: Request denied by a WAF rule
+    severity: medium
     signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "barracuda_waf"'
-optimizations: []
-references:
-  - title: elastic/integrations barracuda/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/barracuda/data_stream/waf/_dev/test/pipeline/test-access.log
-  - title: Pack Generator sample barracuda_waf.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/barracuda_waf.json
+      - actionTaken
+      - attackGroup
+      - attackDescription
+      - src
+      - request
+    why: A DENY is the WAF stopping an attack or a policy violation. Many denies from one source, or denies across several attack groups, show someone actively probing the application.
+    kql: |
+      dataset="barracuda_logs"
+      | where sourcetype == "barracuda_wf" and actionTaken == "DENY"
+      | project rt, src, dst, dpt, attackGroup, attackDescription, requestMethod, request, userAgent
+    mitre:
+      - T1190
+optimizations:
+  - title: Keep web firewall events, sample access logs
+    saving: most of the WAF log volume
+    fn: Routes
+    how: Access logs record every request, while web firewall logs record only rule matches. Send every web firewall event to the SIEM, and send access logs to cheaper storage or forward only errors and a sample.
+    expr: "sourcetype == 'barracuda_waf'"
+references: []

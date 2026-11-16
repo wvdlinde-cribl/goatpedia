@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: zeronetworks
-name: Zeronetworks
-short: Zeronetworks
-vendor: Zeronetworks
+name: Zero Networks Segment
+short: Zero Networks
+vendor: Zero Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - zeronetworks
-  - Elastic integrations
+  - Zero Networks
+  - Segment
 tags:
-  - elastic
+  - microsegmentation
+  - identity
+  - audit
   - json
-summary: Zeronetworks is logged by the Elastic integrations package zeronetworks. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Zero Networks Segment is a microsegmentation product. It learns which assets talk to each other, then restricts east-west access and can require multi-factor authentication before a privileged port opens. Administrators change that policy in the portal. The portal writes an audit event for those changes. A collector pulls the audit log as JSON from the portal API.
 sourcetypes:
   - st: zeronetworks_audit
-    desc: 'Elastic integrations fixture, 1 events. Upstream: zeronetworks/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: One administrative change in the Segment portal, including who acted and which assets the change named
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: zeronetworks
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: timestamp, isoTimestamp, auditType, enforcementSource, userRole, destinationEntitiesList[0].id
+  Product: Identity-based microsegmentation. The portal builds allow rules around assets and can gate privileged protocols behind MFA
+  Where it sits: A cloud portal, with enforcement on the assets it covers. Assets include servers, identities and network segments the customer manages
+  Log transport: HTTPS JSON from the portal audit API at the Zero Networks portal. A bearer token with read access is enough for a collector
+  Log format: One JSON object per audit event. isoTimestamp, auditType, performedBy and destinationEntitiesList are the core
+  What an audit event answers: Who changed policy, which destination assets were named, and the detail payload of the change
 placement:
   slots:
     - cloud
+    - internal
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Segment portal
+      desc: Policy and the audit log live in the Zero Networks portal. performedBy is the user or module that made the change. A collector polls the audit API. The product does not send this stream as syslog.
+    - slot: internal
+      title: Segmented assets
+      desc: Enforcement applies to assets on the internal network. destinationEntitiesList names the assets the change applied to, such as a group of domain controllers. The audit event is recorded in the portal, not on the asset.
 howItWorks:
-  - title: What the fixture shows
-    body: Zeronetworks events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, isoTimestamp, auditType, enforcementSource, userRole, destinationEntitiesList[0].id. Values in the sample were rewritten to documentation addresses.
+  - title: Policy changes
+    body: Administrators assign managers, change enforcement and edit which identities may reach an asset. Each change is an audit event. auditType is a numeric code for the kind of change. enforcementSource and userRole are numeric codes for where the change came from and the role of the actor. This article does not translate those numbers. The names in the event are the readable part.
+  - title: Who and what
+    body: performedBy.id and performedBy.name are the actor. destinationEntitiesList is the assets the change targeted. Each entry has an id and a name. details is a JSON string with the before-or-after of the change. In the sample, details names an asset manager (Domain Admins) and the entity Domain controllers. reportedObjectId repeats that destination id.
+  - title: How the event is collected
+    body: A collector calls the portal audit API and pages with the cursor the API returns. Any collector with a read token can do this. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Administrative changes to segmentation policy
+    - Assignment of who manages a group of assets
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads zeronetworks and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Administrator edits policy
+      desc: Someone in the portal changes enforcement or who manages an asset group.
+    - step: Portal writes an audit event
+      desc: The event stores the actor, the audit type, the destination entities and a details payload.
+    - step: Collector polls
+      desc: A collector requests the next page of audit events and forwards each JSON object.
 logs:
   - type: Audit
     sourcetype: zeronetworks_audit
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per portal change. performedBy.name is who acted. destinationEntitiesList names the targets. This sample's destination is Domain controllers, and details assigns Domain Admins as the asset manager. auditType, enforcementSource and userRole are numeric codes. The actor in the sample is ModuleTesting.
     sample: '{"timestamp":1679087385696,"isoTimestamp":"2023-03-17T21:09:45.696Z","auditType":75,"enforcementSource":6,"userRole":4,"destinationEntitiesList":[{"id":"g:t:01445453","name":"Domain controllers"}],"details":"{\"assetManager\":{\"manager\":{\"id\":\"g:a:cai6Wuyd\",\"name\":\"Domain Admins\"},\"entity\":{\"id\":\"g:t:01445453\",\"name\":\"Domain controllers\"}}}","reportedObjectId":"g:t:01445453","performedBy":{"id":"m:13c49a4eb4fa90bbb948b6c8de5175ad2d36cfbc","name":"ModuleTesting"}}'
     key:
       - timestamp
@@ -55,17 +68,19 @@ logs:
       - enforcementSource
 cves: []
 detections:
-  - title: Zeronetworks events arriving
-    severity: low
+  - title: Policy change targeting domain controllers
+    severity: high
     signals:
-      - timestamp
-      - isoTimestamp
+      - destinationEntitiesList[0].name
+      - performedBy.name
       - auditType
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "zeronetworks_audit"'
+      - isoTimestamp
+    why: A change whose destination is the domain controllers group is a change to how the most privileged servers are segmented, including who is allowed to manage them. The sample assigns Domain Admins as that manager. Other destinations are still admin changes, but this destination is the one to alert on.
+    kql: |
+      dataset="zeronetworks_logs"
+      | where sourcetype == "zeronetworks_audit" and destinationEntitiesList[0].name == "Domain controllers"
+      | project isoTimestamp, auditType, performedBy.name, destinationEntitiesList[0].name, details
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations zeronetworks/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/zeronetworks/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample zeronetworks_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zeronetworks_audit.json
+references: []

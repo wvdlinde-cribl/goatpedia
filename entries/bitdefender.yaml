@@ -1,52 +1,70 @@
 id: bitdefender
-name: Bitdefender
-short: Bitdefender
+name: Bitdefender GravityZone
+short: GravityZone
 vendor: Bitdefender
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - bitdefender
-  - Elastic integrations
+  - GravityZone
+  - Bitdefender Endpoint Security Tools
+  - BEST
 tags:
-  - elastic
+  - endpoint
+  - antimalware
+  - edr
   - json
-summary: Bitdefender is logged by the Elastic integrations package bitdefender. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Bitdefender GravityZone is an endpoint protection platform. The Bitdefender Endpoint Security Tools (BEST) agent on each workstation and server provides antimalware, antiphishing, firewall, device control and EDR, managed from the GravityZone console in the cloud or on premises. The console's Event Push Service sends each security event as JSON to an HTTPS endpoint, so the logs show which machine detected or blocked what, and what happened to it.
 sourcetypes:
   - st: bitdefender_push_notifications
-    desc: 'Elastic integrations fixture, 20 events. Upstream: bitdefender/data_stream/push_notifications/_dev/test/pipeline/test-push-notification.json'
+    desc: GravityZone Event Push Service notifications, one record per security event from a managed endpoint, such as a blocked phishing URL, a malware detection or a firewall event, with the computer, module and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: bitdefender
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: computer_name, computer_fqdn, computer_ip, computer_id, product_installed, aph_type
+  Product: Endpoint protection platform with antimalware, antiphishing, firewall, device control and EDR
+  Form factor: BEST agent on Windows, macOS and Linux endpoints, managed from GravityZone Cloud or an on-premises GravityZone appliance
+  Log transport: The Event Push Service posts events over HTTPS to a receiver URL set through the GravityZone API. Any collector with an HTTP endpoint can receive them
+  Log format: JSON, one object per event. The service can also send CEF
+  Event modules: For example av (antimalware), aph (antiphishing), fw (firewall), avc (advanced threat control) and others, named in module
+  What an event answers: Which computer (name, FQDN, IP) raised which kind of event, against what (URL, file, process), and whether it was blocked, cleaned or only detected
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: BEST agent
+      desc: The agent on each workstation or server inspects files, processes and web traffic and enforces policy. Each detection names the computer it happened on.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: GravityZone console
+      desc: The console, hosted by Bitdefender or run on premises, receives events from all agents and pushes them to the configured receiver.
 howItWorks:
-  - title: What the fixture shows
-    body: Bitdefender events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries computer_name, computer_fqdn, computer_ip, computer_id, product_installed, aph_type. Values in the sample were rewritten to documentation addresses.
+  - title: Protection modules
+    body: BEST loads modules according to policy. Antimalware scans files on access and on demand, antiphishing and web control check URLs, the firewall filters connections, and advanced threat control watches process behaviour. Each module reports its events to the console with a module code and a status.
+  - title: Event Push Service
+    body: An administrator enables the push service through the GravityZone API with a receiver URL, an authorization header, the event types to send and the format. The console then posts each new event to that URL. A test event can be sent through the same API and is marked with _testEvent_.
+  - title: How the events leave the product
+    body: The console makes the HTTPS call. Any collector that exposes an HTTPS endpoint and accepts the authorization header can receive the JSON. The destination is a choice of the pipeline, not a property of GravityZone.
 traffic:
   handles:
-    - json
+    - File and process malware detection
+    - Phishing and malicious URL blocking
+    - Endpoint firewall decisions
+    - Device control and behaviour events
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads bitdefender and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent detects
+      desc: A protection module on the endpoint detects a threat, blocks a URL or applies a policy.
+    - step: Console records it
+      desc: The agent reports the event to the GravityZone console.
+    - step: Push service posts it
+      desc: The console posts the event as JSON to the configured receiver URL.
+    - step: Collector receives JSON
+      desc: The collector's HTTPS endpoint accepts the event and forwards it.
 logs:
-  - type: Push Notifications
+  - type: Security event notification
     sourcetype: bitdefender_push_notifications
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One record per event. module is the protection module, status what happened, computer_name, computer_fqdn and computer_ip the endpoint, and fields such as url, aph_type and count the detail. This sample is an antiphishing (aph) block of a phishing URL on an Exchange server, sent as a push-service test event. The sample uses documentation addresses.
     sample: '{"computer_name":"FC-EXCHANGE-01","computer_fqdn":"fc-exchange-01.fc.dom","computer_ip":"192.0.2.10","computer_id":"59b7d9bfa849af3a1465b7e4","product_installed":"BEST","aph_type":"phishing","url":"http://example.com/account/support/","status":"aph_blocked","last_blocked":"2017-09-14T08:49:43.000Z","count":1,"companyId":"623c18fb12fb8700396d6375","module":"aph","_testEvent_":true}'
     key:
       - computer_name
@@ -55,17 +73,19 @@ logs:
       - computer_id
 cves: []
 detections:
-  - title: Bitdefender events arriving
-    severity: low
+  - title: Malware or phishing detected on an endpoint
+    severity: high
     signals:
+      - module
+      - status
       - computer_name
-      - computer_fqdn
-      - computer_ip
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "bitdefender_push_notifications"'
+      - url
+    why: Antimalware and antiphishing events are the agent catching something on a machine. Even a blocked event shows which host and user were targeted, and repeated events on one host can mean an infection the agent keeps fighting.
+    kql: |
+      dataset="bitdefender_logs"
+      | where sourcetype == "bitdefender_push_notifications" and module in ("av", "aph")
+      | project last_blocked, computer_name, computer_ip, module, status, aph_type, url
+    mitre:
+      - T1566
 optimizations: []
-references:
-  - title: elastic/integrations bitdefender/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bitdefender/data_stream/push_notifications/_dev/test/pipeline/test-push-notification.json
-  - title: Pack Generator sample bitdefender_push_notifications.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bitdefender_push_notifications.json
+references: []

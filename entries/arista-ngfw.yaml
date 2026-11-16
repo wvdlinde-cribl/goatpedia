@@ -1,67 +1,74 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: arista-ngfw
-name: Arista Ngfw
-short: Arista Ngfw
-vendor: Arista
+name: Arista NG Firewall
+short: Arista NGFW
+vendor: Arista Networks
 category: ngfw
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - arista_ngfw
-  - Elastic integrations
+  - Arista Edge Threat Management
+  - Untangle NG Firewall
+  - Untangle
 tags:
-  - elastic
-  - text
-summary: Arista Ngfw is logged by the Elastic integrations package arista_ngfw. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - firewall
+  - utm
+  - network
+  - syslog
+  - json
+summary: A next-generation firewall and UTM platform, formerly Untangle NG Firewall, that sits at the network edge of small and branch sites as an appliance or virtual machine. Its apps add web filtering, intrusion prevention, application control, VPN and threat prevention on top of routing and NAT. It sends syslog where the message body is a JSON event from its uvm engine, such as one record per network session.
 sourcetypes:
   - st: arista_ngfw
-    desc: 'Elastic integrations fixture, 20 events. Upstream: arista_ngfw/data_stream/log/_dev/test/pipeline/test-session-event.log'
+    desc: Syslog from the firewall where each message is a JSON event from the uvm engine, such as a session with client, server, ports, NAT and policy
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: arista_ngfw
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Next-generation firewall and unified threat management for edge networks
+  Form factor: Hardware appliance, virtual machine or cloud instance
+  Log transport: Syslog over UDP or TCP to a remote server, configured under Events
+  Log format: Syslog header followed by a JSON object. class names the event type, such as SessionEvent
+  What a session event answers: Which client talked to which server on which protocol and port, before and after NAT, and under which policy
 placement:
   slots:
-    - cloud
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: NG Firewall appliance
+      desc: The firewall sits between the internal networks and the internet, routing and filtering traffic. clientIntf and serverIntf in each event name the interfaces a session crossed.
 howItWorks:
-  - title: What the fixture shows
-    body: Arista Ngfw events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Sessions and NAT
+    body: Every connection through the box is a session with an id. A session has a client side (CClientAddr, CServerAddr) and a server side (SClientAddr, SServerAddr), so the event shows the addresses before and after NAT. policyId and policyRuleId say which policy handled it, and bypassed says whether the apps inspected it.
+  - title: Apps
+    body: Apps such as Firewall, Intrusion Prevention, Web Filter, Application Control and Threat Prevention inspect sessions and raise their own event classes, each named in the class field.
+  - title: How the events leave the box
+    body: Under Events, remote syslog sends a JSON body for each event class the administrator selects. A syslog header with priority, time, level and uvm precedes the JSON. Any syslog collector can receive it.
 traffic:
   handles:
-    - text
+    - Routed and NAT network sessions (TCP, UDP, ICMP)
+    - Web filtering, intrusion prevention and application control
+    - Site-to-site and remote VPN
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads arista_ngfw and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Session starts
+      desc: A client opens a connection through the firewall.
+    - step: Apps inspect
+      desc: The uvm engine applies NAT and policy and passes the session to the enabled apps.
+    - step: Event is sent
+      desc: The firewall sends a syslog message whose body is the JSON event for that session.
 logs:
-  - type: Log
+  - type: Session events
     sourcetype: arista_ngfw
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog message per event, with a JSON body. class says the event type, here SessionEvent. CClientAddr and CServerAddr are the original client and server, SClientAddr and SServerAddr the NAT side, protocolName and the ports the service. Addresses are documentation addresses.
     sample: '<174>May 19 11:52:37 INFO  uvm[0]:  {"entitled":true,"protocol":17,"hostname":"Host1","CServerPort":9930,"protocolName":"UDP","serverLatitude":36.551,"localAddr":"192.0.2.10","class":"class com.untangle.uvm.app.SessionEvent","SServerAddr":"192.0.2.20","remoteAddr":"198.51.100.15","serverIntf":1,"CClientAddr":"198.51.100.25","serverCountry":"US","sessionId":110221863965041,"SClientAddr":"203.0.113.8","clientCountry":"XL","policyRuleId":0,"CClientPort":59881,"timeStamp":"2023-05-19 11:52:37.962","serverLongitude":-97.822,"clientIntf":2,"policyId":1,"SClientPort":59881,"bypassed":false,"SServerPort":9930,"CServerAddr":"203.0.113.40","tagsString":""}'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Arista Ngfw events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "arista_ngfw"'
-optimizations: []
-references:
-  - title: elastic/integrations arista_ngfw/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/arista_ngfw/data_stream/log/_dev/test/pipeline/test-session-event.log
-  - title: Pack Generator sample arista_ngfw.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/arista_ngfw.json
+detections: []
+optimizations:
+  - title: Keep only the event classes you use
+    saving: most of the syslog volume when every class is enabled
+    fn: Drop
+    how: Session events are sent for every connection. If security monitoring relies on the intrusion, threat and web filter classes, drop SessionEvent before the SIEM or send it only to cheaper storage.
+    expr: message.indexOf('SessionEvent') >= 0
+references: []

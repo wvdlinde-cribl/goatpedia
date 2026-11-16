@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: dataminr-pulse
 name: Dataminr Pulse
 short: Dataminr Pulse
 vendor: Dataminr
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - dataminr_pulse
-  - Elastic integrations
+  - Dataminr Pulse for Cyber Risk
+  - Dataminr Pulse for Corporate Security
 tags:
-  - elastic
+  - threat-intelligence
+  - risk-intelligence
+  - osint
+  - saas
   - json
-summary: Dataminr Pulse is logged by the Elastic integrations package dataminr_pulse. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A real-time risk intelligence service that watches public information, such as social media, news, sensors and dark-web sources, and alerts customers about events that match the topics and watchlists they follow. Alerts cover cyber risk (breaches, vulnerabilities, threat actors) and physical or operational risk. Each alert is delivered as JSON with a headline, topics, matched lists, location and links to the source posts.
 sourcetypes:
   - st: dataminr_pulse_alerts
-    desc: 'Elastic integrations fixture, 17 events. Upstream: dataminr_pulse/data_stream/alerts/_dev/test/pipeline/test-field-mappings.log'
+    desc: Pulse alerts, one per event that matched a customer watchlist, with headline, alert level, topics, location and source posts
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: dataminr_pulse
-  Sourcetypes: '1'
-  Fixture events: '17'
-  Log format seen: json
-  Fields in the first fixture: headline, alertId, publicPost.timestamp, publicPost.channels[0], publicPost.channels[1], publicPost.href
+  Product: Real-time risk and threat intelligence alerting from public data
+  Form factor: SaaS, with web and mobile apps and an alert API
+  Log transport: HTTPS API (polling) or webhook delivery to any collector
+  Log format: One JSON object per alert
+  What an alert answers: What happened (headline), how urgent Dataminr rates it (alert type), which topics and customer watchlists it matched, where it is, and which public posts it is based on
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Dataminr Pulse service
+      desc: Dataminr processes public data in its own cloud, matches events against each customer's watchlists, and delivers alerts by app, API or webhook. Nothing runs on the customer network.
 howItWorks:
-  - title: What the fixture shows
-    body: Dataminr Pulse events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries headline, alertId, publicPost.timestamp, publicPost.channels[0], publicPost.channels[1], publicPost.href. Values in the sample were rewritten to documentation addresses.
+  - title: Watchlists and topics
+    body: Customers define lists such as cyber security, their brand, suppliers or locations. Dataminr tags each detected event with topics (for example Data Exposure & Breaches) and checks it against those lists.
+  - title: Alert levels
+    body: Each alert has a type that says how urgent it is, such as Flash for the most urgent, then Urgent and Alert. Alerts carry the estimated event location and links to the public posts and media behind them.
+  - title: How alerts leave the service
+    body: A collector polls the alerts API with a client credential and a cursor, or Dataminr posts each alert to a webhook. Any collector can take them.
 traffic:
   handles:
-    - json
+    - Public social, news and sensor posts
+    - Cyber and physical risk events
+    - Watchlist matching
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads dataminr_pulse and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Public signal
+      desc: A post, news item or sensor reading appears in a public source.
+    - step: Dataminr detects
+      desc: Dataminr's models recognise an event, rate it and tag its topics.
+    - step: Watchlist match
+      desc: The event is matched against each customer's lists and becomes an alert.
+    - step: Delivered
+      desc: The alert is sent by webhook or read from the API as JSON.
 logs:
   - type: Alerts
     sourcetype: dataminr_pulse_alerts
     format: json
-    desc: 17 fixture events in the samples pool (elastic).
+    desc: One object per alert. headline is the summary, alertType.name is the level (Flash), alertTopics and listsMatched say which topics and customer lists matched (Cyber Security, Data Exposure & Breaches), estimatedEventLocation is where, and publicPost links to the source. This sample is a synthetic test alert.
     sample: '{"headline":"Comprehensive base field mapping test","alertId":"BASE-FIELD-TEST-001","publicPost":{"timestamp":"2026-03-15T14:30:00.000Z","channels":["chatter","sensor"],"href":"https://r.dataminr.com/base-test","media":[{"type":"photo","href":"https://alertmedia.dataminr.com/image1.jpg"},{"type":"video","href":"https://alertmedia.dataminr.com/video1.mp4"}]},"listsMatched":[{"id":"4932401","name":"Cyber Security","topicIds":["963155"],"subType":"DIGITAL_RISK"},{"id":"4932402","name":"Infrastructure","topicIds":["853036"],"subType":"OPERATIONAL"}],"estimatedEventLocation":{"name":"San Francisco, CA, USA","coordinates":[37.7749,-122.4194],"probabilityRadius":5.2},"dataminrAlertUrl":"https://app.dataminr.com/#alertDetail/5/BASE-FIELD-TEST-001","alertType":{"name":"Flash"},"alertTopics":[{"id":"963155","name":"Data Exposure & Breaches"},{"id":"963136","name":"Threat Actors - Hacktivists"}],"alertTimestamp":"2026-03-15T14:31:00.000Z","alertSectors":[{"name":"Technology"},{"name":"Financials"}],"alertCompanies":[{"name":"Example Corp"},{"name":"Test Industries"}],"intelAgents":[{"summary":"Intel agent summary for testing","timestamp":"2026-03-15T14:30:30.000Z","version":"2.1"}],"liveBrief":[{"summary":"Live brief summary for testing","version":"1.0","timestamp":"2026-03-15T14:30:45.000Z"}],"entityType":"no-entities"}'
     key:
       - headline
@@ -55,17 +68,17 @@ logs:
       - publicPost.channels[0]
 cves: []
 detections:
-  - title: Dataminr Pulse events arriving
-    severity: low
+  - title: Flash cyber alert on a watched topic
+    severity: medium
     signals:
+      - alertType.name
       - headline
-      - alertId
-      - publicPost.timestamp
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "dataminr_pulse_alerts"'
+      - listsMatched
+      - alertTopics
+    why: Flash is Dataminr's most urgent level. A Flash alert matching a cyber list, such as a breach or threat actor claim about the organisation or a supplier, is early warning that may come before any internal signal.
+    kql: |
+      dataset="dataminr-pulse_logs"
+      | where sourcetype == "dataminr_pulse_alerts" and alertType.name == "Flash"
+      | project publicPost.timestamp, headline, alertType.name, listsMatched, alertTopics, dataminrAlertUrl
 optimizations: []
-references:
-  - title: elastic/integrations dataminr_pulse/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/dataminr_pulse/data_stream/alerts/_dev/test/pipeline/test-field-mappings.log
-  - title: Pack Generator sample dataminr_pulse_alerts.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/dataminr_pulse_alerts.json
+references: []

@@ -1,67 +1,68 @@
 id: cassandra
-name: Cassandra
+name: Apache Cassandra
 short: Cassandra
-vendor: Cassandra
+vendor: Apache Software Foundation
 category: ndr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cassandra
-  - Elastic integrations
+  - Cassandra
 tags:
-  - elastic
-  - text
-summary: Cassandra is logged by the Elastic integrations package cassandra. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - database
+  - nosql
+  - open-source
+  - application
+summary: Apache Cassandra is an open-source distributed NoSQL database built for large write volumes and high availability across many nodes and data centres. Each node runs a Java process that logs its own startup, configuration, compaction, gossip, repair and error messages to system.log. Those logs tell you how a node is configured, whether it joined the cluster, and what went wrong when it misbehaves.
 sourcetypes:
   - st: cassandra
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cassandra/data_stream/log/_dev/test/pipeline/test-cassandra.log'
+    desc: Cassandra node system log (system.log), one line per message from the database process with level, thread, timestamp, Java source location and message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cassandra
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Distributed wide-column NoSQL database
+  Deployment: A cluster of nodes on servers, VMs or containers in the organisation's data centre or cloud, often across several data centres
+  Log transport: Written by Logback to files in the node's log directory (system.log, debug.log), read by any file collector
+  Log format: Text lines, LEVEL [thread] timestamp SourceFile.java:line - message. Stack traces continue over following lines
+  What a system log line answers: What the node was doing (startup, configuration loading, gossip, compaction, repair, streaming) and which warnings or errors it hit
+  Other logs: Optional audit logging and full query logging record client queries and logins separately
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Cassandra nodes
+      desc: The cluster runs on internal servers or in a private cloud network. Applications connect to it over the CQL native protocol. Each node writes its own system log locally.
 howItWorks:
-  - title: What the fixture shows
-    body: Cassandra events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Nodes and the ring
+    body: Data is spread across nodes by partition key and replicated according to the keyspace's replication settings. Nodes learn about each other through gossip. Writes go to a commit log and memtables and are flushed to SSTables, which compaction merges in the background.
+  - title: What the system log records
+    body: On startup the node logs where it loaded cassandra.yaml from and the effective settings. While running it logs gossip state changes, schema changes, compactions, repairs, streaming and garbage collection pauses at INFO or WARN, and failures at ERROR with a stack trace.
+  - title: How the logs leave the node
+    body: Logback writes the log files on each node. A file collector or agent tails system.log and forwards each line, joining stack traces to the line that started them. The destination is a choice of the pipeline, not a property of Cassandra.
 traffic:
   handles:
-    - text
+    - CQL client reads and writes
+    - Inter-node gossip and replication
+    - Compaction, repair and streaming
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cassandra and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Node does work
+      desc: The Cassandra process starts, loads configuration, talks to other nodes and serves client requests.
+    - step: Logback writes a line
+      desc: Each message is written to system.log with its level, thread, timestamp and source location.
+    - step: Collector tails the file
+      desc: A file collector reads new lines from system.log and forwards them.
 logs:
-  - type: Log
+  - type: System log
     sourcetype: cassandra
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per message. The level, thread in brackets, timestamp and Java source file and line come before the message. This sample is an INFO line from the main thread at startup, in which YamlConfigurationLoader reports where the node read cassandra.yaml.
     sample: 'INFO  [main] 2021-07-21 12:18:15,910 YamlConfigurationLoader.java:92 - Configuration location: file:/C:/Users/kush.rana/Desktop/Projects/elasticconnectors/apache-cassandra-3.11.10/conf/cassandra.yaml'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Cassandra events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cassandra"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations cassandra/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cassandra/data_stream/log/_dev/test/pipeline/test-cassandra.log
-  - title: Pack Generator sample cassandra.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cassandra.json
+  - title: Apache Cassandra documentation
+    url: https://cassandra.apache.org/doc/latest/

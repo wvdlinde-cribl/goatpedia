@@ -1,67 +1,86 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cylance
-name: Cylance
-short: Cylance
-vendor: Cylance
+name: CylancePROTECT
+short: CylancePROTECT
+vendor: BlackBerry (Cylance)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cylance
-  - Elastic integrations
+  - Cylance PROTECT
+  - BlackBerry Protect
+  - CylanceENDPOINT
 tags:
-  - elastic
-  - text
-summary: Cylance is logged by the Elastic integrations package cylance. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - antivirus
+  - epp
+  - endpoint
+  - syslog
+summary: An endpoint protection product that uses machine-learning models to decide whether a file is malicious before it runs, with memory protection, script control and device control on top. Agents on endpoints report to a cloud console where administrators manage zones and policies. The console can forward its events, from threats to administrator audit entries, as syslog.
 sourcetypes:
   - st: cylance_protect
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cylance/data_stream/protect/_dev/test/pipeline/test-generated.log'
+    desc: Syslog events from the CylancePROTECT console, such as threats, memory and script violations, device events and administrator audit entries
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cylance
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Endpoint protection platform (prevention-first antivirus with memory, script and device control)
+  Clients: Agent on Windows, macOS and Linux
+  Account plane: Cylance cloud console, with devices grouped into zones and governed by policies
+  Log transport: Syslog from the console to a receiver the administrator configures
+  Log format: Syslog text. The body names the product, then "Event Type, Event Name, Message" with details such as device, user and policy
+  What an event answers: What kind of event it is (Threat, ScriptControl, MemoryProtection, Device, AuditLog), what happened, on which device or zone, and which user or administrator was involved
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: CylancePROTECT agent
+      desc: The agent on each endpoint scores files, blocks or quarantines threats and enforces memory, script and device policies. It reports to the console.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cylance console
+      desc: The console stores devices, zones, policies and events, and forwards selected event types as syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Cylance events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Prevention
+    body: Before a file executes, the agent scores it with a local model. Unsafe or abnormal files can be blocked or quarantined automatically. Memory protection and script control stop exploitation techniques and scripts that policy forbids.
+  - title: Zones and policies
+    body: Administrators group devices into zones and assign policies. Adding devices to zones, changing policies and other console actions are recorded as AuditLog events.
+  - title: How the events leave the console
+    body: In the console's syslog settings the administrator picks the event types to forward and a receiver address. Each event is sent as a syslog line. Any receiver can take it.
 traffic:
   handles:
-    - text
+    - File execution decisions on endpoints
+    - Memory exploitation and script blocking
+    - Console administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cylance and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Endpoint event or admin action
+      desc: The agent blocks or detects something, or an administrator changes a zone or policy.
+    - step: Console records it
+      desc: The console stores the event with its type and details.
+    - step: Syslog forward
+      desc: If that event type is selected, the console sends it as syslog.
+    - step: Receiver collects
+      desc: A syslog receiver takes the line and forwards it.
 logs:
-  - type: Protect
+  - type: Console syslog event
     sourcetype: cylance_protect
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
-    sample: '29-January-2016 06:09:59 high boNemoe4402.www.invalid dolore <<sequa>abo 2016-1-29T6:09:59.squira nostrud4819.mail.test CylancePROTECT mqui nci [billoi] Event Type: AuditLog, Event Name: ZoneAdd, Message: Policy Assigned:orev; Devices: pisciv , User: uii umexe (estlabo)'
+    desc: One line per event, held as message. This sample is Event Type AuditLog with Event Name ZoneAdd, a policy assigned and devices added to a zone by a named user. Host names in the sample use reserved test domains (.invalid, .test).
     pattern: (?<message>[\s\S]+)
+    sample: '29-January-2016 06:09:59 high boNemoe4402.www.invalid dolore <<sequa>abo 2016-1-29T6:09:59.squira nostrud4819.mail.test CylancePROTECT mqui nci [billoi] Event Type: AuditLog, Event Name: ZoneAdd, Message: Policy Assigned:orev; Devices: pisciv , User: uii umexe (estlabo)'
     key:
       - message
 cves: []
 detections:
-  - title: Cylance events arriving
-    severity: low
+  - title: Threat event from CylancePROTECT
+    severity: high
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cylance_protect"'
+    why: Threat events are files the agent judged unsafe or abnormal, with the action taken. Unremediated threats, or the same file on several devices, point to an active infection.
+    kql: |
+      dataset="cylance_logs"
+      | where sourcetype == "cylance_protect" and message contains "Event Type: Threat"
+      | project _time, message
+    mitre:
+      - T1204
 optimizations: []
-references:
-  - title: elastic/integrations cylance/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cylance/data_stream/protect/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample cylance_protect.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cylance_protect.json
+references: []

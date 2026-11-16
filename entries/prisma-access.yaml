@@ -1,52 +1,76 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: prisma-access
 name: Prisma Access
 short: Prisma Access
-vendor: Prisma
+vendor: Palo Alto Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - prisma_access
-  - Elastic integrations
+  - Palo Alto Networks Prisma Access
+  - Prisma SASE
 tags:
-  - elastic
+  - sase
+  - ztna
+  - swg
+  - firewall
+  - vpn
   - cef
-summary: Prisma Access is logged by the Elastic integrations package prisma_access. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Palo Alto Networks' cloud-delivered security service. Remote users connect through GlobalProtect and branches through IPsec, and their traffic is inspected by cloud firewalls that run PAN-OS. Logs go to Strata Logging Service and can be forwarded as syslog. They cover traffic, threats, URL filtering, GlobalProtect connections and user authentication.
 sourcetypes:
   - st: prisma_access
-    desc: 'Elastic integrations fixture, 11 events. Upstream: prisma_access/data_stream/event/_dev/test/pipeline/test-event.json'
+    desc: Prisma Access logs forwarded from Strata Logging Service in CEF, including authentication, traffic, threat and GlobalProtect records
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: prisma_access
-  Sourcetypes: '1'
-  Fixture events: '11'
-  Log format seen: cef
-  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+  Product: 'SASE: cloud firewall, secure web gateway and ZTNA for mobile users and branches'
+  Clients: GlobalProtect app for mobile users, IPsec tunnels for remote networks, explicit proxy
+  Log transport: Strata Logging Service (formerly Cortex Data Lake) log forwarding over syslog (TCP/TLS) or HTTPS
+  Log format: CEF over syslog in this sample. LEEF and other formats are available
+  What an authentication record answers: Which user authenticated, with which method and profile, from which client, and which rule applied
+  What a traffic or threat record answers: Who connected to what, which policy allowed or blocked it, and what threat was found
 placement:
   slots:
     - cloud
+    - remote
+    - edge
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Prisma Access cloud
+      desc: Security processing nodes run in Palo Alto Networks' cloud. User and branch traffic is inspected there and logs are stored in Strata Logging Service, which forwards them to a collector.
+    - slot: remote
+      title: Mobile users
+      desc: Remote users connect with GlobalProtect to the nearest Prisma Access location. Their identity and client details appear in the logs.
+    - slot: edge
+      title: Remote networks
+      desc: Branch firewalls or routers connect to Prisma Access over IPsec, sending branch internet traffic through the service.
 howItWorks:
-  - title: What the fixture shows
-    body: Prisma Access events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+  - title: Cloud firewalls
+    body: Prisma Access runs PAN-OS security policy in the cloud. Traffic from users and branches is matched against rules, and allowed traffic is inspected for threats and URL categories.
+  - title: Authentication
+    body: Users authenticate to GlobalProtect or to the explicit proxy with SAML, RADIUS or other profiles. Each attempt is an AUTH log with the user, the method and the result.
+  - title: How the logs leave the product
+    body: All logs land in Strata Logging Service. A log forwarding profile sends selected log types to a syslog receiver as CEF or LEEF, or over HTTPS.
 traffic:
   handles:
-    - cef
+    - Internet and SaaS traffic for remote users and branches
+    - GlobalProtect VPN
+    - User authentication
+    - Threat and URL inspection
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads prisma_access and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as cef.
+    - step: User or branch connects
+      desc: Traffic arrives over GlobalProtect or IPsec at a Prisma Access location.
+    - step: Policy is applied
+      desc: The cloud firewall authenticates the user, matches policy and inspects the traffic.
+    - step: Logs stored
+      desc: Prisma Access writes traffic, threat, URL and authentication logs to Strata Logging Service.
+    - step: Logs forwarded
+      desc: Log forwarding sends them as CEF syslog to a collector.
 logs:
-  - type: Event
+  - type: Prisma Access CEF logs
     sourcetype: prisma_access
     format: cef
-    desc: 11 fixture events in the samples pool (elastic).
+    desc: One syslog-framed CEF record. The CEF header names the vendor, product (LF, the log forwarder), version, log type (AUTH in this sample) and severity. Extensions such as PanOSAuthenticatedUserName, PanOSClientTypeName and PanOSRuleMatched carry the user, client and rule. The sample uses documentation addresses.
     sample: Mar 1 22:05:25 198.51.100.15 2206 <14>1 2021-03-01T21:05:25.508Z stream-logfwd20-587718190-03011255-ut6o-harness-5vlj logforwarder - panwlogs - CEF:0|Palo Alto Networks|LF|2.0|AUTH|Radius|3|ProfileToken=xxxxx dtz=UTC rt=Feb 28 2021 18:20:54 deviceExternalId=xxxxxxxxxxxxx PanOSConfigVersion=5.0 PanOSAuthenticatedUserDomain=paloaltonetwork PanOSAuthenticatedUserName=pol23-o PanOSAuthenticatedUserUUID=xx-123 PanOSClientTypeName=clien3 PanOSCortexDataLakeTenantID=xxxxxxxxxxxxx PanOSIsDuplicateLog=false PanOSIsPrismaNetworks=false PanOSIsPrismaUsers=false PanOSLogExported=false PanOSLogForwarded=true PanOSLogSource=firewall PanOSLogSourceTimeZoneOffset=-05:00 PanOSRuleMatched=inter-zone start=Feb 28 2021 18:20:40 cs3=vsys1 cs3Label=VirtualLocation c6a2=2001:db8::1 c6a2Label=Source IPv6 Address c6a3=2001:db8::1 c6a3Label=Destination IPv6 Address duser=paloaltonetwork\\xxxxx cs2=paloaltonetwork\\xxxxx cs2Label=NormalizeUser fname=Authentication object1 cs4=AC-1 cs4Label=AuthenticationPolicy cnt=33554432 cn2=-5257671089978343424 cn2Label=MFAAuthenticationID PanOSMFAVendor=Onelogin cs6=rs-logging cs6Label=LogSetting cs1=LDAP cs1Label=AuthServerProfile PanOSAuthenticationDescription=www.something cs5=Unknown cs5Label=ClientType msg=Invalid Certificate cn1=2 cn1Label=AuthFactorNo externalId=xxxxxxxxxxxxx PanOSDGHierarchyLevel1=11 PanOSDGHierarchyLevel2=0 PanOSDGHierarchyLevel3=0 PanOSDGHierarchyLevel4=0 PanOSVirtualSystemName=vsys-1 dvchost=xxxxx PanOSVirtualSystemID=1 PanOSAuthenticationProtocol=SAML PanOSRuleMatchedUUID=xx09 PanOSTimeGeneratedHighResolution=Feb 28 2021 18:20:41 PanOSSourceDeviceCategory=src_category_list-1 PanOSSourceDeviceProfile=src_profile_list-1 PanOSSourceDeviceModel=src_model_list-1 PanOSSourceDeviceVendor=src_vendor_list-1 PanOSSourceDeviceOSFamily=src_osfamily_list-0 PanOSSourceDeviceOSVersion=src_osversion_list-2 PanOSSourceDeviceHost=src1_host_list-0 PanOSSourceDeviceMac=530589561221 PanOSAuthCacheServiceRegion=east-1 PanOSUserAgentString=Mozilla/5.0 PanOSSessionID=a4xxht
     key:
       - cef_version
@@ -54,18 +78,6 @@ logs:
       - device_product
       - device_version
 cves: []
-detections:
-  - title: Prisma Access events arriving
-    severity: low
-    signals:
-      - syslog_header
-      - cef_version
-      - device_vendor
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "prisma_access"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations prisma_access/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/prisma_access/data_stream/event/_dev/test/pipeline/test-event.json
-  - title: Pack Generator sample prisma_access.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/prisma_access.json
+references: []

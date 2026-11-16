@@ -1,64 +1,84 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: symantec-endpoint-security
 name: Symantec Endpoint Security
-short: Security
-vendor: Symantec
+short: SES
+vendor: Broadcom (Symantec)
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - symantec_endpoint_security
-  - Elastic integrations
+  - SES
+  - Symantec Endpoint Security Complete
+  - SESC
+  - Integrated Cyber Defense Manager
 tags:
-  - elastic
-  - json
-summary: Symantec Endpoint Security is logged by the Elastic integrations package symantec_endpoint_security. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - edr
+  - endpoint-protection
+  - xdr
+  - incidents
+summary: The cloud-managed generation of Symantec endpoint protection, combining antivirus, intrusion prevention, EDR and adaptive protection, managed from the Symantec Integrated Cyber Defense Manager console. Agents on endpoints send events to the cloud console, which correlates them into incidents. The two streams here are those events, typed by category and type ids, and the incidents with their priority, rule, conclusion and whether a breach is suspected.
 sourcetypes:
   - st: symantec_endpoint_security
-    desc: 'Elastic integrations fixture, 11 events. Upstream: symantec_endpoint_security/data_stream/event/_dev/test/pipeline/test-category-system.log'
+    desc: Events from Symantec Endpoint Security, one per agent or console event, classified by category_id and type_id, such as detections, system and policy events
   - st: symantec_endpoint_security_incident
-    desc: 'Elastic integrations fixture, 2 events. Upstream: symantec_endpoint_security/data_stream/incident/_dev/test/pipeline/test-incident.log'
+    desc: Incidents raised by Symantec Endpoint Security (Integrated Cyber Defense Manager), with priority, state, rule, conclusion, remediation advice and a suspected breach flag
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: symantec_endpoint_security
-  Sourcetypes: '2'
-  Fixture events: '13'
-  Log format seen: json
-  Fields in the first fixture: analysis, category_id, module.url, time, timezone, type
+  Product: Cloud-managed endpoint protection and EDR (Symantec Endpoint Security, SES Complete)
+  Clients: Symantec agents on Windows, macOS, Linux and mobile devices
+  Console: Symantec Integrated Cyber Defense Manager (ICDm) in the Symantec security cloud
+  Log transport: HTTPS JSON from the ICDm event and incident export APIs, pulled by a collector with an OAuth client
+  Log format: One JSON object per event or incident. Events use numeric category_id and type_id codes
+  What an event answers: What kind of event it was (category_id, type_id), when, and on which device or module
+  What an incident answers: Which detection rule fired, how urgent it is (priority_id, severity_id), what the analyst conclusion is, and whether a breach is suspected
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Symantec agent
+      desc: The agent on each device blocks threats and records activity. Events start here.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Integrated Cyber Defense Manager
+      desc: The cloud console stores events, correlates them into incidents and exposes both through its APIs. Any collector can poll them.
 howItWorks:
-  - title: What the fixture shows
-    body: Symantec Endpoint Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries analysis, category_id, module.url, time, timezone, type. Values in the sample were rewritten to documentation addresses.
+  - title: Events
+    body: Each event has a category_id (for example security, system or audit) and a type_id that names the specific event, plus time, device and product details. Detection events add threat, file and process information.
+  - title: Incidents
+    body: ICDm groups related detections into an incident. An incident has a rule_name, a detection_type such as Advanced Analytics, priority_id and severity_id, a state_id and resolution_id, a conclusion, a remediation text, a link to the console and suspected_breach.
+  - title: How the data leaves the product
+    body: A collector authenticates with an OAuth client created in ICDm and calls the event export and incident APIs for a time window. Each record is a JSON object for any destination.
 traffic:
   handles:
-    - json
+    - Malware and exploit detection on endpoints
+    - EDR behaviour analytics
+    - Incident correlation and response
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads symantec_endpoint_security and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent reports
+      desc: The Symantec agent on a device detects a threat or records an event and sends it to the cloud.
+    - step: Console correlates
+      desc: ICDm stores the event and opens or updates an incident when its analytics match.
+    - step: Collector polls
+      desc: A collector calls the event and incident APIs for new records.
+    - step: Events are JSON
+      desc: Each record is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: Event
+  - type: Events
     sourcetype: symantec_endpoint_security
     format: json
-    desc: 11 fixture events in the samples pool (elastic).
+    desc: One event. category_id and type_id classify it, time says when, and module.url and analysis carry event details. This sample is a minimal synthetic event with test values.
     sample: '{"analysis":"Test Analysis","category_id":5,"module":{"url":"www.actor-module-url-text.com/download/trouble"},"time":"2024-02-29T02:00:00Z","timezone":12345678901,"type":"Test Type","type_id":8002}'
     key:
       - analysis
       - category_id
       - module.url
       - time
-  - type: Incident
+  - type: Incidents
     sourcetype: symantec_endpoint_security_incident
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One incident. rule_name and detection_type say what fired, priority_id and severity_id how urgent, state_id and conclusion where it stands, and suspected_breach whether Symantec thinks a breach happened. This sample is an Advanced Attack Technique incident with a suspected breach.
     sample: '{"customer_uid":"TEST-JvOsaJktSS-eyL-dXhxOvA","incident_uid":"8e7edfb1-27d2-4837-98ca-e7d794119c3b","type":"INCIDENT_CREATION","resolution_id":1,"conclusion":"Suspicious Activity","remediation":"Investigate further activity at the endpoint by downloading a full dump of the endpoint''s recorded data. Give particular attention to activities performed by...","priority_id":4,"category_id":1,"modified":"2023-04-26T22:01:58.648+00:00","state_id":1,"id":4,"product_uid":"31B0C880-0229-49E8-94C5-48D56B1BD7B9","device_time":1682545570400,"ref_incident_uid":102110,"rule_name":"Advanced Attack Technique","created":"2023-04-26T21:46:10.400+00:00","type_id":8075,"incident_url":"https://sep.securitycloud.symantec.com/v2/incidents/incidentListing/8e7edfb1-27d2-4837-98ca-e7d794119c3b/details","message":"Victim-2:Signed Binary Proxy Execution, Deobfuscate/Decode Files or Information, Command and Scripting Interpreter: PowerShell, System Services: Service Exec...","version":"1.0","product_name":"Symantec Integrated Cyber Defense Manager","event_id":8075004,"domain_uid":"TEST-ZBg_IqnyTAijNjP2BOOcuw","detection_type":"Advanced Analytics","severity_id":4,"time":1682545570400,"suspected_breach":"Yes"}'
     key:
       - customer_uid
@@ -67,17 +87,20 @@ logs:
       - resolution_id
 cves: []
 detections:
-  - title: Symantec Endpoint Security events arriving
-    severity: low
+  - title: Incident with a suspected breach
+    severity: critical
     signals:
-      - analysis
-      - category_id
-      - module.url
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "symantec_endpoint_security"'
+      - suspected_breach
+      - rule_name
+      - priority_id
+      - conclusion
+      - incident_url
+    why: suspected_breach Yes means the console's analytics believe the activity got past prevention. These incidents should be opened first.
+    kql: |
+      dataset="symantec-endpoint-security_logs"
+      | where sourcetype == "symantec_endpoint_security_incident" and suspected_breach == "Yes"
+      | project created, incident_uid, rule_name, priority_id, severity_id, conclusion, incident_url
 optimizations: []
 references:
-  - title: elastic/integrations symantec_endpoint_security/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/symantec_endpoint_security/data_stream/event/_dev/test/pipeline/test-category-system.log
-  - title: Pack Generator sample symantec_endpoint_security.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_endpoint_security.json
+  - title: Broadcom TechDocs
+    url: https://techdocs.broadcom.com/

@@ -1,52 +1,70 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: digital-guardian
 name: Digital Guardian
-short: Guardian
-vendor: Digital
+short: Dig. Guardian
+vendor: Fortra (Digital Guardian)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - digital_guardian
-  - Elastic integrations
+  - Digital Guardian ARC
+  - Fortra Digital Guardian
+  - Digital Guardian DLP
 tags:
-  - elastic
+  - dlp
+  - endpoint
+  - data-protection
   - json
-summary: Digital Guardian is logged by the Elastic integrations package digital_guardian. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A data loss prevention platform. Agents on endpoints watch how users and applications handle sensitive files, such as attaching them to email, copying them to USB or uploading them, and policies can log, prompt or block. The Analytics & Reporting Cloud (ARC) correlates those events into alarms and incidents. The ARC export returns incidents as JSON with their severity, state, assignee and a description of what happened.
 sourcetypes:
   - st: digital_guardian_arc
-    desc: 'Elastic integrations fixture, 4 events. Upstream: digital_guardian/data_stream/arc/_dev/test/pipeline/test-dg-arc.log'
+    desc: Incidents from the Analytics & Reporting Cloud, each with a name, description, severity, state and assignee
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: digital_guardian
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: dg_comment, dg_description, dg_guid, dg_name, dg_tenant, dg_utype
+  Product: Endpoint and network data loss prevention with cloud analytics
+  Clients: Agent on Windows, macOS and Linux endpoints
+  Account plane: Analytics & Reporting Cloud (ARC) tenant where alarms and incidents are triaged
+  Log transport: HTTPS export API of the ARC tenant, polled by any collector with export credentials
+  Log format: One JSON object per incident record, with dg_ and inc_ prefixed fields
+  What an incident answers: What data movement was flagged, how severe it is, who it is assigned to, and where it stands in triage
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Digital Guardian agent
+      desc: The agent on each endpoint sees file, application, email, print, USB and network actions and applies DLP policy.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Analytics & Reporting Cloud
+      desc: ARC receives agent events, raises alarms, groups them into incidents and exposes exports for collectors.
 howItWorks:
-  - title: What the fixture shows
-    body: Digital Guardian events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries dg_comment, dg_description, dg_guid, dg_name, dg_tenant, dg_utype. Values in the sample were rewritten to documentation addresses.
+  - title: Visibility on the endpoint
+    body: The agent hooks file, process and network activity and tags data by content or context classification. Policies match combinations such as a classified file attached to an email to an outside address.
+  - title: Alarms and incidents
+    body: A rule match becomes an alarm in ARC. Analysts or automation group alarms into incidents with an id, severity, state (Created, In Progress, Closed), creator and assignee.
+  - title: How incidents leave ARC
+    body: An administrator defines an export in ARC. A collector calls the export API with its credentials and receives the incident records as JSON. Any collector can do this.
 traffic:
   handles:
-    - json
+    - File movement to email, web, removable media and cloud
+    - Use of sensitive data by applications
+    - DLP incident triage
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads digital_guardian and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User handles data
+      desc: A user attaches, copies, uploads or prints a file on an endpoint.
+    - step: Agent applies policy
+      desc: The agent classifies the data and logs, prompts or blocks according to policy.
+    - step: ARC raises an incident
+      desc: ARC turns the event into an alarm and groups it into an incident.
+    - step: Collector exports
+      desc: A collector pulls incidents through the export API.
 logs:
-  - type: Arc
+  - type: DLP incidents
     sourcetype: digital_guardian_arc
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per incident. dg_name and dg_description say what happened (Salesforce data attached to an email by outlook.exe), inc_sev is Critical, inc_state is Created, inc_assign is the analyst, and inc_id with inc_mtime identify and date it. The sample uses example.com.
     sample: '{"dg_comment":"-","dg_description":"This file outlook.exe was going to [user@example.com]","dg_guid":"1dc3c1fa-5474-4fc0-a7c3-74ff42d28e5e","dg_name":"test has attached a Salesforce data to an email","dg_tenant":"279b59f3-02f3-44ea-a7c3-9bac2eb0224d","dg_utype":"Incident","inc_assign":"test@dgdemo","inc_creator":"dg","inc_id":"230523-WIQHA","inc_mtime":"2023-05-23 06:56:39","inc_sev":"Critical","inc_state":"Created"}'
     key:
       - dg_comment
@@ -55,17 +73,19 @@ logs:
       - dg_name
 cves: []
 detections:
-  - title: Digital Guardian events arriving
-    severity: low
+  - title: New critical DLP incident
+    severity: high
     signals:
-      - dg_comment
+      - inc_sev
+      - inc_state
+      - dg_name
       - dg_description
-      - dg_guid
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "digital_guardian_arc"'
+    why: A critical incident is sensitive data leaving or about to leave through email, upload or removable media. New ones are the queue a data protection team must work first.
+    kql: |
+      dataset="digital-guardian_logs"
+      | where sourcetype == "digital_guardian_arc" and inc_sev == "Critical" and inc_state == "Created"
+      | project inc_mtime, inc_id, dg_name, dg_description, inc_sev, inc_assign
+    mitre:
+      - T1048
 optimizations: []
-references:
-  - title: elastic/integrations digital_guardian/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/digital_guardian/data_stream/arc/_dev/test/pipeline/test-dg-arc.log
-  - title: Pack Generator sample digital_guardian_arc.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/digital_guardian_arc.json
+references: []

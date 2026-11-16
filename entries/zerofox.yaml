@@ -1,52 +1,60 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: zerofox
-name: Zerofox
-short: Zerofox
-vendor: Zerofox
+name: ZeroFox
+short: ZeroFox
+vendor: ZeroFox
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - zerofox
-  - Elastic integrations
+  - ZeroFox Platform
 tags:
-  - elastic
+  - brand
+  - external
+  - alert
   - json
-summary: Zerofox is logged by the Elastic integrations package zerofox. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: ZeroFox watches the outside of an organization. It looks for lookalike domains, social accounts, leaked data and other external exposure tied to the brands and assets a customer protects. When a rule matches, ZeroFox opens an alert. A collector pulls those alerts as JSON. Any collector the tenant has authorized can do that.
 sourcetypes:
   - st: zerofox_alerts
-    desc: 'Elastic integrations fixture, 3 events. Upstream: zerofox/data_stream/alerts/_dev/test/pipeline/test-alert.json'
+    desc: One external alert, with the rule that matched, the network it was found on, and whether anyone has reviewed it
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: zerofox
-  Sourcetypes: '1'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: alert_type, logs[0].id, logs[0].timestamp, logs[0].actor, logs[0].subject, logs[0].action
+  Product: External cybersecurity and digital risk protection. The platform watches domains, social networks and other outside sources for a customer's protected assets
+  Where it sits: In the ZeroFox cloud. It does not sit on the customer's network. The assets it protects are names, domains and accounts the customer registered in the portal
+  Log transport: HTTPS JSON from the ZeroFox alerts API
+  Log format: One JSON object per alert. alert_type, rule_name, network, severity, status and the perpetrator block describe the finding
+  What an alert answers: What was found, which protected entity it resembles, who has touched the alert, and whether it is still open
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: ZeroFox platform
+      desc: Collection and alerting happen in the ZeroFox service. entity is the protected brand or asset. perpetrator is the outside page, account or domain that matched. A collector polls the alerts API. Nothing in the product is tied to one SIEM.
 howItWorks:
-  - title: What the fixture shows
-    body: Zerofox events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries alert_type, logs[0].id, logs[0].timestamp, logs[0].actor, logs[0].subject, logs[0].action. Values in the sample were rewritten to documentation addresses.
+  - title: Protected assets and rules
+    body: A customer registers entities (a domain, a brand, a person) and ZeroFox runs rules against outside content. rule_name is the rule. alert_type is the kind of search. network is where the content lived, such as domains or a social network. offending_content_url is the content. The sample rule is Advanced Domain Analysis - Typosquat Match, on network domains.
+  - title: The alert lifecycle
+    body: status starts Open. reviewed and escalated say whether a person has triaged it. assignee is who owns it. logs is the history of actions on the alert, each with an actor, an action and a timestamp. severity is ZeroFox's rating. The sample is severity 4, status Open, reviewed false, and the perpetrator is a lookalike domain.
+  - title: How alerts are collected
+    body: ZeroFox does not syslog this stream. A collector with an API token pulls alerts as JSON. Any collector can do that. Addresses and hostnames in the sample are documentation values, some written with an hxxp defanging prefix. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - External matches against protected domains, brands and accounts
+    - Triage actions recorded on an alert
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads zerofox and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A rule matches outside content
+      desc: ZeroFox finds content, such as a lookalike domain, that matches a protected entity.
+    - step: An alert is opened
+      desc: The platform stores one alert with the rule, the network, the perpetrator and a status of Open.
+    - step: Collector pulls the alert
+      desc: A collector requests alerts from the API and forwards each JSON object.
 logs:
   - type: Alerts
     sourcetype: zerofox_alerts
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per alert. rule_name is the rule and network is where it matched. This sample is an open, unreviewed typosquat of a protected domain. status is Open, reviewed is false, and severity is 4. perpetrator.url and offending_content_url use a documentation host. The logs array is the triage history. The first entry is a tag change by a platform specialist.
     sample: '{"alert_type":"search query","logs":[{"id":205171631,"timestamp":"2021-04-29T18:56:52+00:00","actor":"ZeroFox Platform Specialist","subject":"","action":"modify tags"},{"id":205171630,"timestamp":"2021-04-29T18:56:51+00:00","actor":"","subject":"","action":"open"}],"offending_content_url":"hxxp://abc.biz?entity=123456","asset_term":"","assignee":"","entity":{"id":123456,"name":"abc.com","image":"https://cdn.zerofox.com/media/entityimages/1.jpg","labels":[{"id":17700,"name":"Brand"}],"entity_group":{"id":2857,"name":"Default"}},"entity_term":"","content_created_at":"2017-01-10T11:00:00+00:00","id":123456789,"protected_account":"","severity":4,"perpetrator":{"name":"Concealed","display_name":"Concealed","id":123456789,"url":"hxxp://abc.biz?entity=123456","content":"Variation of protected domain abc.com found: abc.biz","type":"page","timestamp":"2017-01-10T11:00:00+00:00","network":"domains"},"rule_group_id":457,"metadata":"{}","status":"Open","timestamp":"2021-04-29T18:56:51+00:00","rule_name":"Advanced Domain Analysis - Typosquat Match","last_modified":"2021-04-29T18:56:52Z","protected_locations":"","darkweb_term":"","business_network":"","reviewed":false,"escalated":false,"network":"domains","protected_social_object":"","notes":"","reviews":[],"content_actions":[],"rule_id":38160,"entity_account":""}'
     key:
       - alert_type
@@ -55,17 +63,20 @@ logs:
       - logs[0].actor
 cves: []
 detections:
-  - title: Zerofox events arriving
-    severity: low
+  - title: External alert still unreviewed
+    severity: medium
     signals:
-      - alert_type
-      - logs[0].id
-      - logs[0].timestamp
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "zerofox_alerts"'
+      - status
+      - reviewed
+      - rule_name
+      - network
+      - severity
+    why: An Open alert that nobody has reviewed is a finding still sitting in the queue. The sample is a typosquat domain match. Closed or already reviewed alerts are the ones an analyst has already handled.
+    kql: |
+      dataset="zerofox_logs"
+      | where sourcetype == "zerofox_alerts" and status == "Open" and reviewed == false
+      | project timestamp, rule_name, network, severity, status, entity.name, perpetrator.url
+    mitre:
+      - T1583
 optimizations: []
-references:
-  - title: elastic/integrations zerofox/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/zerofox/data_stream/alerts/_dev/test/pipeline/test-alert.json
-  - title: Pack Generator sample zerofox_alerts.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zerofox_alerts.json
+references: []

@@ -1,52 +1,67 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: stormshield
-name: Stormshield
+name: Stormshield Network Security
 short: Stormshield
 vendor: Stormshield
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - stormshield
-  - Elastic integrations
+  - SNS
+  - Stormshield SNS firewall
+  - NETASQ
 tags:
-  - elastic
-  - kv
-summary: Stormshield is logged by the Elastic integrations package stormshield. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - firewall
+  - ngfw
+  - utm
+  - ips
+summary: A next-generation firewall and UTM appliance family from the French vendor Stormshield. SNS appliances filter and NAT traffic at the network edge, run an intrusion prevention engine, and terminate VPNs. They log traffic, alarms, authentication, web and VPN events, and periodic filter statistics — the counters of accepted and blocked packets and connections per protocol — as key=value lines.
 sourcetypes:
   - st: stormshield
-    desc: 'Elastic integrations fixture, 20 events. Upstream: stormshield/data_stream/log/_dev/test/pipeline/test-firewall.log'
+    desc: Stormshield SNS firewall logs, one key=value line per event, with logtype naming the kind (filterstat, connection, filter, alarm, web, auth and others)
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: stormshield
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: id, time, fw, tz, startime, SavedEvaluation
+  Product: Next-generation firewall and UTM appliance (Stormshield Network Security)
+  Form factor: Hardware appliances, virtual appliances (EVA) and cloud instances, managed locally or by Stormshield Management Center
+  Log transport: Syslog (UDP, TCP or TLS) to a remote server, or local log files on the appliance
+  Log format: id=firewall followed by key=value pairs, with time, fw (appliance name), tz and logtype
+  What a filterstat line answers: How many packets, bytes and connections were accepted, blocked or tracked per protocol in the last interval
+  What other log types answer: Allowed and denied connections, IPS alarms, web filtering, user authentication and VPN activity
 placement:
   slots:
-    - cloud
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: SNS firewall
+      desc: The appliance sits at the boundary between internal networks and the internet or between zones. It writes logs locally and sends them by syslog to any collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Stormshield events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, time, fw, tz, startime, SavedEvaluation. Values in the sample were rewritten to documentation addresses.
+  - title: Filtering and inspection
+    body: Traffic is matched against filter and NAT rules. The stateful ASQ engine tracks TCP, UDP, ICMP and SCTP connections and runs protocol analysis and intrusion prevention on them. Packets that break a rule or a protocol check are blocked and can raise an alarm.
+  - title: Log types
+    body: Every line starts with id=firewall, time, fw and tz. logtype says which log it belongs to, such as connection, filter, alarm, web, auth, vpn or filterstat. filterstat is a periodic statistics line with counters for memory, accepted and blocked packets, bytes in and out, and connections per protocol.
+  - title: How the logs leave the appliance
+    body: The appliance writes its log files and can forward them to remote syslog servers over UDP, TCP or TLS. Any syslog collector can receive them.
 traffic:
   handles:
-    - kv
+    - Firewall filtering and NAT
+    - Intrusion prevention
+    - IPsec and SSL VPN
+    - Web filtering and user authentication
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads stormshield and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Traffic arrives
+      desc: Packets cross the appliance between two interfaces.
+    - step: Firewall decides
+      desc: The ASQ engine matches filter rules, inspects the protocol and allows or blocks the connection, updating its counters.
+    - step: Line is written
+      desc: The appliance writes one key=value line with the logtype for the event or statistics interval.
+    - step: Collector receives
+      desc: The line is sent by syslog. Goatpedia reads it as key-value pairs.
 logs:
-  - type: Log
+  - type: Firewall logs
     sourcetype: stormshield
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One firewall log line. id, time, fw and tz identify the appliance and moment, and logtype says what kind of line it is. This sample is a filterstat line — Accepted=105 and Blocked=0 packets, with byte and connection counters per protocol for the interval.
     sample: id=firewall time="2024-03-08 17:29:51" fw="stormy-1" tz=+0000 startime="2024-03-08 17:29:51" SavedEvaluation=621 DynamicMem=0 HostMem=0 FragMem=0 ICMPMem=0 ConnMem=0 AssocMem=0 EtherStateMem=0 IPStateMem=0 DTrackMem=0 Logged=11 LogOverflow=0 HostrepMax=0 HostrepScore=0 HostrepRequests=0 PvmFacts=0 PvmOverflow=0 Accepted=105 Blocked=0 Byte(i/o)=10592/14285 Fragmented=0 TCPPacket=0 TCPByte(i/o)=0/0 TCPConn=0 TCPConnNatSrc=0 TCPConnNatDst=0 TCPConnNoNatSrc=0 TCPConnNoNatDst=0 UDPPacket=104 UDPByte(i/o)=10283/14285 UDPConn=0 UDPConnNatSrc=0 UDPConnNatDst=0 UDPConnNoNatSrc=0 UDPConnNoNatDst=0 ICMPPacket=1 ICMPByte(i/o)=309/0 IPStatePacket=0 IPStateByte(i/o)=0/0 IPStateConn=0 IPStateConnNatSrc=0 IPStateConnNatDst=0 IPStateConnNoNatSrc=0 IPStateConnNoNatDst=0 SCTPAssocPacket=0 SCTPAssocByte(i/o)=0/0 SCTPAssoc=0 EtherStatePacket=0 EtherStateByte(i/o)=0/0 EtherStateConn=0 TLSCertCacheEntriesNb=0 TLSCertCacheLookup(miss/total)=0/0 TLSCertCacheInsert=0 TLSCertCacheFlushOp=0 TLSCertCachePurgeOp=0 TLSCertCacheFlushedNb=0 TLSCertCachePurgedNb=0 TLSCertCacheExpiredNb=0 logtype="filterstat"
     key:
       - id
@@ -55,17 +70,18 @@ logs:
       - tz
 cves: []
 detections:
-  - title: Stormshield events arriving
-    severity: low
+  - title: Stormshield IPS alarm
+    severity: medium
     signals:
-      - id
-      - time
+      - logtype
       - fw
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "stormshield"'
+      - time
+    why: Alarm lines are raised when the intrusion prevention engine or a protocol check matches. They are the security events of the firewall, as opposed to statistics and allowed connections.
+    kql: |
+      dataset="stormshield_logs"
+      | where sourcetype == "stormshield" and logtype == "alarm"
+      | project time, fw, logtype
 optimizations: []
 references:
-  - title: elastic/integrations stormshield/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/stormshield/data_stream/log/_dev/test/pipeline/test-firewall.log
-  - title: Pack Generator sample stormshield.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/stormshield.json
+  - title: Stormshield documentation
+    url: https://documentation.stormshield.eu/

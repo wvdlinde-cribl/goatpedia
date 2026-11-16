@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: mattermost
 name: Mattermost
 short: Mattermost
 vendor: Mattermost
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - mattermost
-  - Elastic integrations
+  - Mattermost Server
+  - Mattermost Enterprise
 tags:
-  - elastic
+  - collaboration
+  - chat
+  - audit
   - json
-summary: Mattermost is logged by the Elastic integrations package mattermost. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A self-hosted team chat and collaboration platform. Users message in channels from web, desktop and mobile apps, and admins configure the server through the System Console and REST API. Mattermost runs on company servers or a private cloud. Its audit log records API actions such as configuration changes, with the user, session, client IP and result.
 sourcetypes:
   - st: mattermost_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: mattermost/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: The Mattermost audit log, one record per audited API action with event, status, user, session, IP and API path
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: mattermost
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: timestamp, event, status, user_id, session_id, ip_address
+  Product: Self-hosted team messaging and collaboration server
+  Clients: Web browser, desktop apps, mobile apps, REST API and bots
+  Log transport: Audit log file on the server (or another audit target configured by the admin), read by a file agent
+  Log format: One JSON object per audit record
+  What an audit record answers: Which user, from which IP and client, called which API action, and whether it succeeded
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Mattermost server
+      desc: The server runs in the company data centre or private cloud and serves the web, desktop and mobile clients. Audit records are written on the server.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Private cloud hosting
+      desc: Mattermost is often run on cloud VMs or Kubernetes. The audit log is the same wherever the server runs.
 howItWorks:
-  - title: What the fixture shows
-    body: Mattermost events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, event, status, user_id, session_id, ip_address. Values in the sample were rewritten to documentation addresses.
+  - title: API-driven server
+    body: Every client action, from posting to changing settings, is a call to the Mattermost REST API (/api/v4/...). The System Console uses the same API for admin work.
+  - title: Audit records
+    body: For audited actions the server writes a record with event (such as updateConfig), status (success or fail), user_id, session_id, ip_address, api_path, cluster_id and the client user agent.
 traffic:
   handles:
-    - json
+    - Messaging and channel actions
+    - Admin configuration changes
+    - User and session management
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads mattermost and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User or admin acts
+      desc: Someone calls the API from a client or the System Console.
+    - step: Server audits it
+      desc: The server writes an audit record with the action and its result.
+    - step: Collector reads JSON
+      desc: A file agent ships the audit log. Goatpedia reads it as JSON.
 logs:
-  - type: Audit
+  - type: Audit log
     sourcetype: mattermost_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per audited action. event and status say what was done and whether it worked, user_id and ip_address who and from where, api_path which API. This sample is a successful updateConfig, a change to the server configuration. Values are documentation addresses.
     sample: '{"timestamp":"2021-12-04 23:19:32.051 Z","event":"updateConfig","status":"success","user_id":"ag99yu4i1if63jrui63tsmq57y","session_id":"pjh4n69j3p883k7hhzippskcba","ip_address":"198.51.100.15","api_path":"/api/v4/config","cluster_id":"jq3utry71f8a7q9qgebmjccf4r","client":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"}'
     key:
       - timestamp
@@ -55,17 +67,33 @@ logs:
       - user_id
 cves: []
 detections:
-  - title: Mattermost events arriving
-    severity: low
+  - title: Server configuration changed
+    severity: medium
     signals:
-      - timestamp
       - event
       - status
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "mattermost_audit"'
+      - user_id
+      - ip_address
+    why: updateConfig changes server-wide settings such as authentication, integrations and file sharing. Each change should map to a known admin and change.
+    kql: |
+      dataset="mattermost_logs"
+      | where sourcetype == "mattermost_audit" and event == "updateConfig"
+      | project timestamp, user_id, status, ip_address, client
+    mitre:
+      - T1098
+  - title: Audited action failed
+    severity: low
+    signals:
+      - event
+      - status
+      - user_id
+      - ip_address
+    why: A failed audited action is a request the server refused. Repeated failures on admin endpoints from one user or IP suggest probing.
+    kql: |
+      dataset="mattermost_logs"
+      | where sourcetype == "mattermost_audit" and status != "success"
+      | project timestamp, event, api_path, user_id, ip_address
 optimizations: []
 references:
-  - title: elastic/integrations mattermost/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mattermost/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample mattermost_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mattermost_audit.json
+  - title: Mattermost documentation
+    url: https://docs.mattermost.com/

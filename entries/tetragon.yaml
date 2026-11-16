@@ -1,52 +1,69 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: tetragon
-name: Tetragon
+name: Cilium Tetragon
 short: Tetragon
-vendor: Tetragon
+vendor: Isovalent (Cisco)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - tetragon
-  - Elastic integrations
+  - Tetragon
+  - Cilium Tetragon
 tags:
-  - elastic
-  - json
-summary: Tetragon is logged by the Elastic integrations package tetragon. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - ebpf
+  - kubernetes
+  - runtime-security
+  - process
+summary: An open-source eBPF-based security observability and runtime enforcement tool from the Cilium project. Tetragon runs as an agent on each Linux node or Kubernetes node and records process executions and exits, and, through tracing policies, file access, network connections and system calls, with full Kubernetes context. Each event says which binary ran with which arguments, as which user, under which parent, in which pod and container.
 sourcetypes:
   - st: tetragon
-    desc: 'Elastic integrations fixture, 10 events. Upstream: tetragon/data_stream/log/_dev/test/pipeline/test-cilium-tetragon-log.log'
+    desc: Tetragon JSON events from the node agent, such as process_exec and process_exit, and tracing policy events, with process, parent and Kubernetes pod context
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: tetragon
-  Sourcetypes: '1'
-  Fixture events: '10'
-  Log format seen: json
-  Fields in the first fixture: process_exec.process.exec_id, process_exec.process.pid, process_exec.process.uid, process_exec.process.cwd, process_exec.process.binary, process_exec.process.arguments
+  Product: eBPF runtime security observability and enforcement for Linux and Kubernetes
+  Form factor: Tetragon agent as a DaemonSet on Kubernetes nodes, or a service on Linux hosts
+  Event types: process_exec, process_exit, and process_kprobe, process_tracepoint or process_lsm from tracing policies
+  Log transport: JSON written to an export file on the node (or read over its gRPC API). A log forwarder ships the file
+  Log format: One JSON object per event, keyed by event type, with node_name and time
+  What a process_exec event answers: Which binary ran with which arguments and working directory, as which uid, started by which parent, in which pod, container, namespace and workload
 placement:
   slots:
-    - cloud
+    - internal
+    - endpoint
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Kubernetes nodes
+      desc: Tetragon runs on every node of the cluster as a DaemonSet. It sees all processes in all containers on that node through eBPF.
+    - slot: endpoint
+      title: Linux hosts
+      desc: Tetragon can also run as a service on a standalone Linux server, where it records the host's processes without Kubernetes context.
 howItWorks:
-  - title: What the fixture shows
-    body: Tetragon events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries process_exec.process.exec_id, process_exec.process.pid, process_exec.process.uid, process_exec.process.cwd, process_exec.process.binary, process_exec.process.arguments. Values in the sample were rewritten to documentation addresses.
+  - title: eBPF in the kernel
+    body: Tetragon loads eBPF programs into the Linux kernel. Process execution and exit are always observed. Tracing policies add hooks on kernel functions, tracepoints or LSM hooks, to watch file, network or privilege operations, and can enforce by killing a process or overriding a return value.
+  - title: Process context
+    body: Each process gets an exec_id that stays unique across the cluster, and a parent_exec_id, so the full process tree can be rebuilt. Events carry binary, arguments, cwd, uid, auid, start time and flags, plus pod, container, image, labels and workload when the process runs in Kubernetes.
+  - title: How events leave the node
+    body: The agent writes events as JSON lines to an export file, with rotation, and can also stream them over gRPC. A log forwarder on the node reads the file and sends the events to any collector.
 traffic:
   handles:
-    - json
+    - Process execution and exit
+    - File, network and syscall activity under tracing policies
+    - Kubernetes pod and container context
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads tetragon and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Process runs
+      desc: A process starts in a container or on the host.
+    - step: Kernel hook fires
+      desc: Tetragon's eBPF program sees the execution and collects process, parent and namespace data.
+    - step: Agent writes the event
+      desc: The agent adds Kubernetes context and writes one JSON event to its export file.
+    - step: Collector reads
+      desc: A log forwarder ships the line. Goatpedia reads it as JSON.
 logs:
-  - type: Log
+  - type: Process events
     sourcetype: tetragon
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One process execution. process_exec.process.binary and arguments say what ran, uid and cwd how, process_exec.parent which process started it, and process_exec.process.pod which pod, container and workload. This sample is local-path-provisioner starting in a kind cluster, run by containerd-shim.
     sample: '{"process_exec":{"process":{"exec_id":"a2luZC1jb250cm9sLXBsYW5lOjY5NjM5MjAwMDAwMDAwOjIyNDM5NQ==","pid":224395,"uid":0,"cwd":"/","binary":"/usr/local/bin/local-path-provisioner","arguments":"--debug start --helper-image docker.io/kindest/local-path-helper:v20230510-486859a6 --config /etc/config/config.json","flags":"procFS auid rootcwd","start_time":"2024-10-18T22:12:37.150989227Z","auid":4294967295,"pod":{"namespace":"local-path-storage","name":"local-path-provisioner-57c5987fd4-vd668","container":{"id":"containerd://aac7662884b96b0351a3529cf7c38311a48b74681a632135c91879f43da12d61","name":"local-path-provisioner","image":{"id":"sha256:282f619d10d4dda6c93fe329249dca6155c9deff5e96eef4420b6f6c30ff5a83","name":"docker.io/kindest/local-path-provisioner:v20240813-c6f155d6"},"start_time":"2024-10-18T22:12:37Z","pid":1},"pod_labels":{"app":"local-path-provisioner","pod-template-hash":"57c5987fd4"},"workload":"local-path-provisioner","workload_kind":"Deployment"},"docker":"aac7662884b96b0351a3529cf7c3831","parent_exec_id":"a2luZC1jb250cm9sLXBsYW5lOjY5NjM3MTYwMDAwMDAwOjIyMzk2NQ==","tid":224395},"parent":{"exec_id":"a2luZC1jb250cm9sLXBsYW5lOjY5NjM3MTYwMDAwMDAwOjIyMzk2NQ==","pid":223965,"uid":0,"cwd":"/run/containerd/io.containerd.runtime.v2.task/k8s.io/6aa99f632d557da37af7aac66e6508ebe966cda09fcff83b080e5764432a75d9","binary":"/usr/local/bin/containerd-shim-runc-v2","arguments":"-namespace k8s.io -id 6aa99f632d557da37af7aac66e6508ebe966cda09fcff83b080e5764432a75d9 -address /run/containerd/containerd.sock","flags":"procFS auid","start_time":"2024-10-18T22:12:35.110989185Z","auid":4294967295,"parent_exec_id":"a2luZC1jb250cm9sLXBsYW5lOjY5NjA0NjAwMDAwMDAwOjIyMTU3NQ==","tid":223965}},"node_name":"kind-control-plane","time":"2024-10-18T22:12:37.150989102Z"}'
     key:
       - process_exec.process.exec_id
@@ -55,17 +72,24 @@ logs:
       - process_exec.process.cwd
 cves: []
 detections:
-  - title: Tetragon events arriving
-    severity: low
+  - title: Shell started in a pod
+    severity: medium
     signals:
-      - process_exec.process.exec_id
-      - process_exec.process.pid
+      - process_exec.process.binary
+      - process_exec.process.pod.name
+      - process_exec.process.pod.namespace
       - process_exec.process.uid
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "tetragon"'
+    why: Most containers never start an interactive shell. A shell in a pod is often someone exec-ing in, or an attacker who reached code execution in the workload.
+    kql: |
+      dataset="tetragon_logs"
+      | where sourcetype == "tetragon" and process_exec.process.binary in ("/bin/sh", "/bin/bash", "/usr/bin/sh", "/usr/bin/bash", "/bin/dash") and isnotempty(process_exec.process.pod.name)
+      | project time, node_name, process_exec.process.pod.namespace, process_exec.process.pod.name, process_exec.process.binary, process_exec.process.arguments, process_exec.process.uid
+    mitre:
+      - T1059.004
+      - T1609
 optimizations: []
 references:
-  - title: elastic/integrations tetragon/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tetragon/data_stream/log/_dev/test/pipeline/test-cilium-tetragon-log.log
-  - title: Pack Generator sample tetragon.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tetragon.json
+  - title: Tetragon documentation
+    url: https://tetragon.io/docs/
+  - title: Tetragon on GitHub
+    url: https://github.com/cilium/tetragon

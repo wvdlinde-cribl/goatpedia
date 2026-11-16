@@ -4,64 +4,64 @@ short: Cisco Aironet
 vendor: Cisco
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cisco_aironet
-  - Elastic integrations
+  - Cisco Aironet access points
+  - Cisco Wireless LAN Controller
+  - Cisco Catalyst 9800 WLC
 tags:
-  - elastic
-  - text
-summary: Cisco Aironet is logged by the Elastic integrations package cisco_aironet. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - wireless
+  - wlan
+  - network
+  - syslog
+summary: Cisco Aironet is Cisco's line of enterprise wireless access points, managed in most deployments by a wireless LAN controller such as the AireOS controllers or the IOS XE based Catalyst 9800. The controller handles client association, authentication against RADIUS, roaming, radio management and rogue detection for every access point. It sends syslog messages for those functions, which tell you about authentication and AAA problems, access point joins and failures, and controller health.
 sourcetypes:
   - st: cisco_aironet
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cisco_aironet/data_stream/log/_dev/test/pipeline/test-aironet-expand-reason.log'
+    desc: Wireless LAN controller syslog, one message per event from controller processes such as AAA, client management and access point management, in Cisco %FACILITY-SEVERITY-MNEMONIC form
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cisco_aironet
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Enterprise Wi-Fi access points and the wireless LAN controllers that manage them
+  Form factor: Indoor and outdoor access points, with hardware, virtual, cloud or switch-embedded controllers
+  Log transport: Syslog over UDP or TCP from the controller to one or more syslog servers
+  Log format: Cisco syslog text with a sequence number, host, timestamp and a %FACILITY-SEVERITY-MNEMONIC tag, then the message. On Catalyst 9800 the chassis, slot and process (for example wncd) follow
+  What a controller message answers: Which controller process reported what, at which severity, for example a RADIUS or accounting server problem, an access point joining or dropping, or a client authentication failure
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Wireless LAN controller and access points
+      desc: Access points hang off the campus switches. The controller sits in the data centre or campus core, terminates the access point tunnels and talks to RADIUS. Its syslog describes the whole wireless network.
 howItWorks:
-  - title: What the fixture shows
-    body: Cisco Aironet events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Access points and the controller
+    body: Access points join a controller over CAPWAP and receive their configuration from it. The controller manages WLANs, radio settings, client association and roaming, and on the Catalyst 9800 runs per-function processes such as wncd for wireless clients.
+  - title: Authentication and AAA
+    body: For 802.1X WLANs the controller sends client authentication and accounting to RADIUS servers through AAA server groups. A missing or invalid server group shows up as AAA errors such as BADSERVERTYPEERROR.
+  - title: How the logs leave the controller
+    body: The controller is configured with syslog hosts and a logging level. Each message carries a facility, a severity from 0 to 7 and a mnemonic. Any syslog collector can receive them. The destination is a choice of the pipeline, not a property of the controller.
 traffic:
   handles:
-    - text
+    - Wi-Fi client association and roaming
+    - 802.1X and RADIUS authentication and accounting
+    - Access point join and radio management
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cisco_aironet and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Wireless event happens
+      desc: A client associates or authenticates, an access point joins or drops, or a controller process hits an error.
+    - step: Controller process logs it
+      desc: The process writes a syslog message with facility, severity and mnemonic.
+    - step: Syslog is sent
+      desc: The controller sends the message to the configured syslog servers.
 logs:
-  - type: Log
+  - type: Controller syslog
     sourcetype: cisco_aironet
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog message from the controller. The %FACILITY-SEVERITY-MNEMONIC tag says which function reported it and how serious it is, and the text after it explains. This sample is a severity 3 AAA error from the wncd process on a Catalyst 9800 controller that could not process an accounting server type because the server group handle was invalid. The sample uses documentation host names.
     sample: '<147>4105777: example-wlc-01.example.com: 4105879: Jun  2 16:00:48.072 SGT: %AAA-3-BADSERVERTYPEERROR: Chassis 1 R0/0: wncd: Cannot process accounting server type *invalid_group_handle*'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Cisco Aironet events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cisco_aironet"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations cisco_aironet/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisco_aironet/data_stream/log/_dev/test/pipeline/test-aironet-expand-reason.log
-  - title: Pack Generator sample cisco_aironet.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_aironet.json
+references: []

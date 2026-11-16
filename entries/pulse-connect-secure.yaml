@@ -1,67 +1,89 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: pulse-connect-secure
-name: Pulse Connect Secure
-short: Secure
-vendor: Pulse
+name: Ivanti Connect Secure
+short: Connect Secure
+vendor: Ivanti
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - pulse_connect_secure
-  - Elastic integrations
+  - Pulse Connect Secure
+  - Pulse Secure
+  - Juniper SSL VPN
+  - ICS
 tags:
-  - elastic
+  - vpn
+  - ssl-vpn
+  - remote-access
+  - syslog
   - text
-summary: Pulse Connect Secure is logged by the Elastic integrations package pulse_connect_secure. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An SSL VPN gateway for remote access, formerly Pulse Connect Secure and before that Juniper SSL VPN, now from Ivanti. Remote users authenticate against realms and get network or web access according to roles. Its syslog covers user authentication and sessions, admin actions and system events, and it is a frequent target of attacks on internet-facing VPNs.
 sourcetypes:
   - st: pulse_connect_secure
-    desc: 'Elastic integrations fixture, 20 events. Upstream: pulse_connect_secure/data_stream/log/_dev/test/pipeline/test-log-vpn.log'
+    desc: 'Syslog from the gateway: user access (authentication, sessions, VPN tunnels), admin access and system events'
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: pulse_connect_secure
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: SSL VPN and remote access gateway
+  Form factor: Physical or virtual appliances, often clustered, at the internet edge
+  Clients: Ivanti Secure Access Client (formerly Pulse Secure client) and browsers
+  Log transport: 'Syslog (UDP, TCP or TLS) to one or more servers, per log type: events, user access, admin access'
+  Log format: Syslog lines with a PulseSecure tag, the node, the client address, user(realm)[roles] and a message
+  What a user access line answers: Which user in which realm authenticated or connected from which address, and whether it worked
 placement:
   slots:
-    - cloud
+    - edge
+    - remote
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: VPN gateway
+      desc: The gateway is internet-facing, at the perimeter or in the DMZ. Remote users connect to it and it forwards their traffic to internal resources.
+    - slot: remote
+      title: Remote users
+      desc: Users connect from home or travel with the client or a browser. Their public address appears in the log.
 howItWorks:
-  - title: What the fixture shows
-    body: Pulse Connect Secure events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Realms and roles
+    body: A user signs in to a sign-in URL tied to a realm. The realm sets the authentication servers (local, LDAP, RADIUS, SAML) and maps the user to roles that decide access.
+  - title: Sessions
+    body: After authentication the user gets a session for web resources or a VPN tunnel. The log records start, end and tunnel details.
+  - title: How the log leaves the product
+    body: Each log type (events, user access, admin access) can be sent to syslog servers in standard or custom formats.
 traffic:
   handles:
-    - text
+    - Remote user authentication
+    - SSL VPN tunnels
+    - Web resource access
+    - Gateway administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads pulse_connect_secure and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: User signs in
+      desc: A remote user opens the sign-in page or starts the client.
+    - step: Gateway authenticates
+      desc: The gateway checks credentials against the realm's servers and assigns roles.
+    - step: Session starts
+      desc: The user gets web access or a VPN tunnel.
+    - step: Syslog sent
+      desc: The gateway logs the step and sends it to the syslog receiver.
 logs:
-  - type: Log
+  - type: Gateway syslog
     sourcetype: pulse_connect_secure
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line per event. After the header it carries the node, the client address in brackets, user(realm)[roles], and the message. This sample is a successful primary authentication. The sample uses documentation addresses.
     sample: 'Oct 19 09:16:53 pcs-node1 1 2021-10-19T09:16:53+02:00 203.0.113.40 PulseSecure: - - - 2021-10-19 09:16:53 - pcs-node1 - [192.0.2.10] user.name(REALM)[] - Primary authentication successful for user.name/REALM from 192.0.2.20'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Pulse Connect Secure events arriving
-    severity: low
+  - title: VPN authentication failed
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "pulse_connect_secure"'
+    why: Failed primary or secondary authentication on an internet-facing VPN is password guessing or a broken account. Bursts from one address, or across many users, are spraying.
+    kql: |
+      dataset="pulse-connect-secure_logs"
+      | where sourcetype == "pulse_connect_secure" and message contains "authentication failed"
+      | project message
+    mitre:
+      - T1110
 optimizations: []
-references:
-  - title: elastic/integrations pulse_connect_secure/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/pulse_connect_secure/data_stream/log/_dev/test/pipeline/test-log-vpn.log
-  - title: Pack Generator sample pulse_connect_secure.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/pulse_connect_secure.json
+references: []

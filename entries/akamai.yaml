@@ -1,52 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: akamai
-name: Akamai
-short: Akamai
-vendor: Akamai
+name: Akamai App & API Protector
+short: Akamai WAF
+vendor: Akamai Technologies
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - akamai
-  - Elastic integrations
+  - Akamai SIEM Integration
+  - Kona Site Defender
+  - Akamai Bot Manager
 tags:
-  - elastic
+  - waf
+  - cdn
+  - bot-management
+  - web
   - json
-summary: Akamai is logged by the Elastic integrations package akamai. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Akamai's web application firewall and bot protection, which runs on the Akamai edge in front of a customer's websites and APIs. Each request is checked against security configurations and policies, and rules can alert, deny, tarpit or otherwise act on it. The SIEM Integration API returns one JSON security event per request that triggered a rule, with the client, the HTTP request and the rules that matched.
 sourcetypes:
   - st: akamai_siem
-    desc: 'Elastic integrations fixture, 6 events. Upstream: akamai/data_stream/siem/_dev/test/pipeline/test-placeholder-json.log'
+    desc: Security events from Akamai's edge for requests that triggered WAF, API or bot rules, with client, request, geo and applied action
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: akamai
-  Sourcetypes: '1'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: attackData.appliedAction, attackData.clientIP, attackData.configId, attackData.policyId, attackData.ruleActions, attackData.ruleData
+  Product: Edge web application firewall, API protection and bot management on the Akamai CDN
+  Placement: Reverse proxy on Akamai edge servers in front of the origin
+  Log transport: HTTPS pull from the Akamai SIEM Integration API with EdgeGrid credentials, per security configuration
+  Log format: One JSON object per security event. Rule fields inside attackData are URL-encoded, base64 lists separated by semicolons
+  What a security event answers: Which client hit which host and path, which rules matched, and what Akamai did with the request
 placement:
   slots:
+    - edge
     - cloud
   items:
+    - slot: edge
+      title: Akamai edge servers
+      desc: Requests to the protected sites and APIs reach an Akamai edge server first. The security policy runs there before anything is forwarded to the origin.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: SIEM Integration API
+      desc: Akamai keeps security events per security configuration. A collector pulls them from the SIEM Integration API using an offset.
 howItWorks:
-  - title: What the fixture shows
-    body: Akamai events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries attackData.appliedAction, attackData.clientIP, attackData.configId, attackData.policyId, attackData.ruleActions, attackData.ruleData. Values in the sample were rewritten to documentation addresses.
+  - title: Security configurations and policies
+    body: A security configuration (configId) holds one or more security policies (policyId) mapped to hostnames and paths. A policy turns on WAF rule sets, rate controls, API protections and bot detections, and sets the action for each, such as alert, deny or tarpit.
+  - title: One event per triggering request
+    body: When a request triggers rules, Akamai records one event for it. attackData lists every rule that matched with its action, message, tag and the data that triggered it, plus appliedAction, the action actually taken. httpMessage holds the request and response status, geo the client location, identity the TLS fingerprints.
+  - title: Encoded rule lists
+    body: The rule fields are lists. Each value is base64, the list is separated by semicolons, and the whole string is URL-encoded. A parser has to URL-decode, split and base64-decode them to read the rule ids and messages.
+  - title: How the events leave the product
+    body: A collector calls the SIEM Integration API for a configuration id with EdgeGrid authentication. Each response is newline-delimited JSON plus an offset for the next call.
 traffic:
   handles:
-    - json
+    - HTTP and HTTPS requests to protected websites and APIs
+    - Bot and automated client traffic
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads akamai and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client requests
+      desc: A browser, bot or API client sends a request to a hostname served by Akamai.
+    - step: Edge evaluates
+      desc: The edge server runs the security policy and records the rules that matched and the action taken.
+    - step: Collector pulls
+      desc: A collector requests new events for the configuration from the SIEM Integration API.
+    - step: Events are JSON
+      desc: Each event is one JSON object with attackData, httpMessage, geo and identity.
 logs:
-  - type: Siem
+  - type: Security events
     sourcetype: akamai_siem
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per request that triggered rules. attackData.appliedAction is what Akamai did (tarpit here), attackData.clientIP who sent it, attackData.rules and ruleMessages the encoded rule list. httpMessage gives host, path, method and status. The client is a documentation address.
     sample: '{"attackData":{"appliedAction":"tarpit","clientIP":"203.0.113.40","configId":"67217","policyId":"PNWD_110088","ruleActions":"bW9uaXRvcg%3d%3d%3bbW9uaXRvcg%3d%3d%3bbW9uaXRvcg%3d%3d%3bbW9uaXRvcg%3d%3d%3bbW9uaXRvcg%3d%3d%3bdGFycGl0","ruleData":"%3b%3b%3b%3b%3bQm90X0E5RDg0MDJFQ0NGQjY3N0NCMjBEMDlBRUNDODk5MkFE","ruleMessages":"TWlzc2luZyBDb29raWUgSGVhZGVy%3bTm9uLVBlcnNpc3RlbnQgSFRUUCBDb25uZWN0aW9u%3bQ2hyb21lIFNpZ25hdHVyZSBBbm9tYWx5%3bU2VjLUZldGNoLUhlYWRlciBNaXNzaW5n%3bTG93IEhlYWRlc...","ruleSelectors":"%3b%3b%3b%3b%3b","ruleTags":"QUtBTUFJL0JPVC9CSUQ%3d%3bQUtBTUFJL0JPVC9CSUQ%3d%3bQUtBTUFJL0JPVC9CSUQ%3d%3bQUtBTUFJL0JPVC9CSUQ%3d%3bQUtBTUFJL0JPVC9CSUQ%3d%3bQUtBTUFJL0JPVC9CSUQ%3d","ruleVersions":"MQ%3d%3d%3bMQ%3d%3d%3bMQ%3d%3d%3bMQ%3d%3d%3bMQ%3d%3d%3bMQ%3d%3d","rules":"MzkwNDAwNg%3d%3d%3bMzkwNDAwNw%3d%3d%3bMzkwNDAyMA%3d%3d%3bMzkwNDA1Mg%3d%3d%3bMzkwNDA1Mw%3d%3d%3bQk9ULUJST1dTRVItSU1QRVJTT05BVE9S"},"format":"json","geo":{"asn":"28573","city":"SOROCABA","continent":"SA","country":"BR","regionCode":"SP"},"httpMessage":{"bytes":"0","host":"vinrcl.safercar.gov","method":"GET","path":"/vin/","port":"443","protocol":"HTTP/1.1","query":"vin=1G1FD3DSXP0118247","requestHeaders":"Host%3a%20vinrcl.safercar.gov%0d%0aUser-Agent%3a%20Mozilla%2f5.0%20(Windows%20NT%2010.0%3b%20Win64%3b%20x64)%20AppleWebKit%2f537.36%20(KHTML,%20like%20Gecko)...","requestId":"f3fe4c34","responseHeaders":"{p}","start":"1762365006","status":"200","tls":"tls1.3"},"identity":{"ja4":"t13d131000_f57a46bbacb6_e7c285222651","tlsFingerprintV2":"c6a4ce37a8dc4153","tlsFingerprintV3":"3~de293936a8dc4153"},"type":"akamai_siem","version":"1.0"}'
     key:
       - attackData.appliedAction
@@ -55,17 +74,19 @@ logs:
       - attackData.policyId
 cves: []
 detections:
-  - title: Akamai events arriving
-    severity: low
+  - title: Request denied at the edge
+    severity: medium
     signals:
       - attackData.appliedAction
       - attackData.clientIP
-      - attackData.configId
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "akamai_siem"'
+      - httpMessage.host
+      - httpMessage.path
+    why: An applied action other than monitoring or alert means a rule acted on the request. Many denied requests from one client or against one path are an attack in progress.
+    kql: |
+      dataset="akamai_logs"
+      | where sourcetype == "akamai_siem" and attackData.appliedAction != "alert" and attackData.appliedAction != "monitor"
+      | project httpMessage.start, attackData.appliedAction, attackData.clientIP, httpMessage.host, httpMessage.path, attackData.policyId
+    mitre:
+      - T1190
 optimizations: []
-references:
-  - title: elastic/integrations akamai/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/akamai/data_stream/siem/_dev/test/pipeline/test-placeholder-json.log
-  - title: Pack Generator sample akamai_siem.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/akamai_siem.json
+references: []

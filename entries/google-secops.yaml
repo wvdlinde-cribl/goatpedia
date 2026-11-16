@@ -1,52 +1,63 @@
 id: google-secops
-name: Google Secops
-short: Google Secops
+name: Google Security Operations
+short: Google SecOps
 vendor: Google
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - google_secops
-  - Elastic integrations
+  - Google SecOps
+  - Chronicle
 tags:
-  - elastic
+  - detection
+  - alerts
   - json
-summary: Google Secops is logged by the Elastic integrations package google_secops. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Google Security Operations, also called Chronicle, is Google's security analytics platform. It stores telemetry and raises an alert when a detection rule matches. This stream is one alert. The rule name, the alert state, the risk score and the entities the rule named are the fields that say what matched. A collector can pull the alert JSON from the product.
 sourcetypes:
   - st: google_secops_alert_v2
-    desc: 'Elastic integrations fixture, 4 events. Upstream: google_secops/data_stream/alert_v2/_dev/test/pipeline/test-alert-v2.log'
+    desc: One detection alert. alertState, ruleName and riskScore say which rule matched and how the product scored it.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: google_secops
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: createdTime, detection[0].alertState, detection[0].description, detection[0].detectionFields[0].key, detection[0].detectionFields[0].value, detection[0].outcomes[0].key
+  Product: Security analytics platform. Rules run over stored telemetry and raise alerts.
+  Where it runs: Google's service. Customers send telemetry in and read alerts back.
+  Log transport: HTTPS JSON from the detection alert API. A collector polls for alerts.
+  Log format: One JSON object per alert. detection is the rule that matched. event is the underlying telemetry the rule cited.
+  What an alert answers: Which rule matched, whether it is still alerting, the risk score, and which addresses or hosts the rule named
+  What alertState answers: ALERTING means the rule is currently raising this alert.
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Detection alerts
+      desc: Rules and the alerts they raise live in Google Security Operations. urlBackToProduct is the link back to the alert in the product. A collector pulls the JSON.
 howItWorks:
-  - title: What the fixture shows
-    body: Google Secops events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries createdTime, detection[0].alertState, detection[0].description, detection[0].detectionFields[0].key, detection[0].detectionFields[0].value, detection[0].outcomes[0].key. Values in the sample were rewritten to documentation addresses.
+  - title: A detection
+    body: detection is a list with the rule that matched. ruleName and ruleId identify it. alertState is whether it is alerting. riskScore is the product's score. description is the rule's summary. detectionFields and outcomes are values the rule computed, such as an address it correlated. The sample rule is an IP match against a threat list, with alertState ALERTING and riskScore 40.
+  - title: The event under the alert
+    body: event is the telemetry the rule cited, already in the product's unified shape. metadata.logType and metadata.eventType say what the original record was. principal.ip and target are the entities. timeWindow is the range the rule looked at. type RULE_DETECTION says this object is a rule match rather than a raw log.
+  - title: The sample's addresses
+    body: The addresses, host names and URLs in this sample are documentation values, including example.com. Read the fields, not the particular addresses, as the shape of a real alert.
+  - title: How a collector pulls alerts
+    body: The product stores the alert. A collector with access calls the alert API and receives one JSON object per detection. Any collector can do this. Where the alert is forwarded is a choice of the pipeline.
 traffic:
   handles:
-    - json
+    - Detection-rule matches
+    - Alert state and risk score
+    - Entities the rule named
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads google_secops and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Telemetry arrives
+      desc: Logs are sent into Google Security Operations and stored for detection.
+    - step: A rule matches
+      desc: A detection rule matches events in a time window and the product opens or updates an alert.
+    - step: Collector pulls the alert
+      desc: A collector requests alerts and receives one JSON object, with the rule and the cited event.
 logs:
-  - type: Alert V2
+  - type: Detection alert
     sourcetype: google_secops_alert_v2
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One rule match. detection[0].alertState, ruleName and riskScore are the alert. event is the telemetry the rule cited. This sample is an alerting multi-event rule with risk score 40. The addresses and URLs are documentation values.
     sample: '{"createdTime":"2026-07-10T10:55:52.129834Z","detection":[{"alertState":"ALERTING","description":"Detects events where source or principal IP matches a malicious or suspicious IP in GreyNoise intelligence.","detectionFields":[{"key":"correlation_ip","value":"192.0.2.10"}],"outcomes":[{"key":"principal_ip","value":"192.0.2.20"},{"key":"principal_hostname"}],"riskScore":40,"ruleId":"ru_00000000-0000-0000-0000-000000000001","ruleLabels":[{"key":"author","value":"GreyNoise Intelligence"},{"key":"description","value":"Detects events where source or principal IP matches a malicious or suspicious IP in GreyNoise intelligence."}],"ruleName":"greynoise_intelligence_ip_match","ruleType":"MULTI_EVENT","ruleVersion":"ru_00000000-0000-0000-0000-000000000001@v_1765958150_356360000","urlBackToProduct":"https://chronicle.example.com/alert?alertId=de_00000000-0000-0000-0000-000000000001"}],"detectionTime":"2026-07-10T11:00:00Z","event":{"about":[{"labels":[{"key":"watchlistsMatchedByType_id","value":"3557389"},{"key":"watchlistsMatchedByType_name","value":"Cyber Alerts"}]},{"labels":[{"key":"alertType_color","value":"FFBB05"},{"key":"alertType_id","value":"urgent"}]}],"metadata":{"baseLabels":{"allowScopedAccess":true,"logTypes":["DATAMINR_ALERT"]},"description":"Spike detected in malicious IPs attempting to exploit CVE-2017-20149.","enrichmentLabels":{"allowScopedAccess":true},"eventTimestamp":"2026-07-10T10:26:46.872Z","eventType":"SCAN_HOST","id":"AAAAAC4+egHJ1IF+LhG0dL+Ogx8AAAAABgAAABsAAAA=","ingestedTimestamp":"2026-07-10T10:40:06.231965Z","logType":"DATAMINR_ALERT","productLogId":"673882874984150889046821-1783677840000-1","urlBackToProduct":"https://app.example.com/alertDetail/1"},"principal":{"asset":{"ip":["198.51.100.15","198.51.100.25"]},"ip":["203.0.113.8","203.0.113.40"],"ipGeoArtifact":[{"ip":"192.0.2.10","location":{"countryOrRegion":"Pakistan","regionCoordinates":{"latitude":31.170406299999996,"longitude":72.7097161},"state":"Punjab"},"network":{"asn":"23674","carrierName":"nayatel (pvt) ltd"}},{"ip":"192.0.2.20","location":{"countryOrRegion":"Cameroon","regionCoordinates":{"latitude":4.1682138,"longitude":10.0807298},"state":"Littoral Region"},"network":{"asn":"14593","carrierName":"space exploration technologies corporation"}}],"labels":[{"key":"relatedTerms_cve","value":"https://app.example.com/alertDetail/1"},{"key":"relatedTerms_detected","value":"https://app.example.com/alertDetail/1"}],"location":{"countryOrRegion":"Pakistan"}},"target":{"resource":{"attribute":{"labels":[{"key":"post_media_media_url","value":"https://cdn.example.com/media/example.png?Expires=1786270980&Signature=EXAMPLESIGNATURE&Key-Pair-Id=EXAMPLEKEYPAIRID"},{"key":"post_media_url","value":"https://cdn.example.com/media/example.png?Expires=1786270980&Signature=EXAMPLESIGNATURE&Key-Pair-Id=EXAMPLEKEYPAIRID"}]}}}},"id":"de_00000000-0000-0000-0000-000000000001","label":"network","timeWindow":{"endTime":"2026-07-10T11:00:00Z","startTime":"2026-07-10T10:00:00Z"},"type":"RULE_DETECTION"}'
     key:
       - createdTime
@@ -54,18 +65,8 @@ logs:
       - detection[0].description
       - detection[0].detectionFields[0].key
 cves: []
-detections:
-  - title: Google Secops events arriving
-    severity: low
-    signals:
-      - createdTime
-      - detection[0].alertState
-      - detection[0].description
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "google_secops_alert_v2"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations google_secops/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/google_secops/data_stream/alert_v2/_dev/test/pipeline/test-alert-v2.log
-  - title: Pack Generator sample google_secops_alert_v2.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/google_secops_alert_v2.json
+  - title: Google Security Operations documentation
+    url: https://cloud.google.com/chronicle/docs

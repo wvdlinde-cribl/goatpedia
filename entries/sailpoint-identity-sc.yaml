@@ -1,56 +1,80 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: sailpoint-identity-sc
-name: Sailpoint Identity Sc
-short: Sc
-vendor: Sailpoint
+name: SailPoint Identity Security Cloud
+short: SailPoint ISC
+vendor: SailPoint Technologies
 category: idp
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - sailpoint_identity_sc
-  - Elastic integrations
+  - SailPoint IdentityNow
+  - IdentityNow
+  - Identity Security Cloud
+  - ISC
 tags:
-  - elastic
-  - json
-summary: Sailpoint Identity Sc is logged by the Elastic integrations package sailpoint_identity_sc. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - identity-governance
+  - iga
+  - identity
+  - audit
+summary: A SaaS identity governance platform. It connects to sources such as Active Directory and business applications, aggregates their accounts and entitlements into identities, and runs access requests, certifications and provisioning. Its audit events record who did what in the tenant, while the identity and machine-identity records describe who holds which access — the data you need to answer "who changed access" and "who has access".
 sourcetypes:
   - st: sailpoint_identity_sc
-    desc: 'Elastic integrations fixture, 7 events. Upstream: sailpoint_identity_sc/data_stream/events/_dev/test/pipeline/test-event.log'
+    desc: Audit events from the tenant, such as password changes, logins, access requests, provisioning and configuration changes, with actor, target and outcome
   - st: sailpoint_identity_sc_identities
-    desc: 'Elastic integrations fixture, 4 events. Upstream: sailpoint_identity_sc/data_stream/identities/_dev/test/pipeline/test-manager-with-supervises-sample.log'
+    desc: One record per human identity with its accounts on each source, entitlements, access profiles, roles and manager
   - st: sailpoint_identity_sc_machine_identities
-    desc: 'Elastic integrations fixture, 3 events. Upstream: sailpoint_identity_sc/data_stream/machine_identities/_dev/test/pipeline/test-machine-identity-full-sample.log'
+    desc: One record per machine identity (service account or application identity) with its owners, source and entitlements
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: sailpoint_identity_sc
-  Sourcetypes: '3'
-  Fixture events: '14'
-  Log format seen: json
-  Fields in the first fixture: org, pod, created, id, action, type
+  Product: Identity governance and administration (IGA) delivered as SaaS
+  Tenant: One org per customer on a regional pod. Each event names its org and pod
+  Sources: Connectors to directories, HR systems, cloud and business applications, aggregated through virtual appliances or direct API connectors
+  Log transport: HTTPS JSON, pulled from the tenant's REST API (search and audit endpoints) by any collector with an API client
+  Log format: One JSON object per audit event or per identity record
+  What an audit event answers: Who acted, on which target, what operation it was, and whether it PASSED or FAILED
+  What an identity record answers: Which accounts and entitlements a person holds, which are privileged, and who manages them
+  What a machine-identity record answers: Which service accounts exist, who owns them, and what they can access
 placement:
   slots:
     - cloud
+    - internal
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Identity Security Cloud tenant
+      desc: The governance engine, identity warehouse and audit trail live in the SailPoint tenant. A collector polls its API for events and identity records.
+    - slot: internal
+      title: Virtual appliance and sources
+      desc: On-premises sources such as Active Directory are reached through SailPoint virtual appliances on the internal network. They aggregate accounts and carry out provisioning. The access they read appears in the identity records.
 howItWorks:
-  - title: What the fixture shows
-    body: Sailpoint Identity Sc events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries org, pod, created, id, action, type. Values in the sample were rewritten to documentation addresses.
+  - title: Identities and sources
+    body: Each connected source is aggregated on a schedule. Accounts are correlated to an identity, usually from the HR source. An identity record lists those accounts, the entitlements on them, access profiles and roles, and flags privileged access.
+  - title: Governance actions
+    body: Access requests, approvals, certifications, provisioning, password changes and admin configuration all happen in the tenant. Each one is recorded as an audit event with an action, an operation, the objects involved, an actor, a target and a status.
+  - title: Machine identities
+    body: Service accounts and other non-human identities are tracked separately. A machine-identity record names its native identity on a source, its subtype, its primary and secondary owners, and its entitlements.
+  - title: How the data leaves the product
+    body: The tenant does not push syslog. A collector with an API client credential calls the search and identity APIs and pages through results. Each result is one JSON object that can be forwarded to any destination.
 traffic:
   handles:
-    - json
+    - Identity lifecycle (joiner, mover, leaver)
+    - Access requests, approvals and certifications
+    - Account provisioning and password management
+    - Tenant administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads sailpoint_identity_sc and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Action happens
+      desc: A user changes a password, an approver grants access, a source is aggregated, or an admin changes configuration.
+    - step: Tenant records it
+      desc: Identity Security Cloud writes an audit event, or updates the identity or machine-identity record.
+    - step: Collector polls
+      desc: A collector calls the tenant API with an OAuth client and pages through new events and records.
+    - step: Events are JSON
+      desc: Each result is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: Events
+  - type: Audit events
     sourcetype: sailpoint_identity_sc
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One action in the tenant. action and technicalName name it, operation and objects describe it, actor and target say who did it to whom, and status is PASSED or FAILED. This sample is a successful user password update. ipAddress uses a documentation address.
     sample: '{"org":"example-org","pod":"se01-useast1","created":"2024-12-23T10:58:27.962Z","id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2","action":"USER_PASSWORD_UPDATE_PASSED","type":"PASSWORD_ACTIVITY","actor":{"id":"c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4","name":"alice.example","displayName":"Alice Example"},"target":{"name":"alice.example"},"stack":"pigs","details":"38eef046d4594d7e9186cee997232f3d","trackingNumber":"fb38cc3fb990451dab51133aed21268a","ipAddress":"203.0.113.40","attributes":{"accountId":"alice.example","sourceName":"IdentityNow","info":"Password workflow invoked successfully.","hostName":"192.0.2.10","pod":"se01-useast1","org":"example-org","scope":"[\"sp:scopes:all\"]"},"objects":["USER","PASSWORD"],"operation":"UPDATE","status":"PASSED","technicalName":"USER_PASSWORD_UPDATE_PASSED","name":"Update User Password Passed","synced":"2024-12-23T10:58:32.977Z","_type":"event","_version":"v2"}'
     key:
       - org
@@ -60,17 +84,17 @@ logs:
   - type: Identities
     sourcetype: sailpoint_identity_sc_identities
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One human identity. access lists entitlements with their source and a privileged flag. accounts lists the accounts on each source. The counts (accessCount, accountCount, accessProfileCount) summarise it. The sample uses example.com directory names.
     sample: '{"access":[{"attribute":"memberOf","description":"Grants administrative access to the internal VPN system","displayName":"HostingVPN","id":"access-id-c01","name":"HostingVPN","privileged":false,"source":{"id":"source-id-ad-001","name":"Active Directory"},"standalone":true,"type":"ENTITLEMENT","value":"CN=HostingVPN,OU=Groups,OU=Demo,DC=corp,DC=example,DC=com"},{"attribute":"groups","description":"View-only access to all existing Accounting report data","displayName":"View_Reports","id":"access-id-c07","name":"View_Reports","privileged":false,"source":{"id":"source-id-prism-001","name":"PRISM"},"standalone":false,"type":"ENTITLEMENT","value":"View_Reports"}],"accessCount":4,"accessProfileCount":1,"accountCount":2,"accounts":[{"accountId":"CN=Emma Thompson,OU=Munich,OU=Europe,OU=Demo,DC=corp,DC=example,DC=com","created":"2026-04-24T16:34:13.180Z","disabled":false,"entitlementAttributes":{"memberOf":["CN=HostingVPN,OU=Groups,OU=Demo,DC=corp,DC=example,DC=com"]},"id":"account-id-ad-002","locked":false,"manuallyCorrelated":false,"name":"Emma.Thompson","passwordLastSet":"2021-03-04T23:52:23.845Z","privileged":false,"source":{"id":"source-id-ad-001","name":"Active Directory","type":"Active Directory - Direct"}},{"accountId":"EMP001","created":"2026-04-24T16:34:13.324Z","disabled":false,"entitlementAttributes":{},"id":"account-id-hr-002","locked":false,"manuallyCorrelated":false,"name":"Emma.Thompson","privileged":false,"source":{"id":"source-id-hr-001","name":"HR","type":"JDBC"}}],"attributes":{"city":"Boston","cloudAuthoritativeSource":"source-id-hr-001","cloudLifecycleState":"active","cloudStatus":"ACTIVE","country":"US","department":"Human Resources","displayName":"Emma Thompson","email":"user@example.com","firstname":"Emma","identificationNumber":"EMP001","identityState":"ACTIVE","internalCloudStatus":"ACTIVE","jobTitle":"HR Manager","lastname":"Thompson","location":"Boston","types":"Employee","uid":"emma.thompson","visibleSegments":["All Employees"]},"created":"2024-04-24T16:34:13.173Z","displayName":"Emma Thompson","email":"user@example.com","employeeNumber":"EMP001","entitlementCount":2,"firstName":"Emma","id":"identity-id-chr-001","identityProfile":{"id":"profile-id-001","name":"HR"},"inactive":false,"isManager":true,"lastName":"Thompson","manager":{"id":"mgr-id-003","name":"dennis.clark","displayName":"Dennis Clark"},"modified":"2024-04-24T16:56:37.494Z","name":"emma.thompson","org":"example-corp","ownsCount":0,"pod":"pod01-useast1","protected":false,"roleCount":1,"source":{"id":"source-id-hr-001","name":"HR"},"status":"ACTIVE","tags":[],"visibleSegments":["All Employees"],"disabled":false}'
     key:
       - access[0].attribute
       - access[0].description
       - access[0].displayName
       - access[0].id
-  - type: Machine Identities
+  - type: Machine identities
     sourcetype: sailpoint_identity_sc_machine_identities
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One non-human identity. nativeIdentity and source say where it lives, owners.primaryIdentity says who is responsible, and userEntitlements lists its access. This sample is a reporting service account.
     sample: '{"id":"mi-id-aabbccdd-1111-2222-3333-000000000002","name":"svc-reporting-job","created":"2024-02-20T14:00:00Z","modified":"2025-01-11T09:00:00Z","nativeIdentity":"svc-reporting:prod:00002","description":"Service account for scheduled reporting tasks.","attributes":{"env":"production","team":"Analytics"},"subtype":"Application","owners":{"primaryIdentity":{"type":"IDENTITY","id":"00000000000000000000000000000002","name":"bob.example"},"secondaryIdentities":[{"type":"IDENTITY","id":"00000000000000000000000000000004","name":"alice.example"}]},"sourceId":"src-id-aabbccdd-1111-2222-3333-000000000002","uuid":"uuid-aabbccdd-1111-2222-3333-000000000002","manuallyEdited":false,"manuallyCreated":false,"source":{"type":"SOURCE","id":"src-id-aabbccdd-1111-2222-3333-000000000002","name":"Example Cloud Apps"},"datasetId":"ds-id-aabbccdd-1111-2222-3333-000000000002","userEntitlements":[{"sourceId":"src-id-aabbccdd-1111-2222-3333-000000000003","entitlementId":"ent-id-aabbccdd-1111-2222-3333-000000000001","displayName":"Reports DB Read Access","source":{"type":"SOURCE","id":"src-id-aabbccdd-1111-2222-3333-000000000003","name":"Example SQL DB"}}]}'
     key:
       - id
@@ -79,17 +103,22 @@ logs:
       - modified
 cves: []
 detections:
-  - title: Sailpoint Identity Sc events arriving
-    severity: low
+  - title: Identity action failed
+    severity: medium
     signals:
-      - org
-      - pod
-      - created
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "sailpoint_identity_sc"'
+      - status
+      - action
+      - actor.name
+      - target.name
+      - ipAddress
+    why: A FAILED status on a login, password or provisioning action shows an attempt the tenant refused. Repeated failures for one target, or failures from an unexpected address, point at account takeover attempts against the governance platform.
+    kql: |
+      dataset="sailpoint-identity-sc_logs"
+      | where sourcetype == "sailpoint_identity_sc" and status == "FAILED"
+      | project created, action, type, actor.name, target.name, ipAddress
+    mitre:
+      - T1110
 optimizations: []
 references:
-  - title: elastic/integrations sailpoint_identity_sc/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sailpoint_identity_sc/data_stream/events/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample sailpoint_identity_sc.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sailpoint_identity_sc.json
+  - title: SailPoint Identity Security Cloud API (v3)
+    url: https://developer.sailpoint.com/docs/api/v3/

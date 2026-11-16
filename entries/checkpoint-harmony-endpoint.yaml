@@ -1,124 +1,144 @@
 id: checkpoint-harmony-endpoint
-name: Checkpoint Harmony Endpoint
-short: Endpoint
-vendor: Checkpoint
+name: Check Point Harmony Endpoint
+short: Harmony EP
+vendor: Check Point Software Technologies
 category: ngfw
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - checkpoint_harmony_endpoint
-  - Elastic integrations
+  - Harmony Endpoint
+  - Check Point Endpoint Security
+  - SandBlast Agent
 tags:
-  - elastic
+  - endpoint
+  - edr
+  - antimalware
+  - anti-phishing
   - json
-summary: Checkpoint Harmony Endpoint is logged by the Elastic integrations package checkpoint_harmony_endpoint. The Pack Generator samples pool holds fixture events for 7 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Check Point Harmony Endpoint, formerly SandBlast Agent, is an endpoint protection and EDR product for Windows, macOS and Linux. The Check Point Endpoint Security Client on each device combines anti-malware, anti-bot, threat emulation and extraction, zero-phishing, URL filtering and forensics, managed from the Harmony Endpoint management service in the Infinity Portal or an on-premises management server. Each blade logs its detections and actions, so the logs show which machine and user met which threat, what it was, and whether the client detected, prevented or cleaned it.
 sourcetypes:
   - st: checkpoint_harmony_endpoint_antibot
-    desc: 'Elastic integrations fixture, 3 events. Upstream: checkpoint_harmony_endpoint/data_stream/antibot/_dev/test/pipeline/test-antibot-high-severity.log'
+    desc: Anti-Bot events, one record per connection or DNS query from an endpoint to a known command-and-control or malicious domain, with the process, domain and action
   - st: checkpoint_harmony_endpoint_antimalware
-    desc: 'Elastic integrations fixture, 5 events. Upstream: checkpoint_harmony_endpoint/data_stream/antimalware/_dev/test/pipeline/test-antimalware-high-severity.log'
+    desc: Anti-Malware events, one record per infection found by the signature and heuristic scanner, with the host, user, engine and signature versions and the action taken
   - st: checkpoint_harmony_endpoint_forensics
-    desc: 'Elastic integrations fixture, 3 events. Upstream: checkpoint_harmony_endpoint/data_stream/forensics/_dev/test/pipeline/test-forensics-critical-severity.log'
+    desc: Forensics case analysis events, one record per incident the forensics engine analysed, with the triggering detection, the file and its hashes, and the attack status
   - st: checkpoint_harmony_endpoint_threatemulation
-    desc: 'Elastic integrations fixture, 4 events. Upstream: checkpoint_harmony_endpoint/data_stream/threatemulation/_dev/test/pipeline/test-threatemulation-critical-severity.log'
+    desc: Threat Emulation events, one record per file sent to the sandbox and judged malicious, with the file name and hash and the action taken
   - st: checkpoint_harmony_endpoint_threatextraction
-    desc: 'Elastic integrations fixture, 1 events. Upstream: checkpoint_harmony_endpoint/data_stream/threatextraction/_dev/test/pipeline/test-threatextraction-info-severity.log'
+    desc: Threat Extraction events, one record per downloaded document the client tried to sanitise by removing active content, with the result
   - st: checkpoint_harmony_endpoint_urlfiltering
-    desc: 'Elastic integrations fixture, 2 events. Upstream: checkpoint_harmony_endpoint/data_stream/urlfiltering/_dev/test/pipeline/test-urlfiltering-info-severity.log'
+    desc: URL Filtering events, one record per web request checked against URL category policy, with the URL, the protection and the action
   - st: checkpoint_harmony_endpoint_zerophishing
-    desc: 'Elastic integrations fixture, 1 events. Upstream: checkpoint_harmony_endpoint/data_stream/zerophishing/_dev/test/pipeline/test-zerophishing-high-severity.log'
+    desc: Zero-Phishing events, one record per web page the browser extension judged to be a phishing site, with the URL and the action
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: checkpoint_harmony_endpoint
-  Sourcetypes: '7'
-  Fixture events: '19'
-  Log format seen: json
-  Fields in the first fixture: confidence_level, policy_date, severity, time, id, orig
+  Product: Endpoint protection platform and EDR with anti-malware, anti-bot, sandboxing, content disarm, anti-phishing, URL filtering and forensics
+  Form factor: Check Point Endpoint Security Client on Windows, macOS and Linux, with a browser extension for web protections. Managed from the Infinity Portal (cloud) or an on-premises Endpoint Security Management Server
+  Log transport: Events are stored in the management service's log server. A collector reads them from the Infinity Portal logs API with a client id and secret, or from the on-premises management through Log Exporter as syslog
+  Log format: JSON. All blades share common fields (time, severity, confidence_level, product, event_type, action, src, src_machine_name, src_user_name, policy_name) plus blade-specific fields such as file_name, file_md5, resource or protection_name
+  What an event answers: On which machine and for which user which protection (product, protection_type) found what (description, file_name, resource), how severe and certain it is, and whether it was detected, prevented, extracted or cleaned (action)
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Endpoint Security Client
+      desc: The client runs on each laptop, desktop and server and the browser extension in each browser. Detection and enforcement happen there, and each event names the machine and user.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Harmony Endpoint management
+      desc: Policies and logs live in the Harmony Endpoint management service in the Infinity Portal, or on an on-premises management server. Collectors read events from there.
 howItWorks:
-  - title: What the fixture shows
-    body: Checkpoint Harmony Endpoint events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries confidence_level, policy_date, severity, time, id, orig. Values in the sample were rewritten to documentation addresses.
+  - title: Blades
+    body: The client is built from blades that the policy turns on. Anti-Malware scans files. Anti-Bot watches DNS and connections for command-and-control. Threat Emulation runs suspicious files in a sandbox, and Threat Extraction strips active content from documents. Zero-Phishing and URL Filtering work in the browser. Forensics builds an incident report when another blade fires.
+  - title: What an event records
+    body: product names the blade and event_type the kind of event. action is what the client did, such as Detect, Prevent or Extract. severity and confidence_level rate it. src_machine_name, src_user_name and src identify the endpoint. protection_type and protection_name name the specific protection, and description explains the finding, often with the exclusion steps.
+  - title: Forensics cases
+    body: When a detection fires, the forensics blade traces what led to it and what followed. The case analysis event records which protection detected it (detected_by), the file and hashes, and attack_status, for example Dormant when the threat never ran.
+  - title: How the events leave the product
+    body: Clients upload logs to the management service. In the Infinity Portal a collector creates an API key for the logs service and runs log queries for new endpoint events. On premises, Log Exporter can send them as syslog. The destination is a choice of the pipeline, not a property of Harmony Endpoint.
 traffic:
   handles:
-    - json
+    - Files written, downloaded and executed on endpoints
+    - DNS queries and outbound connections
+    - Web browsing and phishing pages
+    - Document downloads with active content
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads checkpoint_harmony_endpoint and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Activity on the endpoint
+      desc: A user downloads a file, opens a page or a process makes a connection.
+    - step: A blade inspects it
+      desc: The relevant blade scans, emulates, extracts or checks reputation, and acts according to policy.
+    - step: Client logs the event
+      desc: The client sends an event with the blade, action, severity, file or URL and endpoint details to the management service.
+    - step: Collector reads the logs
+      desc: A collector queries the logs API, or receives Log Exporter syslog, and forwards each JSON event.
 logs:
-  - type: Antibot
+  - type: Anti-Bot event
     sourcetype: checkpoint_harmony_endpoint_antibot
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One record per bot or malicious-site communication. description names the domain and the protection, file_name the process that made the request, and action what the client did. This sample is a high-severity detection of a DNS query to a known malicious test domain from svchost.exe. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-09-03T10:46:14.0000000Z","severity":"High","time":"2024-09-06T08:32:28Z","id":"a4640108-91b1-0f19-66da-bf6400000001","orig":"203.0.113.40","sequencenum":16777215,"action":"Detect","product":"Anti-Bot","domain":"SMC User","product_family":"Endpoint","type":"Log","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"description":"Detected dns query to malicious domain malware.wicar.org [Infecting Website.RS.TC.32eclVjT]. To exclude: On the Harmony Endpoint Management add an Anti-Bot e...","event_type":"Anti Bot Event","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"policy_name":"Default Anti-Bot settings","src":"192.0.2.10","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","policy_number":3,"protection_type":"URL Reputation","file_md5":"7469cc568ad6821fd9d925542730a7d8","file_name":["svchost.exe"]}'
     key:
       - confidence_level
       - policy_date
       - severity
       - time
-  - type: Antimalware
+  - type: Anti-Malware event
     sourcetype: checkpoint_harmony_endpoint_antimalware
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One record per infection found. event_type is Infection, action_details the file state, engine_ver and sig_ver the scanner and signature versions, and src_machine_name and src_user_name the host and user. This sample is a high-severity detection of an infected file on a Windows 10 desktop. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-08-29T13:12:46.0000000Z","severity":"High","time":"2024-09-02T09:09:07Z","id":"a4640108-91b1-0f19-66d5-815d0000000f","orig":"198.51.100.25","sequencenum":16777215,"product":"Anti-Malware","domain":"SMC User","product_family":"Endpoint","type":"Log","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"event_type":"Infection","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"src":"203.0.113.8","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","policy_name":"Default Anti-Malware settings for the entire organization","policy_number":3,"action_details":"Infected","connectivity_state":"Connected","engine_ver":"3.90","sig_ver":"202409011444","action":"Detect"}'
     key:
       - confidence_level
       - policy_date
       - severity
       - time
-  - type: Forensics
+  - type: Forensics case
     sourcetype: checkpoint_harmony_endpoint_forensics
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One record per forensics case analysis. detected_by is the protection that fired, file_name, file_md5 and file_sha1 the file, attack_status how far the attack got, and packet_capture_unique_id links to the full report. This sample is a critical file-reputation case for a zip archive whose attack status is Dormant. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-09-02T06:23:25.0000000Z","severity":"Critical","time":"2024-09-03T08:53:12.000001Z","id":"a4640108-91b1-0f19-66d6-ceb500000000","orig":"203.0.113.40","sequencenum":1,"action":"Detect","product":"Forensics","domain":"SMC User","product_family":"Endpoint","type":"Log","description":"To exclude the file: On the Harmony Endpoint Management add this sha1 exclusion: 62f0bd56-b0e1235b-99940b34-916c19ec-fac8e80c Attack status: Dormant.","protection_type":"File Reputation","attack_status":"Dormant","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"detected_by":"Endpoint File Reputation","event_type":"Forensics Case Analysis","file_md5":"1468c1908845ef238f7f196809946288","file_name":["malz5.zip"],"file_sha1":"62f0bd56b0e1235b99940b34916c19ecfac8e80c","file_size":12707198,"file_type":"zip","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","malware_action":[" "],"os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"packet_capture_unique_id":"0acd55a9-f241-4097-a699-6b7e41cd26af"}'
     key:
       - confidence_level
       - policy_date
       - severity
       - time
-  - type: Threatemulation
+  - type: Threat Emulation event
     sourcetype: checkpoint_harmony_endpoint_threatemulation
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One record per file the sandbox judged malicious. file_name and file_md5 identify it, protection_type says how it was emulated and action what the client did. This sample is a critical detection of a malicious temporary file by file system emulation. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-08-29T13:12:50.0000000Z","severity":"Critical","time":"2024-09-02T09:04:54Z","id":"a4640108-91b1-0f19-66d5-803100000012","orig":"192.0.2.20","sequencenum":16777215,"client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"description":"Endpoint TE detected malicious file (681573a2-414a-4f7d-9683-177df4f8ca7f.tmp) . To exclude the file: On the Harmony Endpoint Management add this sha1 exclus...","event_type":"TE Event","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"policy_name":"Default Threat Extraction, Emulation and Anti-Exploit settings for the entire organization","policy_number":3,"product":"Threat Emulation","product_family":"Endpoint","src":"198.51.100.15","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","domain":"SMC User","type":"Log","action":"Detect","protection_type":"File System Emulation","file_md5":"ebe8b633d231bbfee9543d744a2ab59d","file_name":["681573a2-414a-4f7d-9683-177df4f8ca7f.tmp"]}'
     key:
       - confidence_level
       - policy_date
       - severity
       - time
-  - type: Threatextraction
+  - type: Threat Extraction event
     sourcetype: checkpoint_harmony_endpoint_threatextraction
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per document the client tried to sanitise. action is Extract, protection_type Content Removal, and description the outcome. This sample is an informational event for a file that is not supported for extraction. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-09-03T10:46:13.0000000Z","severity":"Informational","time":"2024-09-04T09:08:30Z","id":"a4640108-91b1-0f19-66d8-247c00000000","orig":"198.51.100.25","sequencenum":16777215,"action":"Extract","product":"Threat Extraction","domain":"SMC User","product_family":"Endpoint","type":"Log","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"description":"File is not supported for extraction","event_type":"TEX Event","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"src":"203.0.113.8","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","policy_name":"Default Threat Extraction, Emulation and Anti-Exploit settings for the entire organization","policy_number":4,"protection_type":"Content Removal","advanced_info":" \"disable_exclusion\": true ","extension_version":" 990.99.486 "}'
     key:
       - confidence_level
       - policy_date
       - severity
       - time
-  - type: Urlfiltering
+  - type: URL Filtering event
     sourcetype: checkpoint_harmony_endpoint_urlfiltering
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One record per web request handled by URL filtering. resource is the URL, protection_name the rule, and action whether it was allowed or prevented. This sample is a Prevent for a site, with an exclusion already listed in advanced_info. The sample uses documentation addresses.
     sample: '{"policy_date":"2024-09-06T10:08:44.0000000Z","severity":"Informational","time":"2024-09-06T10:19:56.000001Z","id":"a4640108-91b1-0f19-66da-d78900000009","orig":"203.0.113.40","sequencenum":1,"action":"Prevent","product":"URL Filtering","domain":"SMC User","product_family":"Endpoint","type":"Log","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"description":"To exclude: Open the Harmony Management -> POLICY -> Threat Prevention -> EXCLUSION CENTER -> Web and Files Protection -> URL Filtering exclusions -> + -> pa...","event_type":"URLF Info Event","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"policy_name":"Default Anti-Bot settings","src":"192.0.2.10","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","policy_number":5,"protection_type":"URL Filtering","protection_name":"gen.urlf","resource":["https://livingliquidz.com/"],"advanced_info":"\"exclusions\":[{\"exclusion_engine_type\":\"URL Filtering exclusions\",\"exclusion_type\":\"Domain\",\"exclusion_value\":{\"default_value\":\"livingliquidz.com\",\"md5\":\"\",\"..."}'
     key:
       - policy_date
       - severity
       - time
       - id
-  - type: Zerophishing
+  - type: Zero-Phishing event
     sourcetype: checkpoint_harmony_endpoint_zerophishing
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per page the browser protection judged deceptive. description holds the URL, protection_name the detection and action what was done. This sample is a high-severity detection of a phishing test page. The sample uses documentation addresses.
     sample: '{"confidence_level":"High","policy_date":"2024-08-29T13:12:50.0000000Z","severity":"High","time":"2024-09-02T08:51:08Z","id":"a4640108-91b1-0f19-66d5-7d6100000004","orig":"198.51.100.15","sequencenum":16777215,"action":"Detect","product":"Zero Phishing","domain":"SMC User","product_family":"Endpoint","type":"Log","client_name":"Check Point Endpoint Security Client","client_version":["88.50.0213"],"description":"Deceptive site (https://main.sbm-demo.xyz/zero-phishing) was detected.","event_type":"Phishing Event","host_type":["Desktop"],"installed_products":"Full Disk Encryption; Media Encryption & Port Protection; Firewall; Compliance; Application Control; Anti-Malware; VPN; Anti-Bot; Forensics; Threat Emulation","os_name":["Microsoft Windows 10 Pro"],"os_version":["10.0-19045-SP0.0-SMP"],"src":"198.51.100.25","src_machine_name":"DESKTOP-E2P4OL0","src_user_name":["admin"],"tenant_id":"3e15ed24-89ff-4986-a204-c425cee4ba48","user_sid":"S-1-5-21-3766288932-3295778425-2939962592-1001","policy_name":"Default Threat Extraction, Emulation and Anti-Exploit settings for the entire organization","policy_number":3,"protection_type":"Phishing","malware_action":[" "],"protection_name":"gen.ba.phishing"}'
     key:
       - confidence_level
@@ -127,17 +147,39 @@ logs:
       - time
 cves: []
 detections:
-  - title: Checkpoint Harmony Endpoint events arriving
-    severity: low
+  - title: Malware detected on an endpoint
+    severity: high
     signals:
-      - confidence_level
-      - policy_date
+      - product
       - severity
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "checkpoint_harmony_endpoint_antibot"'
-optimizations: []
-references:
-  - title: elastic/integrations checkpoint_harmony_endpoint/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/checkpoint_harmony_endpoint/data_stream/antibot/_dev/test/pipeline/test-antibot-high-severity.log
-  - title: Pack Generator sample checkpoint_harmony_endpoint_antibot.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/checkpoint_harmony_endpoint_antibot.json
+      - action
+      - src_machine_name
+      - src_user_name
+    why: High and critical events from Anti-Malware, Threat Emulation, Anti-Bot and Forensics mean malicious code was on the machine or calling out from it. When the action is only Detect, the threat was not blocked and needs follow-up on that host.
+    kql: |
+      dataset="checkpoint-harmony-endpoint_logs"
+      | where sourcetype in ("checkpoint_harmony_endpoint_antimalware", "checkpoint_harmony_endpoint_threatemulation", "checkpoint_harmony_endpoint_antibot", "checkpoint_harmony_endpoint_forensics") and severity in ("High", "Critical")
+      | project time, product, event_type, severity, action, src_machine_name, src_user_name, description
+    mitre:
+      - T1204
+  - title: Phishing page detected in the browser
+    severity: medium
+    signals:
+      - product
+      - action
+      - description
+      - src_user_name
+    why: A Zero-Phishing detection means a user opened a page built to steal credentials. If the action was Detect rather than Prevent, the user may have entered their password.
+    kql: |
+      dataset="checkpoint-harmony-endpoint_logs"
+      | where sourcetype == "checkpoint_harmony_endpoint_zerophishing"
+      | project time, severity, action, src_machine_name, src_user_name, description
+    mitre:
+      - T1566.002
+optimizations:
+  - title: Keep detections, route informational events to storage
+    saving: much of the endpoint log volume
+    fn: Routes
+    how: Informational URL filtering and threat extraction events record routine browsing and document handling. Send high and critical detections to the SIEM in full, and send informational events to cheaper storage.
+    expr: "severity == 'Informational'"
+references: []

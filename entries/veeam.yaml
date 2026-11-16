@@ -1,64 +1,73 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: veeam
-name: Veeam
+name: Veeam Backup & Replication
 short: Veeam
 vendor: Veeam
 category: netinfra
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - veeam
-  - Elastic integrations
+  - Veeam Backup & Replication
+  - Veeam VBR
 tags:
-  - elastic
+  - backup
+  - syslog
   - kv
-summary: Veeam is logged by the Elastic integrations package veeam. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Veeam Backup & Replication copies virtual machines and other workloads to backup storage and tape. The backup server records a key-value event when a job creates a restore point or moves one to tape. The same server can also send that event as syslog. Two streams cover those. Any collector that receives the syslog, or reads the event the server emits, can store them.
 sourcetypes:
   - st: veeam
-    desc: 'Elastic integrations fixture, 20 events. Upstream: veeam/data_stream/event/_dev/test/pipeline/test-veeam-event-backup-sample.log'
+    desc: One backup-job event as key-value fields. The sample is a restore point offloaded to tape
   - st: veeam_vbr_syslog
-    desc: 'Splunk Connect for Syslog fixture, 2 events. Upstream: tests/test_veeam.py'
+    desc: The same kind of job event wrapped in syslog. The sample is a restore point marked corrupted
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: veeam
-  Sourcetypes: '2'
-  Fixture events: '22'
-  Log format seen: kv
-  Fields in the first fixture: '[categoryId, instanceId, JobSessionID, JobID, JobType, TaskSessionID'
+  Product: Backup and recovery for virtual, cloud and physical workloads. Jobs run on a Veeam Backup & Replication server
+  Where it sits: The backup server is on the internal network, next to the storage and tape it writes to. Proxies sit closer to the workloads
+  Log transport: Syslog from the backup server, and the same event as a key-value record. A collector receives the syslog the operator configured
+  Log format: Space-separated key=value pairs inside brackets. Job and object ids are quoted strings
+  What a job event answers: Which job and which VM, what happened to the restore point, and whether that point was marked corrupted
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Backup server
+      desc: Veeam Backup & Replication runs on a server that owns the jobs, the repositories and the tape. VbrHostName is that server. JobID and JobSessionID identify the job. A collector on the management network receives the syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Veeam events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries [categoryId, instanceId, JobSessionID, JobID, JobType, TaskSessionID. Values in the sample were rewritten to documentation addresses.
+  - title: Jobs and restore points
+    body: A job session (JobSessionID, JobID, JobType) processes a workload. When a restore point is created or copied, Veeam writes an event whose Description says what happened. The sample job event says a VM restore point was offloaded to a tape, and it names the barcode, the media pool and the repository object id.
+  - title: Corruption
+    body: A restore-point event can say the point is corrupted. On the syslog stream, IsCorrupted is that flag, VmName is the workload, and Description repeats the outcome in a sentence. The sample syslog event has IsCorrupted true for a VM restore point that was created. That flag is the integrity question. A normal offload does not set it.
+  - title: How the event is sent
+    body: The backup server emits the key-value event and can wrap the same style of event in syslog. The syslog sample uses a facility and a host, then the bracketed fields. Any syslog collector can receive it. Host names and addresses in the samples are documentation values. Goatpedia reads these samples as key-value text.
 traffic:
   handles:
-    - kv
+    - Backup jobs creating or copying restore points
+    - Restore points marked corrupted
+    - Offload of a restore point to tape
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads veeam and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: A job session runs
+      desc: The backup server creates a restore point or copies one to a repository or to tape.
+    - step: Server writes an event
+      desc: The event names the job, the VM and a description. A corrupted point sets IsCorrupted.
+    - step: Collector receives it
+      desc: The event arrives as key-value fields, or as the same fields inside a syslog line.
 logs:
-  - type: Event
+  - type: Job event
     sourcetype: veeam
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One key-value event. Description is the sentence. This sample says the restore point for vm-web-01 was offloaded to tape WRM000LS. JobID and JobSessionID identify the job. VbrHostName is a documentation host name.
     sample: '[categoryId=0 instanceId=10014 JobSessionID="47d76d50-7c0c-4c4c-9af1-5452387cdb5a" JobID="140e8222-4640-4db5-8c13-2507e39899ad" JobType="28" TaskSessionID="ad191b3e-76c1-466b-b6cc-3853baf97288" RepositoryOibID="02e48eae-4314-4fe6-bd46-5e9fbcb48e00" TapeOibID="71f3f7cd-92fd-4aeb-a307-a61dfddb3e3c" TapeStorageID="4d61131b-8195-4330-8194-22f9b887968a" TapeStorageCreationTime="07/25/2026 08:56:09" TapeID="35c1e3cc-74eb-4648-899a-bc2a8bb4ead4" Barcode="WRM000LS" MediaPoolID="e3262542-20c9-42c5-9534-77e5e17fbb92" MediaSetID="1697828487" SequenceNumber="1" TapeUsedSize="0" VbrHostName="vbr-01.example.local" VbrVersion="192.0.2.20" Version="1" Description="VM ''vm-web-01'' restore point has been offloaded to the tape WRM000LS."]'
     key:
       - '[categoryId'
       - instanceId
       - JobSessionID
       - JobID
-  - type: Veeam Vbr Syslog
+  - type: Backup server syslog
     sourcetype: veeam_vbr_syslog
     format: kv
-    desc: 2 fixture events in the samples pool (sc4s).
+    desc: One syslog line whose body is the same key-value event. IsCorrupted is the integrity flag. This sample is a restore point for server.mydomain.com with IsCorrupted true. VmName and Description repeat the workload. Addresses in the host names are documentation names.
     sample: <14>1 2026-06-15T13:45:07.123456+00:00 sc4s-lab-01 Veeam_MP - - [origin enterpriseId="3xxx3"] [categoryId=0 instanceId=10010 OibID="1a583aa0-84f0-4f63-8cc0-a2e25a3dxxxf" OriginalOibID="75ae4bc8-725b-4583-b8e6-c2dfcabxxxba" VmRef="d5692942-d615-d64b-2339-31e3c29xxx49" VmName="server.mydomain.com" ServerName="This server" DateTime="06/10/2024 14:32:17" IsCorrupted="True" Platform="6" StorageSize="28473884672" RepositoryID="1451444b-83fa-44ec-9965-a48dxxx954cd" IsFull="False" Version="1" Description="VM 'server.mydomain.com' restore point has been created."]
     key:
       - enterpriseId
@@ -67,17 +76,18 @@ logs:
       - OibID
 cves: []
 detections:
-  - title: Veeam events arriving
-    severity: low
+  - title: Restore point marked corrupted
+    severity: high
     signals:
-      - '[categoryId'
-      - instanceId
-      - JobSessionID
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "veeam"'
+      - IsCorrupted
+      - VmName
+      - Description
+    why: IsCorrupted true means the backup server recorded a restore point it does not consider intact. That is a recovery failure, not a successful offload. The syslog sample is that case. The tape-offload sample does not set this flag.
+    kql: |
+      dataset="veeam_logs"
+      | where sourcetype == "veeam_vbr_syslog" and IsCorrupted == "True"
+      | project VmName, IsCorrupted, Description, DateTime, OibID
 optimizations: []
 references:
-  - title: elastic/integrations veeam/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/veeam/data_stream/event/_dev/test/pipeline/test-veeam-event-backup-sample.log
-  - title: Pack Generator sample veeam.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/veeam.json
+  - title: Veeam Backup & Replication documentation
+    url: https://helpcenter.veeam.com/docs/backup/vsphere/overview.html

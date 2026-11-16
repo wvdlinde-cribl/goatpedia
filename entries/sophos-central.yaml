@@ -1,64 +1,83 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: sophos-central
 name: Sophos Central
 short: Sophos Central
 vendor: Sophos
 category: idp
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - sophos_central
-  - Elastic integrations
+  - Sophos Central Endpoint
+  - Sophos Intercept X
+  - Sophos Central SIEM API
 tags:
-  - elastic
-  - json
-summary: Sophos Central is logged by the Elastic integrations package sophos_central. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - edr
+  - endpoint-protection
+  - antivirus
+  - xdr
+summary: The cloud management console for Sophos protection products, mainly Intercept X endpoint and server protection. Agents on computers and servers detect and clean malware, block exploits and ransomware, and report to Sophos Central. Its SIEM API exposes two streams — events (everything the agents report, from detections to user and policy events) and alerts (the subset that needs attention).
 sourcetypes:
   - st: sophos_central
-    desc: 'Elastic integrations fixture, 3 events. Upstream: sophos_central/data_stream/event/_dev/test/pipeline/test-user-formats.log'
+    desc: Sophos Central events from endpoints and servers, such as malware and exploit detections, IPS blocks, cleanups and user or policy changes
   - st: sophos_central_alert
-    desc: 'Elastic integrations fixture, 3 events. Upstream: sophos_central/data_stream/alert/_dev/test/pipeline/test-user-formats.log'
+    desc: Sophos Central alerts, the events that need an admin's attention, with threat, endpoint, severity and remediation details
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: sophos_central
-  Sourcetypes: '2'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: source, appSha256, appCerts[0].signer, appCerts[0].thumbprint, appCerts[1].signer, appCerts[1].thumbprint
+  Product: Cloud-managed endpoint and server protection (Intercept X) and related Sophos products
+  Clients: Sophos agents on Windows, macOS and Linux computers and servers
+  Log transport: HTTPS JSON, pulled from the Sophos Central SIEM API (events and alerts) with an API client credential
+  Log format: One JSON object per event or alert
+  What an event answers: What happened on which endpoint (endpoint_id, type, group), which threat or file was involved, and for whom
+  What an alert answers: Which threat needs action, how severe it is, and what cleanup already did on the endpoint
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Sophos agent
+      desc: The agent on each computer or server detects threats, blocks exploits and cleans files. Detections happen here.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Sophos Central
+      desc: The agents report to the Sophos Central tenant, which stores events and alerts. A collector polls the SIEM API for each tenant.
 howItWorks:
-  - title: What the fixture shows
-    body: Sophos Central events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries source, appSha256, appCerts[0].signer, appCerts[0].thumbprint, appCerts[1].signer, appCerts[1].thumbprint. Values in the sample were rewritten to documentation addresses.
+  - title: Protection on the endpoint
+    body: Intercept X combines signature and machine-learning malware detection, exploit mitigation (HitmanPro.Alert, the HMPA app), CryptoGuard anti-ransomware, AMSI script scanning and a host IPS. Each detection names the threat, the file or process, and what cleanup did.
+  - title: Events and alerts
+    body: Every report from an agent is an event with a type, a group (for example PROTECTION or MALWARE), a severity and the endpoint. Events that need an admin decision are also raised as alerts with a description, the threat and remediation detail.
+  - title: How the data leaves the product
+    body: A collector authenticates to Sophos Central with an API client, then pages through the SIEM events and alerts endpoints using a cursor. Each record is a JSON object for any destination.
 traffic:
   handles:
-    - json
+    - Malware detection and cleanup
+    - Exploit and ransomware protection
+    - Host intrusion prevention
+    - Endpoint user and policy events
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads sophos_central and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent detects
+      desc: The Sophos agent on an endpoint detects a threat, blocks an exploit or reports a state change.
+    - step: Central records it
+      desc: Sophos Central stores the event, and raises an alert when action is needed.
+    - step: Collector polls
+      desc: A collector calls the SIEM API for events and alerts since its last cursor.
+    - step: Events are JSON
+      desc: Each event or alert is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: Event
+  - type: Events
     sourcetype: sophos_central
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One event reported by an endpoint. type and group classify it, severity rates it, endpoint_id and source say where and who, and threat, appSha256 and the ips_threat_data or amsi_threat_data blocks describe the detection. This sample is a low-severity PROTECTION event for a blocklisted application. Addresses use documentation ranges.
     sample: '{"source":"Lightning-wmknq52avx\\Lightning","appSha256":"18ac3e7343f016890c510e93f935261169d9e3f565436429830faf0934f4f8e4","appCerts":[{"signer":"Sophos Ltd","thumbprint":"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"},{"signer":"Sophos Ltd","thumbprint":"a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa"}],"severity":"low","origin":"BLOCKLISTED","created_at":"2022-11-24T07:06:40.920Z","source_info":{"ip":"198.51.100.15"},"customer_id":"d1271b33-4e24-4cc3-951a-badc38976ca3","threat":"Unknown Threat","endpoint_id":"0320820b-84b4-41ea-95fd-5893fb17e420","endpoint_type":"computer","user_id":"637f18000269b20f2233bf4a","when":"2022-11-24T07:06:40.883Z","ips_threat_data":{"localPort":"123","executableVersion":"7.6.5","executablePid":"2468","techSupportId":"2019052901.77863414.5","detectionType":0,"executableName":"","rawData":"Message       OS-WINDOWS Microsoft Windows SMB remote code execution attempt\nReference     CVE-2017-0146\nPacket type   TCP\nLocal IP:     198.51.100.25\nLocal ...","remoteIp":"203.0.113.40","executablePath":"C:\\Program Files\\Bad Vendor\\Bad Program.exe","remotePort":"789"},"amsi_threat_data":{"processId":"processId1","processName":"Bad Process","processPath":"C:\\directory1\\script1","parentProcessId":"parentProcessId1","parentProcessPath":"C:\\directory2\\someFile.exe"},"type":"Event2001:db8::1Endpoint2001:db8::1UserAutoCreated","location":"Lightning-rvda5c291x","group":"PROTECTION","core_remedy_items":{"items":[{"type":"file","result":"SUCCESS","suspendResult":"NOT_APPLICABLE","descriptor":"C:\\foo.dll","processPath":"","sophosPid":""}],"totalItems":1},"id":"555a7296-044c-4712-8f16-bfd8a916b0ed","name":"New user added automatically: Lightning-wmknq52avx\\Lightning"}'
     key:
       - source
       - appSha256
       - appCerts[0].signer
       - appCerts[0].thumbprint
-  - type: Alert
+  - type: Alerts
     sourcetype: sophos_central_alert
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One alert that needs attention. description and threat say what was found, severity rates it, data.endpoint_id and data.endpoint_platform say where, and data.core_remedy_items shows what cleanup did. This sample is a medium-severity manual PUA cleanup on a Windows computer.
     sample: '{"description":"Manual PUA cleanup required: ''PUAqsw3kby31j'' at ''C:\\Program Files (x86)\\Trojan Horse\\bin\\eicar.com''","source":"Domain\\User","severity":"medium","data":{"policy_type":30,"user_match_uuid":{"type":3,"data":"SltcnDmTSoSky+G00P5iTQ=="},"make_actionable_at":1674533519751,"certificates":[],"core_remedy_items":{"totalItems":1,"items":[{"result":"SUCCESS","sophosPid":"","suspendResult":"NOT_APPLICABLE","processPath":"","descriptor":"C:\\foo.dll","type":"file"}]},"created_at":1669273672085,"endpoint_id":"0320820b-84b4-41ea-95fd-5893fb17e420","endpoint_java_id":"0320820b-84b4-41ea-95fd-5893fb17e420","endpoint_platform":"windows","endpoint_type":"computer","event_service_id":{"type":3,"data":"ASctdeo4TVyAZU0SyIzlJg=="},"hmpa_exploit":{"uid":"344b9a0b-2271-0e14-0c61-0fa89122c6ad","family_id":"aecab125-0118-4828-a2bb-c0815aa5864d","process_name":"Lightning:Notepad++","process_version":"21.13.87","thumbprint":"d99d375c1e190e6ccc77d22d51e8f9ed881bbb4af1342f618adf9f78358c6488","process_path":"C:\\Windows\\Virus","type":"CryptoGuard","process_pid":"135510845","version":"2.13.7"},"inserted_at":1669273672085,"ips_threat":{"executable_name":"Bad Program","remote_ip":"192.0.2.10","executable_pid":"2468","local_port":"123","detection_type":1,"remote_port":"789","executable_path":"C:\\Program Files\\Bad Vendor\\Bad Program.exe","raw_data":"Message       OS-WINDOWS Microsoft Windows SMB remote code execution attempt\nReference     CVE-2017-0146\nPacket type   TCP\nLocal IP:     192.0.2.20\nLocal Por...","executable_version":"7.6.5","tech_support_id":"2019052901.77863414.5"},"source_app_id":"CORE","app_id":"HMPA","source_info":{"ip":"198.51.100.25"},"threat_id":{"timestamp":1669273672,"machineIdentifier":13006844,"processIdentifier":3865,"counter":5044432,"time":1669273672000,"date":1669273672000,"timeSecond":1669273672},"threat_status":"NONE","user_match_id":{"timestamp":1667463333,"machineIdentifier":14271215,"processIdentifier":3997,"counter":5199272,"time":1667463333000,"date":1667463333000,"timeSecond":1667463333}},"customer_id":"d1271b33-4e24-4cc3-951a-badc38976ca3","created_at":"2022-11-24T07:07:52.094Z","threat":"PUAqsw3kby31j","threat_cleanable":false,"event_service_event_id":"8bbd989a-6cab-407f-a586-c5064b94f76a","when":"2022-11-24T07:07:48.000Z","type":"Event2001:db8::1Endpoint2001:db8::1Threat2001:db8::1PuaCleanupFailed","location":"Lightning-rvda5c291x","id":"8bbd989a-6cab-407f-a586-c5064b94f76a"}'
     key:
       - description
@@ -67,17 +86,19 @@ logs:
       - data.policy_type
 cves: []
 detections:
-  - title: Sophos Central events arriving
-    severity: low
+  - title: Sophos alert of medium or high severity
+    severity: high
     signals:
-      - source
-      - appSha256
-      - appCerts[0].signer
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "sophos_central"'
+      - severity
+      - threat
+      - description
+      - data.endpoint_id
+    why: Alerts are the events Sophos itself says need action, such as a threat it could not clean or an exploit it blocked. Medium and high severity alerts should be triaged.
+    kql: |
+      dataset="sophos-central_logs"
+      | where sourcetype == "sophos_central_alert" and severity in ("medium", "high")
+      | project created_at, severity, threat, description, source, data.endpoint_id, data.endpoint_platform
 optimizations: []
 references:
-  - title: elastic/integrations sophos_central/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sophos_central/data_stream/event/_dev/test/pipeline/test-user-formats.log
-  - title: Pack Generator sample sophos_central.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sophos_central.json
+  - title: Sophos Central SIEM integration API
+    url: https://developer.sophos.com/docs/siem-v1/1/overview

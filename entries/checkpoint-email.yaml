@@ -1,52 +1,67 @@
 id: checkpoint-email
-name: Checkpoint Email
-short: Email
-vendor: Checkpoint
+name: Check Point Harmony Email & Collaboration
+short: Harmony Email
+vendor: Check Point Software Technologies
 category: ngfw
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - checkpoint_email
-  - Elastic integrations
+  - Harmony Email & Collaboration
+  - Avanan
+  - Check Point HEC
 tags:
-  - elastic
+  - email-security
+  - phishing
+  - dlp
   - json
-summary: Checkpoint Email is logged by the Elastic integrations package checkpoint_email. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Check Point Harmony Email & Collaboration, built on the Avanan platform, protects cloud email and collaboration apps such as Microsoft 365, Gmail, Teams, SharePoint and Slack. It connects by API, scans mail and files inline or right after delivery for phishing, malware and data leaks, and quarantines or remediates them. Its security events say what was found (phishing, malware, DLP, anomaly), in which SaaS app, how confident and severe it is, and what state the event is in.
 sourcetypes:
   - st: checkpoint_email
-    desc: 'Elastic integrations fixture, 18 events. Upstream: checkpoint_email/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Harmony Email & Collaboration security events, one record per detection such as phishing, malware, DLP or anomaly, with the SaaS app, entity, confidence, severity, state and available remediation actions
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: checkpoint_email
-  Sourcetypes: '1'
-  Fixture events: '18'
-  Log format seen: json
-  Fields in the first fixture: eventId, customerId, saas, entityId, state, type
+  Product: API-based email and collaboration security for cloud mail and SaaS apps
+  Protected apps: Microsoft 365 mail, OneDrive, SharePoint and Teams, Google Workspace Gmail and Drive, Slack, Box and others, named in the saas field
+  Log transport: HTTPS JSON from the Harmony Email & Collaboration API, pulled by any collector with API credentials. Events can also be sent as syslog
+  Log format: One JSON object per security event with eventId, saas, entityId, type, state, severity, confidenceIndicator and description
+  What an event answers: What threat or leak was detected (type, description), in which app and on which entity (saas, entityId), how confident and severe it is, and whether it is new, remediated or dismissed (state)
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Protected SaaS tenant
+      desc: The service connects to the organisation's Microsoft 365, Google Workspace or other SaaS tenant through APIs and scans mail and files there. Events are stored in the Harmony Email & Collaboration portal.
 howItWorks:
-  - title: What the fixture shows
-    body: Checkpoint Email events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries eventId, customerId, saas, entityId, state, type. Values in the sample were rewritten to documentation addresses.
+  - title: API connection
+    body: Instead of changing MX records, the service is authorised in the SaaS tenant through its APIs. In inline mode it inspects mail before it reaches the inbox. In detect-and-remediate mode it scans right after delivery and pulls back what it finds.
+  - title: Detection engines
+    body: Anti-phishing, anti-malware with sandboxing, DLP and anomaly engines inspect messages, attachments, links and shared files. Each finding becomes a security event with a type such as phishing, malware, dlp or anomaly, a confidenceIndicator and a severity.
+  - title: Event state and actions
+    body: Events move through states as they are handled, for example new, remediated or dismissed. availableEventActions lists what an analyst or automation can still do, such as dismiss or change severity.
+  - title: How the events leave the product
+    body: A collector calls the Harmony Email & Collaboration API with its credentials and reads security events since its last poll. Each event is a JSON object. The destination is a choice of the pipeline, not a property of the service.
 traffic:
   handles:
-    - json
+    - Inbound, outbound and internal email
+    - Files shared in collaboration apps
+    - Phishing, malware and data leak detection
+    - Quarantine and remediation actions
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads checkpoint_email and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Mail or file arrives
+      desc: A message is sent or a file is shared in a protected SaaS app.
+    - step: Engines scan it
+      desc: The service fetches the item through the API and runs phishing, malware and DLP checks.
+    - step: Event is raised
+      desc: A finding becomes a security event with type, confidence, severity and state, and may be quarantined.
+    - step: Collector polls
+      desc: A collector reads new events from the API and forwards each JSON object.
 logs:
-  - type: Event
+  - type: Security event
     sourcetype: checkpoint_email
     format: json
-    desc: 18 fixture events in the samples pool (elastic).
+    desc: One record per detection. type is the kind of finding, saas the app, entityId the message or file, confidenceIndicator and severity how sure and serious, state where it stands and description the human summary. This sample is a DLP event in Office 365 mail flagged malicious, about a message mentioning credit data, that has been dismissed. The sample uses documentation addresses.
     sample: '{"eventId":"7ded0371a3e1475c9a877e452f23a049","customerId":"us:customername","saas":"office365_emails","entityId":"639c16e1aaa3affd5d3fa4fda5e75765","state":"dismissed","type":"dlp","confidenceIndicator":"malicious","eventCreated":"2024-10-14T20:58:27.073355+00:00","severity":"2","data":"","description":"DLP Engine has detected a leak in ‘please see my credit data’ from user@example.com","availableEventActions":[{"actionName":"dismiss","actionParameter":{"eventId":"7ded0371a3e1475c9a877e452f23a049"}},{"actionName":"severityChange","actionParameter":{"newSeverity":"Low"}}]}'
     key:
       - eventId
@@ -55,17 +70,20 @@ logs:
       - entityId
 cves: []
 detections:
-  - title: Checkpoint Email events arriving
-    severity: low
+  - title: Malicious email or file not dismissed
+    severity: high
     signals:
-      - eventId
-      - customerId
+      - type
+      - confidenceIndicator
+      - state
       - saas
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "checkpoint_email"'
+      - description
+    why: A phishing, malware or DLP event marked malicious that nobody has dismissed is a threat or leak still open in the tenant. These should reach an analyst with the entity and description.
+    kql: |
+      dataset="checkpoint-email_logs"
+      | where sourcetype == "checkpoint_email" and confidenceIndicator == "malicious" and state != "dismissed"
+      | project eventCreated, type, saas, entityId, severity, state, description
+    mitre:
+      - T1566
 optimizations: []
-references:
-  - title: elastic/integrations checkpoint_email/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/checkpoint_email/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample checkpoint_email.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/checkpoint_email.json
+references: []

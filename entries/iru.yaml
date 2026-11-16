@@ -4,61 +4,75 @@ short: Iru
 vendor: Iru
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - iru
-  - Elastic integrations
+  - Kandji
+  - Iru Endpoint
 tags:
-  - elastic
+  - mdm
+  - endpoint
+  - audit
   - json
-summary: Iru is logged by the Elastic integrations package iru. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Iru is the device-management platform formerly called Kandji. Administrators group devices into blueprints and assign library items such as apps, profiles and settings. Devices check in through the Iru agent and through MDM. The audit stream records who changed a blueprint or another object. The device stream is the inventory of each enrolled computer. A collector pulls both as JSON.
 sourcetypes:
   - st: iru_audit
-    desc: 'Elastic integrations fixture, 6 events. Upstream: iru/data_stream/audit/_dev/test/pipeline/test-iru-audit-samples.log'
+    desc: One administrator action in the Iru tenant. action, the actor and the target say who changed which object.
   - st: iru_device
-    desc: 'Elastic integrations fixture, 5 events. Upstream: iru/data_stream/device/_dev/test/pipeline/test-iru-device-samples.log'
+    desc: One enrolled device. The model, the user, the blueprint, MDM and the agent check-in are the inventory.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: iru
-  Sourcetypes: '2'
-  Fixture events: '11'
-  Log format seen: json
-  Fields in the first fixture: id, action, occurred_at, actor_id, actor_type, target_id
+  Product: Endpoint management for Apple devices, and for Windows and Android. The same company previously sold this as Kandji.
+  Clients: The Iru agent and MDM on the device. Administrators use the Iru web app.
+  Log transport: HTTPS JSON from the Iru API. Audit and device inventory are separate calls.
+  Log format: One JSON object per audit event or per device
+  What an audit event answers: Who changed which blueprint or other object, and which library items were added or removed
+  What a device record answers: Which computer, which user, which blueprint, whether MDM and the agent are on, and when it last checked in
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Iru tenant
+      desc: Blueprints, library items and the audit trail live in the Iru service. A collector with an API credential polls the audit and the device list.
+    - slot: endpoint
+      title: Enrolled device
+      desc: The agent and MDM enforce the blueprint on the computer. The device record names that computer, its user and its last check-in. The action happened on the device. The audit event is stored in the tenant.
 howItWorks:
-  - title: What the fixture shows
-    body: Iru events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, action, occurred_at, actor_id, actor_type, target_id. Values in the sample were rewritten to documentation addresses.
+  - title: Blueprints
+    body: A blueprint is a set of library items applied to a group of devices. An audit event with target_type blueprint records a change to one. action is create, update or another verb. actor_type and the admin block say who. new_state lists library items added, removed or scoped. The sample is an update that added one library item to a blueprint, by an administrator. The email is a documentation address.
+  - title: The device inventory
+    body: One object is one computer. device_name, serial_number, platform and os_version identify it. user is the person assigned to it. blueprint_name is the blueprint it follows. mdm_enabled and agent_installed say whether management is in place. is_missing and is_removed are the lost and retired flags. last_check_in is the last time the device reported. The sample is a Mac that is enrolled, with MDM and the agent on, and it is not marked missing.
+  - title: How a collector pulls them
+    body: Iru does not emit syslog for these two streams. A collector calls the API. Any collector with a credential can do this.
 traffic:
   handles:
-    - json
+    - Changes to blueprints and library items
+    - Enrolled device inventory
+    - MDM and agent check-in
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads iru and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: An administrator or a device acts
+      desc: Someone edits a blueprint, or a device checks in through the agent or MDM.
+    - step: The tenant records it
+      desc: An audit event stores the change. A device record stores the inventory and the check-in time.
+    - step: Collector polls the API
+      desc: A collector requests the JSON and can forward each object anywhere.
 logs:
-  - type: Audit
+  - type: Audit event
     sourcetype: iru_audit
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One change in the tenant. action is the verb. actor_id and admin.email are who. target_type and target_id are the object. This sample is an update to a blueprint that added a library item. The admin email is a documentation address.
     sample: '{"id":"01JNGZW47KZKPXE1JWCFE4PHDW","action":"update","occurred_at":"2025-03-04T16:29:55.253454Z","actor_id":"cf40d6e7-20cb-4da9-84a1-9ad0b7003ca5","actor_type":"user","target_id":"449ec92a-186a-44f2-9421-d5ac6e465eb5","target_type":"blueprint","target_component":"library_items","new_state":{"name":"Example Blueprint","library_items_added":[{"id":"c7a5871a-1683-432f-87d4-30bbd404eb85","name":"Example App"}],"library_items_removed":[],"library_items_scoped":[{"id":"c7a5871a-1683-432f-87d4-30bbd404eb85","name":"Example App"}]},"metadata":{},"admin":{"id":"cf40d6e7-20cb-4da9-84a1-9ad0b7003ca5","email":"user@example.com","first_name":"Example","last_name":"Admin","role":"admin","is_active":true,"locale":"en_US","created_at":"2025-01-01T00:00:00.000000Z","updated_at":"2025-01-01T00:00:00.000000Z"}}'
     key:
       - id
       - action
       - occurred_at
       - actor_id
-  - type: Device
+  - type: Device inventory
     sourcetype: iru_device
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One enrolled computer. device_name, serial_number, platform and os_version identify it. blueprint_name is the policy set. mdm_enabled and agent_installed say management is on. is_missing says whether it is marked lost. The user email in this sample is a documentation address.
     sample: '{"device_id":"03f81208-2b6a-4a77-81f5-cf1633bcfb95","device_name":"example-macbook-pro","model":"MacBook Pro (14-inch, 2021)","serial_number":"C02YL00XQ6L4","platform":"Mac","os_version":"14.4.1","supplemental_build_version":"23E224","last_check_in":"2024-07-23T14:11:37.150080Z","user":{"email":"user@example.com","name":"Example User","id":"5344c996-8823-4b37-8d6e-8515fc7c3a0a","is_archived":false},"asset_tag":"ASSET-1001","blueprint_id":"ab102b9d-8e9c-420d-a498-f2a1123091c7","mdm_enabled":true,"agent_installed":true,"is_missing":false,"is_removed":false,"agent_version":"4.5.9 (5160)","first_enrollment":"2024-01-26 16:15:36.087016+00:00","last_enrollment":"2024-05-13 20:09:27.374451+00:00","blueprint_name":"Example Blueprint","lost_mode_status":"","tags":["engineering"]}'
     key:
       - device_id
@@ -67,17 +81,33 @@ logs:
       - serial_number
 cves: []
 detections:
-  - title: Iru events arriving
-    severity: low
+  - title: A blueprint was changed
+    severity: medium
     signals:
-      - id
       - action
-      - occurred_at
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "iru_audit"'
+      - target_type
+      - admin.email
+      - target_id
+    why: A blueprint is what the devices enforce. An update adds or removes apps and settings for every device on that blueprint. The sample is one such update, including the library item that was added.
+    kql: |
+      dataset="iru_logs"
+      | where sourcetype == "iru_audit" and target_type == "blueprint" and action == "update"
+      | project occurred_at, action, admin.email, target_id, target_type
+  - title: Device marked missing
+    severity: medium
+    signals:
+      - is_missing
+      - device_name
+      - serial_number
+      - user.email
+    why: is_missing true is a computer the tenant has marked lost. That is the inventory question for a device that should no longer be trusted.
+    kql: |
+      dataset="iru_logs"
+      | where sourcetype == "iru_device" and is_missing == true
+      | project device_name, serial_number, platform, user.email, last_check_in, blueprint_name
 optimizations: []
 references:
-  - title: elastic/integrations iru/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/iru/data_stream/audit/_dev/test/pipeline/test-iru-audit-samples.log
-  - title: Pack Generator sample iru_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/iru_audit.json
+  - title: Iru blueprints
+    url: https://docs.iru.com/en/endpoint/getting-started/blueprints-and-library/configuring-blueprints
+  - title: Kandji is now Iru
+    url: https://www.iru.com/kandji-mdm

@@ -1,77 +1,88 @@
 id: hid-bravura-monitor
-name: Hid Bravura Monitor
-short: Monitor
-vendor: Hid
+name: Bravura Security Fabric
+short: Bravura
+vendor: HID Global
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - hid_bravura_monitor
-  - Elastic integrations
+  - Bravura Monitor
+  - Bravura Security
+  - Hitachi ID
 tags:
-  - elastic
+  - identity
+  - iam
   - text
-summary: Hid Bravura Monitor is logged by the Elastic integrations package hid_bravura_monitor. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Bravura Security Fabric is HID's identity platform. It governs accounts, privileged access and passwords, and it replicates that data between nodes. The product writes a text application log from processes such as idapi.exe, and it raises a separate alarm when replication falls behind. This entry is those two streams. Any collector that can read the log files can take them. The alarm sample is a replication queue that passed its delay threshold.
 sourcetypes:
   - st: hid_bravura_monitor
-    desc: 'Elastic integrations fixture, 20 events. Upstream: hid_bravura_monitor/data_stream/log/_dev/test/pipeline/test-hid-bravura-monitor.log'
+    desc: Application trace from the Bravura Security Fabric processes. A debug line names the program, the thread and the text.
   - st: hid_bravura_monitor_winlog
-    desc: 'Elastic integrations fixture, 3 events. Upstream: hid_bravura_monitor/data_stream/winlog/_dev/test/pipeline/test-hid-bravura-monitor-events.json'
+    desc: An alarm from the fabric. The sample is a database replication queue whose delay passed the configured threshold.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: hid_bravura_monitor
-  Sourcetypes: '2'
-  Fixture events: '23'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Identity platform for account governance, privileged access and password management. The logs are the fabric's own application log and its alarms.
+  Form factor: Windows servers running a Bravura Security Fabric instance. Nodes replicate the database.
+  Log transport: Text files on the server, and alarm events. A collector tails the files.
+  Log format: One text line per event. The application log starts with a timestamp, a program and a severity word. The alarm line is a sentence plus Node, QueueDelay and DelayThreshold.
+  What the application log answers: What a fabric process such as idapi.exe was doing. Debug lines are trace, not an access decision.
+  What the alarm answers: Whether replication between nodes has fallen behind the threshold the administrator set
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Fabric servers
+      desc: The instance runs on Windows servers in the identity network. idapi.exe is one of its processes. Replication between nodes produces the queue-delay alarm. A collector reads the log directory on those servers.
 howItWorks:
-  - title: What the fixture shows
-    body: Hid Bravura Monitor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Application trace
+    body: A line names the time, the program and a severity such as Debug, then a sentence. The sample is idapi.exe at Debug, recording that a thread looked up a client id. That is process trace. It does not say that an access request was denied.
+  - title: Replication alarm
+    body: The alarm line is a sentence followed by fields. Node is the server. QueueDelay is how far behind the replication queue is. DelayThreshold is the limit an administrator configured. The sample says the delay exceeded the threshold, and the delay value is several times the threshold. The unit is whatever the product wrote. The line does not convert it.
+  - title: How the lines leave
+    body: The fabric writes the files on the server. Any collector that can tail a Windows log directory can take them. The product does not choose the destination.
 traffic:
   handles:
-    - text
+    - Identity-service process trace
+    - Database replication between nodes
+    - Alarms when replication delay passes a threshold
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads hid_bravura_monitor and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: The fabric runs
+      desc: Processes such as idapi.exe handle identity calls, and nodes replicate the database.
+    - step: A line or an alarm is written
+      desc: Debug trace goes to the application log. A queue delay past the threshold becomes an alarm line.
+    - step: Collector tails the files
+      desc: A collector reads the text and can forward it anywhere.
 logs:
-  - type: Log
+  - type: Application log
     sourcetype: hid_bravura_monitor
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One trace line. The program and the severity word are in the text. This sample is idapi.exe at Debug, recording a client id lookup on a thread.
     sample: '2021-01-16 00:38:18.515.1538 - [] idapi.exe [5368,54656] Debug: Thread: 54656, get the client id: 4272'
     pattern: (?<message>[\s\S]+)
     key:
       - message
-  - type: Winlog
+  - type: Replication alarm
     sourcetype: hid_bravura_monitor_winlog
     format: text
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One alarm. This sample says the database replication queue delay exceeded the configured threshold. Node is the server. QueueDelay and DelayThreshold are the measured delay and the limit.
     sample: Database replication queue delay exceeded configured threshold.|Node=domain.bravurasecurity1.corp_pmim|QueueDelay=89239|DelayThreshold=14400
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Hid Bravura Monitor events arriving
-    severity: low
+  - title: Replication fell behind its threshold
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "hid_bravura_monitor"'
+    why: Identity changes replicate between nodes. A queue delay past the threshold means those changes are late, so a revoked account or a new grant may not have reached the other node yet. The sample is that alarm.
+    kql: |
+      dataset="hid-bravura-monitor_logs"
+      | where sourcetype == "hid_bravura_monitor_winlog" and message has "exceeded configured threshold"
+      | project message
 optimizations: []
 references:
-  - title: elastic/integrations hid_bravura_monitor/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hid_bravura_monitor/data_stream/log/_dev/test/pipeline/test-hid-bravura-monitor.log
-  - title: Pack Generator sample hid_bravura_monitor.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hid_bravura_monitor.json
+  - title: Bravura Security documentation
+    url: https://docs.bravurasecurity.com/

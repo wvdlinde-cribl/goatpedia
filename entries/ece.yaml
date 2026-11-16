@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: ece
-name: Ece
-short: Ece
-vendor: Ece
+name: Elastic Cloud Enterprise
+short: ECE
+vendor: Elastic
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - ece
-  - Elastic integrations
+  - ECE
 tags:
   - elastic
+  - orchestration
+  - self-managed
+  - audit
   - json
-summary: Ece is logged by the Elastic integrations package ece. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Elastic's self-managed platform for running many Elasticsearch and Kibana deployments on your own hosts, the same orchestration that runs Elastic Cloud. Administrators create, resize and upgrade deployments through the admin console UI or its REST API. The admin console logs every API request with the user, method, URL, status and source address, which makes it the audit trail of who changed which deployment.
 sourcetypes:
   - st: ece_adminconsole
-    desc: 'Elastic integrations fixture, 12 events. Upstream: ece/data_stream/adminconsole/_dev/test/pipeline/test-adminconsole-log.log'
+    desc: Admin console request log, one record per call to the ECE API, with user, auth type, method, URL, status and timing
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: ece
-  Sourcetypes: '1'
-  Fixture events: '12'
-  Log format seen: json
-  Fields in the first fixture: '@timestamp, process.thread.name, message, log.logger, log.level, proxy_ip'
+  Product: Self-managed orchestration platform for Elasticsearch and Kibana deployments
+  Form factor: Installed on your own hosts (VMs or bare metal) with roles such as director, coordinator, proxy and allocator
+  Log transport: JSON log files written by the admin console container on coordinator hosts, read by any log agent
+  Log format: One JSON object per line, with the request fields parsed out next to the original message
+  What a request record answers: Which user or API key called which API, from which address, with what method and payload, and whether it succeeded
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: ECE coordinator hosts
+      desc: The admin console runs on coordinator hosts in the operator's data centre or cloud account. Every UI action and API call goes through it, and it writes the request log on that host.
 howItWorks:
-  - title: What the fixture shows
-    body: Ece events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @timestamp, process.thread.name, message, log.logger, log.level, proxy_ip. Values in the sample were rewritten to documentation addresses.
+  - title: Deployments
+    body: A deployment is a set of Elasticsearch, Kibana and related instances placed on allocator hosts. Creating, changing or deleting one is a call to /api/v1/deployments and related endpoints.
+  - title: The request log
+    body: For each request the admin console records the status code, user (auth_user), auth type (cookie, API key), organisation, client and proxy addresses, method, URL, query parameters, request size, a truncated payload and response time.
+  - title: How the logs leave ECE
+    body: The admin console writes JSON logs inside its container, persisted on the host. A log agent on the host reads them and forwards each line. Any agent can do this.
 traffic:
   handles:
-    - json
+    - Deployment creation, change and deletion
+    - Platform administration through the UI and API
+    - API key and user authentication to the console
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads ece and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Operator acts
+      desc: An operator uses the console UI or calls the ECE API.
+    - step: Console handles the call
+      desc: The admin console authenticates the caller and runs the request.
+    - step: Request logged
+      desc: One JSON line is written with the caller, request and result.
+    - step: Agent ships it
+      desc: A log agent on the coordinator host reads and forwards the line.
 logs:
-  - type: Adminconsole
+  - type: Admin console requests
     sourcetype: ece_adminconsole
     format: json
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: One object per API call. request_method and request_url say POST /api/v1/deployments (a new deployment), status_code is 201 Created, auth_user and auth_type say who and how (cookie login), client_ip is the source and request_payload shows the start of the deployment plan. Addresses are documentation addresses.
     sample: '{"@timestamp":"2025-05-09T07:43:09.031238Z","process":{"thread":{"name":"adminconsole-requests-pekko.actor.default-dispatcher-28"}},"message":"201 Created - philipp - 6d8ed3ff3ddb495496e1c6752f9feb07 - 203.0.113.40 - 192.0.2.10 - POST 192.0.2.20:12443/api/v1/deployments HTTP/1.1 in:2361 out:unknown ...","log":{"logger":"no.found.adminconsole.http.requests","level":"INFO"},"proxy_ip":"198.51.100.15","query_parameters":"validate_only=false","request_url":"198.51.100.25:12443/api/v1/deployments","trace.id":"","api_key_id":"unknown","request_method":"POST","commit_hash":"8ba74f3d10ab89948c8241c842a8e31d3fc70070","request_host":"203.0.113.8","request_length":"2361","request_payload":"{\"name\":\"francis\",\"resources\":{\"elasticsearch\":[{\"ref_id\":\"main-elasticsearch\",\"region\":\"ece-region\",\"plan\":{\"cluster_topology\":[{\"id\":\"hot_content\",\"node_ro...","auth_type":"cookie","status_code":"201","auth_user":"philipp","response_time":"1711","user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.40 Safari/537.36","request_id":"2271905ee3f6e6cc9c76a0c7cccfd1cc","organization_id":"6d8ed3ff3ddb495496e1c6752f9feb07","transaction.id":"","client_ip":"192.0.2.10"}'
     key:
       - '@timestamp'
@@ -55,17 +67,22 @@ logs:
       - log.logger
 cves: []
 detections:
-  - title: Ece events arriving
-    severity: low
+  - title: Deployment created, changed or deleted
+    severity: medium
     signals:
-      - '@timestamp'
-      - process.thread.name
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "ece_adminconsole"'
+      - request_method
+      - request_url
+      - status_code
+      - auth_user
+      - client_ip
+    why: Changes to deployments add, resize or remove the clusters that hold data. Deletions, or changes by an unexpected user or API key, are the admin actions to review.
+    kql: |
+      dataset="ece_logs"
+      | where sourcetype == "ece_adminconsole" and request_method in ("POST", "PUT", "DELETE") and request_url contains "/api/v1/deployments"
+      | project ['@timestamp'], auth_user, auth_type, api_key_id, client_ip, request_method, request_url, status_code
+    mitre:
+      - T1578
 optimizations: []
 references:
-  - title: elastic/integrations ece/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ece/data_stream/adminconsole/_dev/test/pipeline/test-adminconsole-log.log
-  - title: Pack Generator sample ece_adminconsole.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ece_adminconsole.json
+  - title: Elastic Cloud Enterprise documentation
+    url: https://www.elastic.co/guide/en/cloud-enterprise/current/index.html

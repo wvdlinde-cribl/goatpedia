@@ -1,52 +1,68 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: proofpoint-essentials
 name: Proofpoint Essentials
-short: Essentials
+short: PP Essentials
 vendor: Proofpoint
 category: email
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - proofpoint_essentials
-  - Elastic integrations
+  - Proofpoint Essentials Email Security
 tags:
-  - elastic
+  - email-security
+  - url-defense
+  - phishing
+  - saas
   - json
-summary: Proofpoint Essentials is logged by the Elastic integrations package proofpoint_essentials. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Proofpoint's email security service for small and mid-sized businesses. It filters inbound mail for spam, phishing and malware and rewrites URLs so clicks are checked at the time they happen. Its threat events record messages blocked or delivered with threats, and URL clicks that were blocked or permitted, with sender, recipient and classification.
 sourcetypes:
   - st: proofpoint_essentials_threat
-    desc: 'Elastic integrations fixture, 14 events. Upstream: proofpoint_essentials/data_stream/threat/_dev/test/pipeline/test-threat.log'
+    desc: 'Threat events: messages and URL clicks with a threat classification, blocked or permitted, with sender, recipient and click details'
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: proofpoint_essentials
-  Sourcetypes: '1'
-  Fixture events: '14'
-  Log format seen: json
-  Fields in the first fixture: event_type, url, classification, clickTime, threatTime, userAgent
+  Product: Cloud email filtering with URL rewriting and attachment defence
+  Deployment: Cloud service in the mail path of the organisation's domains
+  Log transport: HTTPS threat API of the service, polled by a collector with credentials
+  Log format: One JSON object per event, with event_type naming the kind of event
+  What a click event answers: Who clicked which rewritten URL, from where, what it was classified as, and whether it was blocked
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Proofpoint Essentials
+      desc: Mail passes through the Proofpoint Essentials cloud before delivery. Rewritten URLs are checked by the service when a user clicks them, so click events come from the cloud, not the mail client.
+    - slot: endpoint
+      title: User clicking
+      desc: The user clicks a link in an email on a laptop or phone. The click event records the client IP and user agent of that device.
 howItWorks:
-  - title: What the fixture shows
-    body: Proofpoint Essentials events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_type, url, classification, clickTime, threatTime, userAgent. Values in the sample were rewritten to documentation addresses.
+  - title: Filtering
+    body: Inbound messages are checked for spam, phishing and malware and delivered, quarantined or blocked.
+  - title: URL rewriting
+    body: Links in delivered mail are rewritten to pass through the service. On click, the destination is checked again, and the click is blocked or permitted.
+  - title: How the events leave the product
+    body: A collector calls the threat API and receives events with event_type such as clicks_blocked or clicks_permitted.
 traffic:
   handles:
-    - json
+    - Inbound email filtering
+    - Time-of-click URL checks
+    - Phishing and malware classification
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads proofpoint_essentials and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Mail arrives
+      desc: A message with a link reaches the service and is delivered with the link rewritten.
+    - step: User clicks
+      desc: The user clicks the link and the service checks the destination.
+    - step: Event recorded
+      desc: The service records the click as blocked or permitted with its classification.
+    - step: Collector polls
+      desc: A collector reads the threat events from the API.
 logs:
-  - type: Threat
+  - type: Threat events
     sourcetype: proofpoint_essentials_threat
     format: json
-    desc: 14 fixture events in the samples pool (elastic).
+    desc: One object per threat event. event_type says what happened, classification the threat type, url and clickIP the click, and sender, recipient and senderIP the message. This sample is a phishing click that was blocked. The sample uses documentation addresses.
     sample: '{"event_type":"clicks_blocked","url":"https://www.example.com/?name=john","classification":"phish","clickTime":"2022-03-21T07:52:11.000Z","threatTime":"2022-03-18T14:54:20.000Z","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36 Edg/99.0.1150.39","id":"8760d0fc-1234-1234-1234-2exxfxxxxx1xd","clickIP":"203.0.113.8","sender":"user@example.com","recipient":"user@example.com","senderIP":"203.0.113.40","GUID":"x11xxxx1-12f9-111x-x12x-1x1x123456xx","threatID":"3xx97xx852c66a7xx761450xxxxxx9f4ffaxxxxxxxxxxxxxxx7a76481xx","threatStatus":"active","messageID":"user@example.com"}'
     key:
       - event_type
@@ -55,17 +71,20 @@ logs:
       - clickTime
 cves: []
 detections:
-  - title: Proofpoint Essentials events arriving
-    severity: low
+  - title: User clicked a threat URL that was permitted
+    severity: high
     signals:
       - event_type
-      - url
       - classification
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "proofpoint_essentials_threat"'
+      - recipient
+      - clickIP
+      - url
+    why: A permitted click on a URL later classified as phishing or malware means the user reached it. That user and device need follow-up.
+    kql: |
+      dataset="proofpoint-essentials_logs"
+      | where sourcetype == "proofpoint_essentials_threat" and event_type == "clicks_permitted"
+      | project clickTime, recipient, clickIP, url, classification, sender
+    mitre:
+      - T1204
 optimizations: []
-references:
-  - title: elastic/integrations proofpoint_essentials/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proofpoint_essentials/data_stream/threat/_dev/test/pipeline/test-threat.log
-  - title: Pack Generator sample proofpoint_essentials_threat.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_essentials_threat.json
+references: []

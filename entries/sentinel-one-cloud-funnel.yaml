@@ -1,52 +1,73 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: sentinel-one-cloud-funnel
-name: Sentinel One Cloud Funnel
-short: Funnel
-vendor: Sentinel
+name: SentinelOne Cloud Funnel
+short: S1 Funnel
+vendor: SentinelOne
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - sentinel_one_cloud_funnel
-  - Elastic integrations
+  - Cloud Funnel
+  - Singularity Cloud Funnel
+  - SentinelOne Deep Visibility telemetry
 tags:
-  - elastic
-  - json
-summary: Sentinel One Cloud Funnel is logged by the Elastic integrations package sentinel_one_cloud_funnel. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - edr
+  - endpoint-telemetry
+  - xdr
+  - process
+summary: The telemetry export of the SentinelOne Singularity platform. SentinelOne agents on endpoints record process, file, network, DNS, registry and login activity, and Cloud Funnel streams that raw telemetry from the SentinelOne cloud into a customer-owned cloud storage bucket. Each event describes one action by one process, with the process tree, image hashes, signer, user and the behavioural indicator counters the agent keeps for each process.
 sourcetypes:
   - st: sentinel_one_cloud_funnel
-    desc: 'Elastic integrations fixture, 4 events. Upstream: sentinel_one_cloud_funnel/data_stream/event/_dev/test/pipeline/test-dns.log'
+    desc: Raw endpoint telemetry from SentinelOne agents, one event per process action (DNS, process, file, network, registry and more), with process lineage and indicator counters
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: sentinel_one_cloud_funnel
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: timestamp, src.process.parent.isStorylineRoot, event.category, src.process.parent.image.sha1, site.id, osSrc.process.isRedirectCmdProcessor
+  Product: Export of SentinelOne EDR telemetry to customer cloud storage
+  Clients: SentinelOne agents on Windows, macOS, Linux and Kubernetes workloads
+  Log transport: SentinelOne writes compressed files to an Amazon S3 bucket the customer owns. A collector reads new objects from the bucket
+  Log format: One JSON object per event with flat dotted keys such as src.process.name and event.category
+  Event categories: event.category names the kind of action, such as dns, process, file, ip, registry, logins, indicators
+  What an event answers: Which process did what, which parent started it, what its hashes and signer were, and under which user
+  What indicator counters answer: How many persistence, injection, ransomware and reconnaissance behaviours the agent has seen from that process so far
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: SentinelOne agent
+      desc: The agent on each endpoint observes process activity and sends it to the SentinelOne cloud. The action happens here.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud Funnel bucket
+      desc: The SentinelOne management console streams the telemetry into an S3 bucket owned by the customer. Any collector with read access to that bucket can pick the files up.
 howItWorks:
-  - title: What the fixture shows
-    body: Sentinel One Cloud Funnel events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, src.process.parent.isStorylineRoot, event.category, src.process.parent.image.sha1, site.id, osSrc.process.isRedirectCmdProcessor. Values in the sample were rewritten to documentation addresses.
+  - title: Storylines
+    body: The agent groups related activity into a storyline, a tree of processes descended from one root. Each event carries the source process (src.process) and its parent (src.process.parent), and flags whether the parent is the storyline root.
+  - title: What one event holds
+    body: event.category says what kind of action happened. The src.process fields describe the acting process — name, image hashes, signer, user, module count and how many files it created. osSrc.process describes the operating system process seen by the agent.
+  - title: Indicator counters
+    body: The agent counts behaviours per process — indicatorPersistenceCount, indicatorInjectionCount, indicatorRansomwareCount, indicatorReconnaissanceCount and others. A non-zero counter means the agent has already matched that behaviour for the process.
+  - title: How the data leaves the product
+    body: Cloud Funnel is enabled in the SentinelOne console with a target bucket and an optional query filter. SentinelOne writes the telemetry into that bucket. The collector that reads the bucket chooses the destination.
 traffic:
   handles:
-    - json
+    - Process creation and lineage
+    - DNS, network, file and registry activity
+    - Behavioural indicators on endpoints
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads sentinel_one_cloud_funnel and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Process acts
+      desc: A process on an endpoint makes a DNS request, writes a file, opens a connection or starts a child.
+    - step: Agent records it
+      desc: The SentinelOne agent attaches the process, parent, hashes, user and indicator counters and sends the event to the SentinelOne cloud.
+    - step: Cloud Funnel exports it
+      desc: SentinelOne writes the event into the customer's S3 bucket as part of a compressed file.
+    - step: Collector reads
+      desc: A collector reads new objects from the bucket. Goatpedia reads each event as JSON.
 logs:
-  - type: Event
+  - type: Endpoint telemetry
     sourcetype: sentinel_one_cloud_funnel
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One action by one process. event.category is the kind of action (this sample is dns). src.process.parent.name, src.process.user and the image hashes say who acted. The indicator counters such as src.process.indicatorRansomwareCount and src.process.indicatorInjectionCount are zero here.
     sample: '{"timestamp":"18:32:29.495","src.process.parent.isStorylineRoot":true,"event.category":"dns","src.process.parent.image.sha1":"f9bc4c756eab5121ace7ec1cf6a394be0439dec0","site.id":"123456789123456789","osSrc.process.isRedirectCmdProcessor":false,"src.process.image.binaryIsExecutable":true,"src.process.parent.displayName":"VIERO-RMSLaunchBar","osSrc.process.image.md5":"f905359ab27db1dda964d77442735cb8","osSrc.process.crossProcessOpenProcessCount":0,"osSrc.process.publisher":"MICROSOFTWINDOWSPUBLISHER","osSrc.process.crossProcessDupThreadHandleCount":0,"src.process.user":"asdf\\SYSTEM","osSrc.process.indicatorPersistenceCount":0,"src.process.parent.subsystem":"SYS_WIN32","src.process.indicatorRansomwareCount":0,"src.process.crossProcessDupRemoteProcessHandleCount":0,"osSrc.process.crossProcessOutOfStorylineCount":0,"osSrc.process.image.sha1":"bfacfa096a56e3d149634e15e1b6470ff5a03957","src.process.tgtFileCreationCount":6,"osSrc.process.childProcCount":0,"src.process.indicatorInjectionCount":0,"osSrc.process.indicatorReconnaissanceCount":0,"src.process.moduleCount":251,"src.process.parent.name":"VIERO.exe","i.version":"preprocess-lib-1.0","osSrc.process.signedStatus":"signed","sca:atlantisIngestTime":1664811166298,"src.process.image.md5":"421f6d5ec86f6b930646321fc6ed2c46","src.process.indicatorReconnaissanceCount":0}'
     key:
       - timestamp
@@ -55,17 +76,25 @@ logs:
       - src.process.parent.image.sha1
 cves: []
 detections:
-  - title: Sentinel One Cloud Funnel events arriving
-    severity: low
+  - title: Process with ransomware or injection indicators
+    severity: high
     signals:
-      - timestamp
-      - src.process.parent.isStorylineRoot
-      - event.category
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "sentinel_one_cloud_funnel"'
-optimizations: []
-references:
-  - title: elastic/integrations sentinel_one_cloud_funnel/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sentinel_one_cloud_funnel/data_stream/event/_dev/test/pipeline/test-dns.log
-  - title: Pack Generator sample sentinel_one_cloud_funnel.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sentinel_one_cloud_funnel.json
+      - src.process.indicatorRansomwareCount
+      - src.process.indicatorInjectionCount
+      - src.process.parent.name
+      - src.process.user
+    why: The agent increments these counters when it sees ransomware-like file activity or code injection from a process. Any event from a process with a non-zero counter belongs to a storyline worth opening.
+    kql: |
+      dataset="sentinel-one-cloud-funnel_logs"
+      | where sourcetype == "sentinel_one_cloud_funnel" and (src.process.indicatorRansomwareCount > 0 or src.process.indicatorInjectionCount > 0)
+      | project timestamp, event.category, src.process.parent.name, src.process.user, src.process.image.sha1
+    mitre:
+      - T1486
+      - T1055
+optimizations:
+  - title: Keep indicator-bearing events in the SIEM
+    saving: most of the telemetry volume
+    fn: Routes
+    how: Cloud Funnel exports every process action, which is far more than a SIEM needs for alerting. Route events from processes with non-zero indicator counters to the SIEM in full and send the rest to low-cost storage for hunting.
+    expr: src.process.indicatorRansomwareCount > 0 || src.process.indicatorInjectionCount > 0 || src.process.indicatorReconnaissanceCount > 0
+references: []

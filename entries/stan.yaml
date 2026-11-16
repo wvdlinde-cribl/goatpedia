@@ -1,67 +1,72 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: stan
-name: Stan
-short: Stan
-vendor: Stan
+name: NATS Streaming Server
+short: NATS Stream
+vendor: Synadia (NATS project, CNCF)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - stan
-  - Elastic integrations
+  - STAN
+  - nats-streaming-server
+  - NATS Streaming
 tags:
-  - elastic
-  - text
-summary: Stan is logged by the Elastic integrations package stan. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - messaging
+  - message-broker
+  - streaming
+  - server-log
+summary: A persistent messaging server built on top of the NATS message bus. It stores published messages in channels and replays them to subscribers with at-least-once delivery, and has since been deprecated in favour of NATS JetStream. Its server log records startup, configuration, store recovery, clustering and client connection events for the nats-streaming-server process.
 sourcetypes:
   - st: stan
-    desc: 'Elastic integrations fixture, 20 events. Upstream: stan/data_stream/log/_dev/test/pipeline/test-log-sample.log'
+    desc: The nats-streaming-server log, one line per server message such as startup, store recovery, cluster state and client registration
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: stan
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Persistent, at-least-once message streaming on NATS (deprecated, replaced by JetStream)
+  Form factor: nats-streaming-server process on Linux, Windows or containers, often run as a cluster
+  Log transport: Written to stdout or to a log file, optionally to syslog. A file forwarder or container log driver ships it
+  Log format: Plain text. pid in brackets, timestamp, level in brackets ([INF], [WRN], [ERR], [DBG], [TRC]), then STREAM and the message
+  What a server line answers: When the server started, which version and cluster id ran, what it recovered from its store, and connection or error conditions
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Streaming server
+      desc: The server runs inside the application network next to the services that publish and subscribe. It writes its log on the same host or to the container log.
 howItWorks:
-  - title: What the fixture shows
-    body: Stan events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Channels and subscriptions
+    body: Clients connect with a cluster id and a client id, publish to channels and subscribe with durable or queue subscriptions. The server stores messages in memory, files or SQL and acknowledges delivery.
+  - title: What gets logged
+    body: The server logs its startup banner, version, cluster id and store type, the channels and clients it recovered, clustering and fault-tolerance state, and warnings or errors. With debug or trace enabled it also logs client and protocol detail.
+  - title: How the log leaves the host
+    body: Logging goes to stderr by default, or to the file set with --log. Syslog output is available. Any collector can read the file or container stream.
 traffic:
   handles:
-    - text
+    - Message publishing and subscription on channels
+    - Message persistence and replay
+    - Client registration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads stan and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Server acts
+      desc: The streaming server starts, recovers its store, accepts a client or reports an error.
+    - step: Line is written
+      desc: The server writes one text line with pid, timestamp, level and message.
+    - step: Collector reads
+      desc: A file forwarder or container log driver ships the line. Goatpedia reads it as text with the whole line in message.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: stan
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One server message. message holds the whole line. This sample is an info-level line from pid 7 starting nats-streaming-server version 0.15.1 for cluster test-cluster.
     sample: '[7] 2021/01/13 14:20:06.981022 [INF] STREAM: Starting nats-streaming-server[test-cluster] version 0.15.1'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Stan events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "stan"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations stan/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/stan/data_stream/log/_dev/test/pipeline/test-log-sample.log
-  - title: Pack Generator sample stan.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/stan.json
+  - title: NATS documentation
+    url: https://docs.nats.io/
+  - title: nats-streaming-server on GitHub
+    url: https://github.com/nats-io/nats-streaming-server

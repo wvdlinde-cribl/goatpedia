@@ -1,76 +1,93 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: sublime-security
 name: Sublime Security
-short: Security
-vendor: Sublime
+short: Sublime
+vendor: Sublime Security
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - sublime_security
-  - Elastic integrations
+  - Sublime Platform
+  - Sublime email security
 tags:
-  - elastic
-  - json
-summary: Sublime Security is logged by the Elastic integrations package sublime_security. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - email-security
+  - phishing
+  - bec
+  - audit
+summary: An email security platform that connects to Microsoft 365 or Google Workspace mailboxes and evaluates every message with detection rules written in its Message Query Language and with machine-learning attack scoring. It can flag, move or remove malicious mail after delivery. It produces three streams — audit events for actions in the platform, the full analysed message (the message data model), and message events that record a verdict for a message in a mailbox.
 sourcetypes:
   - st: sublime_security_audit
-    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: Audit log of the Sublime platform, one event per user or API action with the request path, method, auth method, IP and the acting user
   - st: sublime_security_email_message
-    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/email_message/_dev/test/pipeline/test-email-message.log'
+    desc: The analysed email message as Sublime models it — headers, sender, recipients, body, links, attachments and hashes
   - st: sublime_security_message_event
-    desc: 'Elastic integrations fixture, 2 events. Upstream: sublime_security/data_stream/message_event/_dev/test/pipeline/test-message-event.log'
+    desc: One message in one mailbox with its attack score verdict, sender, recipients, subject and what the user did with it
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: sublime_security
-  Sourcetypes: '3'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: id, type, created_at, data.request.id, data.request.path, data.request.method
+  Product: API-based email security for Microsoft 365 and Google Workspace
+  Deployment: Sublime Cloud, or self-hosted in the customer's own cloud account
+  Detection: Rules in Message Query Language (MQL) plus an attack score with verdicts such as malicious, suspicious or likely benign
+  Log transport: HTTPS JSON from the Sublime API, or webhooks, received by any collector
+  Log format: One JSON object per audit event, message or message event
+  What an audit event answers: Who in the platform did what, through which API path, with which authentication method and from which IP
+  What a message event answers: Which mailbox received which message, what verdict Sublime gave it, and whether it was read, replied to or forwarded
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Sublime platform and mailbox APIs
+      desc: Sublime reads mail through the Microsoft 365 or Google Workspace APIs, analyses it in the Sublime platform, and acts on it in the mailbox. A collector reads its events from the Sublime API.
 howItWorks:
-  - title: What the fixture shows
-    body: Sublime Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, type, created_at, data.request.id, data.request.path, data.request.method. Values in the sample were rewritten to documentation addresses.
+  - title: Message analysis
+    body: Each message is parsed into the message data model — sender, recipients, headers and hops, body text and HTML, links with their domains, and attachments with type and hashes. Detection rules and the attack score run against that model.
+  - title: Verdicts and actions
+    body: A message event records the outcome for one mailbox — attack_score_verdict, whether it landed in spam, and whether the user read, replied to or forwarded it. Rules can trigger actions such as moving the message or adding a warning banner.
+  - title: Platform audit
+    body: Every user or API action in the Sublime console is an audit event with a type such as message_group.search, the request path and method, the authentication method (for example an API key) and the user who acted with their role.
+  - title: How the data leaves the product
+    body: A collector calls the Sublime audit and message APIs, or receives webhooks, and forwards each JSON object to any destination.
 traffic:
   handles:
-    - json
+    - Inbound, internal and outbound email
+    - Phishing, BEC and malware attachment detection
+    - Post-delivery remediation
+    - Platform administration and API use
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads sublime_security and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Message arrives
+      desc: An email is delivered to a Microsoft 365 or Google Workspace mailbox.
+    - step: Sublime analyses it
+      desc: Sublime pulls the message through the mailbox API, builds the message data model and scores it.
+    - step: Events are recorded
+      desc: The message, a message event with its verdict, and any admin action are stored by Sublime.
+    - step: Collector receives
+      desc: A collector reads the events from the API. Goatpedia reads these samples as JSON.
 logs:
-  - type: Audit
+  - type: Audit events
     sourcetype: sublime_security_audit
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One action in the platform. type names it, data.request.path, method and authentication_method describe the call, data.request.ip says from where, and created_by gives the user and role. This sample is an admin searching message groups with an API key. The IP uses a documentation address.
     sample: '{"id":"26704b44-d1b0-4362-8221-579e604f40cb","type":"message_group.search","created_at":"2024-07-30T05:33:47.725649Z","data":{"request":{"id":"ca817b01-cfaa-40ea-ab80-30b6a8e6ef08","path":"/v1/messages/groups/search","method":"GET","query":{},"body":"","api_key_name":"demo mode key","authentication_method":"api_key","ip":"203.0.113.40","user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.10 Safari/537.36"}},"created_by":{"id":"6e6eca05-4fea-406b-86d4-b40177e25474","active":true,"first_name":"Bob","last_name":"User","email_address":"user@example.com","phone_number":null,"created_at":"2024-07-12T05:13:47.879426Z","updated_at":"2024-07-12T05:13:47.879426Z","role":"admin","is_enrolled":true,"google_oauth_user_id":"","microsoft_oauth_user_id":""}}'
     key:
       - id
       - type
       - created_at
       - data.request.id
-  - type: Email Message
+  - type: Email messages
     sourcetype: sublime_security_email_message
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One message as Sublime parsed it. sender, recipients and headers describe the envelope, body holds text, links and IPs, and attachments lists files with type and hashes. This is a synthetic test message using example.com and documentation addresses.
     sample: '{"body":{"plain":{"raw":"Sublime Security test message.\n"},"current_thread":{"text":"Sublime Security test message."},"html":{"charset":"utf-8","content_transfer_encoding":"base64","display_text":"Sublime Security test message.","raw":"<p>Sublime Security test message.</p>","inner_text":"<p>Sublime Security test message.</p>"},"ips":[{"ip":"192.0.2.20"}],"links":[{"display_text":"click here!","display_url":{"domain":{"domain":"example.com","punycode":"test","root_domain":"example.com","subdomain":"example","tld":"com","valid":true},"scheme":"https","fragment":"top","password":"pass123","path":"/search","port":80,"query_params":"q=elasticsearch","rewrite":{"encoders":["base64"],"original":"test"},"url":"https://example.com/search?q=elasticsearch#top","username":"user12"},"mismatched":true},{"href_url":{"domain":{"domain":"example.com","punycode":"test","root_domain":"example.com","subdomain":"example","tld":"com","valid":true},"scheme":"https","fragment":"top","password":"pass123","path":"/search","port":80,"query_params":"q=elasticsearch","rewrite":{"encoders":["base64"],"original":"test"},"url":"https://example.com/search?q=elasticsearch#top","username":"user12"}}]},"external":{"created_at":"2024-08-02T07:40:25.135939305Z","message_id":"2fe271830bbad5fe3a70abbe7a8c0bfe7refe3ffe","route_type":"sent","spam":false,"spam_folder":true},"attachments":[{"content_id":"abc123","content_transfer_encoding":"base64","content_type":"application/pdf","file_extension":".pdf","file_name":"sample_document.pdf","file_type":"document","md5":"1a2b3c","raw":"JVBERi0xLjMKJcfs4AAQSkZjRgABAQE","sha1":"4d5e6f","sha256":"7g8h9i","size":102400},{"content_id":"xyz456","content_transfer_encoding":"7bit","content_type":"image/jpeg","file_extension":".jpg","file_name":"image_photo.jpg","file_type":"image","md5":"7h8i9j","raw":"/9j/4AAQSkZJRgABAQEJVBERi0xLjMKJd","sha1":"1k2l3m","sha256":"4n5o6p","size":204800}],"headers":{"date":"2019-10-21T18:23:24Z","date_original_offset":"-4","hops":[{"index":0,"fields":[{"name":"To","value":"user@example.com","position":0},{"name":"Subject","value":"Sublime-Security-Standard-Test-String","position":1}]}],"delivered_to":{"domain":{"domain":"example.com","subdomain":"example","tld":"com","email":"user@example.com"}},"ips":[{"ip":"198.51.100.15"}],"mailer":"MyCustomMailer","message_id":"2fe271830bbad5fe3a70abbe7a8c0bfe7refe3ffe","domains":[{"domain":"test.com","subdomain":"test","tld":"com"},{"domain":"example.com","subdomain":"example","tld":"com"}],"reply_to":[{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}}]},"type":{"outbound":true},"mailbox":{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}},"recipients":{"to":[{"email":{"email":"user@example.com","local_part":"user","domain":{"domain":"example.com","root_domain":"example.com","sld":"example","tld":"com","valid":true}}}]},"sender":{"display_name":"Sublime Security Test","email":{"email":"user@example.com","local_part":"testing","domain":{"domain":"sublimesecurity.com","root_domain":"sublimesecurity.com","sld":"sublimesecurity","tld":"com","valid":true}}},"subject":{"subject":"Sublime-Security-Standard-Test-String"},"_meta":{"id":"01911208-633c-7f03-b303-e594d92cf818","canonical_id":"2fe271830bbad5fe3a70abbe7a8c0bfe79eb208a76cde267930d19f0e8cea81c","created_at":"2024-08-02T07:40:25.135939305Z","effective_at":"2024-08-02T07:40:25.135939305Z"},"_errors":[{"field":"Mime-Version","message":"No Mime-Version defined in headers","type":"missing_header_field"}]}'
     key:
       - body.plain.raw
       - body.current_thread.text
       - body.html.charset
       - body.html.content_transfer_encoding
-  - type: Message Event
+  - type: Message events
     sourcetype: sublime_security_message_event
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One message in one mailbox. attack_score_verdict is Sublime's verdict, mailbox.email the recipient, sender and subject the message, and read_at, replied_at and forwarded_at what the user did. This sample is a suspicious message with the subject "Available?".
     sample: '{"id":"ef875384-6868-4e60-819a-e392f3fc1344","canonical_id":"ae608db67f666a7c92729c4a018e24362caea4c3b4b9fa00534a838dc989bab3","created_at":"2024-07-12T05:15:19.061701Z","attack_score_verdict":"suspicious","external_id":"811a4cb9-aa1c-4e81-a0d1-21e163872c08","message_source_id":"257982a1-f106-4c68-bc64-ff032914ed5f","mailbox":{"id":"433fe142-e2e5-4372-84ea-480279543a9b","external_id":null,"email":"user@example.com"},"subject":"Available?","sender":{"email":"user@example.com","display_name":"Alice"},"landed_in_spam":false,"read_at":null,"replied_at":null,"forwarded_at":null,"forward_recipients":[],"recipients":[{"email":"user@example.com"},{"email":"user@example.com"}]}'
     key:
       - id
@@ -79,17 +96,22 @@ logs:
       - attack_score_verdict
 cves: []
 detections:
-  - title: Sublime Security events arriving
-    severity: low
+  - title: Message scored suspicious or malicious
+    severity: high
     signals:
-      - id
-      - type
-      - created_at
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "sublime_security_audit"'
+      - attack_score_verdict
+      - mailbox.email
+      - sender.email
+      - subject
+      - read_at
+    why: A suspicious or malicious verdict is a likely phishing or BEC message. If read_at, replied_at or forwarded_at is set, the user interacted with it and the attempt may have worked.
+    kql: |
+      dataset="sublime-security_logs"
+      | where sourcetype == "sublime_security_message_event" and attack_score_verdict in ("suspicious", "malicious")
+      | project created_at, attack_score_verdict, mailbox.email, sender.email, subject, read_at, replied_at, forwarded_at
+    mitre:
+      - T1566
 optimizations: []
 references:
-  - title: elastic/integrations sublime_security/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sublime_security/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample sublime_security_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sublime_security_audit.json
+  - title: Sublime Security documentation
+    url: https://docs.sublime.security/

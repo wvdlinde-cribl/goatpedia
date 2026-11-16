@@ -1,52 +1,67 @@
 id: fortinet-fortiproxy
-name: Fortinet Fortiproxy
-short: Fortiproxy
+name: FortiProxy
+short: FortiProxy
 vendor: Fortinet
 category: swg
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - fortinet_fortiproxy
-  - Elastic integrations
+  - Fortinet FortiProxy
 tags:
-  - elastic
+  - proxy
+  - web
+  - swg
   - kv
-summary: Fortinet Fortiproxy is logged by the Elastic integrations package fortinet_fortiproxy. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: FortiProxy is Fortinet's secure web proxy. Browsers send HTTP and HTTPS through it, and it applies web policy, application control and security profiles, then logs each session. The log is one key-value line per session. Allowed browsing is most of the volume. A session the security profile did not allow is the line worth keeping in front of an analyst.
 sourcetypes:
   - st: fortinet_fortiproxy
-    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_fortiproxy/data_stream/log/_dev/test/pipeline/test-example.log'
+    desc: Forward-proxy sessions. Each line is one proxied connection, with the client, the site, the policy and the verdict.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: fortinet_fortiproxy
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: date, time, tz, logid, type, subtype
+  Product: Secure web proxy for HTTP and HTTPS
+  Form factor: Appliance or virtual machine, explicit or transparent
+  Log transport: Syslog, one line per session
+  Log format: Key-value. action is how the session ended. utmaction is the security-profile verdict.
+  What a session answers: Who browsed where, which policy matched, and whether the proxy allowed it
+  What utmaction answers: The security profile's verdict. allow is ordinary browsing.
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Web proxy
+      desc: FortiProxy sits on the path to the internet. Clients are directed at it explicitly, or traffic is redirected to it. The session log is written here.
+    - slot: internal
+      title: Policy
+      desc: Web filter, application control and the other security profiles are evaluated on the proxy. utmaction is that decision. A collector receives the session syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Fortinet Fortiproxy events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries date, time, tz, logid, type, subtype. Values in the sample were rewritten to documentation addresses.
+  - title: A proxied session
+    body: One line is one session. srcip and srcport are the client. dstip, dstport and service are the site. policyid is the rule. action is how the session ended, such as close. app and appcat are the recognised application. sentbyte and rcvdbyte are the sizes.
+  - title: The verdict
+    body: utmaction is the security profile. allow means the profile let the session through. Any other value is the proxy blocking or acting on it. The sample is an allowed HTTPS session that closed, from a documentation client address to a documentation server address.
+  - title: How the lines leave
+    body: FortiProxy writes the key-value line and forwards it, usually by syslog. Any collector can receive it.
 traffic:
   handles:
-    - kv
+    - HTTP and HTTPS browsing
+    - Web filtering and application control
+    - Allowed and blocked sessions
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads fortinet_fortiproxy and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Browser connects
+      desc: A client opens a session through the proxy toward a site.
+    - step: Proxy applies policy
+      desc: FortiProxy matches a policy and a security profile, then allows or blocks the session.
+    - step: One line is written
+      desc: The session is one key-value record with the client, the site, the policy and utmaction.
+    - step: Collector receives it
+      desc: A collector takes the line and can forward the parsed fields anywhere.
 logs:
-  - type: Log
+  - type: Proxy session
     sourcetype: fortinet_fortiproxy
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One session. action is how it ended and utmaction is the security-profile verdict. This sample is an allowed HTTPS session that closed. srcip and dstip are documentation addresses. policyid and service name the rule and the service.
     sample: date=2017-11-15 time=11:44:16 tz="-0700" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="vdom1" eventtime=1510775056 srcip=192.0.2.10 srcname="pc1" srcport=40772 srcintf="port12" srcintfrole="undefined" dstip=192.0.2.20 dstname="fortiguard.com" dstport=443 dstintf="port11" dstintfrole="undefined" poluuid="707a0d88-c972-51e7-bbc7-4d421660557b" sessionid=8058 proto=6 action="close" policyid=1 policytype="policy" policymode="learn" service="HTTPS" dstcountry="United States" srccountry="Reserved" trandisp="snat" transip=198.51.100.15 transport=40772 appid=40568 app="HTTPS.BROWSER" appcat="Web.Client" apprisk="medium" duration=2 sentbyte=1850 rcvdbyte=39898 sentpkt=25 rcvdpkt=37 utmaction="allow" countapp=1 devtype="Linux PC" osname="Linux" mastersrcmac="2001:db8::1" srcmac="2001:db8::1" srcserver=0 utmref=0-220586
     key:
       - date
@@ -55,17 +70,26 @@ logs:
       - logid
 cves: []
 detections:
-  - title: Fortinet Fortiproxy events arriving
-    severity: low
+  - title: Web session was not allowed
+    severity: medium
     signals:
-      - date
-      - time
-      - tz
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "fortinet_fortiproxy"'
-optimizations: []
+      - utmaction
+      - action
+      - srcip
+      - dstip
+      - policyid
+      - service
+    why: utmaction allow is ordinary browsing. Any other verdict is the proxy blocking the session or acting on it. That is the security decision in this stream.
+    kql: |
+      dataset="fortinet-fortiproxy_logs"
+      | where sourcetype == "fortinet_fortiproxy" and utmaction != "allow"
+      | project date, time, srcip, dstip, dstport, service, policyid, action, utmaction, dstname
+optimizations:
+  - title: Drop allowed browsing
+    saving: most of the access volume
+    fn: Drop
+    how: Allowed sessions are the bulk of a proxy log. Keep sessions whose security profile did not allow them. Allowed browsing is context. Keep it in cheaper storage if you still want the history.
+    expr: utmaction == 'allow'
 references:
-  - title: elastic/integrations fortinet_fortiproxy/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_fortiproxy/data_stream/log/_dev/test/pipeline/test-example.log
-  - title: Pack Generator sample fortinet_fortiproxy.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortiproxy.json
+  - title: FortiProxy documentation
+    url: https://docs.fortinet.com/product/fortiproxy

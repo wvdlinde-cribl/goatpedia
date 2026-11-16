@@ -1,52 +1,68 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cyberarkpas
-name: Cyberarkpas
-short: Cyberarkpas
-vendor: Cyberarkpas
+name: CyberArk Privileged Access Manager
+short: CyberArk PAM
+vendor: CyberArk
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cyberarkpas
-  - Elastic integrations
+  - CyberArk PAS
+  - CyberArk Privileged Access Security
+  - CyberArk Digital Vault
+  - CyberArk Vault
 tags:
-  - elastic
-  - json
-summary: Cyberarkpas is logged by the Elastic integrations package cyberarkpas. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - pam
+  - privileged-access
+  - vault
+  - audit
+  - syslog
+summary: A privileged access management suite built around the Digital Vault, which stores privileged credentials in safes. People and applications retrieve passwords through the web portal (PVWA), session manager (PSM) or application identity components, and the CPM rotates them. The Vault audits every action, such as retrieving a password or opening a session, and can forward that audit trail as syslog.
 sourcetypes:
   - st: cyberarkpas_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cyberarkpas/data_stream/audit/_dev/test/pipeline/test-295-retrieve-password.log'
+    desc: Vault audit records, one per action on a safe, account or the Vault itself, forwarded as syslog
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cyberarkpas
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: format, version, raw, syslog.audit_record.Rfc5424, syslog.audit_record.Vendor, syslog.audit_record.Product
+  Product: Privileged access management (credential vault, session management, password rotation)
+  Components: Digital Vault, Password Vault Web Access (PVWA), Privileged Session Manager (PSM), Central Policy Manager (CPM), application identity providers
+  Log transport: Syslog from the Vault server to any receiver, using a configurable XSL translator
+  Log format: The audit_record XML is translated by XSL into the chosen syslog format; these samples hold the record as structured fields (MessageID, Action, Issuer, Safe, File and so on)
+  What an audit record answers: Who (Issuer) did what (Action, MessageID) to which account (Safe, File), from where (Station), and why (Reason)
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Digital Vault and components
+      desc: The Vault runs on a hardened server in the data centre. PVWA, PSM and CPM servers talk to it, and applications request credentials through them. The Vault forwards its audit records to a syslog receiver.
 howItWorks:
-  - title: What the fixture shows
-    body: Cyberarkpas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries format, version, raw, syslog.audit_record.Rfc5424, syslog.audit_record.Vendor, syslog.audit_record.Product. Values in the sample were rewritten to documentation addresses.
+  - title: Safes and accounts
+    body: Privileged credentials are stored as accounts in safes. Safe membership decides who may list, use, retrieve or manage each account, and policies decide rotation and session rules.
+  - title: Audit records
+    body: Every action is an audit record with a MessageID (295 is Retrieve password), an Action text, the Issuer (user or component), Safe and File (the account object), Station (client address) and Reason. CAProperties holds account properties such as PolicyID and UserName.
+  - title: How the records leave the Vault
+    body: In the Vault's dbparm.ini the administrator sets a syslog server, port, protocol and an XSL translator file. The Vault applies the translator to each audit record and sends it. Any receiver can take the result.
 traffic:
   handles:
-    - json
+    - Password retrieval and use
+    - Privileged session start and end
+    - Safe and account administration
+    - Password rotation by the CPM
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cyberarkpas and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Credential requested
+      desc: A user in PVWA, a PSM session or an application asks the Vault for a privileged credential.
+    - step: Vault decides and audits
+      desc: The Vault checks safe permissions and policy, then writes an audit record of the action.
+    - step: Translated to syslog
+      desc: The Vault translates the record with its XSL file.
+    - step: Sent to a receiver
+      desc: The record is sent to the configured syslog receiver.
 logs:
-  - type: Audit
+  - type: Vault audit
     sourcetype: cyberarkpas_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One record per Vault action. syslog.audit_record.MessageID 295 and Action "Retrieve password" say a password was retrieved, Issuer is the component that did it (Prov_PVWA, an application identity provider), Safe and File name the account, Station is the client and Reason is "AIM password request". The address is a documentation address.
     sample: '{"format":"elastic","version":"1.0","raw":"<syslog>\n  <audit_record>\n    <Rfc5424>no</Rfc5424>\n    <Vendor>Cyber-Ark</Vendor>\n    <Product>Vault</Product>\n    <Version>11.6.0000</Version>\n    <Message...","syslog":{"audit_record":{"Rfc5424":"no","Vendor":"Cyber-Ark","Product":"Vault","Version":"11.6.0000","MessageID":"295","IsoTimestamp":"2021-03-16T15:01:00Z","Desc":"Retrieve password","Severity":"Info","Issuer":"Prov_PVWA","Action":"Retrieve password","SourceUser":"","TargetUser":"","Safe":"Linux","File":"Root\\Operating System-LINUX-SSH-radiussrv.cyberark.local-admin2","Station":"203.0.113.8","Location":"","Category":"","RequestId":"","Reason":"AIM password request","ExtraDetails":"","Message":"Retrieve password","GatewayStation":"","CAProperties":{"CAProperty":[{"Name":"PolicyID","Value":"LINUX-SSH"},{"Name":"UserName","Value":"admin2"}]}}}}'
     key:
       - format
@@ -55,17 +71,22 @@ logs:
       - syslog.audit_record.Rfc5424
 cves: []
 detections:
-  - title: Cyberarkpas events arriving
-    severity: low
+  - title: Privileged password retrieved
+    severity: medium
     signals:
-      - format
-      - version
-      - raw
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cyberarkpas_audit"'
+      - syslog.audit_record.Action
+      - syslog.audit_record.Issuer
+      - syslog.audit_record.Safe
+      - syslog.audit_record.File
+      - syslog.audit_record.Station
+    why: Retrieving a password hands a privileged credential out of the Vault. Retrievals by unusual issuers, from unusual stations, or of root and domain admin accounts outside a change window are the high-value events in this source.
+    kql: |
+      dataset="cyberarkpas_logs"
+      | where sourcetype == "cyberarkpas_audit" and syslog.audit_record.Action == "Retrieve password"
+      | project syslog.audit_record.IsoTimestamp, syslog.audit_record.Issuer, syslog.audit_record.Safe, syslog.audit_record.File, syslog.audit_record.Station, syslog.audit_record.Reason
+    mitre:
+      - T1555
 optimizations: []
 references:
-  - title: elastic/integrations cyberarkpas/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cyberarkpas/data_stream/audit/_dev/test/pipeline/test-295-retrieve-password.log
-  - title: Pack Generator sample cyberarkpas_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyberarkpas_audit.json
+  - title: CyberArk documentation
+    url: https://docs.cyberark.com/

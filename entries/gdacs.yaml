@@ -1,52 +1,60 @@
 id: gdacs
-name: Gdacs
-short: Gdacs
-vendor: Gdacs
+name: GDACS
+short: GDACS
+vendor: European Commission
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - gdacs
-  - Elastic integrations
+  - Global Disaster Alert and Coordination System
 tags:
-  - elastic
-  - json
-summary: Gdacs is logged by the Elastic integrations package gdacs. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - disaster
+  - alerts
+  - geojson
+summary: GDACS is the Global Disaster Alert and Coordination System, run by the European Commission Joint Research Centre with United Nations partners. It publishes an alert when an earthquake, flood, cyclone or similar event may need international humanitarian coordination. Each alert is a GeoJSON feature with a place, a severity and a green, orange or red level. Any collector can pull the public feed.
 sourcetypes:
   - st: gdacs
-    desc: 'Elastic integrations fixture, 6 events. Upstream: gdacs/data_stream/events/_dev/test/pipeline/test-events-ndjson.log'
+    desc: One GDACS disaster alert as a GeoJSON feature. The geometry is the place. The properties carry the event type, the alert level and the severity.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: gdacs
-  Sourcetypes: '1'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: type, bbox[0], bbox[1], geometry.type, geometry.coordinates[0], geometry.coordinates[1]
+  Product: Public disaster-alert feed for earthquakes, floods, cyclones and similar events
+  Who runs it: European Commission Joint Research Centre, with United Nations partners
+  Log transport: HTTPS. The public API returns GeoJSON features.
+  Log format: One GeoJSON Feature per event. geometry is the point or area. properties holds the alert.
+  What an alert answers: What happened, where, how severe it is, and whether GDACS coloured it green, orange or red
+  What alertlevel answers: Green is a small event. Orange and red are the alerts GDACS expects responders to look at.
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: GDACS feed
+      desc: The alerts are published on gdacs.org. There is no appliance to deploy. A collector requests the GeoJSON and can forward each feature anywhere.
 howItWorks:
-  - title: What the fixture shows
-    body: Gdacs events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries type, bbox[0], bbox[1], geometry.type, geometry.coordinates[0], geometry.coordinates[1]. Values in the sample were rewritten to documentation addresses.
+  - title: One alert
+    body: type Feature wraps a geometry and properties. eventtype is the kind of disaster, such as EQ for an earthquake. eventid and episodeid identify the event and this update of it. alertlevel and alertscore are the GDACS colour. severitydata is the measurement, such as a magnitude and a depth. country and iso3 are the place. fromdate is when the event happened.
+  - title: The sample
+    body: This feature is a green earthquake in the Solomon Islands, magnitude 4.6, sourced from NEIC. iscurrent false means it is not the live episode. url.report is the human-readable report on gdacs.org.
+  - title: How a collector gets it
+    body: GDACS publishes the features over HTTPS. A collector polls the feed and stores one feature per event. The feed is public. Nothing in it is tied to one destination.
 traffic:
   handles:
-    - json
+    - Earthquake, flood and cyclone alerts
+    - Alert level and severity
+    - Location of the event
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads gdacs and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A disaster is reported
+      desc: A source such as NEIC reports an earthquake or another hazard.
+    - step: GDACS scores it
+      desc: GDACS assigns an alert level and publishes a GeoJSON feature with the place and the severity.
+    - step: Collector polls
+      desc: A collector fetches the feature and can forward it anywhere.
 logs:
-  - type: Events
+  - type: Disaster alert
     sourcetype: gdacs
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One GeoJSON feature. properties.eventtype is the hazard, alertlevel is the colour, and severitydata is the measurement. geometry is the place. This sample is a green magnitude-4.6 earthquake.
     sample: '{"type":"Feature","bbox":[162.4478,-10.5397],"geometry":{"type":"Point","coordinates":[162.4478,-10.5397]},"properties":{"eventtype":"EQ","eventid":1476137,"episodeid":1632460,"eventname":"","glide":"","name":"Earthquake in Solomon Islands","description":"Earthquake in Solomon Islands","htmldescription":"Green M 4.6 Earthquake in Solomon Islands at: 06 Apr 2025 22:00:23.","icon":"https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png","iconoverall":"https://www.gdacs.org/images/gdacs_icons/maps/Green/EQ.png","url":{"geometry":"https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=EQ&eventid=1476137&episodeid=1632460","report":"https://www.gdacs.org/report.aspx?eventid=1476137&episodeid=1632460&eventtype=EQ","details":"https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=EQ&eventid=1476137"},"alertlevel":"Green","alertscore":1,"episodealertlevel":"Green","episodealertscore":0,"istemporary":"false","iscurrent":"false","country":"Solomon Islands","fromdate":"2025-04-06T22:00:23","todate":"2025-04-06T22:00:23","datemodified":"2025-04-07T01:52:47","iso3":"SLB","source":"NEIC","sourceid":"us6000q4fn","polygonlabel":"Centroid","Class":"Point_Centroid","affectedcountries":[{"iso2":"SB","iso3":"SLB","countryname":"Solomon Is."}],"severitydata":{"severity":4.6,"severitytext":"Magnitude 4.6M, Depth:50.911km","severityunit":"M"}},"polygon_geometry":{"type":"Polygon","coordinates":[[[163.364,-10.54],[163.362,-10.477]]]},"polygon_class":"Poly_Circle","polygon_label":"100km"}'
     key:
       - type
@@ -54,18 +62,8 @@ logs:
       - bbox[1]
       - geometry.type
 cves: []
-detections:
-  - title: Gdacs events arriving
-    severity: low
-    signals:
-      - type
-      - bbox[0]
-      - bbox[1]
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "gdacs"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations gdacs/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/gdacs/data_stream/events/_dev/test/pipeline/test-events-ndjson.log
-  - title: Pack Generator sample gdacs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/gdacs.json
+  - title: GDACS
+    url: https://www.gdacs.org/

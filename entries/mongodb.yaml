@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: mongodb
-name: Mongodb
-short: Mongodb
-vendor: Mongodb
+name: MongoDB
+short: MongoDB
+vendor: MongoDB, Inc.
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - mongodb
-  - Elastic integrations
+  - mongod
+  - MongoDB Community Server
+  - MongoDB Enterprise Server
 tags:
-  - elastic
+  - database
+  - nosql
   - text
-summary: Mongodb is logged by the Elastic integrations package mongodb. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A document database. Applications connect to the mongod server, usually on port 27017, inside the data centre or a cloud network. Its server log records startup and build information, connections, slow operations, replication and access-control messages. Older releases write it as plain text; MongoDB 4.4 and later write structured JSON.
 sourcetypes:
   - st: mongodb
-    desc: 'Elastic integrations fixture, 20 events. Upstream: mongodb/data_stream/log/_dev/test/pipeline/test-mongodb-debian.log'
+    desc: The mongod server log in the classic text format, one line per message with timestamp, severity, component, context and text
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: mongodb
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Document database server (mongod) with replica sets and sharding
+  Clients: Applications and drivers, mongosh, over the MongoDB wire protocol, default port 27017
+  Log transport: Log file on each server (or syslog), read by a file agent
+  Log format: Text lines as timestamp severity component [context] message before 4.4; one JSON object per line from 4.4
+  What a log line answers: Which component (CONTROL, NETWORK, ACCESS, COMMAND, REPL and others) reported what, in which thread, and when
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: mongod servers
+      desc: Database servers or replica-set members run behind the applications that use them. Each writes its own server log.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud VMs
+      desc: Self-managed MongoDB on cloud VMs writes the same log. MongoDB Atlas is the hosted service and is described separately.
 howItWorks:
-  - title: What the fixture shows
-    body: Mongodb events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Components
+    body: Every message is tagged with a component, such as CONTROL for startup, NETWORK for connections, ACCESS for authentication, COMMAND for slow operations and REPL for replication, and a severity letter (F, E, W, I, D).
+  - title: Context
+    body: The context in square brackets names the thread, such as initandlisten at startup or connNNN for a client connection, so lines for one connection can be followed.
 traffic:
   handles:
-    - text
+    - Client connections and authentication
+    - Database reads and writes
+    - Replication
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads mongodb and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Server acts
+      desc: mongod starts, accepts a connection, authenticates a client or runs an operation.
+    - step: Line written
+      desc: The component writes one line to the server log.
+    - step: Collector reads it
+      desc: A file agent ships the line. Goatpedia reads it as text.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: mongodb
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per server message, with timestamp, severity letter, component, context and text. This sample is an informational CONTROL line from initandlisten at startup giving the git version of the build.
     sample: '2018-02-05T13:44:56.657+0100 I CONTROL  [initandlisten] git version: 009580ad490190ba33d1c6253ebd8d91808923e4'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Mongodb events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "mongodb"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations mongodb/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mongodb/data_stream/log/_dev/test/pipeline/test-mongodb-debian.log
-  - title: Pack Generator sample mongodb.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mongodb.json
+  - title: MongoDB log messages
+    url: https://www.mongodb.com/docs/manual/reference/log-messages/

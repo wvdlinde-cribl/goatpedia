@@ -1,52 +1,68 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: proofpoint-365totalprotection
-name: Proofpoint 365totalprotection
-short: Proofpoint365t
-vendor: Proofpoint
+name: 365 Total Protection
+short: 365 Total Prot
+vendor: Hornetsecurity
 category: email
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - proofpoint_365totalprotection
-  - Elastic integrations
+  - Hornetsecurity 365 Total Protection
+  - Proofpoint 365 Total Protection
+  - Hornetsecurity Email Security
 tags:
-  - elastic
+  - email-security
+  - microsoft-365
+  - spam
+  - saas
   - json
-summary: Proofpoint 365totalprotection is logged by the Elastic integrations package proofpoint_365totalprotection. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: 'A cloud email security service for Microsoft 365, from Hornetsecurity, which Proofpoint acquired. Inbound and outbound mail passes through its gateways, where it is filtered for spam and malware, encrypted in transit and archived. Its message tracking records describe each email: direction, sender and recipient hosts, TLS, the SMTP result and the classification it received.'
 sourcetypes:
   - st: proofpoint_365totalprotection_email
-    desc: 'Elastic integrations fixture, 3 events. Upstream: proofpoint_365totalprotection/data_stream/email/_dev/test/pipeline/test-outbound-with-attachments.log'
+    desc: Message tracking records for inbound and outbound email, with direction, hosts, SMTP dialogue, encryption and classification
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: proofpoint_365totalprotection
-  Sourcetypes: '1'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: direction, date, msg_id, source_hostname, destination_hostname, gateway
+  Product: Email filtering, encryption and archiving for Microsoft 365 tenants
+  Deployment: Cloud gateways in front of and behind Microsoft 365 mail flow
+  Log transport: Message tracking API of the service, polled by a collector with an API token
+  Log format: One JSON object per message
+  What a tracking record answers: Which message went from whom to whom, in which direction, over which TLS version, with what SMTP result and classification
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Filtering gateways
+      desc: Mail for the tenant's domains is routed through the service's gateways before it reaches Microsoft 365, and outbound mail leaves through them. The tracking records are stored in the service and read by a collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Proofpoint 365totalprotection events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries direction, date, msg_id, source_hostname, destination_hostname, gateway. Values in the sample were rewritten to documentation addresses.
+  - title: Mail routing
+    body: MX records point at the service for inbound mail, and Microsoft 365 sends outbound mail through it with a connector. Each message is filtered, then delivered.
+  - title: Classification
+    body: Every message gets a classification, such as clean, spam or threat, and may be quarantined or remediated later. The record keeps the last remediation action.
+  - title: Transport and archive
+    body: The SMTP dialogue with the next hop is recorded with TLS version and cipher strength. Messages can be archived with a retention period.
+  - title: How the records leave the product
+    body: A collector queries the message tracking API with a token and stores each message record.
 traffic:
   handles:
-    - json
+    - Inbound and outbound SMTP for Microsoft 365
+    - Spam and malware filtering
+    - Email archiving
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads proofpoint_365totalprotection and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Mail arrives
+      desc: A message for or from the tenant reaches a gateway.
+    - step: Filter and deliver
+      desc: The gateway classifies the message and relays it over TLS to the next hop.
+    - step: Tracking record
+      desc: The service stores a tracking record with the result.
+    - step: Collector polls
+      desc: A collector reads new records from the API.
 logs:
-  - type: Email
+  - type: Message tracking
     sourcetype: proofpoint_365totalprotection_email
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per message. direction says inbound or outbound, source_hostname and destination_hostname the hops, smtp_status_code and smtp_dialog the delivery result, crypt_type_out the encryption, and classification.text the verdict. This sample is an outbound clean message delivered over TLS 1.3. The sample uses documentation addresses.
     sample: '{"direction":2,"date":"2026-02-10T15:49:49Z","msg_id":"TEST-OUTBOUND-001","source_hostname":"mail-sender.example.com","destination_hostname":"mail-receiver.example.com[203.0.113.40]","gateway":"test-gateway-02","source_ip":"192.0.2.10","destination_ip":"192.0.2.20","message_id":"<user@example.com>","smtp_dialog":["2026-02-10T15:49:49Z;TLS;mail-receiver.example.com[198.51.100.15];250 2.6.0 Message accepted -> 250 2.1.5;END_SEND;CIPHER=STRONG;TLS_VER=TLSv1.3"],"smtp_status":"2026-02-10T15:49:49Z;TLS;mail-receiver.example.com[198.51.100.25];250 2.6.0 Message accepted -> 250 2.1.5;END_SEND;CIPHER=STRONG;TLS_VER=TLSv1.3","owner":"user@example.com","owner_domain":"example.com","comm_partner":"user@example.com","smtp_status_code":"250","last_remediation_actions":"","last_remediation_type":"","last_remediation_folder":"","last_remediation_effectiveness":"","last_report_type":"","has_url_rewritten":false,"history":"","is_archived":true,"ttl":"2037-01-01T00:00:00Z","ttl_reason":["da120","ga-1"],"fix_ids":"","es_mail_id":"test-region,2026_02_10,test-id-out-001","crypt_type_in":{"id":7,"text":"TLS"},"crypt_type_out":{"id":7,"text":"TLS"},"classification":{"id":2,"text":"clean"}}'
     key:
       - direction
@@ -55,17 +71,19 @@ logs:
       - source_hostname
 cves: []
 detections:
-  - title: Proofpoint 365totalprotection events arriving
-    severity: low
+  - title: Message not classified clean
+    severity: medium
     signals:
+      - classification.text
       - direction
-      - date
-      - msg_id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "proofpoint_365totalprotection_email"'
+      - owner
+      - comm_partner
+    why: Messages classified as spam or threat show who is being targeted, and outbound ones can mean a compromised mailbox sending spam.
+    kql: |
+      dataset="proofpoint-365totalprotection_logs"
+      | where sourcetype == "proofpoint_365totalprotection_email" and classification.text != "clean"
+      | project date, direction, owner, comm_partner, source_ip, classification.text
+    mitre:
+      - T1566
 optimizations: []
-references:
-  - title: elastic/integrations proofpoint_365totalprotection/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proofpoint_365totalprotection/data_stream/email/_dev/test/pipeline/test-outbound-with-attachments.log
-  - title: Pack Generator sample proofpoint_365totalprotection_email.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proofpoint_365totalprotection_email.json
+references: []

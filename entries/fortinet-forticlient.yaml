@@ -1,52 +1,70 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: fortinet-forticlient
-name: Fortinet Forticlient
-short: Forticlient
+name: FortiClient
+short: FortiClient
 vendor: Fortinet
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - fortinet_forticlient
-  - Elastic integrations
+  - Fortinet FortiClient
+  - FortiClient EMS
 tags:
-  - elastic
+  - endpoint
+  - vpn
+  - ztna
+  - web-filter
   - kv
-summary: Fortinet Forticlient is logged by the Elastic integrations package fortinet_forticlient. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Fortinet's endpoint agent, combining VPN and ZTNA access, endpoint protection, web filtering and application firewall. It is managed by FortiClient EMS and reports to FortiAnalyzer or a syslog receiver. Its logs record traffic the endpoint allowed or blocked, with the application, user, addresses and ports involved.
 sourcetypes:
   - st: fortinet_forticlient
-    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_forticlient/data_stream/log/_dev/test/pipeline/test-generated.log'
+    desc: FortiClient endpoint logs in key=value form, such as traffic allowed or denied by its firewall, web filter or application control
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: fortinet_forticlient
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: header, proto, service, status, src, dst
+  Product: Endpoint agent for VPN/ZTNA, endpoint protection, web filtering and application firewall
+  Clients: Windows, macOS, Linux, iOS and Android
+  Account plane: FortiClient EMS for policy and management; FortiAnalyzer or syslog for logs
+  Log transport: Syslog or upload to FortiAnalyzer, forwarded on to any receiver
+  Log format: Syslog header followed by key=value pairs
+  What a traffic event answers: Which application and user on the endpoint tried to reach which address and port, over which protocol and service, and whether it was allowed or denied
 placement:
   slots:
-    - cloud
+    - endpoint
+    - remote
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: FortiClient agent
+      desc: The agent on laptops, desktops and phones enforces web filter, application firewall and protection policies from EMS, and writes a log entry for each decision.
+    - slot: remote
+      title: Remote users
+      desc: For remote users FortiClient provides the VPN or ZTNA connection into the network, so its logs cover endpoints outside the office.
 howItWorks:
-  - title: What the fixture shows
-    body: Fortinet Forticlient events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, proto, service, status, src, dst. Values in the sample were rewritten to documentation addresses.
+  - title: Policy from EMS
+    body: FortiClient EMS pushes profiles to endpoints, including web filter categories, application firewall rules, VPN and ZTNA settings and protection options.
+  - title: Decisions on the endpoint
+    body: When an application on the endpoint opens a connection or a web request, FortiClient applies the profile and records the outcome with the protocol, service, source and destination, the application name and process id, the direction and the logged-on user.
+  - title: How the logs leave the endpoint
+    body: FortiClient uploads logs to FortiAnalyzer or sends them to a syslog server set in the profile. Either can forward them to any collector.
 traffic:
   handles:
-    - kv
+    - Outbound connections from endpoint applications
+    - Web requests checked against web filter categories
+    - VPN and ZTNA connections
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads fortinet_forticlient and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Application connects
+      desc: An application on the endpoint opens a connection or web request.
+    - step: FortiClient decides
+      desc: The agent applies the EMS profile and allows or denies it.
+    - step: Log entry written
+      desc: The decision is logged with the application, user, addresses, ports and status.
+    - step: Forwarded
+      desc: The log is sent to FortiAnalyzer or a syslog receiver.
 logs:
-  - type: Log
+  - type: Endpoint traffic log
     sourcetype: fortinet_forticlient
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per decision. status is deny, proto and service are udp and http, src/dst and src_port/dst_port the connection, app_name and pid the application, traff_direct the direction, logon_user the user and block_count how many times it was blocked. Addresses are documentation addresses and host names use the reserved .invalid domain.
     sample: January 29 06:09:59 boNemoe4402.www.invalid proto=udp service=http status=deny src=203.0.113.8 dst=203.0.113.40 src_port=7178 dst_port=3994 server_app=reeufugi pid=7880 app_name=enderitq traff_direct=external block_count=5286 logon_user=user@example.com msg=failure
     key:
       - proto
@@ -55,17 +73,21 @@ logs:
       - src
 cves: []
 detections:
-  - title: Fortinet Forticlient events arriving
+  - title: Endpoint traffic denied
     severity: low
     signals:
-      - header
-      - proto
-      - service
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "fortinet_forticlient"'
+      - status
+      - app_name
+      - dst
+      - logon_user
+    why: A deny means the endpoint profile stopped an application from connecting. Many denies for one application, or denies to the same destination across endpoints, point to unwanted software or malware trying to call out.
+    kql: |
+      dataset="fortinet-forticlient_logs"
+      | where sourcetype == "fortinet_forticlient" and status == "deny"
+      | project _time, logon_user, app_name, pid, src, dst, dst_port, proto, service, block_count
+    mitre:
+      - T1071
 optimizations: []
 references:
-  - title: elastic/integrations fortinet_forticlient/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_forticlient/data_stream/log/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample fortinet_forticlient.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_forticlient.json
+  - title: FortiClient documentation
+    url: https://docs.fortinet.com/product/forticlient

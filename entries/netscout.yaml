@@ -1,67 +1,85 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: netscout
-name: Netscout
-short: Netscout
-vendor: Netscout
+name: NETSCOUT Arbor Sightline
+short: Sightline
+vendor: NETSCOUT
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - netscout
-  - Elastic integrations
+  - Arbor Sightline
+  - Arbor Peakflow SP
+  - Peakflow
 tags:
-  - elastic
+  - ddos
+  - network-visibility
+  - flow
+  - syslog
   - text
-summary: Netscout is logged by the Elastic integrations package netscout. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A DDoS detection and network visibility platform for service providers and large enterprises. Sightline appliances collect NetFlow, IPFIX and BGP from routers, detect attacks and traffic anomalies, and can trigger mitigation. Its syslog stream reports alerts and system events, including who changed the configuration of the deployment and when.
 sourcetypes:
   - st: netscout_sightline
-    desc: 'Elastic integrations fixture, 20 events. Upstream: netscout/data_stream/sightline/_dev/test/pipeline/test-generated.log'
+    desc: Syslog messages from Sightline appliances, covering DDoS and traffic alerts, system status and configuration changes
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: netscout
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: DDoS detection and network traffic analytics based on flow and routing data
+  Form factor: Physical or virtual appliances in a deployment with one leader and collector or traffic-and-routing-analysis nodes
+  Log transport: Syslog notifications sent from the appliances to a configured receiver
+  Log format: Plain text syslog lines. The program tag (for example pfsp) names the Sightline process
+  What a configuration message answers: Which leader was changed, the new configuration version, and the user who committed it
 placement:
   slots:
-    - cloud
+    - internal
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Sightline appliances
+      desc: Sightline nodes sit in the provider or enterprise core and receive flow export and BGP from edge and core routers. The leader holds the configuration for the whole deployment. Syslog is sent from the appliances to a collector.
+    - slot: edge
+      title: Routers exporting flow
+      desc: Border and peering routers export NetFlow or IPFIX and peer BGP with Sightline. That is the traffic Sightline analyses. The routers are not the source of these syslog lines.
 howItWorks:
-  - title: What the fixture shows
-    body: Netscout events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Flow-based detection
+    body: Sightline builds a model of normal traffic from flow and routing data and raises alerts when traffic toward a managed object exceeds learned or configured thresholds, as in a volumetric DDoS.
+  - title: Leader and configuration
+    body: A Sightline deployment is managed from its leader. Configuration edits are committed as a new version. Each commit is logged with the leader name, the version number and the user who made it.
+  - title: How the messages leave the product
+    body: Notification rules send alerts and system events as syslog to one or more receivers. Any syslog collector can receive them.
 traffic:
   handles:
-    - text
+    - NetFlow and IPFIX analysis
+    - BGP routing data
+    - DDoS alerting
+    - Configuration commits
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads netscout and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Routers export
+      desc: Edge routers send flow records and BGP updates to Sightline.
+    - step: Sightline detects or changes
+      desc: Sightline raises an alert on anomalous traffic, or an operator commits a configuration change on the leader.
+    - step: Syslog is sent
+      desc: A notification rule formats the event as a syslog line and sends it to the receiver.
 logs:
-  - type: Sightline
+  - type: Sightline syslog
     sourcetype: netscout_sightline
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: 'One syslog line per event. The message text carries the meaning. This sample is a configuration commit: the leader, the new version and the user who changed it.'
     sample: 'January 29 06:09:59 pfsp: The configuration was changed on leader olab to version 1.6078 by rci'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Netscout events arriving
+  - title: Sightline configuration changed
     severity: low
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "netscout_sightline"'
+    why: A change to the leader configuration alters detection thresholds and mitigation for the whole deployment. Each commit names the user, so changes outside a change window or by an unexpected account stand out.
+    kql: |
+      dataset="netscout_logs"
+      | where sourcetype == "netscout_sightline" and message contains "configuration was changed"
+      | project message
+    mitre:
+      - T1562
 optimizations: []
-references:
-  - title: elastic/integrations netscout/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/netscout/data_stream/sightline/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample netscout_sightline.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/netscout_sightline.json
+references: []

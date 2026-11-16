@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: servicenow
-name: Servicenow
-short: Servicenow
-vendor: Servicenow
+name: ServiceNow
+short: ServiceNow
+vendor: ServiceNow, Inc.
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - servicenow
-  - Elastic integrations
+  - ServiceNow Now Platform
+  - ServiceNow ITSM
+  - ServiceNow CMDB
 tags:
-  - elastic
-  - json
-summary: Servicenow is logged by the Elastic integrations package servicenow. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - itsm
+  - cmdb
+  - asset-management
+  - saas
+summary: A SaaS platform for IT service management, IT asset management and other workflows. Each customer instance stores its data in tables — incidents, changes, users, configuration items and hardware assets. The records here are rows read from those tables, so they describe the state of an asset or ticket rather than a security event, which makes them useful context for who owns a machine and what it is.
 sourcetypes:
   - st: servicenow
-    desc: 'Elastic integrations fixture, 7 events. Upstream: servicenow/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Records read from ServiceNow instance tables, one row per event, such as hardware assets (alm_hardware), with each column as a display value and a raw value
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: servicenow
-  Sourcetypes: '1'
-  Fixture events: '7'
-  Log format seen: json
-  Fields in the first fixture: table_name, parent.display_value, parent.value, skip_sync.display_value, skip_sync.value, product_instance_id.display_value
+  Product: IT service and asset management platform (Now Platform)
+  Instance: One cloud instance per customer, at <name>.service-now.com, organised as tables
+  Log transport: HTTPS JSON from the instance REST Table API, polled by a collector with an integration account
+  Log format: One JSON object per table row. Each column is an object with display_value and value
+  What a row answers: What the record is (table_name), its current fields, and who created or last updated it and when (sys_created_by, sys_updated_by, sys_updated_on)
+  What a hardware asset row answers: Asset tag, model, model category, install date, owner and financial values of a device
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: ServiceNow instance
+      desc: The tables live in the customer's ServiceNow instance. A collector with an integration account queries the Table API for new or changed rows.
 howItWorks:
-  - title: What the fixture shows
-    body: Servicenow events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries table_name, parent.display_value, parent.value, skip_sync.display_value, skip_sync.value, product_instance_id.display_value. Values in the sample were rewritten to documentation addresses.
+  - title: Tables and records
+    body: Everything in ServiceNow is a record in a table. alm_hardware holds hardware assets, cmdb_ci holds configuration items, incident holds incidents. Every record has system fields such as sys_created_on, sys_created_by, sys_updated_on, sys_updated_by and sys_domain.
+  - title: Display and raw values
+    body: Reference and choice fields store an id but show a label. With display values requested, each column comes back as an object with value (the stored value, for example a sys_id or UTC time) and display_value (the label or local time). Currency fields add currency_display_value.
+  - title: How the data leaves the product
+    body: A collector queries the Table API, usually filtered on sys_updated_on since the last poll, and writes one JSON object per row with the table name attached. This is a pull of record state, not an audit stream.
 traffic:
   handles:
-    - json
+    - IT asset and configuration records
+    - Incidents, changes and requests
+    - Record create and update metadata
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads servicenow and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Record changes
+      desc: A user, integration or discovery job creates or updates a row in an instance table.
+    - step: Collector queries
+      desc: A collector calls the Table API for rows updated since its last poll.
+    - step: Rows are JSON
+      desc: Each row is one JSON object with table_name and each column as display_value and value. Goatpedia reads these samples as JSON.
 logs:
-  - type: Event
+  - type: Table records
     sourcetype: servicenow
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One row from one table. table_name says which table. This sample is a hardware asset (alm_hardware) — asset_tag P1000241, model Gateway DX Series in model_category Computer — last updated by system and created by admin.
     sample: '{"table_name":"alm_hardware","parent":{"display_value":"","value":""},"skip_sync":{"display_value":"false","value":"false"},"product_instance_id":{"display_value":"","value":""},"residual_date":{"display_value":"2024-09-10","value":"2024-09-10"},"residual":{"display_value":"$509.95","currency_display_value":"USD;509.95","value":"509.95"},"sys_updated_on":{"display_value":"2024-09-10 01:15:50","value":"2024-09-10 08:15:50"},"request_line":{"display_value":"","value":""},"resold_value":{"display_value":"$0.00","currency_display_value":"USD;0.00","value":"0"},"sys_updated_by":{"display_value":"system","value":"system"},"due_in":{"display_value":null,"value":""},"model_category":{"display_value":"Computer","value":"81feb9c137101000deeabfc8bcbe5dc4"},"sys_created_on":{"display_value":"2023-08-31 11:16:40","value":"2023-08-31 18:16:40"},"sys_domain":{"display_value":"global","value":"global"},"disposal_reason":{"display_value":"","value":""},"model":{"display_value":"Gateway DX Series","value":"46bbf3cba9fe1981000545a67695b505"},"install_date":{"display_value":"2023-05-02 00:00:00","value":"2023-05-02 07:00:00"},"gl_account":{"display_value":"","value":""},"invoice_number":{"display_value":"","value":""},"sys_created_by":{"display_value":"admin","value":"admin"},"warranty_expiration":{"display_value":"","value":""},"asset_tag":{"display_value":"P1000241","value":"P1000241"},"depreciated_amount":{"display_value":"$190.04","currency_display_value":"USD;190.04","value":"190.04"},"substatus":{"display_value":null,"value":""},"pre_allocated":{"display_value":"false","value":"false"},"owned_by":{"display_value":"","value":""},"checked_out":{"display_value":"","value":""},"display_name":{"display_value":"P1000241 - Gateway DX Series","value":"P1000241 - Gateway DX Series"},"sys_domain_path":{"display_value":"/","value":"/"},"asset_function":{"display_value":null,"value":""}}'
     key:
       - table_name
@@ -54,18 +66,8 @@ logs:
       - parent.value
       - skip_sync.display_value
 cves: []
-detections:
-  - title: Servicenow events arriving
-    severity: low
-    signals:
-      - table_name
-      - parent.display_value
-      - parent.value
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "servicenow"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations servicenow/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/servicenow/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample servicenow.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/servicenow.json
+  - title: ServiceNow Developer Program
+    url: https://developer.servicenow.com/dev.do

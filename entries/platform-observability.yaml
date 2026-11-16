@@ -1,64 +1,78 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: platform-observability
-name: Platform Observability
-short: Observability
-vendor: Platform
+name: Kibana
+short: Kibana
+vendor: Elastic
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - platform_observability
-  - Elastic integrations
+  - Kibana audit log
+  - Elastic Kibana
 tags:
   - elastic
+  - kibana
+  - audit
+  - web-ui
   - json
-summary: Platform Observability is logged by the Elastic integrations package platform_observability. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: 'The web interface of the Elastic Stack, used to search, visualise and administer Elasticsearch. Kibana writes two logs about itself: its application log, covering start-up, plugins and authentication handling, and, with security auditing on, an audit log of each request and action a user takes in Kibana. Both are JSON in ECS shape.'
 sourcetypes:
   - st: platform_observability_kibana_audit
-    desc: 'Elastic integrations fixture, 1 events. Upstream: platform_observability/data_stream/kibana_audit/_dev/test/pipeline/test-kibana-audit-logs.log'
+    desc: 'Kibana audit events: each HTTP request and security-relevant action by a user, with outcome, user, roles, space and session'
   - st: platform_observability_kibana_log
-    desc: 'Elastic integrations fixture, 2 events. Upstream: platform_observability/data_stream/kibana_log/_dev/test/pipeline/test-kibana-logs.log'
+    desc: 'Kibana application log lines: server, plugin and authentication messages with level and logger'
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: platform_observability
-  Sourcetypes: '2'
-  Fixture events: '3'
-  Log format seen: json
-  Fields in the first fixture: event.action, event.category[0], event.outcome, http.request.method, url.domain, url.path
+  Product: Web UI and API server for the Elastic Stack
+  Deployment: Self-managed Node.js server, or part of Elastic Cloud
+  Log transport: Log appenders write to file or console. The audit log is enabled with xpack.security.audit.enabled
+  Log format: JSON lines in ECS shape with @timestamp, message, log.level and log.logger
+  What an audit event answers: Which user (and roles) did what in which Kibana space, on which URL, with what outcome
+  What an application log line answers: What the Kibana server was doing, at what level, and from which component
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Kibana server
+      desc: Kibana runs on internal servers or in Elastic Cloud and is reached by analysts and admins through a browser. It writes its logs on its own host.
 howItWorks:
-  - title: What the fixture shows
-    body: Platform Observability events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event.action, event.category[0], event.outcome, http.request.method, url.domain, url.path. Values in the sample were rewritten to documentation addresses.
+  - title: Requests and spaces
+    body: Users sign in to Kibana and work in spaces. Every page and API call is an HTTP request to the Kibana server, which then calls Elasticsearch for the user.
+  - title: Audit logging
+    body: With auditing on, Kibana records an event for each request and for actions such as saved-object access, login and logout, with event.action, event.outcome, user.name, user.roles, kibana.space_id and kibana.session_id.
+  - title: Application log
+    body: The server log records start-up, plugin status, and messages from components such as plugins.security.http at debug, info, warn or error level.
+  - title: How the logs leave the product
+    body: Both logs are written by appenders to files or stdout as JSON. A file or container log collector reads them.
 traffic:
   handles:
-    - json
+    - Kibana sign-in and sessions
+    - HTTP requests to the Kibana UI and API
+    - Saved object and space actions
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads platform_observability and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User acts
+      desc: A user signs in, opens a page or calls the Kibana API.
+    - step: Kibana records
+      desc: Kibana writes an audit event for the request or action, and application log lines for its own processing.
+    - step: Collector reads
+      desc: A collector tails the JSON log files or the container output.
 logs:
-  - type: Kibana Audit
+  - type: Kibana audit
     sourcetype: platform_observability_kibana_audit
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One JSON object per audited request or action. event.action and event.outcome say what happened and whether it worked, user.name and user.roles who did it, url.path and http.request.method what was called, and kibana.space_id where. This sample is a superuser session check with outcome unknown.
     sample: '{"event":{"action":"http_request","category":["web"],"outcome":"unknown"},"http":{"request":{"method":"get"}},"url":{"domain":"localhost","path":"/internal/security/session","port":5601,"scheme":"http"},"user":{"name":"elastic","roles":["superuser"]},"kibana":{"space_id":"default","session_id":"ccZ0sbxrmmJwo+/y2Mn1tmGIrKOuZYaF8voUh0SkA/k="},"trace":{"id":"1c8c5808-d2d6-41fc-8cb7-998aa8996be9"},"ecs":{"version":"8.0.0"},"@timestamp":"2022-06-29T12:05:03.742+00:00","message":"User is requesting [/internal/security/session] endpoint","log":{"level":"INFO","logger":"plugins.security.audit.ecs"},"process":{"pid":7},"transaction":{"id":"f8863d86567119e6"}}'
     key:
       - event.action
       - event.category[0]
       - event.outcome
       - http.request.method
-  - type: Kibana Log
+  - type: Kibana application log
     sourcetype: platform_observability_kibana_log
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One JSON object per log line. message is the text, log.level the level and log.logger the component. This sample is the security plugin starting to authenticate a login request.
     sample: '{"ecs":{"version":"8.0.0"},"@timestamp":"2022-06-29T11:24:17.898+00:00","message":"Trying to authenticate user request to /login.","log":{"level":"DEBUG","logger":"plugins.security.http"},"process":{"pid":7},"trace":{"id":"e6e1c25936546ec690b11a3b78b2a8db"},"transaction":{"id":"3be6994d7f6d5465"}}'
     key:
       - ecs.version
@@ -67,17 +81,26 @@ logs:
       - log.level
 cves: []
 detections:
-  - title: Platform Observability events arriving
-    severity: low
+  - title: Kibana action failed
+    severity: medium
     signals:
       - event.action
-      - event.category[0]
       - event.outcome
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "platform_observability_kibana_audit"'
-optimizations: []
+      - user.name
+      - url.path
+    why: A failed outcome on a login or a saved-object action is a user being refused. Repeated failures for one user are guessing, and failures on admin paths are someone probing for access.
+    kql: |
+      dataset="platform-observability_logs"
+      | where sourcetype == "platform_observability_kibana_audit" and event.outcome == "failure"
+      | project @timestamp, event.action, user.name, user.roles, url.path, kibana.space_id
+    mitre:
+      - T1110
+optimizations:
+  - title: Drop debug lines from the application log
+    saving: most of the application log when debug is on
+    fn: Drop
+    how: DEBUG lines trace internal processing and are only useful while troubleshooting. Keep INFO and above, and all audit events.
+    expr: log.level == 'DEBUG'
 references:
-  - title: elastic/integrations platform_observability/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/platform_observability/data_stream/kibana_audit/_dev/test/pipeline/test-kibana-audit-logs.log
-  - title: Pack Generator sample platform_observability_kibana_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/platform_observability_kibana_audit.json
+  - title: Kibana audit logging
+    url: https://www.elastic.co/guide/en/kibana/current/xpack-security-audit-logging.html

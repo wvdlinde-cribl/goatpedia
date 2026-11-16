@@ -1,52 +1,63 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: couchbase
-name: Couchbase
+name: Couchbase Server
 short: Couchbase
 vendor: Couchbase
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - couchbase
-  - Elastic integrations
+  - Couchbase
 tags:
-  - elastic
+  - database
+  - nosql
+  - metrics
   - json
-summary: Couchbase is logged by the Elastic integrations package couchbase. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A distributed NoSQL document database with a built-in memory cache, query, index, search and analytics services. A cluster is a set of nodes, each running some of those services. The cluster's REST API on port 8091 reports, for every node, its membership, health, services, resource use and key data statistics, which tells you whether the cluster is healthy and how loaded each node is.
 sourcetypes:
   - st: couchbase_node
-    desc: 'Elastic integrations fixture, 1 events. Upstream: couchbase/data_stream/node/_dev/test/pipeline/test-node-metrics.json'
+    desc: Per-node status and statistics from the cluster REST API, including health, membership, services, memory, CPU and document counts
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: couchbase
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: addressFamily, addressFamilyOnly, clusterCompatibility, clusterMembership, configuredHostname, couchApiBase
+  Product: Distributed NoSQL document database
+  Form factor: Self-managed server on Linux, Windows or Kubernetes (Autonomous Operator); Capella is the managed cloud service
+  Log transport: HTTPS or HTTP REST API on the cluster management port (8091/18091), polled by any collector
+  Log format: JSON. The pool details call returns a nodes array, and each node becomes one record
+  What a node record answers: Is this node a healthy, active member of the cluster, which services does it run, how much memory, CPU and swap is it using, and how many items does it hold
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Couchbase cluster nodes
+      desc: Nodes run in a data centre or cloud VPC behind the applications that use them. Each node serves the management REST API, so any node can report on the whole cluster.
 howItWorks:
-  - title: What the fixture shows
-    body: Couchbase events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries addressFamily, addressFamilyOnly, clusterCompatibility, clusterMembership, configuredHostname, couchApiBase. Values in the sample were rewritten to documentation addresses.
+  - title: Nodes and services
+    body: Each node runs a chosen set of services (data, index, query, search fts, analytics, eventing). Nodes belong to server groups, and data is split into vBuckets spread across data nodes with replicas on others.
+  - title: Membership and health
+    body: clusterMembership says whether a node is active, inactiveAdded or inactiveFailed. status is healthy, warmup or unhealthy. recoveryType says whether a failed-over node is being added back.
+  - title: How the data is read
+    body: The cluster does not push these statistics. A collector with a read-only admin account calls the pool details endpoint and turns each entry in the nodes array into one record.
 traffic:
   handles:
-    - json
+    - Key-value reads and writes
+    - Query, index and full-text search requests
+    - Cluster membership and rebalance
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads couchbase and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Applications use the cluster
+      desc: Applications read and write documents and run queries against the nodes.
+    - step: Nodes keep statistics
+      desc: Each node tracks its health, membership, resource use and item counts.
+    - step: Collector polls
+      desc: A collector calls the REST API and gets the list of nodes with their statistics.
+    - step: One record per node
+      desc: Each node in the response is emitted as its own JSON event.
 logs:
-  - type: Node
+  - type: Node status
     sourcetype: couchbase_node
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per node. hostname and nodeUUID identify it, version is the server build, services lists what it runs (fts and index here), clusterMembership and status say it is an active, healthy member, and systemStats and interestingStats give CPU, memory, swap and item counts. Addresses are documentation addresses.
     sample: '{"addressFamily":"inet","addressFamilyOnly":false,"clusterCompatibility":458753,"clusterMembership":"active","configuredHostname":"203.0.113.8:8091","couchApiBase":"http://203.0.113.40:8092/","couchApiBaseHTTPS":"https://192.0.2.10:18092/","cpuCount":4,"externalListeners":[{"afamily":"inet","nodeEncryption":false}],"hostname":"192.0.2.20:8091","interestingStats":{"cmd_get":3,"couch_docs_actual_disk_size":180662848,"couch_docs_data_size":15159455,"couch_spatial_data_size":0,"couch_spatial_disk_size":0,"couch_views_actual_disk_size":769535,"couch_views_data_size":0,"curr_items":15644,"curr_items_tot":15644,"ep_bg_fetched":1,"get_hits":3,"index_data_size":2627525,"index_disk_size":3983391,"mem_used":88866928,"ops":1,"vb_active_num_non_resident":1971,"vb_replica_curr_items":0},"mcdMemoryAllocated":6242,"mcdMemoryReserved":6242,"memoryFree":2721206272,"memoryTotal":8181792768,"nodeEncryption":false,"nodeHash":20429757,"nodeUUID":"101a2dfd1489032e769ba99126a4952f","os":"x86_64-pc-linux-gnu","otpNode":"user@example.com","ports":{"direct":11210,"distTCP":21100,"distTLS":21150,"httpsCAPI":18092,"httpsMgmt":18091},"recoveryType":"none","serverGroup":"Group 1","services":["fts","index"],"status":"healthy","systemStats":{"allocstall":23290,"cpu_cores_available":4,"cpu_stolen_rate":0,"cpu_utilization_rate":35.48799182422075,"mem_free":2721206272,"mem_limit":8181792768,"mem_total":8181792768,"swap_total":4160745472,"swap_used":518635520},"thisNode":true,"uptime":"697032","version":"7.1.0-2556-enterprise"}'
     key:
       - addressFamily
@@ -55,17 +66,16 @@ logs:
       - clusterMembership
 cves: []
 detections:
-  - title: Couchbase events arriving
+  - title: Node unhealthy or out of the cluster
     severity: low
     signals:
-      - addressFamily
-      - addressFamilyOnly
-      - clusterCompatibility
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "couchbase_node"'
+      - status
+      - clusterMembership
+      - hostname
+    why: A node that is not healthy, or whose membership is no longer active, has failed over or is failing. That is an availability problem for the data and services it carried, and should be seen before applications report errors.
+    kql: |
+      dataset="couchbase_logs"
+      | where sourcetype == "couchbase_node" and (status != "healthy" or clusterMembership != "active")
+      | project hostname, status, clusterMembership, recoveryType, services, version
 optimizations: []
-references:
-  - title: elastic/integrations couchbase/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/couchbase/data_stream/node/_dev/test/pipeline/test-node-metrics.json
-  - title: Pack Generator sample couchbase_node.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/couchbase_node.json
+references: []

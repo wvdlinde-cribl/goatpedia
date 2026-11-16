@@ -4,49 +4,65 @@ short: Canva
 vendor: Canva
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - canva
-  - Elastic integrations
+  - Canva Enterprise
+  - Canva Teams
 tags:
-  - elastic
+  - design
+  - collaboration
+  - audit
   - json
-summary: Canva is logged by the Elastic integrations package canva. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Canva is a cloud design and collaboration platform used to create presentations, documents, social media graphics and videos. Organisations on Canva Enterprise manage teams, users, sign-in, permissions and connected apps centrally. Canva records user and admin actions as audit events, which any collector can read through Canva's audit log API, so the logs show who signed in, who changed users, teams and permissions, and who created, shared or exported designs.
 sourcetypes:
   - st: canva_audit
-    desc: 'Elastic integrations fixture, 1 events. Upstream: canva/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: Canva audit events, one record per user, admin or system action in the organisation, with the actor, the target, the action type, the outcome and the request context
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: canva
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: id, timestamp, actor.type, actor.user.id, actor.user.display_name, actor.user.email
+  Product: Cloud design and visual collaboration platform
+  Clients: Web app, desktop apps, mobile apps and connected third-party apps
+  Log transport: HTTPS JSON from Canva's audit events API for Enterprise organisations, pulled by any collector with an authorised integration
+  Log format: One JSON object per event with actor, target, action, outcome and context blocks. timestamp is epoch milliseconds
+  What an audit event answers: Who (actor, and whether a user, an app or SCIM acted) did which action (action.type) to which user, team or design (target), whether it was permitted (outcome.result), and from which IP and session (context)
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Canva organisation
+      desc: Teams, users, designs and settings live in the Canva service. Every audited action is recorded there for the organisation.
+    - slot: endpoint
+      title: Canva apps and browsers
+      desc: People work in Canva from browsers and apps. The audit event carries the client IP, session and device id from that client.
 howItWorks:
-  - title: What the fixture shows
-    body: Canva events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, timestamp, actor.type, actor.user.id, actor.user.display_name, actor.user.email. Values in the sample were rewritten to documentation addresses.
+  - title: Organisation, teams and users
+    body: A Canva Enterprise organisation contains teams, and teams contain users. Users can be provisioned by SCIM or SAML just-in-time sign-in, and connected apps are granted permissions on designs and content. Admin actions such as adding or removing a team or changing a user are audited.
+  - title: What an audit event records
+    body: actor names who acted and how (actor.details.type, for example SCIM). target names the user, team or design affected. action.type is the action, such as REMOVE_TEAM_FROM_ORGANIZATION, with action-specific fields like permissions, login_type or output_type. outcome.result says whether it was permitted, and context carries the IP address, session, request and device.
+  - title: How the events leave the product
+    body: A collector authorised for the organisation calls Canva's audit events API and pages through events since its last continuation point. Each event is a JSON object. The destination is a choice of the pipeline, not a property of Canva.
 traffic:
   handles:
-    - json
+    - Sign-in and session activity
+    - User, team and organisation administration
+    - App permission grants
+    - Design creation, sharing and export
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads canva and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User, admin or system acts
+      desc: Someone signs in, changes a user or team, grants an app, or creates or exports a design. SCIM provisioning acts as the system.
+    - step: Canva records it
+      desc: Canva writes an audit event with actor, target, action, outcome and context.
+    - step: Collector polls
+      desc: A collector requests new audit events from the API with its saved continuation point.
+    - step: Events are JSON
+      desc: Each event is one JSON object and is forwarded as one record.
 logs:
-  - type: Audit
+  - type: Audit event
     sourcetype: canva_audit
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per audited action. action.type is the action, actor who did it, target what it applied to, outcome.result whether it was permitted and context.ip_address where it came from. This sample is a REMOVE_TEAM_FROM_ORGANIZATION action performed through SCIM, with a PERMITTED outcome. Many action fields hold placeholder values. The sample uses documentation addresses.
     sample: '{"id":"3849ef51-ca85-4028-bae3-1b8de3ee5738","timestamp":1704070800123,"actor":{"type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"OXtgecafZvh"},"details":{"type":"SCIM"}},"target":{"target_type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"abc"},"owner":{"type":"USER","user":{"id":"UXoqDbwwSbQ","display_name":"JaneDoe","email":"user@example.com"},"team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"abc"}},"resource_type":"DESIGN","id":"abc123","name":"abc"},"action":{"type":"REMOVE_TEAM_FROM_ORGANIZATION","display_name":"Marketing","first_name":"string","last_name":"string","email":"user@example.com","email_verified":"true","phone_number":"string","country_code":"string","locale":"string","managing_entity":{"type":"TEAM","team":{"id":"BXeFatjDhdR","display_name":"AcmeCorporation"},"organization":{"id":"Abc11233"}},"saml_accounts":[{"idp_issuer":"string","name_id":"string"}],"oauth_accounts":[{"platform":"string","external_user_id":"string"}],"totp_mfa_enabled":"true","sms_mfa_enabled":"true","reason":{"type":"SAML_JIT_PROVISIONING"},"changed_fields":"ADDRESS","login_type":"PASSWORD","oauth_platform":"APPLE","user_scope":"CURRENT_USER","session_scope":"CURRENT_SESSION","app_id":"string","app_version":"string","app_name":"string","permissions":["DESIGN_CONTENT_READ"],"old_permissions":["DESIGN_CONTENT_READ"],"new_permissions":["DESIGN_CONTENT_READ"],"output_type":"PDF","create_type":"CREATE","title":"Myawesomedesign","original_design_id":"DAGKs37VOUl"},"outcome":{"result":"PERMITTED","details":{"type":"RESOURCE_CREATED","resource_id":"DXWEBartcNg","resource_type":"DESIGN","user_id":"ac343"}},"context":{"ip_address":"192.0.2.10","session":"abc111","request_id":"fafas","device_id":"Ddb44"}}'
     key:
       - id
@@ -55,17 +71,20 @@ logs:
       - actor.user.id
 cves: []
 detections:
-  - title: Canva events arriving
-    severity: low
+  - title: Organisation and team membership changed
+    severity: medium
     signals:
-      - id
-      - timestamp
-      - actor.type
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "canva_audit"'
+      - action.type
+      - actor.user.email
+      - actor.details.type
+      - outcome.result
+      - context.ip_address
+    why: Removing a team from the organisation, or changing users and permissions, alters who can reach the organisation's designs and brand assets. Such changes by an unexpected admin or from an unexpected address deserve review.
+    kql: |
+      dataset="canva_logs"
+      | where sourcetype == "canva_audit" and action.type == "REMOVE_TEAM_FROM_ORGANIZATION"
+      | project timestamp, action.type, actor.user.email, actor.details.type, target.team.display_name, outcome.result, context.ip_address
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations canva/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/canva/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample canva_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/canva_audit.json
+references: []
