@@ -1,100 +1,123 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cyberark-epm
-name: Cyberark Epm
-short: Cyberark Epm
-vendor: Cyberark
+name: CyberArk Endpoint Privilege Manager
+short: CyberArk EPM
+vendor: CyberArk
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cyberark_epm
-  - Elastic integrations
+  - CyberArk EPM
+  - EPM
 tags:
-  - elastic
+  - privilege-management
+  - endpoint
+  - application-control
+  - ransomware-protection
   - json
-summary: Cyberark Epm is logged by the Elastic integrations package cyberark_epm. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: An endpoint agent and SaaS console that removes local admin rights from Windows, macOS and Linux machines and elevates only approved applications. Policies decide which applications may run, run elevated, or are blocked, and threat protection watches for ransomware and credential theft. The console's API exposes administrator audit records and application events, both raw and aggregated, including events that matched a policy.
 sourcetypes:
   - st: cyberark_epm_admin_audit
-    desc: 'Elastic integrations fixture, 11 events. Upstream: cyberark_epm/data_stream/admin_audit/_dev/test/pipeline/test-admin-audit.log'
+    desc: Actions administrators take in the EPM console or through its API
   - st: cyberark_epm_aggregated_event
-    desc: 'Elastic integrations fixture, 2 events. Upstream: cyberark_epm/data_stream/aggregated_event/_dev/test/pipeline/test-aggregated-event.log'
+    desc: Application events grouped by file and event type, with first and last occurrence and how many computers and users were affected
   - st: cyberark_epm_policyaudit_aggregated_event
-    desc: 'Elastic integrations fixture, 2 events. Upstream: cyberark_epm/data_stream/policyaudit_aggregated_event/_dev/test/pipeline/test-policyaudit-aggregated-event.log'
+    desc: Grouped events for applications that matched a policy set to audit, such as launches or elevations
   - st: cyberark_epm_policyaudit_raw_event
-    desc: 'Elastic integrations fixture, 6 events. Upstream: cyberark_epm/data_stream/policyaudit_raw_event/_dev/test/pipeline/test-policyaudit-raw-event.log'
+    desc: Individual policy-audit events, one per application action that matched an audit policy on an endpoint
   - st: cyberark_epm_raw_event
-    desc: 'Elastic integrations fixture, 10 events. Upstream: cyberark_epm/data_stream/raw_event/_dev/test/pipeline/test-raw-event.log'
+    desc: Individual application events from endpoints, such as detected launches, elevation requests and ransomware or threat protection hits
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cyberark_epm
-  Sourcetypes: '5'
-  Fixture events: '31'
-  Log format seen: json
-  Fields in the first fixture: SetName, EventTime, PermissionDescription, Description, Feature, LoggedAt
+  Product: Endpoint privilege management, application control and endpoint threat protection
+  Clients: EPM agent on Windows, macOS and Linux endpoints and servers
+  Account plane: EPM SaaS console, organised in sets (groups of endpoints with their own policies)
+  Log transport: HTTPS REST API of the EPM console, polled by any collector with an API user
+  Log format: One JSON object per event or audit record
+  What an admin audit record answers: Which administrator did what in which set, from which address, with which role
+  What a raw event answers: Which application did what on which endpoint, as which user, with what file details and protection action
+  What an aggregated event answers: How often an application event happened, when first and last, and on how many computers and users
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: EPM agent
+      desc: The agent on each endpoint enforces policies, elevates or blocks applications and reports every relevant event to the console.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: EPM console
+      desc: The SaaS console stores policies, events and administrator audit records per set. A collector reads them from its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Cyberark Epm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries SetName, EventTime, PermissionDescription, Description, Feature, LoggedAt. Values in the sample were rewritten to documentation addresses.
+  - title: Sets and policies
+    body: Endpoints are grouped into sets. Each set has policies that match applications by publisher, hash, path or other attributes and decide what happens, such as allow, elevate, block, or audit only.
+  - title: Events
+    body: The agent reports events with an eventType (Launch, StartElevated, DetectAccess, Ransomware and others), the file and publisher, the user, and for Linux the run-as user. Raw events are individual occurrences. Aggregated events group the same file and event type with counts and first and last times.
+  - title: Administrator audit
+    body: Every console and API action by an administrator is audited with the set, the feature used, the role and the source address.
+  - title: How the data leaves the console
+    body: A collector authenticates to the EPM API with a dedicated user and queries admin audit, raw events, aggregated events and policy-audit events per set. Each returns JSON pages.
 traffic:
   handles:
-    - json
+    - Application launches on endpoints
+    - Privilege elevation requests
+    - Ransomware and threat protection hits
+    - Console administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cyberark_epm and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Application runs
+      desc: A user or service starts an application on an endpoint.
+    - step: Agent applies policy
+      desc: The EPM agent matches it against the set's policies and allows, elevates, blocks or audits it.
+    - step: Console records
+      desc: The agent sends the event to the console, which stores it raw and in aggregate.
+    - step: Collector polls
+      desc: A collector reads events and admin audit records from the API.
 logs:
-  - type: Admin Audit
+  - type: Administrator audit
     sourcetype: cyberark_epm_admin_audit
     format: json
-    desc: 11 fixture events in the samples pool (elastic).
+    desc: One object per administrator action. Administrator is who, Role their role (SetAdmin), SetName the set, Feature the area (Public API here), Description what was done, and LoggedFrom the source address. Addresses are documentation addresses.
     sample: '{"SetName":"Elastic/test","EventTime":"2024-11-29T06:13:10.32Z","PermissionDescription":"View all events and files.","Description":"API Get events raw details /API/198.51.100.15/Sets/21bddfcf-1234-1234-abcd-abcdef0e8d14/Events/Search?limit=5&nextCursor=start POST setId: Me, offset: 0, lim...","Feature":"Public API","LoggedAt":"2024-11-29T06:10:35.943Z","LoggedFrom":"198.51.100.25","Administrator":"user@example.com","InternalSessionId":1012,"Role":"SetAdmin"}'
     key:
       - SetName
       - EventTime
       - PermissionDescription
       - Description
-  - type: Aggregated Event
+  - type: Aggregated application events
     sourcetype: cyberark_epm_aggregated_event
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per file and event type. lastEventDisplayName and publisher identify the application, eventType is DetectAccess, totalEvents, affectedComputers and affectedUsers give the reach, and firstEventDate/lastEventDate the time span.
     sample: '{"fileQualifier":"549309085493630080","lastEventDisplayName":"Updater.exe (UNICODE)","hash":"SHA1##8F21AAF3DC1EFEDF2BB5C94231CE9E24943FF512","publisher":"Logitech Inc","totalEvents":3,"applicationType":"Executable","eventType":"DetectAccess","lastEventSourceType":"LocalDisk","lastEventSourceName":"LogiOptionsFiles Setup (PDSetup.exe)","lastEventDate":"2021-07-07T06:44:52Z","firstEventDate":"2021-06-23T06:20:07Z","lastEventUserName":"AGENT\\caadmin","lastEventComputerName":null,"lastEventJustification":"","policyId":0,"threatDetectionAction":"","lastEventFileName":"updater.exe","lastEventOriginalFileName":"updater.exe","affectedComputers":1,"affectedUsers":1,"exposedUsers":null,"firstEventUserName":"JOHNBLACK\\caadmin","firstEventComputerName":null,"fileSize":544904,"CLSID":"","mimeType":"","adminTaskId":"","url":"","appPackageDisplayName":"","agentId":"0fe5ed4e-9f8f-48d1-b3f9-4b1d862faf50"}'
     key:
       - fileQualifier
       - lastEventDisplayName
       - hash
       - publisher
-  - type: Policyaudit Aggregated Event
+  - type: Aggregated policy-audit events
     sourcetype: cyberark_epm_policyaudit_aggregated_event
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per application matched by an audit policy. policyName and policyId are the policy, eventType is Launch, lastEventSourceType says it came from an updater, and totalEvents counts occurrences.
     sample: '{"fileQualifier":"-5566271857083130002","lastEventDisplayName":"Google Crash Handler (GoogleCrashHandler64.exe)","hash":"SHA1##C340EFFBAED989E7F8FFC6F7574856CD8ED0D18B","publisher":"Google LLC","totalEvents":8,"applicationType":"Executable","eventType":"Launch","lastEventSourceType":"Updater","lastEventSourceName":"Updater (Google Updater)","lastEventDate":"2022-12-19T01:04:47.284Z","lastEventUserName":"NT AUTHORITY\\SYSTEM","lastEventId":"QtvvKIUB8k35oa3KjVf7","lastEventJustification":"","policyId":11161,"policyName":"QQQ","lastEventFileName":"GoogleCrashHandler64.exe","affectedComputers":1,"affectedUsers":1,"firstEventDate":"2022-12-14T21:06:44.756Z","firstEventUserName":"NT AUTHORITY\\SYSTEM","fileSize":408536,"CLSID":"","adminTaskId":"","appPackageDisplayName":"","firstEventAgentId":"b074b7d4-664a-40d1-b929-69e89bbd254c","lastEventAgentId":"b074b7d4-664a-40d1-b929-69e89bbd254c","fileLocation":"C:\\Program Files (x86)\\Google\\Update\\203.0.113.8\\","aggregatedBy":"C340EFFBAED989E7F8FFC6F7574856CD8ED0D18B,QQQ","operatingSystemType":"Windows","arrivalTime":"2022-12-19T05:51:06.024Z"}'
     key:
       - fileQualifier
       - lastEventDisplayName
       - hash
       - publisher
-  - type: Policyaudit Raw Event
+  - type: Policy-audit events
     sourcetype: cyberark_epm_policyaudit_raw_event
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per matched action. eventType is StartElevated, filePath is /usr/bin/systemctl, userName ran it as runAsUsername root, and userIsAdmin says whether the user was already an admin.
     sample: '{"hash":"5f344897632b50114a8ff649054599c6f7fa8a69","publisher":"","eventType":"StartElevated","sourceType":"LocalDisk","sourceName":"/usr/bin/systemctl","lastEventDate":"2024-11-25T10:28:24.298Z","userName":"serviceuser","fileName":"systemctl","fileSize":1115760,"fileDescription":"systemctl","packageName":"systemctl","company":"","filePath":"/usr/bin/systemctl","firstEventDate":"2024-11-25T10:28:24.298Z","productName":"ouiSFX","productVersion":"","bundleName":"","bundleVersion":"","fileVersion":"","modificationTime":"2024-10-26T14:27:54.041Z","userIsAdmin":false,"agentEventCount":1,"skippedCount":0,"workingDirectory":"/home/serviceuser","runAsUsername":"root","originUserUID":"1000","interpreter":"","fileAccessPermission":"-rwxr-xr-x","symLink":"","commandInfo":""}'
     key:
       - hash
       - publisher
       - eventType
       - sourceType
-  - type: Raw Event
+  - type: Application events
     sourcetype: cyberark_epm_raw_event
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One object per event on an endpoint. eventType is what was detected (Ransomware here), fileName, filePath and publisher identify the application, userName is the account, and threatProtectionAction is the protection setting that applied.
     sample: '{"fileName":"java.exe","originalFileName":"java.exe","displayName":"Java(TM) Platform SE binary (java.exe)","policyName":null,"hash":"B3F2AE7945E98A998D998E58771C649A7A8A6591","publisher":"Oracle America, Inc.","eventType":"Ransomware","sourceType":"OldApplication","sourceName":"Old Application","lastEventDate":"2024-11-28T16:30:17.493Z","firstEventDate":"2024-11-28T16:30:17.493Z","userName":"NT SERVICE\\OracleServiceOEMREP","justification":null,"justificationEmail":null,"fileSize":207704,"threatProtectionAction":"ALL","threatProtectionActionId":0,"packageName":"Java(TM) Platform SE binary (java.exe)","company":"Oracle Corporation","filePath":"C:\\Oracle\\Database\\jdk\\bin\\java.exe","filePathWithoutFilename":"C:\\Oracle\\Database\\jdk\\bin\\","fileDescription":"Java(TM) Platform SE binary","productName":"Java(TM) Platform SE 8","productVersion":"203.0.113.40","bundleName":null,"bundleVersion":null,"bundleId":null,"applicationSubType":null,"interpreter":null,"runAsUsername":null}'
     key:
       - fileName
@@ -103,17 +126,35 @@ logs:
       - policyName
 cves: []
 detections:
-  - title: Cyberark Epm events arriving
-    severity: low
+  - title: Ransomware or threat protection event
+    severity: high
     signals:
-      - SetName
-      - EventTime
-      - PermissionDescription
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cyberark_epm_admin_audit"'
+      - eventType
+      - fileName
+      - filePath
+      - userName
+    why: A Ransomware event means the agent saw an application behave like ransomware against protected files. Each one names the process and account to investigate on that endpoint.
+    kql: |
+      dataset="cyberark-epm_logs"
+      | where sourcetype == "cyberark_epm_raw_event" and eventType == "Ransomware"
+      | project lastEventDate, eventType, fileName, filePath, publisher, userName, threatProtectionAction
+    mitre:
+      - T1486
+  - title: Application elevated to root
+    severity: medium
+    signals:
+      - eventType
+      - runAsUsername
+      - userName
+      - filePath
+    why: Elevation to root by a non-admin user is the privilege the product controls. Elevations of shells, interpreters or service managers outside the expected set are how a user or attacker gains full control of a Linux host.
+    kql: |
+      dataset="cyberark-epm_logs"
+      | where sourcetype == "cyberark_epm_policyaudit_raw_event" and eventType == "StartElevated" and runAsUsername == "root"
+      | project lastEventDate, userName, userIsAdmin, filePath, runAsUsername, workingDirectory
+    mitre:
+      - T1548
 optimizations: []
 references:
-  - title: elastic/integrations cyberark_epm/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cyberark_epm/data_stream/admin_audit/_dev/test/pipeline/test-admin-audit.log
-  - title: Pack Generator sample cyberark_epm_admin_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cyberark_epm_admin_audit.json
+  - title: CyberArk documentation
+    url: https://docs.cyberark.com/

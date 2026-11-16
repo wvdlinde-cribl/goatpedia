@@ -1,64 +1,76 @@
 id: gcp
-name: GCP
-short: GCP
-vendor: GCP
+name: Google Cloud
+short: Google Cloud
+vendor: Google
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - gcp
-  - Elastic integrations
+  - GCP
+  - Google Cloud Platform
 tags:
-  - elastic
+  - cloud
+  - dns
+  - load-balancer
   - json
-summary: GCP is logged by the Elastic integrations package gcp. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Google Cloud is Google's public cloud. This entry is two logs a project writes to Cloud Logging. Cloud DNS records each query it answers, including the name, the response and the instance that asked. A Cloud Load Balancing proxy records each HTTP request, including the URL, the status and whether the cache served it. A collector can export either stream as JSON.
 sourcetypes:
   - st: gcp_dns
-    desc: 'Elastic integrations fixture, 20 events. Upstream: gcp/data_stream/dns/_dev/test/pipeline/test-dns.log'
+    desc: One DNS query answered by Cloud DNS, with the name, the type, the response and the instance or network that asked.
   - st: gcp_loadbalancing_logs
-    desc: 'Elastic integrations fixture, 3 events. Upstream: gcp/data_stream/loadbalancing_logs/_dev/test/pipeline/test-load-balancer.log'
+    desc: One HTTP request through a Cloud Load Balancing proxy, with the method, URL, status and cache result.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: gcp
-  Sourcetypes: '2'
-  Fixture events: '23'
-  Log format seen: json
-  Fields in the first fixture: insertId, jsonPayload.authAnswer, jsonPayload.protocol, jsonPayload.queryName, jsonPayload.queryType, jsonPayload.rdata
+  Product: Google Cloud. These two streams are Cloud DNS query logs and HTTP load balancer request logs.
+  Where it runs: A Google Cloud project. DNS logs come from the VPC. Load balancer logs come from the forwarding rule and URL map.
+  Log transport: Cloud Logging. A collector exports with a log sink or reads the API. Both are JSON.
+  Log format: One JSON object per event. insertId and timestamp identify it. logName and resource say which service wrote it.
+  What a DNS event answers: Which name was queried, from which address and instance, and what Cloud DNS answered
+  What a load balancer event answers: Which URL was requested, from which client, what status came back, and whether the cache served it
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud DNS
+      desc: Query logging is turned on per network. Each query the resolver answers becomes one JSON event in Cloud Logging, under dns.googleapis.com.
+    - slot: cloud
+      title: Cloud Load Balancing
+      desc: An HTTP(S) load balancer writes one request log per request. The URL map, forwarding rule and backend are resource labels. A collector exports both logs from Cloud Logging.
 howItWorks:
-  - title: What the fixture shows
-    body: GCP events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries insertId, jsonPayload.authAnswer, jsonPayload.protocol, jsonPayload.queryName, jsonPayload.queryType, jsonPayload.rdata. Values in the sample were rewritten to documentation addresses.
+  - title: DNS queries
+    body: jsonPayload.queryName is the name that was asked. queryType is the record type. rdata and responseCode are the answer. sourceIP is the client. vmInstanceName, vmZoneName and sourceNetwork place the client when it is a Compute Engine instance. The sample is an authoritative UDP answer for an A record, with a documentation source address.
+  - title: Load balancer requests
+    body: httpRequest carries the method, the URL, the status, the sizes and the client address. cacheHit and cacheLookup say whether the cache was used. jsonPayload.statusDetails is the load balancer's own reason, such as a response served from cache. The sample is a cached HTTP 304. The URL and the client address are documentation addresses.
+  - title: How the events leave
+    body: Both streams land in Cloud Logging. A sink can push them, or a collector can pull them. Any collector can do this. The destination is a choice of the pipeline.
 traffic:
   handles:
-    - json
+    - DNS queries answered by Cloud DNS
+    - HTTP and HTTPS requests through Cloud Load Balancing
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads gcp and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A query or a request
+      desc: A client resolves a name through Cloud DNS, or sends an HTTP request to a load balancer.
+    - step: Cloud Logging stores it
+      desc: The service writes one JSON object with a log name, a resource and a timestamp.
+    - step: Collector exports it
+      desc: A collector reads the log, by sink or by API, and can forward the object anywhere.
 logs:
-  - type: DNS
+  - type: DNS query
     sourcetype: gcp_dns
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One Cloud DNS query. queryName, queryType, rdata and responseCode are the question and the answer. sourceIP and vmInstanceName are the client. This sample is a UDP A lookup that returned NOERROR. The source address is a documentation address.
     sample: '{"insertId":"vwroyze8pg7y","jsonPayload":{"authAnswer":true,"protocol":"UDP","queryName":"elastic.co.","queryType":"A","rdata":"elastic.co.\t300\tIN\ta\t127.0.0.1","responseCode":"NOERROR","serverLatency":14,"sourceIP":"203.0.113.40","sourceNetwork":"default","vmInstanceId":8340998530665147,"vmInstanceIdString":"8340998530665147","vmInstanceName":"694119234537.instance","vmProjectId":"project","vmZoneName":"europe-west2-a"},"logName":"projects/project/logs/dns.googleapis.com%2Fdns_queries","receiveTimestamp":"2022-01-23T09:16:05.502805637Z","resource":{"labels":{"location":"europe-west2","project_id":"project","source_type":"gce-vm","target_name":"","target_type":"external"},"type":"dns_query"},"severity":"INFO","timestamp":"2022-01-23T09:16:05.341873447Z"}'
     key:
       - insertId
       - jsonPayload.authAnswer
       - jsonPayload.protocol
       - jsonPayload.queryName
-  - type: Loadbalancing Logs
+  - type: Load balancer request
     sourcetype: gcp_loadbalancing_logs
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One HTTP request. httpRequest.requestUrl, requestMethod, status and remoteIp describe it. cacheHit says the cache served it. This sample is a cached 304. The URL and the client address are documentation addresses.
     sample: '{"insertId":"1oek5rg3l3fxj7","jsonPayload":{"@type":"type.googleapis.com/google.cloud.loadbalancin,g.type.LoadBalancerLogEntry","cacheId":"SFO-fbae48ad","statusDetails":"response_from_cache"},"httpRequest":{"requestMethod":"GET","requestUrl":"http://192.0.2.10/static/us/three-cats.jpg","requestSize":"577","status":304,"responseSize":"157","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36","remoteIp":"192.0.2.20","cacheHit":true,"cacheLookup":true},"resource":{"type":"http_load_balancer","labels":{"zone":"global","url_map_name":"URL_MAP_NAME","forwarding_rule_name":"FORWARDING_RULE_NAME","target_proxy_name":"TARGET_PROXY_NAME","backend_service_name":"","project_id":"PROJECT_ID"}},"timestamp":"2020-06-08T23:41:30.078651Z","severity":"INFO","logName":"projects/PROJECT_ID/logs/requests","trace":"projects/PROJECT_ID/traces/241d69833e64b3bf83fabac8c873d992","receiveTimestamp":"2020-06-08T23:41:30.588272510Z","spanId":"7b6537d3672e08e1"}'
     key:
       - insertId
@@ -66,18 +78,10 @@ logs:
       - jsonPayload.cacheId
       - jsonPayload.statusDetails
 cves: []
-detections:
-  - title: GCP events arriving
-    severity: low
-    signals:
-      - insertId
-      - jsonPayload.authAnswer
-      - jsonPayload.protocol
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "gcp_dns"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations gcp/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/gcp/data_stream/dns/_dev/test/pipeline/test-dns.log
-  - title: Pack Generator sample gcp_dns.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/gcp_dns.json
+  - title: Cloud DNS query logging
+    url: https://cloud.google.com/dns/docs/monitoring
+  - title: HTTP(S) load balancer logging
+    url: https://cloud.google.com/load-balancing/docs/https/https-logging-monitoring

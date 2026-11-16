@@ -1,64 +1,75 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: php-fpm
-name: Php Fpm
-short: Php Fpm
-vendor: Php
+name: PHP-FPM
+short: PHP-FPM
+vendor: The PHP Group
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - php_fpm
-  - Elastic integrations
+  - PHP FastCGI Process Manager
+  - FPM
 tags:
-  - elastic
+  - php
+  - fastcgi
+  - web
+  - metrics
   - json
-summary: Php Fpm is logged by the Elastic integrations package php_fpm. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: 'The FastCGI process manager that runs PHP behind web servers such as nginx and Apache. It keeps pools of worker processes and exposes a status page with pool counters and, optionally, the state of every worker. These records are performance metrics: connections accepted, queue length, idle and active workers, slow requests, and what each worker is serving.'
 sourcetypes:
   - st: php_fpm_pool
-    desc: 'Elastic integrations fixture, 1 events. Upstream: php_fpm/data_stream/pool/_dev/test/pipeline/test-pool-metrics.log'
+    desc: 'Pool status: accepted connections, listen queue, idle and active processes, max children reached and slow requests'
   - st: php_fpm_process
-    desc: 'Elastic integrations fixture, 1 events. Upstream: php_fpm/data_stream/process/_dev/test/pipeline/test-process-metrics.log'
+    desc: 'Pool status with per-worker detail: each process''s state, request count and duration, method, URI and script'
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: php_fpm
-  Sourcetypes: '2'
-  Fixture events: '2'
-  Log format seen: json
-  Fields in the first fixture: pool, process manager, start time, start since, accepted conn, listen queue
+  Product: FastCGI process manager for PHP
+  Deployment: Runs on the web or application server next to nginx, Apache or another FastCGI client
+  Log transport: HTTP status page (pm.status_path) polled by a collector, with ?json and ?json&full for JSON output
+  Log format: JSON object per poll. Field names contain spaces, as PHP-FPM prints them
+  What a pool record answers: 'Whether the pool keeps up: queue length, active versus idle workers, and whether max children was reached'
+  What a process record answers: 'What each worker is doing: state, current or last request URI, duration and resource use'
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Web server host
+      desc: PHP-FPM runs on the same host or container as the web server, or on a PHP application tier behind it. The status page is usually only reachable locally or from the monitoring network.
 howItWorks:
-  - title: What the fixture shows
-    body: Php Fpm events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries pool, process manager, start time, start since, accepted conn, listen queue. Values in the sample were rewritten to documentation addresses.
+  - title: Pools and workers
+    body: Each pool listens on a socket or port and runs worker processes under a process manager mode (static, dynamic or ondemand). The web server sends PHP requests to the pool over FastCGI.
+  - title: Status page
+    body: With pm.status_path set, the pool answers status requests with counters since start. The full view adds one entry per worker with its state and last request.
+  - title: How the metrics leave the product
+    body: A collector requests the status page on an interval and records the JSON. There is no push and no security event stream here.
 traffic:
   handles:
-    - json
+    - FastCGI requests for PHP
+    - Worker pool management
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads php_fpm and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Web server forwards
+      desc: nginx or Apache passes a PHP request to the pool over FastCGI.
+    - step: Worker runs it
+      desc: A worker process runs the script and the pool updates its counters.
+    - step: Collector polls
+      desc: A collector requests the status page in JSON and stores the result.
 logs:
-  - type: Pool
+  - type: Pool status
     sourcetype: php_fpm_pool
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per poll of a pool. accepted conn counts requests since start, listen queue and max listen queue show waiting requests, active processes and idle processes show load, and max children reached and slow requests show saturation.
     sample: '{"pool":"www","process manager":"dynamic","start time":1667299161,"start since":4803,"accepted conn":485,"listen queue":0,"max listen queue":0,"listen queue len":0,"idle processes":1,"active processes":1,"total processes":2,"max active processes":1,"max children reached":0,"slow requests":0}'
     key:
       - pool
       - process manager
       - start time
       - start since
-  - type: Process
+  - type: Process status
     sourcetype: php_fpm_process
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: 'The pool counters plus a processes block for each worker: pid, state, requests, request duration, request method, request uri and script. This sample is a worker serving the status page itself.'
     sample: '{"pool":"www","process manager":"dynamic","start time":1667299161,"start since":515234,"accepted conn":16647,"listen queue":0,"max listen queue":0,"listen queue len":0,"idle processes":1,"active processes":1,"total processes":2,"max active processes":1,"max children reached":0,"slow requests":0,"processes":{"pid":183251,"state":"Running","start time":1667299161,"start since":515234,"requests":8324,"request duration":208,"request method":"GET","request uri":"/status?json&full","content length":0,"user":"-","script":"-","last request cpu":0,"last request memory":0}}'
     key:
       - pool
@@ -66,18 +77,8 @@ logs:
       - start time
       - start since
 cves: []
-detections:
-  - title: Php Fpm events arriving
-    severity: low
-    signals:
-      - pool
-      - process manager
-      - start time
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "php_fpm_pool"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations php_fpm/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/php_fpm/data_stream/pool/_dev/test/pipeline/test-pool-metrics.log
-  - title: Pack Generator sample php_fpm_pool.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/php_fpm_pool.json
+  - title: PHP-FPM installation and configuration
+    url: https://www.php.net/manual/en/install.fpm.php

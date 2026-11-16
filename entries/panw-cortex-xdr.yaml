@@ -1,56 +1,78 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: panw-cortex-xdr
-name: Panw Cortex Xdr
-short: Xdr
-vendor: Panw
+name: Cortex XDR
+short: Cortex XDR
+vendor: Palo Alto Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - panw_cortex_xdr
-  - Elastic integrations
+  - Palo Alto Networks Cortex XDR
+  - Traps
 tags:
-  - elastic
+  - xdr
+  - edr
+  - endpoint
+  - alerts
+  - incidents
   - json
-summary: Panw Cortex Xdr is logged by the Elastic integrations package panw_cortex_xdr. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Palo Alto Networks' extended detection and response platform. Cortex XDR agents on endpoints record process, file and network activity and block threats, and the tenant correlates that with firewall and cloud data into alerts and incidents. Its data is raw endpoint events, alerts with their causality chain and MITRE mapping, and incidents that group related alerts for investigation.
 sourcetypes:
   - st: panw_cortex_xdr
-    desc: 'Elastic integrations fixture, 2 events. Upstream: panw_cortex_xdr/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Endpoint and network events recorded by Cortex XDR, such as file, process and connection activity with the actor process and host
   - st: panw_cortex_xdr_alerts
-    desc: 'Elastic integrations fixture, 5 events. Upstream: panw_cortex_xdr/data_stream/alerts/_dev/test/pipeline/test-panw-xdr.log'
+    desc: Alerts raised by Cortex XDR or its sources, with severity, the triggering event, host and MITRE mapping
   - st: panw_cortex_xdr_incidents
-    desc: 'Elastic integrations fixture, 6 events. Upstream: panw_cortex_xdr/data_stream/incidents/_dev/test/pipeline/test-panw-xdr-incident.log'
+    desc: Incidents, each grouping related alerts with status, severity, hosts and users, as returned by the incidents API
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: panw_cortex_xdr
-  Sourcetypes: '3'
-  Fixture events: '13'
-  Log format seen: json
-  Fields in the first fixture: _id, action_file_access_time, action_file_attributes, action_file_create_time, action_file_device_type, action_file_group
+  Product: 'XDR: endpoint protection, detection and response with correlation across network and cloud data'
+  Clients: Cortex XDR agent on Windows, macOS, Linux and mobile, plus Palo Alto Networks firewalls and other integrated sources
+  Log transport: Cortex XDR public REST APIs (alerts, incidents, XQL queries) polled with an API key, and syslog or other notification forwarding
+  Log format: JSON objects. API responses wrap results in a reply object
+  What an event answers: Which process on which host touched which file or connection, with hashes, paths and signatures
+  What an alert answers: What was detected, how severe it is, on which host, and which event and process triggered it
+  What an incident answers: Which alerts belong together, their combined severity and status, and which hosts and users are involved
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Cortex XDR agent
+      desc: The agent runs on laptops, servers and workloads. It records activity and prevents malware and exploits locally, then sends data to the tenant.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cortex XDR tenant
+      desc: Analytics, alerting, incidents and the data lake run in the Palo Alto Networks cloud tenant. A collector reads alerts, incidents and query results from its APIs.
 howItWorks:
-  - title: What the fixture shows
-    body: Panw Cortex Xdr events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _id, action_file_access_time, action_file_attributes, action_file_create_time, action_file_device_type, action_file_group. Values in the sample were rewritten to documentation addresses.
+  - title: Agent telemetry
+    body: The agent records process starts, file operations, network connections and other actions with the actor process, its signature and hashes. Prevention modules can block malware and exploits on the spot.
+  - title: Alerts and causality
+    body: Detections from the agent, analytics, BIOC and IOC rules and integrated sources become alerts. Each alert carries the triggering event, the causality actor process, the host and, where mapped, MITRE technique and tactic.
+  - title: Incidents
+    body: Cortex XDR groups related alerts into incidents with a severity, status, assignee and the hosts and users involved.
+  - title: How the data leaves the product
+    body: An API key with the right role lets a collector call the alerts and incidents endpoints, or run XQL queries for raw events. Each call returns JSON in a reply object.
 traffic:
   handles:
-    - json
+    - Process, file and network activity on endpoints
+    - Malware and exploit prevention
+    - Alert correlation into incidents
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads panw_cortex_xdr and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent records
+      desc: The agent on a host records activity and may block a threat.
+    - step: Tenant detects
+      desc: The tenant analyses the data and raises alerts, then groups them into incidents.
+    - step: Collector queries
+      desc: A collector calls the public API with an API key for alerts, incidents or events.
+    - step: JSON out
+      desc: Responses are JSON and are split into one event per alert, incident or record.
 logs:
-  - type: Event
+  - type: Endpoint events
     sourcetype: panw_cortex_xdr
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per recorded event. The action_file_* fields describe the file acted on (name, path, hashes, signature), and action_local_ip and related fields the connection. This sample is a file event for a DLL. The sample uses documentation addresses.
     sample: '{"_id":"c2c455d9f99375d","action_file_access_time":"2023-09-15T12:00:00Z","action_file_attributes":"readonly","action_file_create_time":"2023-09-01T12:00:00Z","action_file_device_type":"Device Type","action_file_group":"gr123","action_file_group_name":"GroupName","action_file_is_anonymous":true,"action_file_last_writer_actor":"Writer Actor","action_file_md5":"d41d8cd98f00b204e9800998ecf8427e","action_file_mod_time":"2023-09-15T12:00:00Z","action_file_mode":"0640","action_file_name":["MyOffice.BackgroundTasks.dll"],"action_file_operation_flags":"Operation Flags","action_file_owner":"Owner","action_file_owner_name":"OwnerName","action_file_path":["C:\\Program Files\\WindowsApps\\Microsoft.MicrosoftOfficeHub_18.2204.1141.0_x64__8wekyb3d8bbwe\\MyOffice.BackgroundTasks.dll"],"action_file_pe_info":"PE info","action_file_prev_type":"Previous Type","action_file_previous_file_name":"file.dll","action_file_previous_file_path":"C:\\PreviousPath\\file.dll","action_file_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","action_file_signature_is_embedded":true,"action_file_signature_product":"File Product","action_file_signature_status":"Verified","action_file_signature_vendor":"File Vendor","action_file_size":123456,"action_file_type":"DLL","action_local_ip":["198.51.100.25"],"action_local_port":[8080]}'
     key:
       - _id
@@ -60,7 +82,7 @@ logs:
   - type: Alerts
     sourcetype: panw_cortex_xdr_alerts
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per alert. severity is its rating, external_id its id, events holds the triggering event with its type and actor process, and mitre_technique_id_and_name the mapping when present. This sample is a high-severity alert from a network connection event. The sample uses documentation addresses.
     sample: '{"external_id":"396239671","severity":"high","matching_status":"UNMATCHABLE","end_match_attempt_ts":null,"local_insert_ts":1626347122923,"bioc_indicator":null,"matching_service_rule_id":null,"attempt_counter":null,"bioc_category_enum_key":null,"is_whitelisted":false,"starred":false,"deduplicate_tokens":"af4e477c1e284c3f9b1fff340fddb4d0,57f0d1f4096a45bdb4cd8d4b8a626f15","filter_rule_id":null,"mitre_technique_id_and_name":null,"mitre_tactic_id_and_name":null,"agent_version":null,"agent_device_domain":null,"agent_fqdn":null,"agent_os_type":"NO_HOST","agent_os_sub_type":null,"agent_data_collection_status":null,"mac":"2001:db8::1","events":{"agent_install_type":"NA","agent_host_boot_time":null,"event_sub_type":null,"module_id":null,"association_strength":10,"dst_association_strength":10,"story_id":"MzYzOTQ0MDE1MDI4OTE3NDUyNA==","event_id":"MzYzOTQ0MDE1MDI4OTE3NDUyNA==","event_type":"Network Connections","event_timestamp":1626346867000,"actor_process_instance_id":null,"actor_process_image_path":null,"actor_process_image_name":null,"actor_process_command_line":null,"actor_process_signature_status":"N/A","actor_process_signature_vendor":null,"actor_process_image_sha256":null,"actor_process_image_md5":null,"actor_process_causality_id":null,"actor_causality_id":null,"actor_process_os_pid":null,"actor_thread_thread_id":null,"causality_actor_process_image_name":null,"causality_actor_process_command_line":null,"causality_actor_process_image_path":null,"causality_actor_process_signature_vendor":null,"causality_actor_process_signature_status":"N/A","causality_actor_causality_id":null,"causality_actor_process_execution_time":null,"causality_actor_process_image_md5":null},"alert_id":"2879211","detection_timestamp":1626346849000,"name":"Cisco RV320/RV325 Router Unauthenticated Configuration Export Vulnerability","category":"Vulnerability","endpoint_id":"198.51.100.15","description":"Info-Leak (198.51.100.25/cgi-bin/config.exp)","host_ip":["203.0.113.8"]}'
     key:
       - external_id
@@ -70,7 +92,7 @@ logs:
   - type: Incidents
     sourcetype: panw_cortex_xdr_incidents
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One API response from the incidents endpoint. reply.incidents is the list of incidents, and reply.result_count and reply.total_count say how many were returned. This sample is an empty page.
     sample: '{"reply":{"incidents":[],"result_count":0,"total_count":0}}'
     key:
       - reply.incidents
@@ -78,17 +100,18 @@ logs:
       - reply.total_count
 cves: []
 detections:
-  - title: Panw Cortex Xdr events arriving
-    severity: low
+  - title: High or critical Cortex XDR alert
+    severity: high
     signals:
-      - _id
-      - action_file_access_time
-      - action_file_attributes
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "panw_cortex_xdr"'
+      - severity
+      - external_id
+      - events.event_type
+    why: Cortex XDR has already decided these are detections. High and critical alerts are the ones to route to the SOC queue directly.
+    kql: |
+      dataset="panw-cortex-xdr_logs"
+      | where sourcetype == "panw_cortex_xdr_alerts" and severity in ("high", "critical")
+      | project local_insert_ts, external_id, severity, events.event_type, agent_os_type, mac
 optimizations: []
 references:
-  - title: elastic/integrations panw_cortex_xdr/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/panw_cortex_xdr/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample panw_cortex_xdr.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/panw_cortex_xdr.json
+  - title: Cortex documentation
+    url: https://docs-cortex.paloaltonetworks.com/

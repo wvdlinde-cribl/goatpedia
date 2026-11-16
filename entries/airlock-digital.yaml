@@ -1,76 +1,96 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: airlock-digital
 name: Airlock Digital
-short: Digital
-vendor: Airlock
+short: Airlock
+vendor: Airlock Digital
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - airlock_digital
-  - Elastic integrations
+  - Airlock Application Allowlisting
+  - Airlock Allowlisting
 tags:
-  - elastic
+  - application-allowlisting
+  - endpoint
+  - edr
   - json
-summary: Airlock Digital is logged by the Elastic integrations package airlock_digital. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: An application allowlisting product. An enforcement agent on Windows, macOS and Linux lets a file run only if it is trusted by policy, by hash, path or publisher, and blocks or audits everything else. A central Airlock server holds the policies and receives every execution decision. Its API returns agents with their policy state, execution history and the server's own activity log.
 sourcetypes:
   - st: airlock_digital_agent
-    desc: 'Elastic integrations fixture, 2 events. Upstream: airlock_digital/data_stream/agent/_dev/test/pipeline/test-agent.log'
+    desc: Each enrolled enforcement agent, with host, IP, OS, client version, policy group and the policy it applies
   - st: airlock_digital_execution_histories
-    desc: 'Elastic integrations fixture, 2 events. Upstream: airlock_digital/data_stream/execution_histories/_dev/test/pipeline/test-execution-histories.log'
+    desc: Execution events from agents, such as blocked or untrusted files, with path, hash, publisher, parent process and policy
   - st: airlock_digital_server_activities
-    desc: 'Elastic integrations fixture, 2 events. Upstream: airlock_digital/data_stream/server_activities/_dev/test/pipeline/test-server-activities.log'
+    desc: Actions on the Airlock server, such as files added to the repository and policy changes, with the user who made them
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: airlock_digital
-  Sourcetypes: '3'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: agentid, clientversion, domain, freespace, groupid, hostname
+  Product: Application allowlisting for servers and workstations
+  Clients: Enforcement agent for Windows, macOS and Linux
+  Management: Airlock server, on-premises or hosted
+  Log transport: HTTPS JSON REST API of the Airlock server, polled by a collector with an API key. The server can also forward to syslog
+  Log format: One JSON object per agent, execution event or server activity
+  What an execution event answers: Which file tried to run on which host, under which user and parent process, and whether policy trusted it
+  What a server activity answers: Who changed what on the Airlock server
 placement:
   slots:
-    - cloud
+    - endpoint
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Enforcement agent
+      desc: The agent on each machine checks every executable, script and library against the policy before it runs, and reports what it allowed or blocked.
+    - slot: internal
+      title: Airlock server
+      desc: The server holds policy groups, baselines, the file repository and the event history. A collector polls it.
 howItWorks:
-  - title: What the fixture shows
-    body: Airlock Digital events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries agentid, clientversion, domain, freespace, groupid, hostname. Values in the sample were rewritten to documentation addresses.
+  - title: Allowlisting
+    body: Each agent belongs to a policy group. The group trusts files through baselines, publishers, paths and hashes. A file that is not trusted is blocked in enforcement mode or only recorded in audit mode. The agent reports both, so the execution history shows attempts that would have been blocked.
+  - title: Execution history
+    body: An execution event names the file, its hashes, its publisher, the command line, the parent process, the user and the host, plus the policy name and version that judged it. type encodes the outcome, such as trusted, blocked or untrusted in audit mode.
+  - title: Server activity
+    body: Administrators approve files, add them to the repository, change baselines and move agents between groups. Each of those is a server activity with the task, the user and a description.
+  - title: How the events leave the product
+    body: A collector calls the server's REST API with an API key and pages through agents, execution histories and server activities, using the checkpoint id to resume where it stopped.
 traffic:
   handles:
-    - json
+    - Execution of programs, scripts and libraries on endpoints
+    - Policy and repository changes on the Airlock server
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads airlock_digital and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: File runs
+      desc: A user or process starts an executable or script on a protected machine.
+    - step: Agent decides
+      desc: The agent checks the file against the policy group and allows, blocks or audits it.
+    - step: Server records
+      desc: The agent reports the decision to the Airlock server, which stores it with a checkpoint id.
+    - step: Collector polls
+      desc: A collector reads agents, execution histories and server activities from the API as JSON.
 logs:
-  - type: Agent
+  - type: Agents
     sourcetype: airlock_digital_agent
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per enrolled agent. hostname, ip, os and clientversion identify the machine. groupid, policyversion and policy_details say which policy it enforces and whether audit mode is on. Addresses are documentation addresses.
     sample: '{"agentid":"675f1647-f395-48e6-9663-a4c95512128d","clientversion":"203.0.113.40","domain":"DESKTOP-GDAFETE","freespace":"54","groupid":"b4bac2e5-8a96-440f-b03a-6272206e3eb5","hostname":"DESKTOP-GDAFETE","ip":"192.0.2.10","localip":"192.0.2.20","lastcheckin":"2024-04-29T16:03:39.507Z","os":"Windows 10 x64 (Release: 21H2)","policyversion":"9.1","status":3,"username":"patrick","policy_details":{"hidden":"true","agentstopcode":"","applications":[{"applicationid":"1570641682","name":"Airlock Enforcement Agents","version":""}],"auditmode":0,"autoupdate":0,"baselines":[{"baselineid":"1567253648","name":"Windows 10 1903 x64 May 2019 (Reference)"},{"baselineid":"1569941628","name":"Windows 10 1803 x64 May 2019 (Reference)"}],"batch":1,"blocklists":null,"check_ea":0,"command":1,"commlist":[{"ip":"198.51.100.15","name":"test.server.com"}],"commlistid":"airlock-default-communication-list","compiledhtml":1,"dylib":0,"enable_notifications":1,"extensions_enabled":0,"generalisation":0,"gprocesses":null,"groupid":"b4bac2e5-8a96-440f-b03a-6272206e3eb5","hashdb_ver":"215","htmlapplication":1,"javaapplication":1,"javascript":1,"modreload":0,"name":"ADL Workstations","notification_message":"%filename% has been prevented from executing as a result of Application Whitelisting. If this event caused unexpected system behaviour please contact your Ad...","parent":"Airlock Groups","paths":[{"comment":"","name":"C:\\\\Windows\\\\assembly\\\\GAC*\\\\*\\\\*.*.*_*\\\\*.dll"},{"comment":"","name":"C:\\\\Windows\\\\Temp\\\\__PSScriptPolicyTest_????????.???.ps1"}],"policyver":"316","poll_time":600}}'
     key:
       - agentid
       - clientversion
       - domain
       - freespace
-  - type: Execution Histories
+  - type: Execution history
     sourcetype: airlock_digital_execution_histories
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per execution decision. filename, commandline, sha256, publisher and pprocess describe what ran. username and hostname say where, policyname and policyver which policy judged it, and type the outcome.
     sample: '{"checkpoint":"662bbf75fe5fd7b1c13d8172","type":5,"username":"root","hostname":".local","netdomain":".local","filename":"/tmp/PKInstallSandbox.mqvKk4/preinstall","ppolicy":"Airlock Groups","policyname":"Apple Mac","policyver":"v485","commandline":"/bin/sh /tmp/PKInstallSandbox.mqvKk4/Scripts/ /Library/Airlock Digital / /","publisher":"Airlock Digital Pty Ltd (MXRN6N7XFL) (Mac)","pprocess":"sh","sha256":"a3f791dec1f2a40bd623a9b37604e7f2dee84eab3f6a513c6882231d89037c40","datetime":"2024-04-26T14:50:56Z","md5":"","sha128":"","sha384":"","sha512":""}'
     key:
       - checkpoint
       - type
       - username
       - hostname
-  - type: Server Activities
+  - type: Server activities
     sourcetype: airlock_digital_server_activities
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per action on the Airlock server. task is the action, user who did it, description what changed. This sample is a file added to the repository by SYSTEM.
     sample: '{"checkpoint":"65b1f05387bacb6955a32a3c","datetime":"2024-01-25T05:23:31.77Z","task":"Repository Add","user":"SYSTEM","description":"a.out added to repository"}'
     key:
       - checkpoint
@@ -79,17 +99,18 @@ logs:
       - user
 cves: []
 detections:
-  - title: Airlock Digital events arriving
+  - title: Repository or policy changed
     severity: low
     signals:
-      - agentid
-      - clientversion
-      - domain
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "airlock_digital_agent"'
+      - task
+      - user
+      - description
+    why: Adding a file to the repository or changing policy widens what may run everywhere. A change by an unexpected user is how allowlisting gets quietly loosened.
+    kql: |
+      dataset="airlock-digital_logs"
+      | where sourcetype == "airlock_digital_server_activities"
+      | project datetime, task, user, description
+    mitre:
+      - T1562
 optimizations: []
-references:
-  - title: elastic/integrations airlock_digital/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/airlock_digital/data_stream/agent/_dev/test/pipeline/test-agent.log
-  - title: Pack Generator sample airlock_digital_agent.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/airlock_digital_agent.json
+references: []

@@ -1,66 +1,76 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: awsfirehose
-name: Awsfirehose
-short: Awsfirehose
-vendor: Awsfirehose
+name: Amazon Data Firehose
+short: Firehose
+vendor: Amazon Web Services
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - awsfirehose
-  - Elastic integrations
+  - Amazon Kinesis Data Firehose
+  - AWS Firehose
 tags:
-  - elastic
+  - streaming
+  - log-delivery
+  - aws
+  - cloud
   - json
-summary: Awsfirehose is logged by the Elastic integrations package awsfirehose. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A managed AWS streaming service that delivers records from AWS services and applications to S3, Redshift, OpenSearch, Splunk or any HTTP endpoint. Many AWS logs, such as CloudWatch Logs subscriptions and VPC Flow Logs, can be sent through a Firehose stream. Each delivered record wraps the original log line, so what a record means depends on the log it carries, here a VPC flow log.
 sourcetypes:
   - st: awsfirehose
-    desc: 'Elastic integrations fixture, 20 events. Upstream: awsfirehose/data_stream/logs/_dev/test/pipeline/test-vpcflow-log.json'
+    desc: Records delivered by a Firehose stream, each wrapping one log line in message. The lines here are VPC Flow Log records
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: awsfirehose
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: message
+  Product: Managed delivery stream for logs and events
+  Sources: Direct PUT from applications, Kinesis Data Streams, CloudWatch Logs subscriptions, VPC Flow Logs, WAF and others
+  Destinations: S3, Redshift, OpenSearch, Splunk, and HTTP endpoints, including third-party log platforms
+  Log transport: HTTPS POST of batched records to the destination endpoint, with an access key header
+  Log format: JSON records, each with the original log line. VPC Flow Logs use the space-separated default format
+  What a VPC flow record answers: Which address talked to which on which port and protocol, how much traffic, and whether it was accepted
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Firehose delivery stream
+      desc: The stream runs in an AWS region. AWS services put records into it, and Firehose batches and delivers them to the configured destination.
 howItWorks:
-  - title: What the fixture shows
-    body: Awsfirehose events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Delivery streams
+    body: A Firehose stream buffers records by size or time, can transform them with a Lambda function, and delivers batches to its destination. Failed deliveries are retried and can be backed up to S3.
+  - title: VPC Flow Logs through Firehose
+    body: VPC Flow Logs capture IP traffic per network interface. Sent to Firehose, each record is one line in the default format, version, account id, interface id, source and destination address and port, protocol, packets, bytes, start and end time, action and log status.
+  - title: How the records leave AWS
+    body: For an HTTP endpoint destination, Firehose POSTs JSON batches with an access key. Any collector with an HTTP endpoint can receive them.
 traffic:
   handles:
-    - json
+    - Log delivery from AWS services
+    - VPC network flow records in this stream
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads awsfirehose and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Source produces
+      desc: An AWS service, here VPC Flow Logs, produces a log record.
+    - step: Firehose buffers
+      desc: The delivery stream batches records and optionally transforms them.
+    - step: Firehose delivers
+      desc: Firehose POSTs the batch to the destination endpoint or writes it to storage.
 logs:
-  - type: Logs
+  - type: VPC flow records via Firehose
     sourcetype: awsfirehose
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per record. message is a VPC flow log line, version, account, interface, source and destination address and port, protocol, packets, bytes, start and end time, action (ACCEPT here) and status. Addresses are documentation addresses.
     sample: '{"message":"2 123456789010 eni-1235b8ca123456789 198.51.100.15 198.51.100.25 20641 22 6 20 4249 1418530010 1418530070 ACCEPT OK"}'
     key:
       - message
 cves: []
-detections:
-  - title: Awsfirehose events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "awsfirehose"'
-optimizations: []
+detections: []
+optimizations:
+  - title: Drop accepted flows outside a watch list
+    saving: most of the flow volume
+    fn: Drop
+    how: Accepted flows are the bulk of VPC traffic. Rejected flows and flows to sensitive ports are the security-relevant subset. Keep REJECT records and send accepted flows to cheaper storage or aggregate them.
+    expr: message.indexOf(' ACCEPT ') >= 0
 references:
-  - title: elastic/integrations awsfirehose/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/awsfirehose/data_stream/logs/_dev/test/pipeline/test-vpcflow-log.json
-  - title: Pack Generator sample awsfirehose.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/awsfirehose.json
+  - title: What is Amazon Data Firehose?
+    url: https://docs.aws.amazon.com/firehose/latest/dev/what-is-this-service.html
+  - title: VPC Flow Logs
+    url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html

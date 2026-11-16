@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: socradar-alert
-name: Socradar Alert
-short: Socradar Alert
-vendor: Socradar
+name: SOCRadar Extended Threat Intelligence
+short: SOCRadar
+vendor: SOCRadar
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - socradar_alert
-  - Elastic integrations
+  - SOCRadar XTI
+  - SOCRadar Alarms
 tags:
-  - elastic
-  - json
-summary: Socradar Alert is logged by the Elastic integrations package socradar_alert. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - threat-intelligence
+  - brand-protection
+  - digital-risk
+  - external-attack-surface
+summary: A SaaS extended threat intelligence service that watches the outside of an organisation — its domains, brand, leaked credentials, dark web mentions and exposed assets. When it finds something, it raises an alarm (incident) for the customer company with a type, risk level and affected asset. These alarms are the stream here, so each event is a finding about your external exposure, not traffic on your network.
 sourcetypes:
   - st: socradar_alert_incidents
-    desc: 'Elastic integrations fixture, 5 events. Upstream: socradar_alert/data_stream/incidents/_dev/test/pipeline/test-incidents.log'
+    desc: SOCRadar alarms raised for the company, one per finding, with type, sub-type, risk level, affected asset and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: socradar_alert
-  Sourcetypes: '1'
-  Fixture events: '5'
-  Log format seen: json
-  Fields in the first fixture: alarm_id, status, alarm_risk_level, alarm_text, alarm_asset, notification_id
+  Product: External threat intelligence, digital risk protection and attack surface monitoring
+  Modules: Brand protection, dark web monitoring, attack surface management, credential leak and supply chain monitoring
+  Log transport: HTTPS JSON, pulled from the SOCRadar platform API with a company API key
+  Log format: One JSON object per alarm
+  What an alarm answers: What was found (alarm_type_details), how risky it is (alarm_risk_level), which asset it concerns (alarm_asset), and whether it is still OPEN
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: SOCRadar platform
+      desc: SOCRadar collects intelligence from the internet and dark web, matches it to the company's assets, and stores alarms in its SaaS platform. A collector polls the alarm API.
 howItWorks:
-  - title: What the fixture shows
-    body: Socradar Alert events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries alarm_id, status, alarm_risk_level, alarm_text, alarm_asset, notification_id. Values in the sample were rewritten to documentation addresses.
+  - title: Assets and monitoring
+    body: The customer registers its domains, brands, IP ranges and keywords. SOCRadar watches new domain registrations, paste and leak sites, dark web forums and internet scans for matches.
+  - title: Alarms
+    body: A match becomes an alarm with a main type (for example Brand Protection), a sub-type (for example Phishing Domain), a default and current risk level, the affected asset, tags and a status. Analysts work alarms from OPEN to resolved in the platform.
+  - title: How the data leaves the product
+    body: A collector calls the SOCRadar incidents API for the company id and pages through alarms. Each one is a JSON object that can go to any destination.
 traffic:
   handles:
-    - json
+    - Phishing and look-alike domain findings
+    - Leaked credentials and dark web mentions
+    - Exposed assets and vulnerabilities on the attack surface
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads socradar_alert and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: SOCRadar finds a match
+      desc: A new domain, leak or exposure matches one of the company's assets.
+    - step: Alarm is raised
+      desc: SOCRadar creates an alarm with type, risk level, asset and status.
+    - step: Collector polls
+      desc: A collector requests new and updated alarms from the API.
+    - step: Events are JSON
+      desc: Each alarm is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: Incidents
+  - type: Alarms
     sourcetype: socradar_alert_incidents
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One finding. alarm_type_details gives the main type, sub-type and title, alarm_risk_level the severity, alarm_asset what is affected and status where it stands. This sample is an OPEN, HIGH-risk possible phishing domain against example.com.
     sample: '{"alarm_id":"a1b2c3d4-0000-0000-0000-000000000001","status":"OPEN","alarm_risk_level":"HIGH","alarm_text":"A possible phishing domain targeting your brand was detected.","alarm_asset":"example.com","notification_id":1001,"tags":["phishing","brand-protection"],"company_id":330,"is_approved":false,"date":"2024-01-15 10:30:00","alarm_type_details":{"alarm_sub_type":"Phishing Domain","alarm_main_type":"Brand Protection","alarm_generic_title":"Possible Phishing Domain Detected","alarm_default_risk_level":"HIGH"}}'
     key:
       - alarm_id
@@ -55,17 +67,19 @@ logs:
       - alarm_text
 cves: []
 detections:
-  - title: Socradar Alert events arriving
-    severity: low
+  - title: Open high-risk alarm
+    severity: high
     signals:
-      - alarm_id
-      - status
       - alarm_risk_level
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "socradar_alert_incidents"'
+      - status
+      - alarm_asset
+      - alarm_text
+    why: A HIGH or CRITICAL alarm that is still OPEN is an external threat to the company — a phishing domain, leaked credentials or an exposed service — that nobody has closed yet.
+    kql: |
+      dataset="socradar-alert_logs"
+      | where sourcetype == "socradar_alert_incidents" and status == "OPEN" and alarm_risk_level in ("HIGH", "CRITICAL")
+      | project date, alarm_id, alarm_risk_level, alarm_asset, alarm_text, alarm_type_details.alarm_sub_type
+    mitre:
+      - T1583.001
 optimizations: []
-references:
-  - title: elastic/integrations socradar_alert/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/socradar_alert/data_stream/incidents/_dev/test/pipeline/test-incidents.log
-  - title: Pack Generator sample socradar_alert_incidents.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/socradar_alert_incidents.json
+references: []

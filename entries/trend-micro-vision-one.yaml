@@ -1,72 +1,90 @@
 id: trend-micro-vision-one
-name: Trend Micro Vision One
-short: One
-vendor: Trend
+name: Trend Vision One
+short: Vision One
+vendor: Trend Micro
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - trend_micro_vision_one
-  - Elastic integrations
+  - Trend Micro Vision One
+  - Trend Micro XDR
 tags:
-  - elastic
+  - xdr
+  - endpoint
+  - audit
   - json
-summary: Trend Micro Vision One is logged by the Elastic integrations package trend_micro_vision_one. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Trend Vision One is Trend Micro's detection and response platform. Endpoint agents, network sensors and email and web products send activity to the Vision One cloud, which opens workbench alerts and keeps the underlying telemetry. Six JSON streams cover alerts, console audit, detections, endpoint activity, secure-web-gateway activity and endpoint telemetry. A collector pulls each one from the Vision One API.
 sourcetypes:
   - st: trend_micro_vision_one_alert
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trend_micro_vision_one/data_stream/alert/_dev/test/pipeline/test-pipeline-alert.log'
+    desc: One workbench alert, with its severity, model and investigation status
   - st: trend_micro_vision_one_audit
-    desc: 'Elastic integrations fixture, 2 events. Upstream: trend_micro_vision_one/data_stream/audit/_dev/test/pipeline/test-pipeline-audit.log'
+    desc: One console audit record, such as a sign-in, with the user, the role and the result
   - st: trend_micro_vision_one_detection
-    desc: 'Elastic integrations fixture, 7 events. Upstream: trend_micro_vision_one/data_stream/detection/_dev/test/pipeline/test-pipeline-detection.log'
+    desc: One detection from an endpoint or network product, with the action taken and the result
   - st: trend_micro_vision_one_endpoint_activity
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trend_micro_vision_one/data_stream/endpoint_activity/_dev/test/pipeline/test-endpoint-activity.log'
+    desc: One observed action on an endpoint, such as a process, a logon or a registry write
   - st: trend_micro_vision_one_network_activity
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trend_micro_vision_one/data_stream/network_activity/_dev/test/pipeline/test-network-activity.log'
+    desc: One secure web gateway request, with the user, the URL and the policy
   - st: trend_micro_vision_one_telemetry
-    desc: 'Elastic integrations fixture, 8 events. Upstream: trend_micro_vision_one/data_stream/telemetry/_dev/test/pipeline/test-data.log'
+    desc: One endpoint telemetry observation, with the process, its parent and the file hashes
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: trend_micro_vision_one
-  Sourcetypes: '6'
-  Fixture events: '32'
-  Log format seen: json
-  Fields in the first fixture: schemaVersion, id, investigationStatus, workbenchLink, alertProvider, model
+  Product: Detection and response platform. Endpoint, email, network and cloud products report into one workbench
+  Where it sits: The workbench is the Trend Vision One cloud. Agents sit on endpoints. The secure web gateway sees user web traffic
+  Log transport: HTTPS JSON from the Vision One APIs. Alerts, audit, detections, activity and telemetry are separate calls
+  Log format: One JSON object per record. Alerts use a workbench id. Audit uses a result. Activity and telemetry use endpointGuid
+  What an alert answers: Which model fired, how severe it is, and whether anyone is investigating it
+  What an audit event answers: Who signed in to the console, or what they changed, and whether it succeeded
+  What a detection answers: What was found and what the product did, such as quarantine
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Vision One workbench
+      desc: Alerts, audit and the correlated detections live in the Vision One tenant. workbenchLink on an alert points back at that console. A collector calls the tenant APIs. The product does not bind those APIs to one SIEM.
+    - slot: endpoint
+      title: Vision One agent
+      desc: Endpoint activity and telemetry are what the agent saw on the host. endpointHostName and endpointIp name the computer. Addresses in the samples are documentation addresses.
 howItWorks:
-  - title: What the fixture shows
-    body: Trend Micro Vision One events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries schemaVersion, id, investigationStatus, workbenchLink, alertProvider, model. Values in the sample were rewritten to documentation addresses.
+  - title: Workbench alerts and audit
+    body: An alert is a workbench case. id is the workbench id. model and description say what Vision One thinks happened. severity and score rate it. investigationStatus is the case state. impactScope counts the desktops, servers and accounts involved. The sample model is Possible APT Attack at critical severity. Audit is the console's own log. category, activity and result describe the action. loggedUser and loggedRole are who. The sample is an unsuccessful logon by the root account.
+  - title: Detections
+    body: A detection is one finding from a Trend product that feeds Vision One. act and actResult are what the product did. The sample action is Clean and the result is Quarantined successfully, with blocking set to web reputation. endpointHostName and endpointIp are the host. dhost, dst and dpt are the other side when the finding is a connection.
+  - title: Activity and telemetry
+    body: Endpoint activity is a higher-level observation. The sample is a process whose command is whoami, with a file hash, a signer and a registry run key. eventId and winEventId name the kind of activity. The sample winEventId is 4624, a logon, carried on the same object as the process fields. Network activity with eventName SWG_ACTIVITY_LOG is the secure web gateway. request, ruleName, application and fileName say what was fetched and which policy applied. Telemetry is the raw process observation. parentCmd, parent hashes and the endpoint identity are the bulk of that stream. It is the noisiest of the six.
+  - title: How the streams are collected
+    body: Vision One stores each of these as an API resource. A collector with a token requests alerts, audit, detections, endpoint activity, network activity and telemetry separately. Any collector can do this. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Workbench alerts and their investigation state
+    - Console sign-in and administration
+    - Endpoint detections, including quarantine
+    - Endpoint process activity and web gateway requests
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads trend_micro_vision_one and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agents and gateways observe
+      desc: An endpoint agent, a mail or network sensor, or the secure web gateway sees activity and reports it to Vision One.
+    - step: Workbench correlates
+      desc: Vision One opens or updates an alert, stores the detection, and keeps the activity and telemetry underneath it.
+    - step: Collector pulls JSON
+      desc: A collector requests each API and forwards the objects. Audit is the console's own record of who signed in.
 logs:
-  - type: Alert
+  - type: Workbench alert
     sourcetype: trend_micro_vision_one_alert
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One workbench alert. id is the case, model is the title, and severity and investigationStatus are the triage. This sample is Possible APT Attack, severity critical, investigationStatus In Progress. impactScope names an email address. That address is a documentation address.
     sample: '{"schemaVersion":"1.0","id":"WB-9002-20200427-0002","investigationStatus":"In Progress","workbenchLink":"https://THE_WORKBENCH_URL","alertProvider":"SAE","model":"Possible APT Attack","description":"Suspicious email followed by a possible backdoor implantation","score":63,"severity":"critical","createdDateTime":"2020-04-30T00:01:15Z","updatedDateTime":"2030-04-30T00:01:16Z","impactScope":{"desktopCount":10,"serverCount":0,"accountCount":1,"emailAddressCount":0,"entities":[{"entityType":"emailAddress","entityValue":"user@example.com","entityId":"user@example.com","relatedEntities":["CODERED\\\\loki"],"relatedIndicatorIds":[1]}]},"indicators":[{"id":1,"type":"url","field":"url","value":"http://www.DVftYKDtEi.com/ds7002.zip","relatedEntities":["user@example.com"],"filterIds":["f862df72-7f5e-4b2b-9f7f-9148e875f908"]},{"id":2,"type":"url","field":"url","value":"http://www.DVftYKDtEi.com/ds7555.zip","relatedEntities":["user@example.com"],"filterIds":["f862df72-7f5e-4b2b-9f7f-9148e875f908"]}],"matchedRules":[{"id":"5f52d1f1-53e7-411a-b74f-745ee81fa30b","name":"Possible SpearPhishing Email","matchedFilters":[{"id":"ccf86fc1-688f-4131-a46f-1d7a6ee2f88e","name":"(T1192) Spearphishing Link","matchedDateTime":"2019-08-02T04:00:01Z","mitreTechniqueIds":["T1192"],"matchedEvents":[{"uuid":"123abc-123abc-123abc","matchedDateTime":"2019-08-02T04:00:01Z"}]}]}]}'
     key:
       - schemaVersion
       - id
       - investigationStatus
       - workbenchLink
-  - type: Audit
+  - type: Console audit
     sourcetype: trend_micro_vision_one_audit
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One console audit record. category and activity are the action. result is the outcome. This sample is category Logon and Logoff, result Unsuccessful, by the Root Account with role Master Administrator. loggedDateTime is when.
     sample: '{"loggedDateTime":"2022-02-24T07:29:48Z","loggedUser":"Root Account","loggedRole":"Master Administrator","accessType":"Console","category":"Logon and Logoff","activity":"string","result":"Unsuccessful","details":{"property1":"string","property2":"string"}}'
     key:
       - loggedDateTime
@@ -76,37 +94,37 @@ logs:
   - type: Detection
     sourcetype: trend_micro_vision_one_detection
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One detection. act and actResult are what the product did. This sample action is Clean and the result is Quarantined successfully, with blocking set to web reputation. endpointHostName is the host. dst and dpt are the other side. Those addresses are documentation addresses.
     sample: '{"act":"Clean","actResult":"Quarantined successfully","app":"HTTP","appGroup":"HTTP","aptRelated":"0","behaviorCat":"Grey-Detection","blocking":"Web reputation","cat":50,"cccaDetection":"Yes","cccaDetectionSource":"GLOBAL_INTELLIGENCE","cccaRiskLevel":3,"clientFlag":"dst","cnt":"1","component":["PATTERN_VSAPI 17.101.92 2021-09-30 04:23:27-07:00"],"compressedFileSize":"0","detectionType":"File","deviceDirection":"outbound","deviceGUID":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx","deviceProcessName":"/snap/core/10126/usr/lib/snapd/snapd","deviceMacAddress":"00:00:5e:00:53:01","dhost":"samplehost","domainName":"Workgroup","dpt":53,"dst":["192.0.2.10"],"dstGroup":"Default","end":"2021-09-30T09:40:04-08:00","endpointGUID":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx","endpointHostName":"xxx-docker","endpointIp":["192.0.2.20"],"endpointMacAddress":"00:00:5e:00:53:01"}'
     key:
       - act
       - actResult
       - app
       - appGroup
-  - type: Endpoint Activity
+  - type: Endpoint activity
     sourcetype: trend_micro_vision_one_endpoint_activity
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One endpoint observation. objectCmd is the command and objectFilePath is the file. This sample command is whoami, winEventId is 4624, and objectRegistryKeyHandle is a Run key. endpointHostName is the workstation. dst and objectIp are documentation addresses.
     sample: '{"dpt":443,"dst":"198.51.100.15","endpointGuid":"72436165-b5a5-471a-9389-0bdc3647bc33","endpointHostName":"workstation-pc01","endpointIp":["198.51.100.25"],"eventId":"1","eventSubId":2,"objectIntegrityLevel":8192,"objectTrueType":7,"objectSubTrueType":7002,"winEventId":4624,"eventTime":1699876543210,"eventTimeDT":"2023-11-13T10:15:43.210000+00:00","hostName":"workstation-pc01","logonUser":["user@example.com"],"objectCmd":"C:\\Windows\\System32\\cmd.exe /c whoami","objectFileHashSha1":"A1B2C3D4E5F6789012345678901234567890ABCD","objectFilePath":"C:\\Windows\\System32\\cmd.exe","objectHostName":"api.example.com","objectIp":"203.0.113.8","objectIps":["203.0.113.40","192.0.2.10"],"objectPort":8080,"objectRegistryData":"C:\\Program Files\\MyApp\\startup.exe","objectRegistryKeyHandle":"hklm\\software\\microsoft\\windows\\currentversion\\run","objectRegistryValue":"MyAppStartup","objectSigner":["Microsoft Windows"],"objectSignerValid":[true],"objectUser":"DOMAIN\\john.doe","os":"Windows 10","parentCmd":"C:\\Windows\\explorer.exe"}'
     key:
       - dpt
       - dst
       - endpointGuid
       - endpointHostName
-  - type: Network Activity
+  - type: Web gateway activity
     sourcetype: trend_micro_vision_one_network_activity
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One secure web gateway event. eventName in this sample is SWG_ACTIVITY_LOG. request is the URL, ruleName is the policy, and fileName is the downloaded file. principalName is the user. clientIp and dst are documentation addresses. The email is a documentation address.
     sample: '{"endpointHostName":"workstation-pc01","customerId":"a1b2c3d4-e5f6-7890-abcd-ef1234567890","osName":"Windows 10","dst":"198.51.100.15","endpointGuid":"72436165-b5a5-471a-9389-0bdc3647bc33","principalName":"user@example.com","request":"https://portal.example.com/dashboard","act":1,"src":"198.51.100.25","serverTls":"TLS 1.3","eventTime":1699876543123,"serverProtocol":"HTTP/2","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/203.0.113.8 Safari/537.36","rt":1699876545,"tenantGuid":"b2c3d4e5-f678-9012-bcde-f23456789012","eventName":"SWG_ACTIVITY_LOG","application":"Microsoft 365","ruleName":"Corporate_Access_Policy","clientIp":"203.0.113.40","requestBase":"portal.example.com","score":95,"userDomain":"example.com","suid":"John Doe","duration":45,"eventSubName":"SharePoint file download","fileHash":"a1b2c3d4e5f6789012345678901234567890abcd","fileHashSha256":"ba9edecdd09de1307714564c24409bd25508e22fe11c768053a08f173f263e93","fileName":"quarterly_report.xlsx","fileSize":245678,"fileType":"Microsoft Excel"}'
     key:
       - endpointHostName
       - customerId
       - osName
       - dst
-  - type: Telemetry
+  - type: Endpoint telemetry
     sourcetype: trend_micro_vision_one_telemetry
     format: json
-    desc: 8 fixture events in the samples pool (elastic).
+    desc: One telemetry observation. endpointHostName is the host, parentCmd is the parent process, and the parent file hashes identify that parent. This sample parent is services.exe. dst is a documentation address. eventId and eventSubId classify the observation.
     sample: '{"authId":"999","cloudProvider":"","dpt":443,"dst":"192.0.2.10","endpointGuid":"e4f4acd1-83ca-4340-b71f-31acc5ac834b","endpointHostName":"tvo-5901-1","endpointIp":["2001:db8::1","192.0.2.20"],"endpointMacAddress":["2001:db8::1"],"eventHashId":"8413752164892226810","eventId":3,"eventSourceType":1,"eventSubId":204,"eventTime":"1741046784337","firstSeen":"1741046784337","integrityLevel":16384,"lastSeen":"1741046784337","logReceivedTime":"1741046872526","objectFirstSeen":"1741046784337","objectHashId":"6497068905879772774","objectLastSeen":"1741046784337","osDescription":"Windows 10 Pro (64 bit) build 19045","osName":"Windows","osType":"0x00000030","osVer":"10.0.19045","parentAuthId":"999","parentCmd":"C:\\Windows\\system32\\services.exe","parentFileCreation":"1733468135884","parentFileHashId":"-4092577940452904134","parentFileHashMd5":"4eacbe64bb1e7d58e8a26340ed1c7cbd","parentFileHashSha1":"6703d48349de8c836c0eaffac5cfac7679da7f60"}'
     key:
       - authId
@@ -115,17 +133,39 @@ logs:
       - dst
 cves: []
 detections:
-  - title: Trend Micro Vision One events arriving
-    severity: low
+  - title: Console sign-in did not succeed
+    severity: medium
     signals:
-      - schemaVersion
-      - id
+      - result
+      - category
+      - loggedUser
+      - loggedRole
+    why: An unsuccessful logon to the Vision One console is someone failing to open the workbench. The sample is that case, for the root account. Successful administration and endpoint telemetry are not this signal.
+    kql: |
+      dataset="trend-micro-vision-one_logs"
+      | where sourcetype == "trend_micro_vision_one_audit" and result == "Unsuccessful"
+      | project loggedDateTime, loggedUser, loggedRole, category, activity, result, accessType
+    mitre:
+      - T1110
+  - title: Workbench alert is critical
+    severity: critical
+    signals:
+      - severity
+      - model
       - investigationStatus
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "trend_micro_vision_one_alert"'
-optimizations: []
+      - id
+    why: severity critical is the top workbench band. The sample model is Possible APT Attack and the case is still In Progress. Lower severities and raw telemetry are context for the case, not the case itself.
+    kql: |
+      dataset="trend-micro-vision-one_logs"
+      | where sourcetype == "trend_micro_vision_one_alert" and severity == "critical"
+      | project id, model, severity, investigationStatus, score, createdDateTime
+optimizations:
+  - title: Drop endpoint telemetry
+    saving: most of the endpoint telemetry volume
+    fn: Drop
+    how: Telemetry is one object per process observation and it is the bulk of what an agent emits. Alerts, unsuccessful console audit, and detections that quarantined something are the security-relevant subset. Drop the telemetry stream before the SIEM and keep it in cheaper storage if you still want the process detail.
+    expr: "sourcetype == 'trend_micro_vision_one_telemetry'"
 references:
-  - title: elastic/integrations trend_micro_vision_one/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trend_micro_vision_one/data_stream/alert/_dev/test/pipeline/test-pipeline-alert.log
-  - title: Pack Generator sample trend_micro_vision_one_alert.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trend_micro_vision_one_alert.json
+  - title: Trend Vision One documentation
+    url: https://docs.trendmicro.com/en-us/documentation/trend-vision-one/
+

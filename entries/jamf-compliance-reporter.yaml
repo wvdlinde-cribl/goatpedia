@@ -1,52 +1,63 @@
 id: jamf-compliance-reporter
 name: Jamf Compliance Reporter
-short: Reporter
+short: Jamf Reporter
 vendor: Jamf
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - jamf_compliance_reporter
-  - Elastic integrations
+  - Compliance Reporter
 tags:
-  - elastic
+  - macos
+  - audit
+  - endpoint
   - json
-summary: Jamf Compliance Reporter is logged by the Elastic integrations package jamf_compliance_reporter. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: 'Jamf Compliance Reporter is a macOS agent that turns the Mac''s audit trail into JSON. Each event is one Apple audit record: the event name, the process, the user and whether it succeeded, plus the Mac it came from. A score of zero is the agent''s mark for a call it did not treat as notable, and those calls are most of the volume. Jamf has discontinued the product. The same telemetry is now collected by Jamf Protect offline deployment. This stream is the Compliance Reporter event.'
 sourcetypes:
   - st: jamf_compliance_reporter
-    desc: 'Elastic integrations fixture, 19 events. Upstream: jamf_compliance_reporter/data_stream/log/_dev/test/pipeline/test-pipeline-audit.log'
+    desc: One Apple audit event from the Compliance Reporter agent. header.event_name is the audit event. subject is the process and the user.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: jamf_compliance_reporter
-  Sourcetypes: '1'
-  Fixture events: '19'
-  Log format seen: json
-  Fields in the first fixture: _event_score, arguments.fd, header.event_id, header.event_modifier, header.event_name, header.time_milliseconds_offset
+  Product: macOS audit agent. It emits Apple audit records as JSON. Jamf no longer sells it. Jamf Protect offline deployment is the replacement.
+  Where it runs: A Mac. The agent reads the local audit trail and writes JSON.
+  Log transport: A local log file, or a forwarder the administrator points at a collector
+  Log format: One JSON object per audit event. header.event_name is the Apple event, such as AUE_ACCEPT. subject is the process. return is the outcome. host_info is the Mac.
+  What an event answers: Which process, running as whom, did which audit action, and whether it succeeded, on which Mac
+  What _event_score answers: Compliance Reporter's weight for the event. Zero is a call the agent did not treat as notable.
 placement:
   slots:
-    - cloud
+    - endpoint
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Mac running the agent
+      desc: Compliance Reporter runs on the Mac and writes one JSON object per audit event. host_info names that Mac. A collector receives the file or the forwarder's stream.
 howItWorks:
-  - title: What the fixture shows
-    body: Jamf Compliance Reporter events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _event_score, arguments.fd, header.event_id, header.event_modifier, header.event_name, header.time_milliseconds_offset. Values in the sample were rewritten to documentation addresses.
+  - title: One audit event
+    body: header.event_name is the Apple audit event and header.event_id is its number. subject.process_name, subject.user_name and subject.effective_user_name are the process and the user. return.description is success or the error. path and arguments are what the call touched when the event has them. host_info.host_name and host_info.serial_number are the Mac. identity is the code signature when the event carries one.
+  - title: This sample
+    body: The event is AUE_ACCEPT, event id 33, which is a process accepting a socket. The process is openvpn-service, the user is root, and return.description is success. _event_score is 0. The address on the event is a documentation address.
+  - title: Volume
+    body: Socket accepts, reads and closes dominate a Mac audit stream once the audit level includes network activity. Score 0 is how this agent marks a call it does not consider notable. Authentication, process execution and admin changes carry a higher score or a different event name.
+  - title: How the events leave
+    body: The agent writes JSON on the Mac. Any collector that can read that file, or the syslog or socket the agent was pointed at, can take it.
 traffic:
   handles:
-    - json
+    - Apple audit events on the Mac
+    - Process, user and outcome of each call
+    - The agent score for how notable the event is
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads jamf_compliance_reporter and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A process acts
+      desc: A Mac process makes an audited call, such as accepting a socket, executing a binary, or changing a user.
+    - step: The agent writes JSON
+      desc: Compliance Reporter emits one object with the event name, the process, the user, the outcome and a score.
+    - step: Collector reads it
+      desc: A collector takes the JSON and can forward it anywhere.
 logs:
-  - type: Log
+  - type: Mac audit event
     sourcetype: jamf_compliance_reporter
     format: json
-    desc: 19 fixture events in the samples pool (elastic).
+    desc: One Apple audit record. header.event_name is the call. subject.process_name and subject.user_name are the process and the user. return.description is the outcome. _event_score is the agent's weight. This sample is a successful AUE_ACCEPT by openvpn-service as root, with score 0. The address is a documentation address.
     sample: '{"_event_score":0,"arguments":{"fd":4},"header":{"event_id":33,"event_modifier":0,"event_name":"AUE_ACCEPT","time_milliseconds_offset":281,"time_seconds_epoch":1570154219,"version":11},"host_info":{"host_name":"Dan_macbook_pro","host_uuid":"3F6E4B3A-9285-4E7E-9A0C-C3B62DC379DF","osversion":"Version 10.14.6 (Build 18G95)","primary_mac_address":"2001:db8::1","serial_number":"C03XY889JHG3"},"identity":{"cd_hash":"aa2338385e41d09a5322d1799bdef5e3b03212d1","signer_id":"openvpn-service-555549449a5cfba3ead13fd7af705ce30a37191e","signer_id_truncated":0,"signer_type":0,"team_id":"","team_id_truncated":0},"path":["//"],"return":{"description":"success","error":0,"return_value":7},"socket_unix":{"family":1,"path":""},"subject":{"audit_id":4294967295,"audit_user_name":"-1","effective_group_id":0,"effective_group_name":"wheel","effective_user_id":0,"effective_user_name":"root","group_id":0,"group_name":"wheel","process_hash":"75D2B3D5B799ACA091CF49CFD15925E35BD0DA7C","process_id":79,"process_name":"/Library/Frameworks/OpenVPN.framework/Versions/Current/bin/openvpn-service","session_id":100000,"terminal_id":{"addr":[0],"ip_address":"198.51.100.15","port":0,"type":0},"user_id":0,"user_name":"root"}}'
     key:
       - _event_score
@@ -54,18 +65,15 @@ logs:
       - header.event_id
       - header.event_modifier
 cves: []
-detections:
-  - title: Jamf Compliance Reporter events arriving
-    severity: low
-    signals:
-      - _event_score
-      - arguments.fd
-      - header.event_id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "jamf_compliance_reporter"'
-optimizations: []
+detections: []
+optimizations:
+  - title: Drop unscored audit calls
+    saving: most of the audit volume
+    fn: Drop
+    how: Score 0 is a socket accept, a read or a similar call the agent did not mark as notable. Keep events with a non-zero score. Those are the authentication, execution and admin changes. Unscored calls are context. Keep them in cheaper storage if you still want the trail.
+    expr: _event_score == 0
 references:
-  - title: elastic/integrations jamf_compliance_reporter/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/jamf_compliance_reporter/data_stream/log/_dev/test/pipeline/test-pipeline-audit.log
-  - title: Pack Generator sample jamf_compliance_reporter.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/jamf_compliance_reporter.json
+  - title: Compliance Reporter audit log levels
+    url: https://docs.jamf.com/compliance-reporter/documentation/Audit_Log_Levels_in_Compliance_Reporter.html
+  - title: Migrating from Compliance Reporter to Jamf Protect
+    url: https://learn.jamf.com/r/en-US/jamf-protect-offline-deployment/migration_compliance_reporter

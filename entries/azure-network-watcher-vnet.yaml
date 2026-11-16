@@ -1,52 +1,65 @@
 id: azure-network-watcher-vnet
-name: Azure Network Watcher Vnet
-short: Vnet
-vendor: Azure
+name: Azure Network Watcher virtual network flow logs
+short: VNet Flow Logs
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_network_watcher_vnet
-  - Elastic integrations
+  - VNet flow logs
+  - Virtual network flow logs
 tags:
-  - elastic
+  - azure
+  - flow-logs
+  - network
   - json
-summary: Azure Network Watcher Vnet is logged by the Elastic integrations package azure_network_watcher_vnet. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Virtual network flow logs are an Azure Network Watcher feature that records the IP traffic through an Azure virtual network, subnet or network interface. They succeed NSG flow logs and capture flows whether a network security group, an Azure Virtual Network Manager admin rule or nothing at all decided them, and they mark whether the traffic was encrypted. The logs show which workloads talked to which addresses, on which ports, how much data moved and which rule allowed or blocked it.
 sourcetypes:
   - st: azure_network_watcher_vnet
-    desc: 'Elastic integrations fixture, 1 events. Upstream: azure_network_watcher_vnet/data_stream/log/_dev/test/pipeline/test-vnet.log'
+    desc: Virtual network flow log records (FlowLogFlowEvent), grouped by access control list and rule, each holding flow tuples with addresses, ports, protocol, direction, flow state, encryption state and byte counts
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_network_watcher_vnet
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: time, flowLogVersion, flowLogGUID, macAddress, category, flowLogResourceID
+  Product: Flow logging for Azure virtual networks, subnets and network interfaces, part of Azure Network Watcher
+  Scope: Enabled on a virtual network, subnet or NIC (targetResourceID). flowLogResourceID names the flow log resource in Network Watcher
+  Log transport: Written as JSON blobs to an Azure storage account (insights-logs-flowlogflowevent container), from where a collector reads them. Traffic Analytics can also process them
+  Log format: JSON. One record per interval with flowRecords.flows grouped by aclID, then by rule, then comma-separated flowTuples
+  Flow tuple: Time in milliseconds, source IP, destination IP, source port, destination port, protocol number, direction (I or O), flow state (B begin, C continuing, E end, D denied), encryption (X encrypted, NX not encrypted and similar codes), then packets and bytes in each direction
+  What a record answers: Which flows crossed the virtual network, under which rule, whether they were denied or encrypted, and how much data each one carried
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Virtual network
+      desc: The flow log is attached to an Azure virtual network, a subnet or a network interface. Network Watcher in the same region observes the traffic of every workload in that scope and writes the records to a storage account.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure Network Watcher Vnet events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, flowLogVersion, flowLogGUID, macAddress, category, flowLogResourceID. Values in the sample were rewritten to documentation addresses.
+  - title: Scope and rules
+    body: A virtual network flow log covers the target resource named in targetResourceID. Flows are grouped by the access control list that evaluated them (aclID) and the rule that matched, such as DefaultRule_AllowInternetOutBound. Traffic that no security rule touched is still logged.
+  - title: Flow tuples
+    body: Each flowTuples string is one flow observation. The state shows its life cycle, B when it begins, C while it continues, E when it ends and D when it is denied. The encryption field shows whether the flow ran over Azure virtual network encryption. Continuing and end tuples carry packet and byte counts.
+  - title: How the logs leave Azure
+    body: Network Watcher writes the records as JSON blobs to a storage account, one blob per hour, appended every few minutes. A collector reads the blobs, usually prompted by blob-created notifications through an event hub or queue. The destination is a choice of the pipeline, not a property of the virtual network.
 traffic:
   handles:
-    - json
+    - Inbound and outbound IP flows in an Azure virtual network
+    - TCP, UDP and other IP protocols
+    - Allow and deny decisions of NSG and admin rules
+    - Virtual network encryption state
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_network_watcher_vnet and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Workload sends traffic
+      desc: A VM, container or other resource in the virtual network opens or receives a connection.
+    - step: Flow is observed
+      desc: The Azure host records the flow with the rule that applied, its state, its encryption and its counters.
+    - step: Network Watcher writes it
+      desc: The flow is added as a tuple under its ACL and rule and appended to the hourly blob in the storage account.
+    - step: Collector reads the blob
+      desc: A collector picks up the new blob content and splits it into JSON records.
 logs:
-  - type: Log
+  - type: Virtual network flow record
     sourcetype: azure_network_watcher_vnet
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One record per interval for one flow log. targetResourceID is the monitored virtual network, flowLogVersion is the schema version and flowRecords.flows holds the tuples. This sample has two outbound TCP 443 flows under DefaultRule_AllowInternetOutBound, one beginning and one ending, neither encrypted (NX). The end tuple carries packet and byte counts. The sample uses documentation addresses.
     sample: '{"time":"2022-09-14T09:00:52.5625085Z","flowLogVersion":4,"flowLogGUID":"abcdef01-2345-6789-0abc-def012345678","macAddress":"0022487bC205","category":"FlowLogFlowEvent","flowLogResourceID":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/NETWORKWATCHERRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKWATCHERS/NETWORKWATCHER_EASTUS2EUAP/FL...","targetResourceID":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Network/virtualNetworks/myVNet","operationName":"FlowLogFlowEvent","flowRecords":{"flows":[{"aclID":"00000000-1234-abcd-ef00-c1c2c3c4c5c6","flowGroups":[{"rule":"DefaultRule_AllowInternetOutBound","flowTuples":["1663146003599,192.0.2.20,198.51.100.15,23956,443,6,O,B,NX,0,0,0,0","1663146003606,198.51.100.25,203.0.113.8,36776,443,6,O,E,NX,22,2217,33,0"]}]}]}}'
     key:
       - time
@@ -54,18 +67,12 @@ logs:
       - flowLogGUID
       - macAddress
 cves: []
-detections:
-  - title: Azure Network Watcher Vnet events arriving
-    severity: low
-    signals:
-      - time
-      - flowLogVersion
-      - flowLogGUID
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_network_watcher_vnet"'
-optimizations: []
+detections: []
+optimizations:
+  - title: Summarise allowed flows, keep denies in full
+    saving: most of the flow log volume
+    fn: Aggregations
+    how: Begin and continuing tuples for allowed traffic make up most records. Split the tuples into one event per flow, keep denied (D) flows and end tuples in full, and aggregate the rest to counts per source, destination and port before the SIEM.
 references:
-  - title: elastic/integrations azure_network_watcher_vnet/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_network_watcher_vnet/data_stream/log/_dev/test/pipeline/test-vnet.log
-  - title: Pack Generator sample azure_network_watcher_vnet.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_network_watcher_vnet.json
+  - title: Virtual network flow logs
+    url: https://learn.microsoft.com/en-us/azure/network-watcher/vnet-flow-logs-overview

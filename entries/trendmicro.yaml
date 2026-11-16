@@ -1,67 +1,75 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: trendmicro
-name: Trendmicro
-short: Trendmicro
-vendor: Trendmicro
+name: Trend Micro Deep Security
+short: Deep Security
+vendor: Trend Micro
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - trendmicro
-  - Elastic integrations
+  - Deep Security
+  - Trend Cloud One Workload Security
 tags:
-  - elastic
+  - endpoint
+  - ips
+  - antimalware
   - text
-summary: Trendmicro is logged by the Elastic integrations package trendmicro. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Trend Micro Deep Security protects servers and workloads. An agent on the host does anti-malware, intrusion prevention, firewall, integrity monitoring and log inspection, and it reports to a manager. The manager records system events for those modules. This stream is one of those events, kept as a single text message. Any collector that receives the manager's forwarded log can store it.
 sourcetypes:
   - st: trendmicro_deep_security
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trendmicro/data_stream/deep_security/_dev/test/pipeline/test-trendmicro.json'
+    desc: One Deep Security system event, kept as a single text message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: trendmicro
-  Sourcetypes: '1'
-  Fixture events: '5'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Host protection for servers and cloud workloads. Agents report to a Deep Security Manager or to Trend Cloud One Workload Security
+  Where the agent sits: On servers and workload instances. The manager is on the internal network or in Trend's cloud
+  Log transport: The manager can forward system events as syslog. A collector receives that forward
+  Log format: One text line per event in this stream. The line is the message field and is not split further here
+  What a system event answers: What the agent or the manager recorded, once the line is read. This sample's text does not name a module or an action
 placement:
   slots:
+    - endpoint
+    - internal
     - cloud
   items:
+    - slot: endpoint
+      title: Deep Security agent
+      desc: The agent on the server inspects files, traffic and changes, and sends results to the manager. The host is where the activity happened.
+    - slot: internal
+      title: Deep Security Manager
+      desc: An on-premises manager stores system events and can forward them. The event in this stream is the manager's record, not a packet capture.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Workload Security
+      desc: The same agent can report to Trend Cloud One Workload Security instead of an on-premises manager. The event shape the collector receives is still one text line in this stream.
 howItWorks:
-  - title: What the fixture shows
-    body: Trendmicro events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Agents and system events
+    body: Deep Security separates protection modules (anti-malware, web reputation, firewall, intrusion prevention, integrity monitoring, log inspection, application control) from the system events that record what those modules and the manager did. A system event is one of those records. The manager is the place that can forward them.
+  - title: What this stream stores
+    body: This stream does not parse the event into fields. message is the whole line. The sample value is the text "Description Omitted", so this particular line does not show a malware name, a rule or a disposition. Searches that need a module or an action have to match text inside message, and only when the forwarded line actually contains that text.
+  - title: How the line is collected
+    body: The manager forwards events to a syslog receiver the operator chooses. Any collector can be that receiver. Goatpedia reads these samples as text.
 traffic:
   handles:
-    - text
+    - System events from the Deep Security agent and manager
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads trendmicro and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Agent reports to the manager
+      desc: The agent sends module activity and status to the Deep Security Manager or to Workload Security.
+    - step: Manager records a system event
+      desc: The manager stores one system event and, when forwarding is on, sends it as a log line.
+    - step: Collector receives the line
+      desc: The line arrives as text and is stored in message.
 logs:
-  - type: Deep Security
+  - type: System event
     sourcetype: trendmicro_deep_security
     format: text
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One system-event line in message. This sample's text is "Description Omitted", so the line does not name an action, a host or a rule. There is no documentation address in the sample.
     sample: Description Omitted
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Trendmicro events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "trendmicro_deep_security"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations trendmicro/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trendmicro/data_stream/deep_security/_dev/test/pipeline/test-trendmicro.json
-  - title: Pack Generator sample trendmicro_deep_security.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trendmicro_deep_security.json
+  - title: Deep Security help
+    url: https://help.deepsecurity.trendmicro.com/

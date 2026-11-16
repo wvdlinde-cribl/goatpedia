@@ -1,52 +1,67 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: spring-boot
-name: Spring Boot
+name: Spring Boot Actuator
 short: Spring Boot
-vendor: Spring
+vendor: Broadcom (VMware Tanzu)
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - spring_boot
-  - Elastic integrations
+  - Spring Boot
+  - Spring Boot Actuator
+  - httptrace endpoint
+  - httpexchanges endpoint
 tags:
-  - elastic
-  - json
-summary: Spring Boot is logged by the Elastic integrations package spring_boot. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - java
+  - application-framework
+  - http
+  - observability
+summary: Spring Boot is a Java framework for building stand-alone web applications and services, and Actuator is its set of built-in management endpoints. The HTTP trace endpoint (httptrace, renamed httpexchanges in Spring Boot 3) keeps the most recent HTTP request-response exchanges the application served. Each record says who called which URL with which method, what status came back, and how long it took — a small access log taken from inside the application.
 sourcetypes:
   - st: spring_boot_http_trace
-    desc: 'Elastic integrations fixture, 1 events. Upstream: spring_boot/data_stream/http_trace/_dev/test/pipeline/test-httptrace-metrics.log'
+    desc: Recent HTTP exchanges from the Actuator HTTP trace endpoint, one per request with method, URI, headers, remote address, principal, session, status and time taken
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: spring_boot
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: timestamp, principal, session, request.method, request.uri, request.headers.host[0]
+  Product: Java application framework with built-in management endpoints (Actuator)
+  Form factor: Embedded web server (Tomcat, Jetty or Undertow) inside each Spring Boot application, on a VM, container or platform
+  Endpoint: /actuator/httptrace in Spring Boot 2, /actuator/httpexchanges in Spring Boot 3. Off by default. Needs an HttpTraceRepository or HttpExchangeRepository bean
+  Log transport: HTTPS or HTTP JSON, pulled from the Actuator endpoint by a collector
+  Log format: A JSON list of exchanges. Each exchange is one JSON object
+  What an exchange answers: Who (remoteAddress, principal) requested which URI with which method, what status the application returned, and how long it took
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Spring Boot application
+      desc: The application runs on an application server, VM or container platform. Actuator endpoints are served on the application port or a separate management port, which should only be reachable from management networks.
 howItWorks:
-  - title: What the fixture shows
-    body: Spring Boot events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, principal, session, request.method, request.uri, request.headers.host[0]. Values in the sample were rewritten to documentation addresses.
+  - title: Actuator endpoints
+    body: Actuator adds endpoints such as health, metrics, env, loggers and the HTTP trace endpoint. Each one can be enabled and exposed over HTTP or JMX. Exposed endpoints are reached under /actuator.
+  - title: The HTTP trace buffer
+    body: When an exchange repository bean is present, the application records each request and response in an in-memory buffer, 100 entries by default. A record holds the timestamp, principal, session, request method, URI, headers and remote address, and the response status and headers, plus the time taken.
+  - title: How the data leaves the application
+    body: The buffer is not written to a file. A collector calls the endpoint over HTTP on a schedule and reads the current list. Because the buffer is small, exchanges can be missed between polls on a busy application.
 traffic:
   handles:
-    - json
+    - HTTP requests to the application
+    - Actuator management endpoint calls
+    - Session and principal on each request
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads spring_boot and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client calls the application
+      desc: A browser, service or monitoring agent sends an HTTP request to the Spring Boot application.
+    - step: Exchange is buffered
+      desc: The application stores the request and response details in its in-memory exchange repository.
+    - step: Collector polls
+      desc: A collector calls /actuator/httptrace or /actuator/httpexchanges and receives the recent exchanges.
+    - step: Events are JSON
+      desc: Each exchange is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: HTTP Trace
+  - type: HTTP exchanges
     sourcetype: spring_boot_http_trace
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One request and its response. request.method, request.uri and request.remoteAddress say what was asked and from where, principal and session say who, and response.status is the answer. This sample is an anonymous GET to an Actuator Jolokia URL that returned 200. Addresses use documentation ranges.
     sample: '{"timestamp":"2022-03-04T16:05:16.022Z","principal":"anonymousUser","session":"E175F2BFB6A22C9A60A116BE63D9F0C3","request":{"method":"GET","uri":"http://192.0.2.20:8090/actuator/jolokia/read/java.lang:name=PS%20Old%20Gen,type=MemoryPool/Usage,UsageThresholdCount,UsageThresholdSupported,UsageThreshold,U...","headers":{"host":["198.51.100.15:8090"],"accept-encoding":["gzip"],"user-agent":["Elastic-Metricbeat/8.0.0 (linux; amd64; 2ab3a7334016f570e0bfc7e9a577a35a22e02df5; 2022-02-03 18:14:06 +0000 UTC)"]},"remoteAddress":"198.51.100.25"},"response":{"status":200,"headers":{"Transfer-Encoding":["chunked"],"X-Frame-Options":["DENY"],"Cache-Control":["no-cache"],"X-Content-Type-Options":["nosniff"],"Set-Cookie":["JSESSIONID=290A264B870BB15FF8DDB6B91D098A8D; Path=/; HttpOnly"],"Expires":["Fri, 04 Mar 2022 15:05:16 GMT"],"Pragma":["no-cache"],"X-XSS-Protection":["1; mode=block"],"Date":["Fri, 04 Mar 2022 16:05:16 GMT"],"Content-Type":["text/plain;charset=utf-8"]}},"timeTaken":1}'
     key:
       - timestamp
@@ -55,17 +70,23 @@ logs:
       - request.method
 cves: []
 detections:
-  - title: Spring Boot events arriving
-    severity: low
+  - title: Anonymous call to an Actuator endpoint
+    severity: medium
     signals:
-      - timestamp
+      - request.uri
       - principal
-      - session
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "spring_boot_http_trace"'
+      - request.remoteAddress
+      - response.status
+    why: Actuator endpoints such as env, heapdump and jolokia expose configuration, memory and management operations. A successful call to /actuator/ by anonymousUser means those endpoints are reachable without authentication.
+    kql: |
+      dataset="spring-boot_logs"
+      | where sourcetype == "spring_boot_http_trace" and request.uri contains "/actuator/" and principal == "anonymousUser" and response.status < 400
+      | project timestamp, request.method, request.uri, request.remoteAddress, response.status
+    mitre:
+      - T1190
 optimizations: []
 references:
-  - title: elastic/integrations spring_boot/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/spring_boot/data_stream/http_trace/_dev/test/pipeline/test-httptrace-metrics.log
-  - title: Pack Generator sample spring_boot_http_trace.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/spring_boot_http_trace.json
+  - title: Spring Boot Actuator endpoints
+    url: https://docs.spring.io/spring-boot/reference/actuator/endpoints.html
+  - title: Spring Boot project
+    url: https://spring.io/projects/spring-boot

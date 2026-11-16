@@ -1,52 +1,63 @@
 id: beyondtrust-isi
-name: Beyondtrust Isi
-short: Isi
-vendor: Beyondtrust
+name: BeyondTrust Identity Security Insights
+short: BT ISI
+vendor: BeyondTrust
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - beyondtrust_isi
-  - Elastic integrations
+  - Identity Security Insights
+  - BeyondTrust ITDR
 tags:
-  - elastic
+  - identity
+  - itdr
+  - posture
   - json
-summary: Beyondtrust Isi is logged by the Elastic integrations package beyondtrust_isi. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: BeyondTrust Identity Security Insights is a cloud service for identity threat detection and response. It connects to identity providers, directories and cloud platforms such as Okta, Microsoft Entra ID and AWS, builds a picture of every account and its privileges, and raises incidents for risky configurations and suspicious identity activity. Its incident stream tells you which account, on which identity source, matched which detection or recommendation, and how severe it is.
 sourcetypes:
   - st: beyondtrust_isi_incident
-    desc: 'Elastic integrations fixture, 4 events. Upstream: beyondtrust_isi/data_stream/incident/_dev/test/pipeline/test-incident.log'
+    desc: Identity Security Insights incidents, one record per detection or recommendation raised against an identity entity, with severity, definition, entity and the identity source it was found on
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: beyondtrust_isi
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: entityType, source, link, severity, definitionSummary, timestamp
+  Product: Identity threat detection and response and identity posture service, hosted by BeyondTrust
+  Data sources: Connectors to identity providers, directories, cloud platforms and BeyondTrust products (for example Okta, Microsoft Entra ID, Active Directory, AWS, Password Safe)
+  Log transport: Incidents are read from the Identity Security Insights API by any collector with API credentials for the tenant
+  Log format: One JSON object per incident with incidentId, incidentType, severity, definitionSummary, entityType, entityName, source, location and a link back to the console
+  What an incident answers: Which account or entity is at risk, on which identity source, why (the detection or recommendation definition), and how severe it is
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Identity Security Insights tenant
+      desc: The service runs in BeyondTrust's cloud and reads configuration and activity from the connected identity providers and cloud platforms. Incidents are raised and stored in the tenant, and the link field points back to it.
 howItWorks:
-  - title: What the fixture shows
-    body: Beyondtrust Isi events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries entityType, source, link, severity, definitionSummary, timestamp. Values in the sample were rewritten to documentation addresses.
+  - title: Connectors and the identity graph
+    body: Each connector reads accounts, groups, roles, authentication settings and activity from one identity source. Insights correlates them so that a person's accounts across sources and their effective privileges are visible together.
+  - title: Detections and recommendations
+    body: Definitions describe risky states or behaviour, such as an account tied to a personal email address, an admin without MFA, or a dormant privileged account. When an entity matches, an incident is opened. incidentType says whether it is a Detection of something happening or a Recommendation to fix posture, and severity rates it.
+  - title: How the incidents leave the product
+    body: Incidents stay in the tenant until a collector reads them through the Insights API with the tenant's credentials. Each incident comes back as a JSON object. The destination is a choice of the pipeline, not a property of the service.
 traffic:
   handles:
-    - json
+    - Identity configuration and privilege changes
+    - Identity provider activity (sign-ins, MFA, role grants)
+    - Identity risk detections and recommendations
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads beyondtrust_isi and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Connectors collect
+      desc: Connectors read accounts, privileges and activity from the identity providers and cloud platforms.
+    - step: Definitions evaluate
+      desc: Insights checks entities against detection and recommendation definitions.
+    - step: Incident is raised
+      desc: A match becomes an incident with severity, definition, entity and source.
+    - step: Collector polls
+      desc: A collector reads new incidents from the API and forwards each JSON object.
 logs:
-  - type: Incident
+  - type: Identity incident
     sourcetype: beyondtrust_isi_incident
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One record per incident. definitionSummary says what was found, incidentType whether it is a detection or a recommendation, severity how serious, entityType and entityName which identity, and source and location which identity provider. This sample is a Medium detection for an account associated with a personal email address, found on two Okta instances. Values are test placeholders and documentation addresses.
     sample: '{"entityType":"TEST Account","source":"https://test-fake.okta.com,https://another-test-fake.okta.com","link":"https://app.beyondtrust.io/insights/TEST_f34a35b0-b34a-43ca-ac31-1a2ee7db38c3/detections/details/TEST_06c0e85f-390b-4967-9e23-b0b1630b9f6b/instance/TEST_70ca...","severity":"Medium","definitionSummary":"TEST Account Associated With Personal Email Address","timestamp":"04/20/2026 07:14:08","incidentType":"Detection","incidentId":"TEST_70ca6c38-0175-435d-814a-a9121079c5e3","definitionId":"TEST_06c0e85f-390b-4967-9e23-b0b1630b9f6b","entityName":"TEST user@example.com,TEST user@example.com","location":"okta_instance/https://test-fake.okta.com,okta_instance/https://another-test-fake.okta.com","tenantId":"TEST_f34a35b0-b34a-43ca-ac31-1a2ee7db38c3"}'
     key:
       - entityType
@@ -55,17 +66,20 @@ logs:
       - severity
 cves: []
 detections:
-  - title: Beyondtrust Isi events arriving
-    severity: low
+  - title: High-severity identity detection
+    severity: high
     signals:
-      - entityType
+      - severity
+      - incidentType
+      - definitionSummary
+      - entityName
       - source
-      - link
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "beyondtrust_isi_incident"'
+    why: A High or Critical detection is Insights reporting identity activity or exposure that points to account takeover or privilege abuse. These incidents should reach an analyst, together with the entity and the identity source.
+    kql: |
+      dataset="beyondtrust-isi_logs"
+      | where sourcetype == "beyondtrust_isi_incident" and incidentType == "Detection" and severity in ("High", "Critical")
+      | project timestamp, severity, definitionSummary, entityType, entityName, source, link
+    mitre:
+      - T1078
 optimizations: []
-references:
-  - title: elastic/integrations beyondtrust_isi/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beyondtrust_isi/data_stream/incident/_dev/test/pipeline/test-incident.log
-  - title: Pack Generator sample beyondtrust_isi_incident.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_isi_incident.json
+references: []

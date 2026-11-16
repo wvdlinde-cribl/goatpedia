@@ -1,52 +1,62 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: microsoft-defender-cloud
-name: Microsoft Defender Cloud
-short: Cloud
+name: Microsoft Defender for Cloud
+short: Defender Cloud
 vendor: Microsoft
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - microsoft_defender_cloud
-  - Elastic integrations
+  - Azure Security Center
+  - Azure Defender
+  - MDC
 tags:
-  - elastic
+  - cspm
+  - cwpp
+  - azure
+  - compliance
   - json
-summary: Microsoft Defender Cloud is logged by the Elastic integrations package microsoft_defender_cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's cloud security posture and workload protection service. It assesses Azure, AWS and GCP resources against security recommendations and regulatory standards, and raises alerts from its workload protection plans. It runs in Azure and is read per subscription. Exported records show security alerts, recommendations and regulatory compliance assessments, with the resource and state.
 sourcetypes:
   - st: microsoft_defender_cloud
-    desc: 'Elastic integrations fixture, 4 events. Upstream: microsoft_defender_cloud/data_stream/event/_dev/test/pipeline/test-alert.log'
+    desc: Defender for Cloud records exported through continuous export, such as regulatory compliance assessments with their state and resource counts
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: microsoft_defender_cloud
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: securityEventDataEnrichment.action, securityEventDataEnrichment.apiVersion, securityEventDataEnrichment.isSnapshot, securityEventDataEnrichment.interval, id, name
+  Product: Cloud security posture management and cloud workload protection for Azure, AWS and GCP
+  Scope: Azure subscriptions and connected AWS accounts and GCP projects
+  Log transport: Continuous export to an Event Hub or a Log Analytics workspace, read by a collector
+  Log format: One JSON object per exported record, as the Azure resource (id, name, type, properties) plus securityEventDataEnrichment
+  What a compliance assessment answers: Which control of which standard passed, failed or was skipped, and on how many resources
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Defender for Cloud in Azure
+      desc: The service runs in Azure and assesses subscriptions and connected clouds. Continuous export pushes alerts, recommendations and compliance records to an Event Hub, where any collector reads them.
 howItWorks:
-  - title: What the fixture shows
-    body: Microsoft Defender Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries securityEventDataEnrichment.action, securityEventDataEnrichment.apiVersion, securityEventDataEnrichment.isSnapshot, securityEventDataEnrichment.interval, id, name. Values in the sample were rewritten to documentation addresses.
+  - title: Posture and compliance
+    body: Defender for Cloud checks resources against recommendations and maps them to regulatory standards such as the Microsoft cloud security benchmark. Each control assessment has a state (Passed, Failed, Skipped) and counts of passed, failed and skipped resources.
+  - title: Continuous export
+    body: Continuous export sends alerts, recommendations, secure score and regulatory compliance data as they change, or as periodic snapshots. securityEventDataEnrichment.isSnapshot tells the two apart, and action says whether the record was written or deleted.
 traffic:
   handles:
-    - json
+    - Security recommendations
+    - Regulatory compliance assessments
+    - Workload protection alerts
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads microsoft_defender_cloud and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Defender assesses
+      desc: The service evaluates resources against recommendations and standards.
+    - step: Record changes
+      desc: A new or changed assessment, recommendation or alert becomes an export record.
+    - step: Exported as JSON
+      desc: Continuous export sends it to an Event Hub. A collector reads it. Goatpedia reads the sample as JSON.
 logs:
-  - type: Event
+  - type: Continuous export records
     sourcetype: microsoft_defender_cloud
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per exported record. type names the record kind, properties.state the result and properties.description the control. securityEventDataEnrichment says whether it is a change or a snapshot. This sample is a regulatory compliance assessment for installing the Log Analytics agent on scale sets, skipped on one resource.
     sample: '{"securityEventDataEnrichment":{"action":"Write","apiVersion":"2019-01-01-preview","isSnapshot":false,"interval":"00:00:00"},"id":"/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/Microsoft.Security/regulatoryComplianceStandards/Microsoft-cloud-security-benchmark/regulatoryC...","name":"45cfe080-ceb1-a91e-9743-71551ed24e94","type":"Microsoft.Security/regulatoryComplianceStandards/regulatoryComplianceControls/regulatoryComplianceAssessments","properties":{"description":"Log Analytics agent should be installed on virtual machine scale sets","state":"Skipped","passedResources":0,"failedResources":0,"skippedResources":1,"assessmentType":"AssessmentResult","assessmentDetailsLink":"https://portal.azure.com/#blade/Microsoft_Azure_Security/RecommendationsBlade/assessmentKey/45cfe080-ceb1-a91e-9743-71551ed24e94/initiativeId/Microsoft-cloud..."}}'
     key:
       - securityEventDataEnrichment.action
@@ -55,17 +65,25 @@ logs:
       - securityEventDataEnrichment.interval
 cves: []
 detections:
-  - title: Microsoft Defender Cloud events arriving
+  - title: Compliance control failing
     severity: low
     signals:
-      - securityEventDataEnrichment.action
-      - securityEventDataEnrichment.apiVersion
-      - securityEventDataEnrichment.isSnapshot
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "microsoft_defender_cloud"'
-optimizations: []
+      - properties.state
+      - properties.description
+      - properties.failedResources
+    why: A Failed assessment is a control from a standard that resources do not meet. A control that flips from Passed to Failed is a posture regression worth fixing.
+    kql: |
+      dataset="microsoft-defender-cloud_logs"
+      | where sourcetype == "microsoft_defender_cloud" and properties.state == "Failed"
+      | project name, type, properties.description, properties.failedResources, properties.passedResources
+optimizations:
+  - title: Drop passed and skipped snapshots
+    saving: most compliance export volume
+    fn: Drop
+    how: Periodic snapshots repeat every Passed and Skipped control. Keep Failed assessments, recommendations and alerts in the SIEM.
+    expr: properties.state == 'Passed' || properties.state == 'Skipped'
 references:
-  - title: elastic/integrations microsoft_defender_cloud/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_defender_cloud/data_stream/event/_dev/test/pipeline/test-alert.log
-  - title: Pack Generator sample microsoft_defender_cloud.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_defender_cloud.json
+  - title: Microsoft Defender for Cloud overview
+    url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-cloud-introduction
+  - title: Continuous export of Defender for Cloud data
+    url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/continuous-export

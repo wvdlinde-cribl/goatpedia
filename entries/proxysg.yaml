@@ -1,67 +1,82 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: proxysg
-name: Proxysg
-short: Proxysg
-vendor: Proxysg
+name: Symantec Edge Secure Web Gateway (ProxySG)
+short: ProxySG
+vendor: Broadcom
 category: swg
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - proxysg
-  - Elastic integrations
+  - Blue Coat ProxySG
+  - Symantec ProxySG
+  - Edge SWG
+  - Symantec Edge SWG
 tags:
-  - elastic
+  - proxy
+  - swg
+  - web-filtering
+  - access-log
   - text
-summary: Proxysg is logged by the Elastic integrations package proxysg. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A secure web gateway proxy, formerly Blue Coat ProxySG, now Symantec Edge SWG from Broadcom. Users' web traffic is sent through it explicitly or transparently, and it applies authentication, URL category policy, SSL interception and malware scanning. Its access log has one line per request with client, user, URL, category, action and bytes.
 sourcetypes:
   - st: proxysg
-    desc: 'Elastic integrations fixture, 20 events. Upstream: proxysg/data_stream/log/_dev/test/pipeline/test-proxy-main.log'
+    desc: Proxy access log lines, one per web request, with client, user, method, URL, status, cache result, categories and action
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: proxysg
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Forward web proxy and secure web gateway
+  Form factor: Appliances, virtual appliances or ISG/SSP platforms in the network
+  Log transport: Access log uploaded by FTP, HTTP or SCP, or streamed as syslog, to a log receiver
+  Log format: Space-separated access log in the main or bcreportermain format, with quoted fields where values contain spaces
+  What an access line answers: Which client and user requested which URL, which category it fell in, whether it was allowed, and how many bytes moved
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Web gateway
+      desc: The proxy sits between internal users and the internet, at the perimeter or in a regional hub. All proxied web requests pass through it and are logged there.
+    - slot: internal
+      title: Users and browsers
+      desc: Clients send requests to the proxy, configured explicitly or redirected transparently. The client IP and authenticated user appear in each line.
 howItWorks:
-  - title: What the fixture shows
-    body: Proxysg events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Proxying
+    body: The gateway terminates the client connection, applies policy and fetches the content from the server or its cache. The cache result (for example TCP_NC_MISS) shows how it was served.
+  - title: Policy
+    body: Each request is authenticated, categorised and checked against policy, which can allow, block, warn or only observe. The action column (OBSERVED in this sample) records the decision.
+  - title: How the log leaves the product
+    body: Access logging writes each request in the configured format. Logs are uploaded in batches or streamed as syslog to a receiver.
 traffic:
   handles:
-    - text
+    - HTTP and HTTPS web requests
+    - User authentication
+    - URL categorisation
+    - Malware scanning of downloads
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads proxysg and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client requests
+      desc: A browser sends a web request to the proxy.
+    - step: Policy decides
+      desc: The proxy authenticates the user, categorises the URL and applies policy.
+    - step: Content served
+      desc: The proxy fetches or serves the content, or blocks it.
+    - step: Access line
+      desc: One line is written to the access log and sent to the receiver.
 logs:
-  - type: Log
+  - type: Proxy access
     sourcetype: proxysg
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: 'One line per request in bcreportermain style: date, time, time taken, client IP, status, cache result, bytes, method, scheme, host, port, path, query, user, referrer, user agent, action and category. This sample is an observed ad-tracking request by an authenticated user. The sample uses documentation addresses.'
     sample: 2024-03-22 16:16:01 48 198.51.100.15 302 TCP_NC_MISS 1242 969 GET https pixel.tapad.com 443 /idsync/ex/push ?partner_id=2499&partner_device_id=aeb66687-eabe-442e-b11e-79494b740d0d-640ba437-5553&partner_url=https%3A%2F%2Fa.vidoomy.com%2Fapi%2Frtbserver%2Fpbscookie%3Fuid%3Daeb66687-eabe-442e-b11e-79494b740d0d-640ba437-5553%26vid%3D280fa751e99651c4193ef92f6dab0f92%26dspid%3DCEN aeinstein - pixel.tapad.com - https://vid.vidoomy.com/ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36" OBSERVED "FastwebRes_CallCntr;Web Ads/Analytics" - 203.0.113.8
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Proxysg events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "proxysg"'
-optimizations: []
-references:
-  - title: elastic/integrations proxysg/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/proxysg/data_stream/log/_dev/test/pipeline/test-proxy-main.log
-  - title: Pack Generator sample proxysg.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/proxysg.json
+detections: []
+optimizations:
+  - title: Summarise ad and analytics traffic
+    saving: a large share of the proxy volume
+    fn: Aggregation
+    how: Web ads and analytics beacons are a high share of web requests and rarely matter for security. Summarise them per user and host and keep the rest in full.
+    expr: message.includes('Web Ads/Analytics')
+references: []

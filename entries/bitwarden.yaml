@@ -4,57 +4,78 @@ short: Bitwarden
 vendor: Bitwarden
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - bitwarden
-  - Elastic integrations
+  - Bitwarden Password Manager
+  - Bitwarden Teams
+  - Bitwarden Enterprise
 tags:
-  - elastic
+  - password-manager
+  - identity
+  - audit
   - json
-summary: Bitwarden is logged by the Elastic integrations package bitwarden. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Bitwarden is an open-source password manager for individuals and organisations. Members keep logins and other secrets in vault items, share them through collections, and are organised in groups under organisation policies. For Teams and Enterprise organisations the Bitwarden Public API exposes the event log plus the current members, groups, collections and policies, so any collector can see who signed in, who used or exported what, and how access is set up.
 sourcetypes:
   - st: bitwarden
-    desc: 'Elastic integrations fixture, 5 events. Upstream: bitwarden/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Organisation event log, one record per audited action such as a member login, a failed login, a vault item change or a vault export, identified by a numeric event type
   - st: bitwarden_collection
-    desc: 'Elastic integrations fixture, 2 events. Upstream: bitwarden/data_stream/collection/_dev/test/pipeline/test-collection.log'
+    desc: Organisation collections, one record per collection that groups shared vault items, with its external id and the groups that can reach it
   - st: bitwarden_group
-    desc: 'Elastic integrations fixture, 2 events. Upstream: bitwarden/data_stream/group/_dev/test/pipeline/test-group.log'
+    desc: Organisation groups, one record per group with its name, whether it has access to all collections, and the collections it is granted
   - st: bitwarden_member
-    desc: 'Elastic integrations fixture, 2 events. Upstream: bitwarden/data_stream/member/_dev/test/pipeline/test-member.log'
+    desc: Organisation members, one record per user with role type, status, two-step login state, account recovery enrolment and collection access
   - st: bitwarden_policy
-    desc: 'Elastic integrations fixture, 9 events. Upstream: bitwarden/data_stream/policy/_dev/test/pipeline/test-policy.log'
+    desc: Organisation policies, one record per policy type with whether it is enabled and its settings, such as password generator or master password rules
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: bitwarden
-  Sourcetypes: '5'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: object, type, itemId, collectionId, groupId, policyId
+  Product: Open-source password manager with shared organisation vaults
+  Clients: Browser extensions, desktop apps, mobile apps, web vault and CLI
+  Hosting: Bitwarden cloud (US or EU region) or self-hosted
+  Log transport: HTTPS JSON from the Bitwarden Public API, pulled by any collector with an organisation API key (client credentials)
+  Log format: One JSON object per record. Event types are numbers, for example 1000 member logged in, 1005 failed login, 1007 vault exported
+  What an event answers: Who (actingUserId, memberId) did which action (type) on which item, collection, group or policy, from which device and IP
+  What the configuration streams answer: Which members, groups, collections and policies exist now, who is an owner or admin, who has two-step login on, and which policies are enforced
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Bitwarden organisation
+      desc: The organisation, its vault items and its event log live in Bitwarden's cloud or on the organisation's self-hosted server. A collector polls the Public API of that server.
+    - slot: endpoint
+      title: Apps and browser extension
+      desc: Members sign in and use items from apps and extensions on their laptops and phones. Events name the device type and IP address of that client.
 howItWorks:
-  - title: What the fixture shows
-    body: Bitwarden events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries object, type, itemId, collectionId, groupId, policyId. Values in the sample were rewritten to documentation addresses.
+  - title: Organisations, collections and groups
+    body: An organisation holds shared vault items in collections. Members are granted collections directly or through groups, and a group with accessAll reaches every collection. Members have a role type (owner, admin, user, manager or custom) and a status (invited, accepted, confirmed or revoked).
+  - title: The event log
+    body: Bitwarden records organisation events with a numeric type. The 1000 range covers user events such as logins, failed logins, two-step login changes and vault exports. The 1100 range covers vault items, 1300 collections, 1400 groups, 1500 members and 1700 policies. Each event names the acting user, the affected object ids, the device type and the IP address.
+  - title: Policies
+    body: Organisation policies enforce rules such as requiring two-step login, master password complexity or password generator settings. Each policy record carries its type, whether it is enabled and its settings in data.
+  - title: How the records leave the product
+    body: A collector authenticates to the Public API with the organisation's client id and secret and requests /public/events with a date range and continuation token, plus /public/members, /public/groups, /public/collections and /public/policies for the current configuration. Each record is a JSON object. The destination is a choice of the pipeline, not a property of Bitwarden.
 traffic:
   handles:
-    - json
+    - Member sign-in and two-step login
+    - Use and change of shared vault items
+    - Vault exports
+    - Administration of members, groups, collections and policies
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads bitwarden and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Member or admin acts
+      desc: A member signs in or uses an item, or an admin changes members, groups, collections or policies.
+    - step: Organisation records it
+      desc: Bitwarden writes an event with a numeric type, and the configuration objects reflect the change.
+    - step: Collector polls
+      desc: A collector requests new events with its continuation token, and reads the configuration endpoints.
+    - step: Records are JSON
+      desc: Each event and configuration object is one JSON record.
 logs:
-  - type: Event
+  - type: Organisation event
     sourcetype: bitwarden
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One record per audited action. type is the numeric event type, actingUserId who did it, date when, device the client type and ipAddress where from. itemId, collectionId, groupId, policyId and memberId point at the object involved. This sample is type 1000, a member logging in from an Android device. The sample uses documentation addresses.
     sample: '{"object":"event","type":1000,"itemId":"3767a302-8208-4dc6-b842-030428a1cfad","collectionId":"bce212a4-25f3-4888-8a0a-4c5736d851e0","groupId":"f29a2515-91d2-4452-b49b-5e8040e6b0f4","policyId":"f29a2515-91d2-4452-b49b-5e8040e6b0f4","memberId":"e68b8629-85eb-4929-92c0-b84464976ba4","actingUserId":"a2549f79-a71f-4eb9-9234-eb7247333f94","date":"2023-02-15T13:27:48.325Z","device":0,"ipAddress":"192.0.2.20"}'
     key:
       - object
@@ -64,7 +85,7 @@ logs:
   - type: Collection
     sourcetype: bitwarden_collection
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One record per collection. id is the collection, externalId links it to a directory or provisioning system, and groups lists the groups with access (null when none are listed).
     sample: '{"externalId":"external_id_123456","object":"collection","id":"539a36c5-e0d2-4cf9-979e-51ecf5cf6593","groups":null}'
     key:
       - externalId
@@ -74,7 +95,7 @@ logs:
   - type: Group
     sourcetype: bitwarden_group
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One record per group. accessAll true means the group reaches every collection. collections lists explicit grants with readOnly. This sample is a Development Team group with access to all collections.
     sample: '{"name":"Development Team","accessAll":true,"externalId":"external_id_123456","object":"group","id":"539a36c5-e0d2-4cf9-979e-51ecf5cf6593","collections":[{"id":"bfbc8338-e329-4dc0-b0c9-317c2ebf1a09","readOnly":true}]}'
     key:
       - name
@@ -84,7 +105,7 @@ logs:
   - type: Member
     sourcetype: bitwarden_member
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One record per member. type is the role (0 owner, 1 admin, 2 user, 3 manager, 4 custom), status the membership state, twoFactorEnabled whether two-step login is on, and resetPasswordEnrolled whether account recovery is set up. This sample is an owner with two-step login enabled. The sample uses documentation addresses.
     sample: '{"type":0,"accessAll":true,"externalId":"external_id_123456","resetPasswordEnrolled":true,"object":"member","id":"539a36c5-e0d2-4cf9-979e-51ecf5cf6593","userId":"48b47ee1-493e-4c67-aef7-014996c40eca","name":"John Smith","email":"user@example.com","twoFactorEnabled":true,"status":0,"collections":[{"id":"bfbc8338-e329-4dc0-b0c9-317c2ebf1a09","readOnly":true}]}'
     key:
       - type
@@ -94,7 +115,7 @@ logs:
   - type: Policy
     sourcetype: bitwarden_policy
     format: json
-    desc: 9 fixture events in the samples pool (elastic).
+    desc: One record per policy. type is the policy kind, enabled whether it is enforced and data its settings. This sample is the password generator policy (type 2) requiring upper case, lower case, numbers and special characters.
     sample: '{"enabled":true,"data":{"defaultType":"password","minLength":5,"useUpper":true,"useLower":true,"useNumbers":true,"useSpecial":true,"minNumbers":1,"minSpecial":1,"minNumberWords":3,"capitalize":true,"includeNumber":true},"object":"policy","id":"539a36c5-e0d2-4cf9-979e-51ecf5cf6593","type":2}'
     key:
       - enabled
@@ -103,17 +124,36 @@ logs:
       - data.useUpper
 cves: []
 detections:
-  - title: Bitwarden events arriving
-    severity: low
+  - title: Failed member login
+    severity: medium
     signals:
-      - object
       - type
-      - itemId
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "bitwarden"'
+      - actingUserId
+      - ipAddress
+      - device
+    why: Event types 1005 and 1006 are failed logins, by password and by two-step login. Many failures for one member, or failures from unfamiliar addresses, are the brute-force and credential-stuffing view of this source.
+    kql: |
+      dataset="bitwarden_logs"
+      | where sourcetype == "bitwarden" and type in (1005, 1006)
+      | project date, type, actingUserId, ipAddress, device
+    mitre:
+      - T1110
+  - title: Vault exported
+    severity: high
+    signals:
+      - type
+      - actingUserId
+      - ipAddress
+    why: Event type 1007 is a member exporting their vault. An export writes every secret the member can reach to a file, which is the most direct way to take credentials out of the organisation.
+    kql: |
+      dataset="bitwarden_logs"
+      | where sourcetype == "bitwarden" and type == 1007
+      | project date, actingUserId, ipAddress, device
+    mitre:
+      - T1555
 optimizations: []
 references:
-  - title: elastic/integrations bitwarden/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bitwarden/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample bitwarden.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bitwarden.json
+  - title: Bitwarden Public API
+    url: https://bitwarden.com/help/public-api/
+  - title: Bitwarden event logs
+    url: https://bitwarden.com/help/event-logs/

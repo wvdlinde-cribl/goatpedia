@@ -1,64 +1,77 @@
 id: hashicorp-vault
-name: Hashicorp Vault
+name: Vault
 short: Vault
-vendor: Hashicorp
+vendor: HashiCorp
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - hashicorp_vault
-  - Elastic integrations
+  - HashiCorp Vault
+  - HCP Vault
 tags:
-  - elastic
+  - secrets
+  - audit
   - json
-summary: Hashicorp Vault is logged by the Elastic integrations package hashicorp_vault. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Vault is HashiCorp's secrets manager. Applications authenticate and then read, write or lease secrets through an API. The server writes an operational log for its own errors, and a separate audit device writes one JSON object for each request and response. Tokens in the audit log are HMAC-redacted. Any collector can read both. The operational sample is a lease that failed to revoke.
 sourcetypes:
   - st: hashicorp_vault
-    desc: 'Elastic integrations fixture, 12 events. Upstream: hashicorp_vault/data_stream/log/_dev/test/pipeline/test-log.log'
+    desc: The Vault server's operational log. level, message and module say what the process reported.
   - st: hashicorp_vault_audit
-    desc: 'Elastic integrations fixture, 13 events. Upstream: hashicorp_vault/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: One audit-device record. type is request or response. request.path and request.operation say what the client asked for.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: hashicorp_vault
-  Sourcetypes: '2'
-  Fixture events: '25'
-  Log format seen: json
-  Fields in the first fixture: '@level, @message, @module, @timestamp, error, lease_id'
+  Product: Secrets manager. Clients authenticate and call an API to read and lease secrets.
+  Form factor: A server you run, or HCP Vault
+  Log transport: The server log is JSON on the process output. Audit devices write JSON to a file, a socket or a syslog target you configure.
+  Log format: Two JSON streams. The server log uses @level, @message and @module. An audit record uses type, auth and request.
+  What the server log answers: Which subsystem failed, and the error text. A failed lease revocation means a dynamic credential was not revoked.
+  What an audit record answers: Who called which path, with which operation, from which address. Client tokens are HMAC-redacted, not stored in clear.
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Vault server
+      desc: The API and the storage backend run here. The operational log is the process log. An audit device is enabled on the server and writes every request and response.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: HCP Vault
+      desc: HashiCorp's hosted Vault serves the same API and the same audit shape. A collector reads whichever place you run.
 howItWorks:
-  - title: What the fixture shows
-    body: Hashicorp Vault events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries @level, @message, @module, @timestamp, error, lease_id. Values in the sample were rewritten to documentation addresses.
+  - title: The server log
+    body: '@level is error, warn or info. @module is the subsystem, such as expiration, which handles leases. @message is the sentence. lease_id is the lease when the line is about one. The sample is an error from expiration: Vault failed to revoke an AWS dynamic secret. The credential that lease represented was not revoked.'
+  - title: The audit device
+    body: type request is the call as it arrived. type response is the answer, including an error when the call failed. auth.display_name, auth.policies and auth.metadata.email say who. request.operation and request.path say what they asked for. request.remote_address is the client. auth.client_token and request.client_token are HMAC hashes, which is how Vault keeps the token out of the audit log. The sample is a request to update sys/capabilities-self, from a documentation address, by an account with a documentation email.
+  - title: How the events leave
+    body: You enable an audit device and point it at a file or a socket, and you collect the server log from the process. Any collector can read either stream. Vault does not choose the destination.
 traffic:
   handles:
-    - json
+    - Secret reads, writes and leases
+    - Authentication and token use
+    - Server errors, including a lease that failed to revoke
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads hashicorp_vault and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A client calls the API
+      desc: An application or a person authenticates and requests a path, or the server tries to revoke a lease on its own.
+    - step: Vault records it
+      desc: The audit device writes the request and the response. The server log writes errors from subsystems such as expiration.
+    - step: Collector reads the JSON
+      desc: A collector tails the audit device and the server log and can forward each object anywhere.
 logs:
-  - type: Log
+  - type: Server log
     sourcetype: hashicorp_vault
     format: json
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: 'One operational line. @level is the severity, @module is the subsystem, @message is the text. This sample is an error from the expiration module: a lease failed to revoke. lease_id is that lease.'
     sample: '{"@level":"error","@message":"failed to revoke lease","@module":"expiration","@timestamp":"2021-07-16T06:30:48.194192Z","error":"failed to revoke entry: resp: (*logical.Response)(nil) err: RequestError: send request failed\ncaused by: Post \"https://iam.amazonaws.com/\": dial tcp: lookup ...","lease_id":"aws/creds/ddns-updater/oS5t84TSPRoYF2gX8McPyw4u"}'
     key:
       - '@level'
       - '@message'
       - '@module'
       - '@timestamp'
-  - type: Audit
+  - type: Audit record
     sourcetype: hashicorp_vault_audit
     format: json
-    desc: 13 fixture events in the samples pool (elastic).
+    desc: One API call. type is request or response. request.path and request.operation are what was asked. auth.metadata.email and request.remote_address are who and from where. Token fields are HMAC-redacted. This sample is an update of sys/capabilities-self. The email and the client address are documentation values.
     sample: '{"time":"2020-12-01T20:29:04.356625452Z","type":"request","auth":{"client_token":"hmac-sha256:9cc3baa3c2bd7a4b233ca1fdcf69df91c8f2a9f14ddda54a4039190f581dd327","accessor":"hmac-sha256:eb605bd7f8a5ceb951b9ab42cae6d6c3f12f203cb2c2a78e33e899f77dceb931","display_name":"oidc-12349999999999999999","policies":["default","group-admin"],"token_policies":["default","group-admin"],"metadata":{"account_id":"12349999999999999999","email":"user@example.com","role":"gmail"},"entity_id":"e4f5c67a-6f7e-789d-ae56-a1fe3ae23046","token_type":"service","token_ttl":3600,"token_issue_time":"2020-12-01T20:28:40Z"},"request":{"id":"cd09708b-11cc-2985-648b-cfe262cf7e50","operation":"update","mount_type":"system","client_token":"hmac-sha256:9cc3baa3c2bd7a4b233ca1fdcf69df91c8f2a9f14ddda54a4039190f581dd327","client_token_accessor":"hmac-sha256:eb605bd7f8a5ceb951b9ab42cae6d6c3f12f203cb2c2a78e33e899f77dceb931","namespace":{"id":"root"},"path":"sys/capabilities-self","data":{"paths":["hmac-sha256:fd04b28916cb60f622b1ebce308b339b468f5da93fa735f985f4435049627a27"]},"remote_address":"203.0.113.40"}}'
     key:
       - time
@@ -67,17 +80,19 @@ logs:
       - auth.accessor
 cves: []
 detections:
-  - title: Hashicorp Vault events arriving
-    severity: low
+  - title: A lease failed to revoke
+    severity: high
     signals:
       - '@level'
       - '@message'
       - '@module'
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "hashicorp_vault"'
+      - lease_id
+    why: The expiration module revokes dynamic credentials when their lease ends. An error there means the credential was not revoked. The sample is a failed revoke of an AWS secret lease.
+    kql: |
+      dataset="hashicorp-vault_logs"
+      | where sourcetype == "hashicorp_vault" and ["@level"] == "error" and ["@module"] == "expiration"
+      | project ["@timestamp"], ["@message"], lease_id
 optimizations: []
 references:
-  - title: elastic/integrations hashicorp_vault/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hashicorp_vault/data_stream/log/_dev/test/pipeline/test-log.log
-  - title: Pack Generator sample hashicorp_vault.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hashicorp_vault.json
+  - title: Vault audit devices
+    url: https://developer.hashicorp.com/vault/docs/audit

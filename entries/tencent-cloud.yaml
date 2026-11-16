@@ -1,88 +1,106 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: tencent-cloud
 name: Tencent Cloud
 short: Tencent Cloud
 vendor: Tencent
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - tencent_cloud
-  - Elastic integrations
+  - Tencent Cloud CloudAudit
+  - Tencent Cloud Log Service (CLS)
+  - QCloud
 tags:
-  - elastic
-  - json
-summary: Tencent Cloud is logged by the Elastic integrations package tencent_cloud. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - cloud
+  - cloud-audit
+  - load-balancer
+  - object-storage
+summary: A public cloud platform from Tencent offering compute, storage, networking and serverless services. The four streams here cover its control plane and three data-plane services — CloudAudit records every API call to the account, Cloud Load Balancer (CLB) logs each HTTP request it proxies, Cloud Object Storage (COS) logs each bucket request, and Serverless Cloud Function (SCF) logs function invocations. Together they show who changed the account, and who used the services from where.
 sourcetypes:
   - st: tencent_cloud_audit
-    desc: 'Elastic integrations fixture, 5 events. Upstream: tencent_cloud/data_stream/audit/_dev/test/pipeline/test-audit-log.log'
+    desc: CloudAudit events, one per API call to the Tencent Cloud account, with caller identity, action, source IP, region, resource and error code
   - st: tencent_cloud_clb
-    desc: 'Elastic integrations fixture, 10 events. Upstream: tencent_cloud/data_stream/clb/_dev/test/pipeline/test-clb-log.log'
+    desc: Cloud Load Balancer access logs, one per HTTP or HTTPS request, with client address, host, request, status, bytes, timings and TLS details
   - st: tencent_cloud_cos
-    desc: 'Elastic integrations fixture, 5 events. Upstream: tencent_cloud/data_stream/cos/_dev/test/pipeline/test-cos-log.log'
+    desc: Cloud Object Storage access logs, one per bucket or object request, with requester, operation, remote IP, HTTP code and bytes
   - st: tencent_cloud_scf
-    desc: 'Elastic integrations fixture, 6 events. Upstream: tencent_cloud/data_stream/scf/_dev/test/pipeline/test-scf-log.log'
+    desc: Serverless Cloud Function logs, one per function log line or platform report, with function name, request id, duration, memory and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: tencent_cloud
-  Sourcetypes: '4'
-  Fixture events: '26'
-  Log format seen: json
-  Fields in the first fixture: userIdentity.principalId, userIdentity.accountId, userIdentity.secretId, userIdentity.sessionContext, userIdentity.type, userIdentity.userName
+  Product: Public cloud platform (compute, storage, networking, serverless)
+  Account plane: CloudAudit records management API calls by root accounts, sub-users, roles and Tencent services
+  Log transport: Services ship logs to Tencent Cloud Log Service (CLS). A collector consumes them from CLS (for example through its Kafka-compatible consumer) or from COS delivery
+  Log format: One JSON object per log. CLS adds metadata keys such as __SOURCE__, __FILENAME__, __HOSTNAME__ and __TIMESTAMP__
+  What an audit event answers: Who (userIdentity) called which API (eventName, eventSource) from which IP, and whether it failed (errorCode)
+  What a CLB log answers: Which client requested which host and path through which load balancer, and with what result
+  What a COS log answers: Who read or wrote which bucket or object, from where, and with which HTTP result
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Tencent Cloud account
+      desc: CloudAudit, CLB, COS and SCF all run in the customer's Tencent Cloud account and region. Their logs are delivered to Cloud Log Service, where any collector can consume them.
 howItWorks:
-  - title: What the fixture shows
-    body: Tencent Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries userIdentity.principalId, userIdentity.accountId, userIdentity.secretId, userIdentity.sessionContext, userIdentity.type, userIdentity.userName. Values in the sample were rewritten to documentation addresses.
+  - title: CloudAudit
+    body: Every call to a Tencent Cloud API is recorded with the caller in userIdentity (type, principal, sub-account, role session), the API in eventName and eventSource, the region, the source IP, the user agent, whether it was a read or write (actionType), whether it is a sensitive action, and the errorCode and errorMessage.
+  - title: Load balancer and storage access logs
+    body: CLB writes an access log per request, similar to an NGINX log, with remote_addr, http_host, request, status, bytes and TLS details. COS writes an access log per bucket request with requester, eventName, remoteIp, reqMethod, resHttpCode and bytes.
+  - title: Function logs
+    body: SCF captures each function's output and platform reports. A platform report line gives cold-start and duration figures, memory usage and the status code for one request id.
+  - title: How the logs leave the cloud
+    body: Each service is configured to send its logs to a CLS logset and topic. A collector reads the topic and forwards each JSON object to any destination.
 traffic:
   handles:
-    - json
+    - Tencent Cloud management API calls
+    - HTTP and HTTPS through Cloud Load Balancer
+    - Bucket and object access in Cloud Object Storage
+    - Serverless function invocations
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads tencent_cloud and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Request is made
+      desc: A user, service or client calls a Tencent Cloud API, a load balancer, a bucket or a function.
+    - step: Service logs it
+      desc: CloudAudit, CLB, COS or SCF writes a log record for the request.
+    - step: Log Service stores it
+      desc: The record is delivered to a Cloud Log Service topic with CLS metadata.
+    - step: Collector consumes
+      desc: A collector reads the topic. Goatpedia reads these samples as JSON.
 logs:
-  - type: Audit
+  - type: CloudAudit events
     sourcetype: tencent_cloud_audit
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One API call. userIdentity says who called, eventName and eventSource which API, sourceIPAddress from where, actionType whether it read or wrote, and errorCode whether it failed. This sample is a successful read (DescribeStatisticData) by a Tencent service role. Identifiers are placeholders and the IP is a documentation address.
     sample: '{"userIdentity":{"principalId":"PRINCIPAL_ID_PLACEHOLDER","accountId":"ACCOUNT_ID_PLACEHOLDER","secretId":"AKID_PLACEHOLDER","sessionContext":"{\"token\": \"TOKEN_PLACEHOLDER\", \"ua\": \"\", \"userIp\": \"198.51.100.25\", \"uin\": PRINCIPAL_ID_PLACEHOLDER, \"ownerUin\": ACCOUNT_ID_PLACEHOLDER, \"appId\": APP_ID_PLAC...","type":"TencentCloudService","userName":"TKE_QCSRole","roleSessionName":"cls-access"},"eventRegion":"ap-chengdu","eventVersion":2,"errorCode":"0","errorMessage":"permission verify","requestID":"REQUEST_ID_PLACEHOLDER","eventType":"ApiCall","actionType":"Read","httpMethod":"POST","apiErrorCode":"0","apiErrorMessage":"","userAgent":"SDK_GO_1.0.438","eventTime":1739981156,"sensitiveAction":"0","sourceIPAddress":"203.0.113.8","resourceType":"monitor","eventName":"DescribeStatisticData","eventSource":"monitor.internal.tencentcloudapi.com","resourceSet":[],"requestParameters":"{\"Module\": \"monitor\", \"Namespace\": \"QCE/TKE2\", \"MetricNames\": [\"K8sNodeCpuUsageMax\", \"K8sNodeCpuUsage\", \"K8sNodeMemUsage\", \"K8sNodeMemUsageMax\", \"K8sNodeLanO...","responseElements":"{}","resourceName":"","tags":[""]}'
     key:
       - userIdentity.principalId
       - userIdentity.accountId
       - userIdentity.secretId
       - userIdentity.sessionContext
-  - type: Clb
+  - type: Load balancer access
     sourcetype: tencent_cloud_clb
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One HTTP request through a load balancer. lb_id names the balancer, remote_addr and http_x_forwarded_for the client, http_host and request the target, and request_time the latency. Addresses use documentation ranges.
     sample: '{"":"","__FILENAME__":"access.log","__HOSTNAME__":"","__SOURCE__":"203.0.113.40","__TIMESTAMP__":1744700691023199,"bytes_sent":360,"connection":10837231457,"connection_requests":1,"http_host":"onlyforlex.com","http_referer":"-","http_traceparent":"-","http_user_agent":"python-requests/2.31.0","http_x_forwarded_for":"192.0.2.10","lb_id":"lb-fdsg2t63","protocol_type":"http","proxy_host":1378118,"remote_addr":"192.0.2.20","remote_port":1214,"request":"HEAD /app HTTP/1.1","request_length":149,"request_method":"HEAD","request_time":0.002,"server_addr":"198.51.100.15","server_name":"onlyforlex.com","server_port":80,"server_protocol":"HTTP/1.1","ssl_cipher":"-","ssl_handshake_time":"-","ssl_protocol":"-","ssl_session_reused":"-"}'
     key:
       - __FILENAME__
       - __HOSTNAME__
       - __SOURCE__
       - __TIMESTAMP__
-  - type: Cos
+  - type: Object storage access
     sourcetype: tencent_cloud_cos
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One bucket request. requester and remoteIp say who, bucketName and eventName what, and resHttpCode and resBytesSent the result. This sample is a successful bucket listing (GETBucket). The IP is a documentation address.
     sample: '{"__FILENAME__":"","__HOSTNAME__":"","__SOURCE__":"","__TIMESTAMP__":1744606385000,"accountId":100013811111,"bucketName":"loganalysis-1301873956","deltaDataSize":0,"eventName":"GETBucket","eventSource":"cos.ap-chengdu.myqcloud.com","eventTime":"2025-04-14T04:53:05Z","eventVersion":1,"logSourceType":"USER","objectSize":"-","qcsRegion":"ap-chengdu","range":"-","referer":"-","remoteIp":"203.0.113.8","reqBytesSent":0,"reqMethod":"GET","reqPath":"/","reqQcsSource":"-","requestId":"NjdmYzk0YjFfMTgyMDYzNjRfY2MzNF80OTI2YjAw","requestUri":"GET /loganalysis-1301873956?continuation-token=QqXH4lGCYfoJVu%2BLEm2ACCbFcwoVjpIq%2B2JaWGSNcQ4TpbDGFDaGFWXLumcq0C%2FlIq9czQiWjJgtKczpwyuvxek4tKyLCRevyYiCUMO5...","requester":"100013811111:100006272255","resBytesSent":389448,"resErrorCode":"-","resErrorMsg":"-","resHttpCode":200,"resTotalTime":58,"storageClass":"-"}'
     key:
       - __FILENAME__
       - __HOSTNAME__
       - __SOURCE__
       - __TIMESTAMP__
-  - type: Scf
+  - type: Function logs
     sourcetype: tencent_cloud_scf
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One function log line. SCF_FunctionName and SCF_RequestId identify the invocation, SCF_Type says whether it is a platform report, and SCF_Message, SCF_Duration and SCF_MemUsage give the details. This sample is a cold-start init report.
     sample: '{"SCF_Alias":"","SCF_Duration":0,"SCF_FunctionName":"news-data","SCF_Level":"INFO","SCF_LogTime":1743588002032140800,"SCF_MemUsage":15949824,"SCF_Message":"Init Report RequestId: 0f1cb948-a9c7-4df1-a03d-d8df6db277f3 Coldstart: 844ms (InitRuntime: 21ms InitFunction: 823ms) Memory: 128MB MemUsage: 15.21MB","SCF_Namespace":"default","SCF_Qualifier":"$LATEST","SCF_RequestId":"0f1cb948-a9c7-4df1-a03d-d8df6db277f3","SCF_RetryNum":0,"SCF_StartTime":1743588001117,"SCF_StatusCode":202,"SCF_Type":"Platform","__FILENAME__":"","__HOSTNAME__":"","__SOURCE__":"203.0.113.40","__TIMESTAMP__":1743588002032140}'
     key:
       - SCF_Alias
@@ -91,17 +109,24 @@ logs:
       - SCF_Level
 cves: []
 detections:
-  - title: Tencent Cloud events arriving
-    severity: low
+  - title: Failed or denied API call
+    severity: medium
     signals:
-      - userIdentity.principalId
-      - userIdentity.accountId
-      - userIdentity.secretId
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "tencent_cloud_audit"'
-optimizations: []
-references:
-  - title: elastic/integrations tencent_cloud/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tencent_cloud/data_stream/audit/_dev/test/pipeline/test-audit-log.log
-  - title: Pack Generator sample tencent_cloud_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tencent_cloud_audit.json
+      - errorCode
+      - eventName
+      - userIdentity.userName
+      - sourceIPAddress
+    why: A non-zero errorCode means CloudAudit recorded a call that failed, often for lack of permission. Bursts of denied calls from one identity can be reconnaissance with stolen keys.
+    kql: |
+      dataset="tencent-cloud_logs"
+      | where sourcetype == "tencent_cloud_audit" and errorCode != "0"
+      | project eventTime, userIdentity.type, userIdentity.userName, eventName, eventSource, sourceIPAddress, errorCode, errorMessage
+    mitre:
+      - T1078.004
+optimizations:
+  - title: Route read-only API calls to storage
+    saving: most of the CloudAudit volume
+    fn: Routes
+    how: Monitoring agents and service roles make constant read calls. Keep write calls and failures in the SIEM and send successful reads to cheaper storage.
+    expr: actionType == 'Read' && errorCode == '0'
+references: []

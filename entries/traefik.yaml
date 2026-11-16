@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: traefik
-name: Traefik
+name: Traefik Proxy
 short: Traefik
-vendor: Traefik
+vendor: Traefik Labs
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - traefik
-  - Elastic integrations
+  - Traefik
+  - Traefik Proxy
 tags:
-  - elastic
+  - proxy
+  - ingress
+  - access-log
   - json
-summary: Traefik is logged by the Elastic integrations package traefik. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Traefik Proxy is a reverse proxy and load balancer. It accepts HTTP and TCP at the edge of a network or a cluster, picks a backend route, and forwards the request. For each request it can write a JSON access event with the client, the route, the status and the timing. Any collector that receives that access log can store it.
 sourcetypes:
   - st: traefik_access
-    desc: 'Elastic integrations fixture, 13 events. Upstream: traefik/data_stream/access/_dev/test/pipeline/test-format-json.log'
+    desc: One proxied request, with the client, the route, the downstream status and how long it took
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: traefik
-  Sourcetypes: '1'
-  Fixture events: '13'
-  Log format seen: json
-  Fields in the first fixture: BackendAddr, BackendName, BackendURL.Scheme, BackendURL.Opaque, BackendURL.User, BackendURL.Host
+  Product: Reverse proxy and ingress router for HTTP and TCP
+  Where it sits: In front of applications, as a host proxy, a container ingress or a load balancer
+  Log transport: Access log on the proxy, as JSON lines or CLF. A collector tails the file or receives it however the host ships logs
+  Log format: One JSON object per request when JSON access logs are enabled
+  What an access event answers: Who requested what, which backend was chosen, the HTTP status, and the duration
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Ingress proxy
+      desc: Traefik terminates client connections and routes them to a backend. The access log is written on the proxy. ClientAddr and RequestHost are the client and the name the client used.
+    - slot: internal
+      title: Backend route
+      desc: BackendName, BackendAddr and FrontendName say which route and which upstream the proxy selected. A 404 with frontend "backend not found" means the router had no service for that request.
 howItWorks:
-  - title: What the fixture shows
-    body: Traefik events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries BackendAddr, BackendName, BackendURL.Scheme, BackendURL.Opaque, BackendURL.User, BackendURL.Host. Values in the sample were rewritten to documentation addresses.
+  - title: Routers and services
+    body: Traefik matches an incoming request to a router, then sends it to a service (the backend). The access event names the frontend route (FrontendName) and the backend (BackendName, BackendAddr, BackendURL). RequestMethod, RequestPath, RequestProtocol and RequestHost are what the client sent.
+  - title: Status and timing
+    body: DownstreamStatus is the status the proxy returned to the client. OriginStatus is the status from the upstream, when there was one. Duration, OriginDuration and Overhead split the time. ClientHost, ClientAddr and ClientPort are the client. A request that matches no router is still an access event. The sample is a GET / that returned 404 with FrontendName "backend not found".
+  - title: How the event is produced
+    body: Access logs are optional and are written by the proxy itself, one JSON object per line when the JSON format is selected. Traefik does not assign the log to a SIEM. A collector reads the file or the stream the operator pointed it at. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - HTTP requests routed through the proxy
+    - Requests that match no backend
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads traefik and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client connects
+      desc: A client sends a request to the proxy. Traefik looks up a router and a backend.
+    - step: Proxy answers
+      desc: The proxy returns a status to the client and, when a backend exists, records the origin status and the time spent.
+    - step: Access line is JSON
+      desc: One JSON object is written for the request. A collector forwards that object anywhere.
 logs:
   - type: Access
     sourcetype: traefik_access
     format: json
-    desc: 13 fixture events in the samples pool (elastic).
+    desc: One object per proxied request. DownstreamStatus is what the client received. This sample is a GET / that returned 404, and FrontendName is "backend not found", so no backend was selected. ClientHost and RequestHost say who called and which host they asked for. Addresses in the sample are documentation addresses.
     sample: '{"BackendAddr":"","BackendName":"Traefik","BackendURL":{"Scheme":"","Opaque":"","User":null,"Host":"","Path":"/","RawPath":"","ForceQuery":false,"RawQuery":"","Fragment":""},"ClientAddr":"203.0.113.40:48658","ClientHost":"192.0.2.10","ClientPort":"48658","ClientUsername":"-","DownstreamContentSize":19,"DownstreamStatus":404,"DownstreamStatusLine":"404 Not Found","Duration":40356,"FrontendName":"backend not found","OriginContentSize":19,"OriginDuration":4086,"OriginStatus":404,"OriginStatusLine":"404 Not Found","Overhead":36270,"RequestAddr":"backend.elastic-package-service.docker.localhost","RequestContentSize":0,"RequestCount":7,"RequestHost":"backend.elastic-package-service.docker.localhost","RequestLine":"GET / HTTP/1.1","RequestMethod":"GET","RequestPath":"/","RequestPort":"-","RequestProtocol":"HTTP/1.1","RetryAttempts":0,"StartLocal":"2021-03-16T18:56:54.735539596Z","StartUTC":"2021-03-16T18:56:54.735539596Z","downstream_Content-Type":"text/plain; charset=utf-8"}'
     key:
       - BackendAddr
@@ -55,17 +68,25 @@ logs:
       - BackendURL.Opaque
 cves: []
 detections:
-  - title: Traefik events arriving
-    severity: low
+  - title: Proxy returned a client or server error
+    severity: medium
     signals:
-      - BackendAddr
-      - BackendName
-      - BackendURL.Scheme
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "traefik_access"'
-optimizations: []
+      - DownstreamStatus
+      - RequestMethod
+      - RequestPath
+      - ClientHost
+      - FrontendName
+    why: A 4xx or 5xx is a request the proxy did not complete normally. The sample is a 404 because no backend matched. Repeated 404s for one host, or 401 and 403 on an admin path, are the access events worth a look. Ordinary 2xx traffic is not.
+    kql: |
+      dataset="traefik_logs"
+      | where sourcetype == "traefik_access" and DownstreamStatus >= 400
+      | project StartUTC, DownstreamStatus, RequestMethod, RequestPath, RequestHost, ClientHost, FrontendName
+optimizations:
+  - title: Drop successful proxy requests
+    saving: most of the access volume
+    fn: Drop
+    how: Every request through a busy ingress is an access event, and almost all of them succeed. Keep status 400 and above, where the client saw an error or the route was missing. Drop the successful requests before the SIEM.
+    expr: "DownstreamStatus < 400"
 references:
-  - title: elastic/integrations traefik/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/traefik/data_stream/access/_dev/test/pipeline/test-format-json.log
-  - title: Pack Generator sample traefik_access.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/traefik_access.json
+  - title: Traefik access logs
+    url: https://doc.traefik.io/traefik/observability/access-logs/

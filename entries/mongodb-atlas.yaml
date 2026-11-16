@@ -1,77 +1,82 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: mongodb-atlas
-name: Mongodb Atlas
-short: Mongodb Atlas
-vendor: Mongodb
+name: MongoDB Atlas
+short: MongoDB Atlas
+vendor: MongoDB, Inc.
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - mongodb_atlas
-  - Elastic integrations
+  - Atlas
 tags:
-  - elastic
+  - database
+  - dbaas
+  - nosql
+  - audit
   - text
-summary: Mongodb Atlas is logged by the Elastic integrations package mongodb_atlas. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: MongoDB's fully managed database service, running clusters in AWS, Azure or Google Cloud. Atlas keeps the mongod database log of each cluster member and, when database auditing is enabled, the audit log of authentication, authorization and schema actions. A collector downloads these logs per host and time window through the Atlas Administration API.
 sourcetypes:
   - st: mongodb_atlas_mongod_audit
-    desc: 'Elastic integrations fixture, 5 events. Upstream: mongodb_atlas/data_stream/mongod_audit/_dev/test/pipeline/test-mongod-audit.json'
+    desc: The mongod audit log of an Atlas cluster member, downloaded through the Administration API
   - st: mongodb_atlas_mongod_database
-    desc: 'Elastic integrations fixture, 4 events. Upstream: mongodb_atlas/data_stream/mongod_database/_dev/test/pipeline/test-mongod-database.json'
+    desc: The mongod database log of an Atlas cluster member, downloaded through the Administration API
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: mongodb_atlas
-  Sourcetypes: '2'
-  Fixture events: '9'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Managed MongoDB database service (DBaaS)
+  Hosting: Clusters in AWS, Azure or Google Cloud, run by MongoDB
+  Log transport: Atlas Administration API log download per host and time window, polled by a collector
+  Log format: Compressed log files with one entry per line; the API answers with a plain-text message when it has nothing for the window
+  What an audit entry answers: Who authenticated, or ran which audited action, against which database, and with what result
+  What a database-log entry answers: What the mongod component did, such as connections, slow operations and replication
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Atlas cluster
+      desc: Cluster members run in MongoDB's account in the chosen cloud provider. Their database and audit logs are kept by Atlas and fetched through the Administration API for each host.
 howItWorks:
-  - title: What the fixture shows
-    body: Mongodb Atlas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Per-host logs
+    body: Each member of an Atlas cluster runs mongod. Atlas keeps its database log and, if database auditing is turned on for the project, its audit log, for a limited retention period.
+  - title: Database auditing
+    body: Auditing records authentication, authorization failures and the actions selected in the audit filter, such as user and role changes or collection drops.
+  - title: Download through the API
+    body: A collector asks the Administration API for one log type, one host and a time window. If there is nothing for that window, or the host cannot be reached, the API answers with a short plain-text message instead of log data.
 traffic:
   handles:
-    - text
+    - Database authentication and authorization
+    - Database operations
+    - Cluster member activity
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads mongodb_atlas and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Cluster logs
+      desc: A cluster member writes its database log and audit log.
+    - step: Collector requests
+      desc: The collector calls the Administration API for a host, log type and time window.
+    - step: Text returned
+      desc: The API returns the log lines, or a message saying there is no data. Goatpedia reads the samples as text.
 logs:
-  - type: Mongod Audit
+  - type: Audit log download
     sourcetype: mongodb_atlas_mongod_audit
     format: text
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One line from an audit log download. This sample is the API's answer when there is no audit data for the window or the host is unreachable, not an audit entry. A real download carries one audit entry per line.
     sample: No data for given time period or host is unreachable
     pattern: (?<message>[\s\S]+)
     key:
       - message
-  - type: Mongod Database
+  - type: Database log download
     sourcetype: mongodb_atlas_mongod_database
     format: text
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One line from a database log download. This sample is the API's answer when there is no data for the window or the host is unreachable, not a mongod log line. A real download carries one mongod log entry per line.
     sample: No data for given time period or host is unreachable
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Mongodb Atlas events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "mongodb_atlas_mongod_audit"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations mongodb_atlas/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mongodb_atlas/data_stream/mongod_audit/_dev/test/pipeline/test-mongod-audit.json
-  - title: Pack Generator sample mongodb_atlas_mongod_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mongodb_atlas_mongod_audit.json
+  - title: View and download MongoDB logs in Atlas
+    url: https://www.mongodb.com/docs/atlas/mongodb-logs/
+  - title: Set up database auditing in Atlas
+    url: https://www.mongodb.com/docs/atlas/database-auditing/

@@ -1,112 +1,129 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: abnormal-security
 name: Abnormal Security
-short: Security
-vendor: Abnormal
+short: Abnormal
+vendor: Abnormal Security
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - abnormal_security
-  - Elastic integrations
+  - Abnormal
+  - Abnormal AI
 tags:
-  - elastic
+  - email-security
+  - saas
+  - phishing
   - json
-summary: Abnormal Security is logged by the Elastic integrations package abnormal_security. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: A cloud email security platform that connects to Microsoft 365 or Google Workspace over their APIs and judges each message by the sender's and recipient's normal behaviour. It removes phishing, business email compromise and account-takeover mail after delivery, and triages messages users report. Its API exposes threats, cases, vendor cases, the reported-mail mailbox and the portal audit log as JSON, which any collector can poll.
 sourcetypes:
   - st: abnormal_security_ai_security_mailbox
-    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/ai_security_mailbox/_dev/test/pipeline/test-ai-security-mailbox.log'
+    desc: Messages users reported to the AI Security Mailbox, grouped by campaign, with the judgement and the action taken
   - st: abnormal_security_ai_security_mailbox_not_analyzed
-    desc: 'Elastic integrations fixture, 3 events. Upstream: abnormal_security/data_stream/ai_security_mailbox_not_analyzed/_dev/test/pipeline/test-ai-security-mailbox-not-analyzed.log'
+    desc: Reported messages that the AI Security Mailbox did not analyse, with the reason
   - st: abnormal_security_audit
-    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: Actions users and administrators took in the Abnormal portal, such as remediation and search-and-respond
   - st: abnormal_security_case
-    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/case/_dev/test/pipeline/test-case.log'
+    desc: Cases Abnormal opened about one employee, such as a suspected account takeover, with status and remediation
   - st: abnormal_security_threat
-    desc: 'Elastic integrations fixture, 6 events. Upstream: abnormal_security/data_stream/threat/_dev/test/pipeline/test-threat.log'
+    desc: Malicious messages Abnormal detected, with attack type, sender, recipients and remediation status
   - st: abnormal_security_vendor_case
-    desc: 'Elastic integrations fixture, 5 events. Upstream: abnormal_security/data_stream/vendor_case/_dev/test/pipeline/test-case.log'
+    desc: Cases about a compromised or risky vendor domain, with insights and the timeline of its messages
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: abnormal_security
-  Sourcetypes: '6'
-  Fixture events: '29'
-  Log format seen: json
-  Fields in the first fixture: campaignId, firstReported, lastReported, messageId, subject, fromName
+  Product: API-based email security for Microsoft 365 and Google Workspace
+  Deployment: Cloud service connected to the mail tenant over APIs. No MX change and no on-premises appliance
+  Log transport: HTTPS JSON REST API, polled by a collector with an API token
+  Log format: One JSON object per threat, case, audit action or reported message
+  What a threat answers: Which message was malicious, what kind of attack it was, who received it and whether it was removed
+  What a case answers: Which employee or vendor is under suspicion and what Abnormal and the analyst did about it
+  What an audit event answers: Who did what in the Abnormal portal, from which IP, and whether it succeeded
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Abnormal platform and mail tenant
+      desc: Abnormal reads mail, sign-in signals and identity data from the Microsoft 365 or Google Workspace tenant over APIs, and pulls bad mail back out of mailboxes. Detections, cases and portal actions are stored in the Abnormal tenant, and a collector polls them from the Abnormal API.
 howItWorks:
-  - title: What the fixture shows
-    body: Abnormal Security events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries campaignId, firstReported, lastReported, messageId, subject, fromName. Values in the sample were rewritten to documentation addresses.
+  - title: Behaviour-based detection
+    body: Abnormal builds a baseline of who normally emails whom, from where, and about what. A message that breaks that pattern, such as an unknown sender asking for a payment change, becomes a threat with an attackType, attackStrategy and impersonatedParty. Threats are removed from the mailbox after delivery, so autoRemediated and remediationStatus say what happened to the copy the user received.
+  - title: Cases
+    body: When signals point to a person rather than one message, Abnormal opens a case. An employee case carries the affected employee, the analysis type (for example SIGN_IN) and a severity such as Account Takeover. A vendor case tracks a supplier domain that looks compromised, with insights and a timeline of the messages it sent.
+  - title: Reported mail
+    body: The AI Security Mailbox takes messages that users report as suspicious, groups them into campaigns, gives each a judgement and closes the loop with the reporter. Reports it skips are listed separately with a not_analyzed_reason.
+  - title: How the events leave the product
+    body: Abnormal does not push syslog. A collector holding an Abnormal API token calls the REST endpoints for threats, cases, vendor cases, audit logs and the security mailbox, and keeps a time filter or page token so it does not repeat events.
 traffic:
   handles:
-    - json
+    - Inbound and internal email in Microsoft 365 or Google Workspace
+    - User reports of suspicious email
+    - Analyst and administrator actions in the Abnormal portal
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads abnormal_security and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Mail arrives
+      desc: A message lands in a mailbox. Abnormal reads it over the mail platform's API and scores it against the behavioural baseline.
+    - step: Abnormal acts
+      desc: A malicious message becomes a threat and is pulled from the mailbox. Account or vendor compromise opens a case. A user report goes to the AI Security Mailbox.
+    - step: Collector polls
+      desc: A collector calls the Abnormal API with a token and asks for records changed since its last poll.
+    - step: Events are JSON
+      desc: Each threat, case, report or audit action is one JSON object that the collector can forward anywhere.
 logs:
-  - type: AI Security Mailbox
+  - type: AI Security Mailbox reports
     sourcetype: abnormal_security_ai_security_mailbox
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per reported-message campaign. judgementStatus and overallStatus give the verdict and the outcome, attackType the kind of mail. This sample is graymail judged Safe. Addresses are documentation addresses (example.com).
     sample: '{"campaignId":"0c70588a-049c-3c35-9a23-217ddf0a53b5","firstReported":"2024-07-26T10:30:06Z","lastReported":"2024-07-26T10:30:06Z","messageId":"7063250485337877109","subject":"Days of Understanding 2024","fromName":"user@example.com","fromAddress":"user@example.com","recipientName":"john","recipientAddress":"user@example.com","judgementStatus":"Safe","overallStatus":"No Action Needed","attackType":"Attack Type: Graymail"}'
     key:
       - campaignId
       - firstReported
       - lastReported
       - messageId
-  - type: AI Security Mailbox Not Analyzed
+  - type: Reported mail not analysed
     sourcetype: abnormal_security_ai_security_mailbox_not_analyzed
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per reported message the mailbox did not analyse. not_analyzed_reason says why, here ROUTED_SUBMISSION. reporter and recipient say who reported it and who received it.
     sample: '{"abx_message_id":-7361381340273524000,"recipient":{"email":"user@example.com","name":"Phishing Test"},"reported_datetime":"2025-03-06T17:27:15Z","reporter":{"email":"user@example.com","name":"Reporter Test"},"subject":"Re: Subject","not_analyzed_reason":"ROUTED_SUBMISSION"}'
     key:
       - abx_message_id
       - recipient.email
       - recipient.name
       - reported_datetime
-  - type: Audit
+  - type: Portal audit log
     sourcetype: abnormal_security_audit
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per action in the Abnormal portal. action, category and status say what was done and whether it worked. sourceIp and user.email say who did it. This sample is a remediation status update from search-and-respond. Addresses are documentation addresses.
     sample: '{"action":"update_remediation_status","actionDetails":{"providedReason":"null","requestUrl":"/v1.0/search_v2/666/purge_messages/"},"category":"search-and-respond-notifications","sourceIp":"198.51.100.25","status":"SUCCESS","tenantName":"","timestamp":"2024-07-17 15:39:32.141000+00:00","user":{"email":"user@example.com"}}'
     key:
       - action
       - actionDetails.providedReason
       - actionDetails.requestUrl
       - category
-  - type: Case
+  - type: Employee cases
     sourcetype: abnormal_security_case
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per case about an employee. severity and analysis give the kind of case, here an account takeover found from sign-in data. case_status and remediation_status say where the case stands.
     sample: '{"caseId":11151468,"affectedEmployee":"user@example.com","analysis":"SIGN_IN","case_status":"Acknowledged (Attack resolved)","customerVisibleTime":"2024-01-05T12:33:25+00:00","firstObserved":"2024-01-05T12:33:25+00:00","remediation_status":"Not remediated","severity":"Account Takeover","severity_level":"LOW","threatIds":[]}'
     key:
       - caseId
       - affectedEmployee
       - analysis
       - case_status
-  - type: Threat
+  - type: Threats
     sourcetype: abnormal_security_threat
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per malicious message. attackType, attackStrategy and attackVector describe the attack. fromAddress, senderIpAddress and recipientAddress say who sent it to whom. remediationStatus and autoRemediated say whether it was pulled. Addresses are documentation addresses.
     sample: '{"abxMessageId":-4898763529198204000,"abxMessageIdStr":"-4898763529198204348","abxPortalUrl":"https://portal.abnormalsecurity.com/home/threat-center/remediation-history/-4898763529198204348","attachmentCount":0,"attachmentNames":[],"attackStrategy":"Unknown Sender","attackType":"Reconnaissance","attackVector":"Text","attackedParty":"Employee (Other)","autoRemediated":true,"fromAddress":"user@example.com","fromName":"user@example.com","impersonatedParty":"None / Others","internetMessageId":"<user@example.com>","isRead":false,"postRemediated":false,"receivedTime":"2024-07-17T23:35:18Z","recipientAddress":"user@example.com","remediationStatus":"Auto-Remediated","remediationTimestamp":"2024-07-17T23:35:24.850565Z","sentTime":"2024-07-17T23:35:08Z","subject":"Let''s Connect: Coffee Chat Next Week?","threatId":"437dc979-e828-380a-52f4-98f9b1132e49","toAddresses":["user@example.com"],"ccEmails":["user@example.com"],"replyToEmails":[],"returnPath":"user@example.com","senderDomain":"example.com","senderIpAddress":"203.0.113.8","summaryInsights":["Unusual Sender"]}'
     key:
       - abxMessageId
       - abxMessageIdStr
       - abxPortalUrl
       - attachmentCount
-  - type: Vendor Case
+  - type: Vendor cases
     sourcetype: abnormal_security_vendor_case
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per suspected vendor compromise. vendorDomain is the supplier. insights explain why, and timeline lists the messages from that vendor with how each was marked.
     sample: '{"vendorCaseId":1234,"vendorDomain":"example.com","firstObservedTime":"2025-03-01T10:00:00Z","lastModifiedTime":"2025-03-01T12:00:00Z","insights":[{"highlight":"Suspicious Activity","description":"Detected unusual login patterns."}],"timeline":[{"eventTimestamp":"2025-03-01T10:00:00Z","senderAddress":"user@example.com","recipientAddress":"user@example.com","subject":"Unusual Login Alert","markedAs":"Suspicious","threatId":"abcd1234-5678-90ef-ghij-klmnopqrstuv"}]}'
     key:
       - vendorCaseId
@@ -115,17 +132,33 @@ logs:
       - lastModifiedTime
 cves: []
 detections:
-  - title: Abnormal Security events arriving
-    severity: low
+  - title: Account takeover case opened
+    severity: high
     signals:
-      - campaignId
-      - firstReported
-      - lastReported
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "abnormal_security_ai_security_mailbox"'
+      - severity
+      - affectedEmployee
+      - case_status
+      - remediation_status
+    why: An Account Takeover case means Abnormal believes an employee mailbox is in someone else's hands. A case that is not remediated needs a password reset and session revocation.
+    kql: |
+      dataset="abnormal-security_logs"
+      | where sourcetype == "abnormal_security_case" and severity == "Account Takeover"
+      | project firstObserved, affectedEmployee, analysis, severity_level, case_status, remediation_status
+    mitre:
+      - T1078
+  - title: Threat delivered and not removed
+    severity: medium
+    signals:
+      - remediationStatus
+      - attackType
+      - recipientAddress
+      - isRead
+    why: Most threats are pulled automatically. One that stayed in the mailbox, especially one already read, is the message a user could have acted on.
+    kql: |
+      dataset="abnormal-security_logs"
+      | where sourcetype == "abnormal_security_threat" and autoRemediated == false and postRemediated == false
+      | project receivedTime, attackType, fromAddress, senderIpAddress, recipientAddress, isRead, remediationStatus
+    mitre:
+      - T1566
 optimizations: []
-references:
-  - title: elastic/integrations abnormal_security/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/abnormal_security/data_stream/ai_security_mailbox/_dev/test/pipeline/test-ai-security-mailbox.log
-  - title: Pack Generator sample abnormal_security_ai_security_mailbox.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/abnormal_security_ai_security_mailbox.json
+references: []

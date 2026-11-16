@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: mysql-enterprise
-name: Mysql Enterprise
-short: Enterprise
-vendor: Mysql
+name: MySQL Enterprise Audit
+short: MySQL Audit
+vendor: Oracle
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - mysql_enterprise
-  - Elastic integrations
+  - MySQL Enterprise Edition
+  - MySQL audit_log plugin
 tags:
-  - elastic
+  - database
+  - rdbms
+  - audit
   - text
-summary: Mysql Enterprise is logged by the Elastic integrations package mysql_enterprise. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: The audit feature of MySQL Enterprise Edition, Oracle's commercial MySQL server. The audit_log plugin records server startup and shutdown, client connections and the queries chosen by audit filters, with the account, host and status. The server runs in the data centre or cloud behind applications, and the audit file is the record of who connected and what they ran.
 sourcetypes:
   - st: mysql_enterprise_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: mysql_enterprise/data_stream/audit/_dev/test/pipeline/test-mysql-audit.log'
+    desc: MySQL Enterprise Audit records in JSON format, one per audited event such as startup, connect or query, with account, login and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: mysql_enterprise
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Audit plugin of MySQL Enterprise Edition
+  Clients: Applications and tools over the MySQL protocol, default port 3306
+  Log transport: Audit log file (audit.log) on the server, read by a file agent
+  Log format: JSON format of the audit log, one object per event in a JSON array
+  What an audit record answers: Which account from which host connected or ran what, in which connection, and with what status
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: MySQL server
+      desc: The server runs behind the applications that use it. The audit plugin writes audit.log in the data directory.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud VMs
+      desc: MySQL Enterprise on cloud VMs writes the same audit file.
 howItWorks:
-  - title: What the fixture shows
-    body: Mysql Enterprise events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Audit plugin
+    body: The audit_log plugin hooks server events. Audit filters decide which connection, query and table-access events are logged for which accounts.
+  - title: Record classes
+    body: Each record has a class and an event, such as audit with startup, connection with connect or disconnect, and general or table_access for queries. Records carry connection_id, account (user and host), login (user, os, ip, proxy) and a status, where a non-zero status is an error such as a refused login.
 traffic:
   handles:
-    - text
+    - Client connections and logins
+    - Queries and table access
+    - Server startup and shutdown
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads mysql_enterprise and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client acts
+      desc: A client connects or runs a query, or the server starts.
+    - step: Plugin audits
+      desc: The audit filter decides whether to log it and the plugin writes a JSON record.
+    - step: Collector reads it
+      desc: A file agent ships each record. Goatpedia reads the line as text.
 logs:
-  - type: Audit
+  - type: Audit log
     sourcetype: mysql_enterprise_audit
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One JSON audit record, read as one text line. class and event say what happened, account and login who, and startup_data or status the details. This sample is a server startup record for MySQL 8.0.22 commercial with the audit log in JSON format.
     sample: '{ "timestamp": "2020-10-19 19:21:33", "id": 0, "class": "audit", "event": "startup", "connection_id": 0, "account": { "user": "skip-grants user", "host": "" }, "login": { "user": "", "os": "", "ip": "", "proxy": "" }, "startup_data": { "server_id": 1, "os_version": "x86_64-Linux", "mysql_version": "8.0.22-commercial", "args": ["/usr/local/mysql/bin/mysqld", "--loose-audit-log-format=JSON", "--log-error=log.err", "--pid-file=mysqld.pid", "--port=3306" ] } },'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Mysql Enterprise events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "mysql_enterprise_audit"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations mysql_enterprise/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/mysql_enterprise/data_stream/audit/_dev/test/pipeline/test-mysql-audit.log
-  - title: Pack Generator sample mysql_enterprise_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/mysql_enterprise_audit.json
+  - title: MySQL Enterprise Audit
+    url: https://dev.mysql.com/doc/refman/8.0/en/audit-log.html

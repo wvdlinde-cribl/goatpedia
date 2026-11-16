@@ -1,67 +1,87 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: santa
 name: Santa
 short: Santa
-vendor: Santa
+vendor: North Pole Security
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - santa
-  - Elastic integrations
+  - Google Santa
+  - santad
 tags:
-  - elastic
-  - text
-summary: Santa is logged by the Elastic integrations package santa. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - macos
+  - application-allowlisting
+  - endpoint
+  - binary-authorization
+summary: A binary and file access authorization system for macOS. The santad daemon uses Apple's Endpoint Security framework to see every program launch on a Mac and decide, from local or centrally synced rules, whether to allow or block it. Its log records each execution decision with the binary hash, signing certificate, process ids, user and path — the record of what ran on the Mac and what was stopped.
 sourcetypes:
   - st: santa
-    desc: 'Elastic integrations fixture, 17 events. Upstream: santa/data_stream/log/_dev/test/pipeline/test-santa-raw.log'
+    desc: The santad log on macOS, one line per decision such as an EXEC allow or deny, with hash, certificate, process and user
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: santa
-  Sourcetypes: '1'
-  Fixture events: '17'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Allowlisting and blocklisting of binaries on macOS
+  Form factor: santad system extension and santactl CLI on each Mac, optionally synced to a sync server for rules
+  Modes: MONITOR mode allows unknown binaries and logs them. LOCKDOWN mode blocks anything not allowed by a rule
+  Rule types: Binary hash, signing certificate, Team ID and signing ID rules, plus built-in allowances for critical system binaries
+  Log transport: Written to a local log file (and the unified log). A file forwarder ships it
+  Log format: Text line with a timestamp, then key=value pairs separated by pipes
+  What an EXEC line answers: Which binary ran or was blocked, why, which signing certificate it had, and which user and parent process started it
 placement:
   slots:
-    - cloud
+    - endpoint
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Mac endpoint
+      desc: santad runs on each managed Mac and makes the decision locally when a binary is executed. The log is written on that Mac and shipped by a file forwarder to any collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Santa events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Authorizing executions
+    body: For each execution, macOS asks santad through the Endpoint Security framework. Santa evaluates its rules in order of precedence (binary hash, signing ID, certificate, Team ID) and answers allow or deny. In MONITOR mode an unknown binary is allowed but recorded. In LOCKDOWN mode it is blocked.
+  - title: Reading a decision
+    body: decision is ALLOW or DENY. reason says which kind of rule matched, for example BINARY, CERT or UNKNOWN. explain adds a short note such as critical system binary. sha256 and cert_sha256 identify the file and its signer. pid, ppid, uid, user and path describe the process.
+  - title: How the log leaves the Mac
+    body: santad writes one line per event to its log file. A file forwarder on the Mac sends those lines on. Any collector can receive them.
 traffic:
   handles:
-    - text
+    - Program execution on macOS
+    - Allow and deny decisions for binaries
+    - File access authorization
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads santa and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Program starts
+      desc: A user or process launches a binary on the Mac.
+    - step: Santa decides
+      desc: santad checks its rules and answers allow or deny to the kernel through Endpoint Security.
+    - step: Line is written
+      desc: santad writes the decision, hash, certificate, process and user as one pipe-delimited line.
+    - step: Collector reads
+      desc: A file forwarder ships the line. Goatpedia reads it as text with the whole line in message.
 logs:
-  - type: Log
+  - type: Execution decisions
     sourcetype: santa
     format: text
-    desc: 17 fixture events in the samples pool (elastic).
+    desc: One execution decision. Inside message, decision and reason say what Santa did and why, sha256 and cert_cn identify the binary and its signer, and user, pid and path say who ran what. This sample allows /usr/libexec/xpcproxy as a critical system binary.
     sample: '[2022-05-12T11:38:03.923Z] I santad: action=EXEC|decision=ALLOW|reason=BINARY|explain=critical system binary|sha256=43158bf397bf52001067319c591249307e2862daf8690828c15cdcc1ddf6166d|cert_sha256=d84db96af8c2e60ac4c851a21ec460f6f84e0235beb17d24a78712b9b021ed57|cert_cn=Software Signing|pid=71993|pidversion=1097732|ppid=1|uid=0|user=root|gid=0|group=wheel|mode=M|path=/usr/libexec/xpcproxy|args=xpcproxy com.apple.CoreAuthentication.agent'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Santa events arriving
-    severity: low
+  - title: Execution blocked by Santa
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "santa"'
-optimizations: []
+    why: A DENY means a binary tried to run and no rule allowed it, or a block rule matched. On a Mac in lockdown that is the attempt itself. A cluster of denies for one hash across Macs is worth investigating.
+    kql: |
+      dataset="santa_logs"
+      | where sourcetype == "santa" and message contains "decision=DENY"
+      | project _time, message
+optimizations:
+  - title: Drop critical system binary allows
+    saving: a large share of execution volume
+    fn: Drop
+    how: Santa allows Apple's critical system binaries by a built-in rule and logs each launch. These lines carry reason=BINARY and explain=critical system binary and say nothing new. Drop them and keep denies and other allows.
+    expr: message.indexOf('decision=ALLOW|reason=BINARY|explain=critical system binary') > -1
 references:
-  - title: elastic/integrations santa/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/santa/data_stream/log/_dev/test/pipeline/test-santa-raw.log
-  - title: Pack Generator sample santa.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/santa.json
+  - title: Santa on GitHub
+    url: https://github.com/google/santa

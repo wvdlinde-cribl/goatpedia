@@ -1,136 +1,154 @@
 id: trellix-epo-on-prem
-name: Trellix Epo On Prem
-short: Prem
+name: Trellix ePolicy Orchestrator
+short: ePO on-prem
 vendor: Trellix
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - trellix_epo_on_prem
-  - Elastic integrations
+  - Trellix ePO
+  - McAfee ePolicy Orchestrator
 tags:
-  - elastic
+  - epo
+  - endpoint
+  - dlp
   - json
-summary: Trellix Epo On Prem is logged by the Elastic integrations package trellix_epo_on_prem. The Pack Generator samples pool holds fixture events for 8 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Trellix ePolicy Orchestrator is the on-premises console for Trellix endpoint products. Agents check in to an ePO server on the internal network. The server stores its own audit log, the system tree, threat events, data-loss incidents, web-control events and a few summary tables. Eight JSON streams are those tables, one object per row. A collector reads them from the ePO server. Any collector that can query the server can do this.
 sourcetypes:
   - st: trellix_epo_on_prem_audit
-    desc: 'Elastic integrations fixture, 6 events. Upstream: trellix_epo_on_prem/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: One row from the ePO audit log, a command the server or an administrator ran, and whether it succeeded
   - st: trellix_epo_on_prem_compliance_history
-    desc: 'Elastic integrations fixture, 2 events. Upstream: trellix_epo_on_prem/data_stream/compliance_history/_dev/test/pipeline/test-trellix-epo-on-prem-compliance-history-sample.log'
+    desc: One compliance-history point, a count of computers in and out of compliance for a named chart
   - st: trellix_epo_on_prem_device_event
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/device_event/_dev/test/pipeline/test-device-event.log'
+    desc: One removable-media or encrypted-device event, with the device, the user and the response
   - st: trellix_epo_on_prem_dlp_incident
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/dlp_incident/_dev/test/pipeline/test-dlp-incident.log'
+    desc: One data-loss incident, with the rule, the severity and the action taken
   - st: trellix_epo_on_prem_product_event
-    desc: 'Elastic integrations fixture, 11 events. Upstream: trellix_epo_on_prem/data_stream/product_event/_dev/test/pipeline/test-product-event.log'
+    desc: One product event on an agent, such as an install, with the product code and the user
   - st: trellix_epo_on_prem_system
-    desc: 'Elastic integrations fixture, 3 events. Upstream: trellix_epo_on_prem/data_stream/system/_dev/test/pipeline/test-system.log'
+    desc: One managed node in the system tree, the leaf the agent checks in as
   - st: trellix_epo_on_prem_threat_event
-    desc: 'Elastic integrations fixture, 12 events. Upstream: trellix_epo_on_prem/data_stream/threat_event/_dev/test/pipeline/test-threat-event.log'
+    desc: One threat event, with the threat name, the severity and the action the product took
   - st: trellix_epo_on_prem_web_control
-    desc: 'Elastic integrations fixture, 5 events. Upstream: trellix_epo_on_prem/data_stream/web_control/_dev/test/pipeline/test-web-control.log'
+    desc: One web-control observation of a URL, with ratings and whether the sensor was only observing
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: trellix_epo_on_prem
-  Sourcetypes: '8'
-  Fixture events: '49'
-  Log format seen: json
-  Fields in the first fixture: OrionAuditLog.AutoId, OrionAuditLog.CmdName, OrionAuditLog.EndTime, OrionAuditLog.Message, OrionAuditLog.Priority, OrionAuditLog.StartTime
+  Product: On-premises ePolicy Orchestrator. It manages Trellix agents and stores the events those products send to the server database
+  Where it sits: The ePO server is on the internal management network. Agents sit on endpoints
+  Log transport: Rows from the ePO database, collected as JSON. The server can also forward some events as syslog. Any collector with access to the server can take them
+  Log format: One JSON object per database row. The field prefix is the ePO view, such as OrionAuditLog or EPOEvents
+  What an audit row answers: Which command ran, who ran it, and whether Success is true
+  What a threat event answers: Which host saw which threat, and whether the product blocked it
+  What a DLP incident answers: Which rule fired, how severe it was, and what action was taken
 placement:
   slots:
-    - cloud
+    - internal
+    - endpoint
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: ePO server
+      desc: The system tree, the audit log and the event tables live in the ePO server database. A collector queries that server. Host names in the samples are documentation names.
+    - slot: endpoint
+      title: Managed agent
+      desc: Threat events, DLP incidents, device events and product events are what the agent reported. EPOEvents.AnalyzerHostName and EPOLeafNode.NodeName are that computer. The row is stored on the server.
 howItWorks:
-  - title: What the fixture shows
-    body: Trellix Epo On Prem events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries OrionAuditLog.AutoId, OrionAuditLog.CmdName, OrionAuditLog.EndTime, OrionAuditLog.Message, OrionAuditLog.Priority, OrionAuditLog.StartTime. Values in the sample were rewritten to documentation addresses.
+  - title: Audit, systems and compliance
+    body: OrionAuditLog is the server's own audit. CmdName is the command, UserName is who ran it, and Success is the outcome. The sample command is a firewall property translator run by user system, and Success is true. EPOLeafNode is one managed computer. NodeName, AgentGUID and AgentVersion identify it. ManagedState and Tags say how ePO classifies it. Compliance history is a scheduled summary. ChartName, CountCompliant and PercentCompliant are the point. The sample chart is the agent compliance summary, at 100 percent, with a computer count of zero.
+  - title: Threats, DLP and the web
+    body: EPOEvents is a threat event. ThreatName, ThreatCategory and ThreatSeverity describe it. ThreatActionTaken and ThreatHandled say what the product did. The sample is a blocked exploit-prevention event, a synthetic port-scan violation, and ThreatHandled is true. A DLP incident is one policy hit. RulesToDisplay and ClassificationsToDisplay are the rule and the data class. Severity and ActualAction are the outcome. The sample rule is a block of a confidential upload. Web control is one URL observation. URL, the rating ids and ActionID describe it. ObserverMode true means the sensor logged the URL without enforcing. That stream is the high-volume one.
+  - title: Devices and product events
+    body: A device event is removable media or an encrypted device. DeviceSN, VendorName, UserName and UserResponse say which device and whether the user was approved. The sample response is Approved and Protected is Yes. A product event is the agent or another product reporting an install or a similar action. Type in the sample is Install, ProductCode is the agent, and UserName is SYSTEM.
+  - title: How the rows are collected
+    body: A collector reads each table from the ePO server and forwards one JSON object per row. Any collector that can reach the server can do this. Addresses in the samples are documentation addresses. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Threats the endpoint product blocked or logged
+    - Data-loss policy incidents
+    - Administrator and system commands in the ePO audit log
+    - Web-control URL observations
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads trellix_epo_on_prem and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent reports to ePO
+      desc: An endpoint product sends a threat, a DLP incident, a device event or a product event to the ePO server.
+    - step: Server writes a row
+      desc: ePO stores the row in the matching table and writes its own audit row when a command runs.
+    - step: Collector reads the tables
+      desc: A collector queries each table and forwards the JSON objects.
 logs:
-  - type: Audit
+  - type: Server audit
     sourcetype: trellix_epo_on_prem_audit
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One audit row. CmdName is the command and Success is the outcome. This sample command is Endpoint Security Firewall Property Translator, run by user system, and Success is true. StartTime and EndTime bound it. Message is empty in this sample.
     sample: '{"OrionAuditLog.AutoId":1939,"OrionAuditLog.CmdName":"Endpoint Security Firewall Property Translator","OrionAuditLog.EndTime":"2026-07-16T12:45:03+05:30","OrionAuditLog.Message":"","OrionAuditLog.Priority":3,"OrionAuditLog.StartTime":"2026-07-16T12:45:02+05:30","OrionAuditLog.Success":true,"OrionAuditLog.UserId":2,"OrionAuditLog.UserName":"system"}'
     key:
       - OrionAuditLog.AutoId
       - OrionAuditLog.CmdName
       - OrionAuditLog.EndTime
       - OrionAuditLog.Message
-  - type: Compliance History
+  - type: Compliance history
     sourcetype: trellix_epo_on_prem_compliance_history
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One compliance snapshot. ChartName is the report and PercentCompliant is the result. This sample is the Trellix Agent Compliance Summary at 100 percent, with CountComputers 0. TheTimestamp is when the task ran.
     sample: '{"EpoComplianceHistory.AutoId":1,"EpoComplianceHistory.ChartName":"Trellix Agent Compliance Summary","EpoComplianceHistory.TaskName":"Generate Records for Trellix Agent Compliance History Reporting","EpoComplianceHistory.CountComputers":0,"EpoComplianceHistory.CountNonCompliant":0,"EpoComplianceHistory.PercentNonCompliant":0,"EpoComplianceHistory.PercentCompliant":100,"EpoComplianceHistory.CountCompliant":0,"EpoComplianceHistory.TheTimestamp":"2026-07-12T01:00:18+05:30","EpoComplianceHistory.TenantId":0}'
     key:
       - EpoComplianceHistory.AutoId
       - EpoComplianceHistory.ChartName
       - EpoComplianceHistory.TaskName
       - EpoComplianceHistory.CountComputers
-  - type: Device Event
+  - type: Removable device
     sourcetype: trellix_epo_on_prem_device_event
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One device event. UserResponse and Protected say what happened to the media. This sample is a protected device, UserResponse Approved, FileSystem NTFS. UserName and DeviceSN identify the person and the device. The names are example values.
     sample: '{"EEFFDeviceAllEventsView.AutoID":1048576,"EEFFDeviceAllEventsView.AgentGUID":"11111111-2222-4333-8444-555555555555","EEFFDeviceAllEventsView.BackupSize":1024.5,"EEFFDeviceAllEventsView.BackupState":"Completed","EEFFDeviceAllEventsView.BackupTime":18.75,"EEFFDeviceAllEventsView.DeviceSize":64000,"EEFFDeviceAllEventsView.DeviceSN":"EXAMPLE-DEVICE-SN-001","EEFFDeviceAllEventsView.Exempted":"No","EEFFDeviceAllEventsView.EventID":3001,"EEFFDeviceAllEventsView.FileSystem":"NTFS","EEFFDeviceAllEventsView.FileSystemVersion":"3.1","EEFFDeviceAllEventsView.InitializationState":"Initialized","EEFFDeviceAllEventsView.InitializationTime":12.25,"EEFFDeviceAllEventsView.ProductName":"Example Secure USB","EEFFDeviceAllEventsView.Protected":"Yes","EEFFDeviceAllEventsView.ProtectedSize":62000,"EEFFDeviceAllEventsView.UserName":"EXAMPLE\\analyst","EEFFDeviceAllEventsView.UserResponse":"Approved","EEFFDeviceAllEventsView.VendorName":"Example Vendor","EEFFDeviceAllEventsView.EventGeneratedTime":"2026-07-31T08:15:42.000Z","EEFFDeviceAllEventsView.EventReportedTime":"2026-07-31T08:16:03.000Z","EEFFDeviceAllEventsView.Key":"example-removable-media-key-001","EEFFDeviceAllEventsView.CredentialType":1,"EEFFDeviceAllEventsView.MediaType":2}'
     key:
       - EEFFDeviceAllEventsView.AutoID
       - EEFFDeviceAllEventsView.AgentGUID
       - EEFFDeviceAllEventsView.BackupSize
       - EEFFDeviceAllEventsView.BackupState
-  - type: Dlp Incident
+  - type: DLP incident
     sourcetype: trellix_epo_on_prem_dlp_incident
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One data-loss incident. RulesToDisplay is the rule and Severity is the rating. This sample rule is a block of a confidential upload, Severity 3, and ClassificationsToDisplay is Confidential Data. Reviewer is a documentation email. ShortMatchString is a redacted sample identifier.
     sample: '{"UDLP_EPD_Incidents.IncidentId":100001,"UDLP_EPD_Incidents.OriginalIncidentId":100000,"UDLP_EPD_Incidents.IncidentType":1,"UDLP_EPD_Incidents.ViolationLocalTime":"2026-07-28T14:45:00+05:30","UDLP_EPD_Incidents.ViolationTimezone":"India Standard Time","UDLP_EPD_Incidents.ViolationUTCTime":"2026-07-28T09:15:00+05:30","UDLP_EPD_Incidents.ViolationCustomTime":"2026-07-28T14:45:00+05:30","UDLP_EPD_Incidents.Severity":3,"UDLP_EPD_Incidents.StatusId":1,"UDLP_EPD_Incidents.ResolutionId":0,"UDLP_EPD_Incidents.Reviewer":"user@example.com","UDLP_EPD_Incidents.McAfeeAgentGuid":"12345678-1234-4567-89ab-1234567890ab","UDLP_EPD_Incidents.DlpAgentVersion":"198.51.100.15","UDLP_EPD_Incidents.EvidenceCount":1,"UDLP_EPD_Incidents.TotalMatchCount":3,"UDLP_EPD_Incidents.TotalContentSize":4096,"UDLP_EPD_Incidents.ClassificationsToDisplay":"Confidential Data","UDLP_EPD_Incidents.RulesToDisplay":"Block confidential data upload","UDLP_EPD_Incidents.ConnectivityState":1,"UDLP_EPD_Incidents.ActualAction":2,"UDLP_EPD_Incidents.ExpectedAction":2,"UDLP_EPD_Incidents.FailureReason":0,"UDLP_EPD_Incidents.LastUpdateTimestamp":"2026-07-28T14:46:30+05:30","UDLP_EPD_Incidents.ReportingProduct":1,"UDLP_EPD_Incidents.ShortMatchString":"Sample confidential identifier: ***-**-1234","UDLP_EPD_Incidents.RuleSetToDisplay":"Endpoint DLP Rules"}'
     key:
       - UDLP_EPD_Incidents.IncidentId
       - UDLP_EPD_Incidents.OriginalIncidentId
       - UDLP_EPD_Incidents.IncidentType
       - UDLP_EPD_Incidents.ViolationLocalTime
-  - type: Product Event
+  - type: Product event
     sourcetype: trellix_epo_on_prem_product_event
     format: json
-    desc: 11 fixture events in the samples pool (elastic).
+    desc: One product event. Type is the action and ProductCode is the product. This sample Type is Install, ProductCode EPOAGENT3000, UserName SYSTEM, on HostName HOST-EXAMPLE-02. Error is 0. DetectedUTC is when the agent saw it.
     sample: '{"EPOProductEvents.AgentGUID":"89A1D5C1-2B3E-4F67-8A9B-0C1D2E3F4A5B","EPOProductEvents.AutoID":1,"EPOProductEvents.DetectedUTC":"2026-07-21T14:53:20+05:30","EPOProductEvents.Error":0,"EPOProductEvents.ExtraDATNames":null,"EPOProductEvents.HostName":"HOST-EXAMPLE-02","EPOProductEvents.IPV6":"2001:db8::1","EPOProductEvents.InitiatorID":null,"EPOProductEvents.InitiatorType":"CommandLine","EPOProductEvents.Locale":1033,"EPOProductEvents.NodeID":1,"EPOProductEvents.ProductCode":"EPOAGENT3000","EPOProductEvents.ReceivedUTC":"2026-07-21T14:53:47+05:30","EPOProductEvents.SPHotFix":null,"EPOProductEvents.SiteName":null,"EPOProductEvents.TVDEventID":2411,"EPOProductEvents.TVDSeverity":0,"EPOProductEvents.TenantId":1,"EPOProductEvents.Type":"Install","EPOProductEvents.UserName":"SYSTEM"}'
     key:
       - EPOProductEvents.AgentGUID
       - EPOProductEvents.AutoID
       - EPOProductEvents.DetectedUTC
       - EPOProductEvents.Error
-  - type: System
+  - type: Managed system
     sourcetype: trellix_epo_on_prem_system
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One leaf node. NodeName is the computer and AgentGUID is the agent. This sample is a laptop, AgentVersion set, Tags Laptop, ManagedState 0. LastUpdate is the last time the node was refreshed.
     sample: '{"EPOLeafNode.AutoID":5,"EPOLeafNode.NodeName":"LAPTOP-R7WQ4NZ","EPOLeafNode.Type":1,"EPOLeafNode.ParentID":2,"EPOLeafNode.AgentGUID":"C58D2E71-9F03-4A6B-B142-6D97E38A0C24","EPOLeafNode.LastUpdate":"2026-09-08T16:47:03+05:30","EPOLeafNode.AgentVersion":"198.51.100.25","EPOLeafNode.NodePath":null,"EPOLeafNode.ServerKeyHash":"zCpCbtDGJO5y9CB7kjIW+lY9lEPxhJhunES4S5Aayao=","EPOLeafNode.TenantId":1,"EPOLeafNode.LastCommSecure":"0","EPOLeafNode.SequenceErrorCount":2,"EPOLeafNode.SequenceErrorCountLastUpdate":"2026-09-08T16:40:11+05:30","EPOLeafNode.TransferSiteListsID":false,"EPOLeafNode.ManagedState":0,"EPOLeafNode.Tags":"Laptop","EPOLeafNode.ExcludedTags":""}'
     key:
       - EPOLeafNode.AutoID
       - EPOLeafNode.NodeName
       - EPOLeafNode.Type
       - EPOLeafNode.ParentID
-  - type: Threat Event
+  - type: Threat event
     sourcetype: trellix_epo_on_prem_threat_event
     format: json
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: One threat event. ThreatName and ThreatActionTaken are the finding and the outcome. This sample action is blocked, ThreatHandled is true, and the name is a synthetic port-scan violation from exploit prevention. AnalyzerHostName and TargetHostName are documentation host names.
     sample: '{"EPOEvents.AgentGUID":"11111111-2222-4333-8444-555555555501","EPOEvents.Analyzer":"ENDP_AM_1070","EPOEvents.AnalyzerDetectionMethod":"Exploit Prevention","EPOEvents.AnalyzerHostName":"lab-host-nips.example.com","EPOEvents.AnalyzerIPV4":1177773066,"EPOEvents.AnalyzerIPV6":"2001:db8::1","EPOEvents.AnalyzerMAC":"00005E005302","EPOEvents.AnalyzerName":"Trellix Endpoint Security","EPOEvents.AnalyzerVersion":"10.7.20.14066","EPOEvents.AutoGUID":"AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEE01","EPOEvents.AutoID":10001,"EPOEvents.DetectedUTC":"2026-01-15T10:00:00+00:00","EPOEvents.EventTimeLocal":"2026-01-15T10:00:00+00:00","EPOEvents.ReceivedUTC":"2026-01-15T10:00:05+00:00","EPOEvents.ServerID":"epo-server-01.example.com","EPOEvents.SourceIPV4":1177773067,"EPOEvents.SourceIPV6":"2001:db8::1","EPOEvents.SourceMAC":"00005E005304","EPOEvents.TargetHostName":"lab-target-nips.example.com","EPOEvents.TargetIPV4":1177773076,"EPOEvents.TargetIPV6":"2001:db8::1","EPOEvents.TargetMAC":"00005E005305","EPOEvents.TargetPort":443,"EPOEvents.TenantId":1,"EPOEvents.ThreatActionTaken":"blocked","EPOEvents.ThreatCategory":"hip.nips","EPOEvents.ThreatEventID":18059,"EPOEvents.ThreatHandled":true,"EPOEvents.ThreatName":"Synthetic NIPS port scan violation","EPOEvents.ThreatSeverity":2}'
     key:
       - EPOEvents.AgentGUID
       - EPOEvents.Analyzer
       - EPOEvents.AnalyzerDetectionMethod
       - EPOEvents.AnalyzerHostName
-  - type: Web Control
+  - type: Web control
     sourcetype: trellix_epo_on_prem_web_control
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One URL observation. URL and the rating fields describe the site. This sample URL is a blocked-site report token, ObserverMode is true, so the sensor logged it without enforcing, and UserName is null. ActionID and ReasonID are numeric codes.
     sample: '{"WP_EventInfo.ActionID":4,"WP_EventInfo.BadLinkRatingID":4,"WP_EventInfo.ContentID":0,"WP_EventInfo.Count":1,"WP_EventInfo.DomainName":"reports.blockedSiteDSSError","WP_EventInfo.DownloadRatingID":4,"WP_EventInfo.EventAutoID":494,"WP_EventInfo.ExploitRatingID":4,"WP_EventInfo.ListID":1,"WP_EventInfo.ObserverMode":true,"WP_EventInfo.PhishingRatingID":4,"WP_EventInfo.PopupRatingID":4,"WP_EventInfo.RatingID":6,"WP_EventInfo.ReasonID":7,"WP_EventInfo.SpamRatingID":4,"WP_EventInfo.URL":"reports.blockedSiteDSSError","WP_EventInfo.UserName":null}'
     key:
       - WP_EventInfo.ActionID
@@ -139,17 +157,38 @@ logs:
       - WP_EventInfo.Count
 cves: []
 detections:
-  - title: Trellix Epo On Prem events arriving
-    severity: low
+  - title: Endpoint threat was blocked
+    severity: high
     signals:
-      - OrionAuditLog.AutoId
-      - OrionAuditLog.CmdName
-      - OrionAuditLog.EndTime
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "trellix_epo_on_prem_audit"'
-optimizations: []
+      - EPOEvents.ThreatName
+      - EPOEvents.ThreatActionTaken
+      - EPOEvents.ThreatHandled
+      - EPOEvents.AnalyzerHostName
+    why: ThreatActionTaken blocked means the endpoint product stopped the threat and ThreatHandled confirms it. The sample is a blocked exploit-prevention event. Compliance totals and the system tree are not this signal.
+    kql: |
+      dataset="trellix-epo-on-prem_logs"
+      | where sourcetype == "trellix_epo_on_prem_threat_event" and EPOEvents.ThreatActionTaken == "blocked"
+      | project EPOEvents.DetectedUTC, EPOEvents.ThreatName, EPOEvents.ThreatActionTaken, EPOEvents.ThreatSeverity, EPOEvents.AnalyzerHostName, EPOEvents.TargetHostName
+  - title: DLP rule blocked a transfer
+    severity: high
+    signals:
+      - UDLP_EPD_Incidents.RulesToDisplay
+      - UDLP_EPD_Incidents.Severity
+      - UDLP_EPD_Incidents.ClassificationsToDisplay
+      - UDLP_EPD_Incidents.Reviewer
+    why: A DLP incident is a policy hit on data leaving an endpoint. The sample rule is a block of confidential data. That is the incident worth an alert. Web-control observations in observer mode are a different, much larger stream.
+    kql: |
+      dataset="trellix-epo-on-prem_logs"
+      | where sourcetype == "trellix_epo_on_prem_dlp_incident"
+      | project UDLP_EPD_Incidents.ViolationUTCTime, UDLP_EPD_Incidents.Severity, UDLP_EPD_Incidents.RulesToDisplay, UDLP_EPD_Incidents.ClassificationsToDisplay, UDLP_EPD_Incidents.Reviewer
+    mitre:
+      - T1048
+optimizations:
+  - title: Drop web-control observations
+    saving: most of the web-control volume
+    fn: Drop
+    how: Web control writes a row for URLs the sensor saw, and observer mode logs them without blocking. That is most of the volume next to threat events and DLP incidents. Keep threats and DLP in full. Drop the web-control stream before the SIEM, or keep only the rows where ObserverMode is false.
+    expr: "sourcetype == 'trellix_epo_on_prem_web_control'"
 references:
-  - title: elastic/integrations trellix_epo_on_prem/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trellix_epo_on_prem/data_stream/audit/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample trellix_epo_on_prem_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trellix_epo_on_prem_audit.json
+  - title: Trellix documentation
+    url: https://docs.trellix.com/

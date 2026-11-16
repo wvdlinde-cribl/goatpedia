@@ -1,76 +1,98 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: azure-frontdoor
-name: Azure Frontdoor
-short: Frontdoor
-vendor: Azure
+name: Azure Front Door
+short: Front Door
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_frontdoor
-  - Elastic integrations
+  - Azure Front Door Standard
+  - Azure Front Door Premium
+  - Azure CDN
 tags:
-  - elastic
+  - cdn
+  - waf
+  - load-balancer
+  - azure
   - json
-summary: Azure Frontdoor is logged by the Elastic integrations package azure_frontdoor. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's global entry point for web applications, combining CDN, layer-7 load balancing and a web application firewall on Microsoft's edge network. Clients connect to the nearest point of presence, and Front Door routes the request to a healthy origin. It writes access logs per request, health probe logs per origin check, and WAF logs per rule match.
 sourcetypes:
   - st: azure_frontdoor_access
-    desc: 'Elastic integrations fixture, 8 events. Upstream: azure_frontdoor/data_stream/access/_dev/test/pipeline/test-fdaccess.log'
+    desc: Front Door access logs, one record per request with client, host, URI, status, cache result, origin and timing
   - st: azure_frontdoor_health_probe
-    desc: 'Elastic integrations fixture, 3 events. Upstream: azure_frontdoor/data_stream/health_probe/_dev/test/pipeline/test-health-probe.log'
+    desc: Health probe logs, one record per failed or sampled probe of an origin, with result, status and latency
   - st: azure_frontdoor_waf
-    desc: 'Elastic integrations fixture, 7 events. Upstream: azure_frontdoor/data_stream/waf/_dev/test/pipeline/test-fdwaf.log'
+    desc: Front Door WAF logs, one record per request that matched a rule, with client, URI, rule, policy, mode and action
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_frontdoor
-  Sourcetypes: '3'
-  Fixture events: '18'
-  Log format seen: json
-  Fields in the first fixture: category, operationName, properties.ErrorInfo, properties.backendHostname, properties.cacheStatus, properties.clientIp
+  Product: Global CDN, application load balancer and WAF
+  Placement: Microsoft edge points of presence in front of the customer's origins
+  Log transport: Diagnostic settings send FrontDoorAccessLog, FrontDoorHealthProbeLog and FrontDoorWebApplicationFirewallLog to Event Hubs, a workspace or storage
+  Log format: Azure diagnostic JSON with category and a properties object
+  What an access log answers: Who requested what, through which POP and origin, and with what status and cache result
+  What a health probe log answers: Which origin failed its probe and why
+  What a WAF log answers: Which rule matched which request and what Front Door did
 placement:
   slots:
+    - edge
     - cloud
   items:
+    - slot: edge
+      title: Front Door points of presence
+      desc: Clients connect to the nearest Microsoft edge location. WAF rules and routing run there before the request is sent to an origin.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Origins
+      desc: Origins are App Service, container apps, storage or any public endpoint. Front Door probes them and forwards requests to healthy ones.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure Frontdoor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries category, operationName, properties.ErrorInfo, properties.backendHostname, properties.cacheStatus, properties.clientIp. Values in the sample were rewritten to documentation addresses.
+  - title: Routing and caching
+    body: Routing rules map hosts and paths to origin groups. Front Door terminates TLS at the edge, serves cached content where it can and forwards the rest. The access log records the POP, cache status, origin and timings.
+  - title: Health probes
+    body: Each POP sends HEAD or GET probes to every origin and takes failing origins out of rotation. Probe logs record the result, status code and latency, which explain sudden failovers.
+  - title: Web application firewall
+    body: A WAF policy with managed and custom rules runs in detection or prevention mode. A matching request logs the rule, the policy, the mode and the action (Log, Block, Allow, Redirect).
+  - title: How the logs leave Azure
+    body: A diagnostic setting on the Front Door profile routes the three categories to an Event Hub, workspace or storage account. Any collector can read them there.
 traffic:
   handles:
-    - json
+    - HTTP and HTTPS requests to web applications
+    - Origin health checks
+    - WAF inspection of requests
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_frontdoor and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client connects
+      desc: A client sends a request to the Front Door host name and reaches the nearest POP.
+    - step: Edge decides
+      desc: The WAF policy evaluates the request and routing picks a healthy origin or the cache.
+    - step: Front Door logs
+      desc: An access record is written, plus a WAF record on a rule match. Probes are logged separately.
+    - step: Diagnostic setting routes
+      desc: The records go to the configured Event Hub or workspace.
 logs:
-  - type: Access
+  - type: Access logs
     sourcetype: azure_frontdoor_access
     format: json
-    desc: 8 fixture events in the samples pool (elastic).
+    desc: One record per request. properties.clientIp, httpMethod and requestUri are the request, httpStatusCode the result, pop and backendHostname the path it took, cacheStatus the cache result. Addresses are documentation addresses.
     sample: '{"category":"FrontdoorAccessLog","operationName":"Microsoft.Network/FrontDoor/AccessLog/Write","properties":{"ErrorInfo":"NoError","backendHostname":"samplev6erp.azurewebsites.net:443","cacheStatus":"CONFIG_NOCACHE","clientIp":"203.0.113.8","clientPort":"50382","httpMethod":"POST","httpStatusCode":"200","httpStatusDetails":"200","httpVersion":"203.0.113.40","isReceivedFromClient":true,"pop":"SIN","requestBytes":"2545","requestProtocol":"HTTPS","requestUri":"https://erp.testcloud.com:443/StockSetup/GetStockListByCir","responseBytes":"1205","routingRuleName":"erp","rulesEngineMatchNames":[],"securityProtocol":"TLS 1.2","socketIp":"192.0.2.10","timeTaken":"0.384","timeToFirstByte":"0.384","trackingReference":"0k1y5YQAAAAAWd0Uc6UcnR7WN8uo2prYZU0lOMzBFREdFMDIxNwBkYjIxMTMyNi1mZTJmLTQwYWYtOTA4My03MGUyYTJmYWRmZjc=","userAgent":"Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36"},"resourceId":"/SUBSCRIPTIONS/49D1B571-1CBE-402D-B523-AFEE3C19B64E/RESOURCEGROUPS/WAF-RG/PROVIDERS/MICROSOFT.NETWORK/FRONTDOORS/TESTCLOUD","time":"2021-12-15T03:10:11.6479719Z"}'
     key:
       - category
       - operationName
       - properties.ErrorInfo
       - properties.backendHostname
-  - type: Health Probe
+  - type: Health probe logs
     sourcetype: azure_frontdoor_health_probe
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One record per probe. properties.originName and probeUrl are the origin, result and httpStatusCode the outcome (an OriginError 404 here), latency fields the timing. The origin IP is a documentation address.
     sample: '{"time":"2026-07-07T09:31:41Z","resourceId":"/SUBSCRIPTIONS/49D1B571-1CBE-402D-B523-AFEE3C19B64E/RESOURCEGROUPS/WAF-RG/PROVIDERS/MICROSOFT.CDN/PROFILES/TESTCLOUD","category":"FrontDoorHealthProbeLog","operationName":"Microsoft.Cdn/Profiles/FrontDoorHealthProbeLog/Write","properties":{"healthProbeId":"259ffc3865154b8d8ca2c82692b60cf1","pop":"BL","httpVerb":"HEAD","result":"OriginError","httpStatusCode":"404","probeUrl":"http://test.internal.orangemushroom-b8de5ef7.westus2.azurecontainerapps.io:80/","originName":"test.internal.orangemushroom-b8de5ef7.westus2.azurecontainerapps.io","originIP":"192.0.2.20","totalLatencyMilliseconds":"142","connectionLatencyMilliseconds":"71","DNSLatencyMicroseconds":"2000"}}'
     key:
       - time
       - resourceId
       - category
       - operationName
-  - type: WAF
+  - type: WAF logs
     sourcetype: azure_frontdoor_waf
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One record per rule match. properties.ruleName, policy and policyMode say which rule and policy, action what was done (Log in detection mode here), clientIP and requestUri the request. Addresses are documentation addresses.
     sample: '{"category":"FrontdoorWebApplicationFirewallLog","operationName":"Microsoft.Network/FrontDoor/WebApplicationFirewallLog/Write","properties":{"action":"Log","clientIP":"198.51.100.15","clientPort":"56094","details":{"matches":[]},"host":"connect.testcloud.com","policy":"waf2","policyMode":"detection","requestUri":"https://connect.testcloud.com:443/connect_v2/module001/serviceAttendance/checkvalidUser1","ruleName":"AllowMyanmar","socketIP":"198.51.100.25","trackingReference":"09tTJYQAAAAAV8VyBP8m1Qo+8A3qdd2DuU0lOMzBFREdFMDIxOABkYjIxMTMyNi1mZTJmLTQwYWYtOTA4My03MGUyYTJmYWRmZjc="},"resourceId":"/SUBSCRIPTIONS/49D1B571-1CBE-402D-B523-AFEE3C19B64E/RESOURCEGROUPS/WAF-RG/PROVIDERS/MICROSOFT.NETWORK/FRONTDOORS/TESTCLOUD","time":"2021-12-27T15:00:06.6330668Z"}'
     key:
       - category
@@ -79,17 +101,26 @@ logs:
       - properties.clientIP
 cves: []
 detections:
-  - title: Azure Frontdoor events arriving
-    severity: low
+  - title: WAF blocked a request
+    severity: medium
     signals:
-      - category
-      - operationName
-      - properties.ErrorInfo
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_frontdoor_access"'
-optimizations: []
+      - properties.action
+      - properties.ruleName
+      - properties.clientIP
+      - properties.requestUri
+    why: A Block means a managed or custom rule stopped the request. Many blocks from one client, or against one path, are an attack in progress.
+    kql: |
+      dataset="azure-frontdoor_logs"
+      | where sourcetype == "azure_frontdoor_waf" and properties.action == "Block"
+      | project time, properties.clientIP, properties.host, properties.requestUri, properties.ruleName, properties.policy
+    mitre:
+      - T1190
+optimizations:
+  - title: Drop successful cache hits
+    saving: much of the access volume on cache-heavy sites
+    fn: Drop
+    how: Static content served from cache is most of the access log on a CDN. Errors, WAF records and requests forwarded to the origin are the useful part. Drop 2xx cache hits or send them to cheaper storage.
+    expr: properties.cacheStatus == 'HIT' && properties.httpStatusCode == '200'
 references:
-  - title: elastic/integrations azure_frontdoor/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_frontdoor/data_stream/access/_dev/test/pipeline/test-fdaccess.log
-  - title: Pack Generator sample azure_frontdoor_access.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_frontdoor_access.json
+  - title: Monitor metrics and logs in Azure Front Door
+    url: https://learn.microsoft.com/en-us/azure/frontdoor/front-door-diagnostics

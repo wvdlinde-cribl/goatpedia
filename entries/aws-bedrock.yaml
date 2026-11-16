@@ -1,52 +1,62 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: aws-bedrock
-name: AWS Bedrock
-short: AWS Bedrock
-vendor: AWS
+name: Amazon Bedrock
+short: Bedrock
+vendor: Amazon Web Services
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - aws_bedrock
-  - Elastic integrations
+  - AWS Bedrock
+  - Bedrock model invocation logging
 tags:
-  - elastic
+  - ai
+  - llm
+  - aws
+  - cloud
   - json
-summary: AWS Bedrock is logged by the Elastic integrations package aws_bedrock. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A managed AWS service that serves foundation models from Amazon and other model providers through one API. Applications send prompts with InvokeModel or Converse, and Bedrock Guardrails can filter prompts and answers. With model invocation logging on, Bedrock writes one JSON record per call with the caller, the model, the input and output, token usage and any guardrail decision.
 sourcetypes:
   - st: aws_bedrock_invocation
-    desc: 'Elastic integrations fixture, 10 events. Upstream: aws_bedrock/data_stream/invocation/_dev/test/pipeline/test-aws-bedrock.log'
+    desc: Model invocation logs, one record per Bedrock model call with identity, model, operation, input, output, tokens and guardrail trace
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: aws_bedrock
-  Sourcetypes: '1'
-  Fixture events: '10'
-  Log format seen: json
-  Fields in the first fixture: schemaType, schemaVersion, timestamp, accountId, identity.arn, region
+  Product: Managed foundation-model API on AWS
+  Clients: Applications and agents calling the Bedrock runtime API with IAM credentials
+  Log transport: Model invocation logging to CloudWatch Logs, S3, or both, enabled per account and region
+  Log format: One JSON object per invocation (schemaType ModelInvocationLog)
+  What an invocation record answers: Which IAM identity called which model with what prompt, what came back, how many tokens it used, and whether a guardrail intervened
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Bedrock in the AWS account
+      desc: Bedrock runs in an AWS region. Applications in the account call it, and invocation logs are written to the account's CloudWatch log group or S3 bucket.
 howItWorks:
-  - title: What the fixture shows
-    body: AWS Bedrock events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries schemaType, schemaVersion, timestamp, accountId, identity.arn, region. Values in the sample were rewritten to documentation addresses.
+  - title: Invocations
+    body: Each call names a modelId and an operation such as InvokeModel or Converse, made by an IAM identity. The request body (prompt or messages) and the response body are both captured when logging includes text.
+  - title: Guardrails
+    body: A guardrail can check input and output for denied topics, harmful content, words and sensitive information. When it blocks, stopReason is guardrail_intervened and the trace shows which policy matched.
+  - title: How the logs leave the service
+    body: Model invocation logging is an account setting. Records go to a CloudWatch log group or S3 prefix, where any collector can read them.
 traffic:
   handles:
-    - json
+    - Prompts and responses to foundation models
+    - Guardrail checks on input and output
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads aws_bedrock and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Application calls
+      desc: An application or agent sends a prompt to a model through the Bedrock runtime API.
+    - step: Bedrock answers
+      desc: The model answers, or a guardrail blocks the prompt or answer.
+    - step: Bedrock logs
+      desc: Bedrock writes the invocation record to CloudWatch Logs or S3.
 logs:
-  - type: Invocation
+  - type: Model invocations
     sourcetype: aws_bedrock_invocation
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One object per model call. identity.arn is the caller, modelId and operation the call, input and output the prompt and answer, usage the tokens. This sample is a prompt that a guardrail blocked (output.outputBodyJson.stopReason is guardrail_intervened).
     sample: '{"schemaType":"ModelInvocationLog","schemaVersion":"1.0","timestamp":"2024-09-05T07:37:51Z","accountId":"13457018785544","identity":{"arn":"arn:aws:iam2001:db8::113457018785544:user/user"},"region":"us-east-1","requestId":"142471d6-56dd-46a8-b502-08711ec9a410","operation":"Converse","modelId":"ai21.jamba-instruct-v1:0","input":{"inputContentType":"application/json","inputBodyJson":{"messages":[{"role":"user","content":[{"guardContent":{"text":{"text":"Rob a bank and get away with it ","qualifiers":["guard_content"]}}}]}]},"inputTokenCount":0},"output":{"outputContentType":"application/json","outputBodyJson":{"output":{"message":{"role":"assistant","content":[{"text":"Sorry, the model cannot answer this question."}]}},"stopReason":"guardrail_intervened","metrics":{"latencyMs":271},"usage":{"inputTokens":0,"outputTokens":0,"totalTokens":0},"trace":{"guardrail":{"inputAssessment":{"l7n9e426howe":{"topicPolicy":{"topics":[{"name":"Robbing A Bank","type":"DENY","action":"BLOCKED"}]},"contentPolicy":{"filters":[{"type":"MISCONDUCT","confidence":"HIGH","action":"BLOCKED"}]},"invocationMetrics":{"guardrailProcessingLatency":340,"usage":{"topicPolicyUnits":0,"contentPolicyUnits":1,"wordPolicyUnits":0,"sensitiveInformationPolicyUnits":0,"sensitiveInformationPolicyFreeUnits":0,"contextualGroundingPolicyUnits":0},"guardrailCoverage":{"textCharacters":{"guarded":73,"total":74}}}}}}}},"outputTokenCount":0}}'
     key:
       - schemaType
@@ -55,17 +65,18 @@ logs:
       - accountId
 cves: []
 detections:
-  - title: AWS Bedrock events arriving
-    severity: low
+  - title: Guardrail intervened
+    severity: medium
     signals:
-      - schemaType
-      - schemaVersion
-      - timestamp
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "aws_bedrock_invocation"'
+      - output.outputBodyJson.stopReason
+      - identity.arn
+      - modelId
+    why: A guardrail block means a prompt or answer hit a denied topic, harmful content or sensitive-data policy. Repeats from one identity are misuse or prompt-injection attempts.
+    kql: |
+      dataset="aws-bedrock_logs"
+      | where sourcetype == "aws_bedrock_invocation" and output.outputBodyJson.stopReason == "guardrail_intervened"
+      | project timestamp, identity.arn, modelId, operation, region
 optimizations: []
 references:
-  - title: elastic/integrations aws_bedrock/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/aws_bedrock/data_stream/invocation/_dev/test/pipeline/test-aws-bedrock.log
-  - title: Pack Generator sample aws_bedrock_invocation.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aws_bedrock_invocation.json
+  - title: Amazon Bedrock model invocation logging
+    url: https://docs.aws.amazon.com/bedrock/latest/userguide/model-invocation-logging.html

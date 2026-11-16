@@ -1,67 +1,73 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: kafka
-name: Kafka
+name: Apache Kafka
 short: Kafka
-vendor: Kafka
+vendor: Apache Software Foundation
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - kafka
-  - Elastic integrations
+  - Kafka
+  - Kafka broker
 tags:
-  - elastic
+  - streaming
+  - message-broker
+  - middleware
   - text
-summary: Kafka is logged by the Elastic integrations package kafka. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source distributed event-streaming platform. Brokers run on servers or in containers inside the data centre or a cloud network, and producers and consumers read and write topics through them. The broker's own server log records startup, configuration, partition and consumer-group housekeeping, controller changes and errors, which tells you whether the cluster is healthy and what it did.
 sourcetypes:
   - st: kafka
-    desc: 'Elastic integrations fixture, 20 events. Upstream: kafka/data_stream/log/_dev/test/pipeline/test-server-2-0-0.log'
+    desc: The Kafka broker server log, one line per broker message with timestamp, level, component and text
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: kafka
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Distributed event-streaming platform (brokers, topics, partitions, consumer groups)
+  Deployment: Self-managed broker clusters on servers, VMs or Kubernetes; also offered as managed cloud services
+  Log transport: Log4j files on each broker (server.log and friends), read by a file agent or forwarded by syslog
+  Log format: Plain text, one line per message, as [timestamp] LEVEL [component] text (class)
+  What a server-log line answers: Which broker component did what and when, such as group metadata cleanup, partition leadership or a failed connection
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Kafka brokers
+      desc: Brokers usually sit inside the data centre or a private cloud network, between the applications that produce events and those that consume them. Each broker writes its own server log on local disk.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloud-hosted clusters
+      desc: Kafka also runs on cloud VMs or Kubernetes. The broker log is the same text format wherever the broker runs.
 howItWorks:
-  - title: What the fixture shows
-    body: Kafka events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Brokers, topics and groups
+    body: A Kafka cluster is a set of brokers. Topics are split into partitions spread over the brokers. Consumers join consumer groups, and a group coordinator on one broker tracks their committed offsets.
+  - title: The server log
+    body: Each broker logs through Log4j. Lines carry the time in square brackets, the level (INFO, WARN, ERROR), the component in square brackets with the broker id, the message text and the Java class at the end. Routine housekeeping, such as the GroupMetadataManager removing expired offsets, appears at INFO.
+  - title: How the lines leave the broker
+    body: The broker writes to local files. A file agent tails them, or Log4j is configured to send to syslog. Any collector can read them.
 traffic:
   handles:
-    - text
+    - Topic produce and consume traffic
+    - Consumer-group coordination
+    - Partition leadership and replication
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads kafka and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Broker acts
+      desc: A broker component starts, elects a leader, rebalances a group or cleans up offsets.
+    - step: Log4j writes a line
+      desc: The component writes one text line with time, level, component and class to the broker's server log.
+    - step: Collector reads it
+      desc: A file agent or syslog forwarder ships the line. Goatpedia reads the sample as text.
 logs:
-  - type: Log
+  - type: Broker server log
     sourcetype: kafka
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per broker message. This sample is the group coordinator on broker 10 reporting that its periodic cleanup removed no expired offsets. The level (INFO) and the component in brackets say which part of the broker spoke.
     sample: '[2018-10-17 12:04:41,718] INFO [GroupMetadataManager brokerId=10] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Kafka events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "kafka"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations kafka/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/kafka/data_stream/log/_dev/test/pipeline/test-server-2-0-0.log
-  - title: Pack Generator sample kafka.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kafka.json
+  - title: Apache Kafka documentation
+    url: https://kafka.apache.org/documentation/

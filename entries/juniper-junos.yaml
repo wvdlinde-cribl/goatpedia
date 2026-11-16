@@ -1,67 +1,71 @@
 id: juniper-junos
-name: Juniper Junos
-short: Juniper Junos
-vendor: Juniper
+name: Junos OS
+short: Junos
+vendor: Juniper Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - juniper_junos
-  - Elastic integrations
+  - Junos
+  - Juniper Junos
 tags:
-  - elastic
-  - text
-summary: Juniper Junos is logged by the Elastic integrations package juniper_junos. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - routing
+  - syslog
+  - network
+summary: Junos OS is the operating system on Juniper routers, switches and firewalls. The device writes syslog when a process starts, a protocol changes state, an administrator signs in, or a task runs long. This stream is that syslog, one text line per event. Any collector can receive it. The message code in the sample is RPD_SCHED_TASK_LONGRUNTIME, which the routing daemon emits when a scheduled task runs long.
 sourcetypes:
   - st: juniper_junos
-    desc: 'Elastic integrations fixture, 20 events. Upstream: juniper_junos/data_stream/log/_dev/test/pipeline/test-generated.log'
+    desc: Junos syslog. One line is one message from a process on the device. The message code is the part to read.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: juniper_junos
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Operating system for Juniper routers, switches and firewalls
+  Form factor: Juniper hardware and virtual appliances running Junos
+  Log transport: Syslog from the device
+  Log format: One text line. A standard line has a timestamp, a process and a message code such as RPD_SCHED_TASK_LONGRUNTIME, then the text.
+  What a line answers: Which process reported which message code, and the text that follows the code
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Routers and firewalls
+      desc: Junos devices at the edge write syslog for routing, security and admin events. A collector receives the lines.
+    - slot: internal
+      title: Core and switching
+      desc: Switches and core routers use the same syslog. The process name and the message code say which subsystem spoke.
 howItWorks:
-  - title: What the fixture shows
-    body: Juniper Junos events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: One syslog line
+    body: A Junos message carries a timestamp, the process that emitted it, a message code, and a sentence. The code is the stable part. RPD_ is the routing protocol daemon. Other prefixes belong to other processes, such as login or the chassis daemon.
+  - title: This sample
+    body: The message code is RPD_SCHED_TASK_LONGRUNTIME. That is the routing daemon reporting that a scheduled task ran long. The numbers in the text are the run time the daemon recorded. Match on that code. The leading token on this line is stray text.
+  - title: How the lines leave
+    body: Junos sends syslog to the hosts configured under system syslog. Any collector can receive it.
 traffic:
   handles:
-    - text
+    - Routing-daemon messages
+    - Process and chassis events
+    - Administrator and login messages on the same syslog stream
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads juniper_junos and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: A process reports
+      desc: A Junos daemon hits a condition, such as a task that ran long, a protocol change, or a sign-in.
+    - step: Junos writes a line
+      desc: The line carries a message code and the text.
+    - step: Collector receives syslog
+      desc: A collector takes the line and can forward it anywhere.
 logs:
-  - type: Log
+  - type: System log
     sourcetype: juniper_junos
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line. Read the message code. This sample's code is RPD_SCHED_TASK_LONGRUNTIME, a routing-daemon notice that a scheduled task ran long.
     sample: 'Jan 29 06:09:59 ceroinBC.exe[6713]: RPD_SCHED_TASK_LONGRUNTIME: : exe ran for 7309(5049)'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Juniper Junos events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "juniper_junos"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations juniper_junos/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/juniper_junos/data_stream/log/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample juniper_junos.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/juniper_junos.json
+  - title: Junos system logging
+    url: https://www.juniper.net/documentation/us/en/software/junos/network-mgmt/topics/topic-map/system-logging.html

@@ -1,172 +1,202 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cloudflare-logpush
 name: Cloudflare Logpush
-short: Logpush
+short: CF Logpush
 vendor: Cloudflare
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cloudflare_logpush
-  - Elastic integrations
+  - Cloudflare Logs
+  - Cloudflare Zero Trust logs
+  - Cloudflare One logs
 tags:
-  - elastic
+  - cdn
+  - waf
+  - zero-trust
+  - swg
+  - dns
+  - casb
   - json
-summary: Cloudflare Logpush is logged by the Elastic integrations package cloudflare_logpush. The Pack Generator samples pool holds fixture events for 21 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: The log delivery service of the Cloudflare platform. It pushes datasets from Cloudflare's application services (CDN, WAF, DNS, Spectrum, Workers) and from Cloudflare One / Zero Trust (Access, Gateway, CASB, DLP, device posture, Magic Transit and email security) to storage buckets or HTTP endpoints. Each dataset is a separate JSON stream, so one account can tell you who reached which application, what the secure web gateway allowed or blocked, what the edge firewall stopped, and what administrators changed.
 sourcetypes:
   - st: cloudflare_logpush_access_request
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/access_request/_dev/test/pipeline/test-pipeline-access-request.log'
+    desc: Cloudflare Access login and authorisation attempts to protected applications
   - st: cloudflare_logpush_audit
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/audit/_dev/test/pipeline/test-pipeline-audit.log'
+    desc: Account audit log of changes made by users and API tokens
   - st: cloudflare_logpush_casb
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/casb/_dev/test/pipeline/test-pipeline-casb.log'
+    desc: CASB findings about SaaS applications, such as exposed files or risky user settings
   - st: cloudflare_logpush_device_posture
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/device_posture/_dev/test/pipeline/test-pipeline-device-posture.log'
+    desc: Results of device posture checks reported by the WARP client
   - st: cloudflare_logpush_dlp_forensic_copies
-    desc: 'Elastic integrations fixture, 1 events. Upstream: cloudflare_logpush/data_stream/dlp_forensic_copies/_dev/test/pipeline/test-pipeline-dlp-forensic-copies.log'
+    desc: Forensic copies of request or response payloads that matched a DLP rule in Gateway
   - st: cloudflare_logpush_dns
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/dns/_dev/test/pipeline/test-pipeline-dns.log'
+    desc: Authoritative DNS queries answered by Cloudflare for the customer's zones
   - st: cloudflare_logpush_dns_firewall
-    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/dns_firewall/_dev/test/pipeline/test-pipeline-dns-firewall.log'
+    desc: DNS Firewall queries proxied to the customer's upstream resolvers
   - st: cloudflare_logpush_email_security_alerts
-    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/email_security_alerts/_dev/test/pipeline/test-pipeline-email-security-alerts-event.log'
+    desc: Email security detections on messages, with reasons, attachments and recipients
   - st: cloudflare_logpush_firewall_event
-    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/firewall_event/_dev/test/pipeline/test-pipeline-firewall-event.log'
+    desc: Edge security events, where a WAF, firewall, rate-limit or bot rule acted on an HTTP request
   - st: cloudflare_logpush_gateway_dns
-    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/gateway_dns/_dev/test/pipeline/test-pipeline-gateway-dns.log'
+    desc: Gateway DNS resolutions for users and locations, with matched categories and policy
   - st: cloudflare_logpush_gateway_http
-    desc: 'Elastic integrations fixture, 5 events. Upstream: cloudflare_logpush/data_stream/gateway_http/_dev/test/pipeline/test-pipeline-gateway-http.log'
+    desc: Gateway secure web gateway HTTP requests, with policy decision and file details
   - st: cloudflare_logpush_gateway_network
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/gateway_network/_dev/test/pipeline/test-pipeline-gateway-network.log'
+    desc: Gateway network-firewall decisions on TCP and UDP sessions
   - st: cloudflare_logpush_http_request
-    desc: 'Elastic integrations fixture, 8 events. Upstream: cloudflare_logpush/data_stream/http_request/_dev/test/pipeline/test-pipeline-http-request.log'
+    desc: HTTP requests to proxied zones, one record per request at the edge
   - st: cloudflare_logpush_magic_ids
-    desc: 'Elastic integrations fixture, 2 events. Upstream: cloudflare_logpush/data_stream/magic_ids/_dev/test/pipeline/test-pipeline-magic-ids.log'
+    desc: Intrusion detection signature matches on Magic Transit traffic
   - st: cloudflare_logpush_nel_report
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/nel_report/_dev/test/pipeline/test-pipeline-nel-report.log'
+    desc: Network Error Logging reports sent by browsers about failed connections
   - st: cloudflare_logpush_network_analytics
-    desc: 'Elastic integrations fixture, 7 events. Upstream: cloudflare_logpush/data_stream/network_analytics/_dev/test/pipeline/test-pipeline-network-analytics.log'
+    desc: Packet-level samples of network traffic and DDoS mitigation for Magic Transit and Spectrum
   - st: cloudflare_logpush_network_session
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare_logpush/data_stream/network_session/_dev/test/pipeline/test-pipeline-network-session.log'
+    desc: Zero Trust network sessions proxied by Gateway, with bytes and TLS details
   - st: cloudflare_logpush_page_shield_events
-    desc: 'Elastic integrations fixture, 1 events. Upstream: cloudflare_logpush/data_stream/page_shield_events/_dev/test/pipeline/test-pipeline-page-shield-events.log'
+    desc: Page Shield reports about scripts and connections loaded by visitors' browsers
   - st: cloudflare_logpush_sinkhole_http
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/sinkhole_http/_dev/test/pipeline/test-pipeline-sinkhole-http.log'
+    desc: HTTP requests captured by a Cloudflare sinkhole
   - st: cloudflare_logpush_spectrum_event
-    desc: 'Elastic integrations fixture, 6 events. Upstream: cloudflare_logpush/data_stream/spectrum_event/_dev/test/pipeline/test-pipeline-spectrum-event.log'
+    desc: Spectrum TCP/UDP proxy connection events for non-HTTP applications
   - st: cloudflare_logpush_workers_trace
-    desc: 'Elastic integrations fixture, 3 events. Upstream: cloudflare_logpush/data_stream/workers_trace/_dev/test/pipeline/test-pipeline-workers-trace.log'
+    desc: Trace events from Cloudflare Workers invocations, with logs and exceptions
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cloudflare_logpush
-  Sourcetypes: '21'
-  Fixture events: '80'
-  Log format seen: json
-  Fields in the first fixture: Action, Allowed, AppDomain, AppUUID, Connection, Country
+  Product: Log delivery for Cloudflare application services and Cloudflare One (Zero Trust)
+  Form factor: Cloud service; jobs are configured per zone or per account
+  Log transport: Push to object storage (S3, R2, GCS, Azure Blob) or to an HTTP endpoint, batched and usually gzipped
+  Log format: Newline-delimited JSON, one object per event, with the fields chosen in the job
+  What an Access request answers: Who tried to reach which protected application, how they authenticated, and whether they were allowed
+  What a Gateway record answers: Which user and device resolved, browsed or connected to what, which policy matched, and whether it was allowed or blocked
+  What a firewall event answers: Which edge rule acted on which request, from which client, and what action it took
+  What an audit record answers: Which user or token changed which resource in the account, and whether it succeeded
 placement:
   slots:
     - cloud
+    - endpoint
+    - edge
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloudflare edge and Zero Trust services
+      desc: Cloudflare data centres proxy websites, DNS and applications, and run Access, Gateway and CASB for the account. Each service writes its own dataset, and Logpush jobs deliver them in batches.
+    - slot: endpoint
+      title: WARP client on devices
+      desc: The WARP client on laptops and phones sends user traffic to Gateway and reports device posture. Gateway, network-session and posture records name the device and user.
+    - slot: edge
+      title: Customer network on-ramps
+      desc: Magic Transit and Spectrum bring a customer's IP ranges and non-HTTP services through Cloudflare. Network analytics, Magic IDS and Spectrum events describe that traffic.
 howItWorks:
-  - title: What the fixture shows
-    body: Cloudflare Logpush events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Action, Allowed, AppDomain, AppUUID, Connection, Country. Values in the sample were rewritten to documentation addresses.
+  - title: Datasets and jobs
+    body: Each Cloudflare product writes a named dataset (http_requests, firewall_events, gateway_dns, access_requests, audit_logs and so on). A Logpush job selects one dataset, a field list, optional filters and a destination. Zone-scoped datasets cover a website; account-scoped datasets cover Zero Trust and account activity.
+  - title: Application services
+    body: HTTP requests and firewall events describe traffic to proxied websites. Action, Source and RuleID in a firewall event say which security product (WAF, firewall rules, rate limiting, bot management) acted and how. DNS, Spectrum, Workers, Page Shield and NEL datasets cover the other edge services.
+  - title: Zero Trust
+    body: Access logs every login to a protected application. Gateway logs DNS resolutions, HTTP requests and network sessions from users on WARP or from office locations, with the policy that matched. CASB, DLP forensic copies, device posture and email security alerts add findings about SaaS, data and mail.
+  - title: How the logs leave Cloudflare
+    body: Logpush batches records every few seconds to minutes and writes them as gzipped NDJSON to the configured destination. Any collector that reads that bucket or receives that HTTP endpoint can take the data.
 traffic:
   handles:
-    - json
+    - HTTP and HTTPS requests to proxied zones
+    - Zero Trust application logins
+    - DNS, web and network traffic from users through Gateway
+    - Administrative changes to the Cloudflare account
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cloudflare_logpush and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Activity at Cloudflare
+      desc: A visitor hits a website, a user on WARP opens a site or app, or an administrator changes a setting.
+    - step: Service records it
+      desc: The Cloudflare service involved writes a record to its dataset.
+    - step: Logpush batches
+      desc: A Logpush job collects records for its dataset and pushes a batch to storage or an HTTP endpoint.
+    - step: Collector reads
+      desc: A collector reads the batch and splits it into one JSON event per line.
 logs:
-  - type: Access Request
+  - type: Access requests
     sourcetype: cloudflare_logpush_access_request
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per login or authorisation to an Access application. Action is the step (login), Allowed is the verdict, AppDomain the application, Connection the identity method (onetimepin here), Email and IPAddress the user. Addresses are documentation addresses.
     sample: '{"Action":"login","Allowed":true,"AppDomain":"partner-zt-logs.cloudflareaccess.com/warp","AppUUID":"123e4567-e89b-12d3-a456-426614174000","Connection":"onetimepin","Country":"us","CreatedAt":"2023-05-24T02:48:33+09:30","Email":"user@example.com","IPAddress":"192.0.2.20","PurposeJustificationPrompt":"Please provide your reason for accessing the application.","PurposeJustificationResponse":"I need to access the application for work purposes.","RayID":"00c0ffeeabc12345","TemporaryAccessApprovers":["user@example.com","user@example.com"],"TemporaryAccessDuration":7200,"UserUID":"166befbb-00e3-5e20-bd6e-27245333949f"}'
     key:
       - Action
       - Allowed
       - AppDomain
       - AppUUID
-  - type: Audit
+  - type: Account audit log
     sourcetype: cloudflare_logpush_audit
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per change in the account. ActionType is what was done (token_create here), ActionResult whether it succeeded, ActorEmail/ActorIP/ActorType who did it, Interface whether it was the UI or API, and ResourceType what was changed. Addresses are documentation addresses.
     sample: '{"ActionResult":true,"ActionType":"token_create","ActorEmail":"user@example.com","ActorID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ActorIP":"198.51.100.15","ActorType":"user","ID":"73fd39ed-5aab-4a2a-b93c-c9a4abf0c425","Interface":"UI","Metadata":{"token_name":"test","token_tag":"b7261c49a793a82678d12285f0bc1401"},"NewValue":{"key1":"value1","key2":"value2"},"OldValue":{"key3":"value4","key4":"value4"},"OwnerID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ResourceID":"enl3j9du8rnx2swwd9l32qots7l54t9s","ResourceType":"account","When":"2021-11-30T20:19:48Z"}'
     key:
       - ActionResult
       - ActionType
       - ActorEmail
       - ActorID
-  - type: Casb
+  - type: CASB findings
     sourcetype: cloudflare_logpush_casb
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per finding about a SaaS asset. AssetDisplayName, AssetExternalID and AssetLink identify the asset and AssetMetadata holds what the SaaS API returned about it. The sample uses example.com.
     sample: '{"AssetDisplayName":"John Doe","AssetExternalID":"0051N000004mG2LAAA","AssetLink":"https://example.com/resource","AssetMetadata":{"Id":"0051N000004mG2LAAA","Fax":null,"Name":"John Doe","Alias":"JDoe","Email":"user@example.com","Phone":"+3460000000","Title":"Customer Solutions Engineer","Address":{"city":"Singapore","state":null,"street":null,"country":"Singapore","latitude":null,"longitude":null,"stateCode":null,"postalCode":null,"countryCode":"SG","geocodeAccuracy":null},"Division":null,"IsActive":false,"LastName":"Doe","UserType":"Standard","AccountId":null,"BadgeText":"","ContactId":null,"Extension":null,"FirstName":"John","Signature":null,"Department":"521","SenderName":null,"UserRoleId":"00E2G000001E","attributes":{"url":"/services/data/userID","type":"User"},"CompanyName":"MyCompany","MobilePhone":null,"SenderEmail":"user@example.com","CallCenterId":null,"FullPhotoUrl":"https://photos.com/profilephoto/001","LocaleSidKey":"en_SG","LastLoginDate":"2021-10-06T06:32:09.000+0000","SmallPhotoUrl":"https://photos.com/photo/001"},"DetectedTimestamp":"2023-05-16T10:00:00Z","FindingTypeDisplayName":"Salesforce User Sending Email with Different Email Address","FindingTypeID":"a2790c4f-03f5-449f-b209-5f4447f417aa","FindingTypeSeverity":"Medium","InstanceID":"6b187be4-2dd5-42c5-a37b-111111111111","IntegrationDisplayName":"Salesforce Testing","IntegrationID":"c772678d-5cf1-4c73-bf3f-111111111111","IntegrationPolicyVendor":"Salesforce Connection"}'
     key:
       - AssetDisplayName
       - AssetExternalID
       - AssetLink
       - AssetMetadata.Id
-  - type: Device Posture
+  - type: Device posture results
     sourcetype: cloudflare_logpush_device_posture
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per posture check on a device. DeviceName, DeviceType and Email identify the device and user, PostureCheckName and PostureCheckType the check (os_version here), and PostureEvaluatedResult whether it passed.
     sample: '{"ClientVersion":"2023.3.258","DeviceID":"083a8354-d56c-11ed-9771-111111111","DeviceManufacturer":"Google Compute Engine","DeviceModel":"Google Compute Engine","DeviceName":"zt-test-vm1","DeviceSerialNumber":"GoogleCloud-ABCD1234567890","DeviceType":"linux","Email":"user@example.com","OSVersion":"5.15.0","PolicyID":"policy-abcdefgh","PostureCheckName":"Ubuntu","PostureCheckType":"os_version","PostureEvaluatedResult":true,"PostureExpectedJSON":{"version":"5.15.0-1025-gcp","operator":"==","os_distro_name":"ubuntu","os_distro_revision":"20.04"},"PostureReceivedJSON":{"version":"5.15.0-1025-gcp","operator":"==","os_distro_name":"ubuntu","os_distro_revision":"20.04"},"Timestamp":"2023-05-17T12:00:00Z","UserUID":"user-abcdefgh"}'
     key:
       - ClientVersion
       - DeviceID
       - DeviceManufacturer
       - DeviceModel
-  - type: Dlp Forensic Copies
+  - type: DLP forensic copies
     sourcetype: cloudflare_logpush_dlp_forensic_copies
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per captured payload. GatewayRequestID links it to the Gateway HTTP request, TriggeredRuleID is the DLP rule, Phase says whether the request or response was copied, and Payload holds the base64 content.
     sample: '{"AccountID":"acc-id","ForensicCopyID":"copy-id","GatewayRequestID":"req-id","Payload":"Tm90aGluZyB0byBzZWUgaGVyZS4gTW92ZSBhbG9uZy4K","Phase":"request","TriggeredRuleID":"9","Datetime":"2023-05-04T11:29:14Z","Headers":{"key1":"val1","key2":"val2"}}'
     key:
       - AccountID
       - ForensicCopyID
       - GatewayRequestID
       - Payload
-  - type: DNS
+  - type: Authoritative DNS queries
     sourcetype: cloudflare_logpush_dns
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per query to a Cloudflare-hosted zone. QueryName and QueryType are the question, ResponseCode the answer code, SourceIP the resolver that asked, ColoCode the data centre. Values are documentation addresses and example.com.
     sample: '{"ColoCode":"MRS","EDNSSubnet":"198.51.100.25","EDNSSubnetLength":0,"QueryName":"example.com","QueryType":65535,"ResponseCached":false,"ResponseCode":0,"SourceIP":"203.0.113.8","Timestamp":"2022-05-26T09:23:54Z"}'
     key:
       - ColoCode
       - EDNSSubnet
       - EDNSSubnetLength
       - QueryName
-  - type: DNS Firewall
+  - type: DNS Firewall queries
     sourcetype: cloudflare_logpush_dns_firewall
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per query proxied to an upstream resolver. QueryName and QueryType are the question, ClientResponseCode the answer given, UpstreamIP and UpstreamResponseCode the upstream leg, ResponseCached whether the cache answered. Values are documentation addresses.
     sample: '{"ClientResponseCode":0,"ClusterID":"CLUSTER-001","ColoCode":"SFO","EDNSSubnet":"203.0.113.40","EDNSSubnetLength":24,"QueryDO":true,"QueryName":"example.com","QueryRD":true,"QuerySize":60,"QueryTCP":false,"QueryType":1,"ResponseCached":true,"ResponseCachedStale":false,"SourceIP":"192.0.2.10","Timestamp":"2023-09-19T12:30:00Z","UpstreamIP":"192.0.2.20","UpstreamResponseCode":0,"UpstreamResponseTimeMs":30}'
     key:
       - ClientResponseCode
       - ClusterID
       - ColoCode
       - EDNSSubnet
-  - type: Email Security Alerts
+  - type: Email security alerts
     sourcetype: cloudflare_logpush_email_security_alerts
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per flagged message. AlertID identifies it, AlertReasons say why, and Attachments lists file hashes, declared and computed content types (here a .gif computed as an MSI). Addresses use example.com.
     sample: '{"AlertID":"4WtWkr6nlBz9sNH-2024-08-28T15:32:35","AlertReasons":["because","said-so"],"Attachments":[{"Md5":"91f073bd208689ddbd248e8989ecae90","Sha1":"62b77e14e2c43049c45b5725018e78d0f9986930","Sha256":"3b57505305e7162141fd898ed87d08f92fc42579b5047495859e56b3275a6c06","Ssdeep":"McAQ8tPlH25e85Q2OiYpD08NvHmjJ97UfPMO47sekO:uN9M553OiiN/OJ9MM+e3","Name":"attachment.gif","ContentTypeProvided":"image/gif","ContentTypeComputed":"application/x-msi","Encrypted":true,"Decrypted":true}],"CC":["user@example.com"],"CCName":["First Last (cc)"],"FinalDisposition":"unset","From":"user@example.com","FromName":"First Last (from)","Links":["https://example.com"],"MessageDeliveryMode":"unset","MessageID":"<Message-ID>","Origin":"unset","OriginalSender":"user@example.com","ReplyTo":"user@example.com","ReplyToName":"First Last (reply)","SMTPEnvelopeFrom":"user@example.com","SMTPEnvelopeTo":["user@example.com"],"SMTPHeloServerIP":"198.51.100.15","SMTPHeloServerIPAsName":"asn","SMTPHeloServerIPAsNumber":"42","SMTPHeloServerIPGeo":"US/NV/Las Vegas","SMTPHeloServerName":"servername","Subject":"innocuous message: please read","ThreatCategories":["CredentialHarvester","Dropper"],"Timestamp":"2024-08-28T15:32:35Z","To":["user@example.com"],"ToName":["First Last (to)"]}'
     key:
       - AlertID
       - AlertReasons[0]
       - AlertReasons[1]
       - Attachments[0].Md5
-  - type: Firewall Event
+  - type: Edge security events
     sourcetype: cloudflare_logpush_firewall_event
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per rule action on a request. Action is what happened (block here), Source is the product (firewallrules), RuleID the rule, ClientIP and ClientRequestHost/ClientRequestPath the request, and EdgeResponseStatus the response sent (403). Addresses are documentation addresses.
     sample: '{"ClientRequestScheme":"https","MatchIndex":1,"ClientRefererHost":"abc.example.com","Source":"firewallrules","ClientRequestUserAgent":"Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Mobile Safari/537.36 (compatible; Googl...","ClientRefererPath":"/abc/checkout","Metadata":{"filter":"1ced07e066a34abf8b14f2a99593bc8d","type":"customer"},"EdgeResponseStatus":403,"ClientRequestProtocol":"HTTP/1.1","OriginatorRayID":"00","RayID":"713d477539b55c29","ClientRequestMethod":"GET","ClientIP":"198.51.100.25","ClientRequestPath":"/abc/checkout","Action":"block","Kind":"firewall","RuleID":"7dc666e026974dab84884c73b3e2afe1","ClientIPClass":"searchEngine","ClientASNDescription":"CLOUDFLARENET","ClientCountry":"us","ClientRefererQuery":"?sourcerer=(default%3A(id%3A!n%2CselectedPatterns%3A!(eqldemo%2C%27logs-endpoint.*-eqldemo%27%2C%27logs-system.*-eqldemo%27%2C%27logs-windows.*-eqldemo%27%2C...","ClientRequestQuery":"?sourcerer=(default%3A(id%3A!n%2CselectedPatterns%3A!(eqldemo%2C%27logs-endpoint.*-eqldemo%27%2C%27logs-system.*-eqldemo%27%2C%27logs-windows.*-eqldemo%27%2C...","OriginResponseStatus":0,"EdgeColoCode":"IAD","ClientRefererScheme":"referer URL scheme","Datetime":"2022-05-31T05:23:43Z","ClientRequestHost":"xyz.example.com","ClientASN":15169}'
     key:
       - ClientRequestScheme
@@ -176,7 +206,7 @@ logs:
   - type: Gateway DNS
     sourcetype: cloudflare_logpush_gateway_dns
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per resolution through Gateway. Email, DeviceName and Location say who, QueryName and the category fields what was asked, and Policy/PolicyID which rule applied. Addresses are documentation addresses.
     sample: '{"ApplicationID":0,"ColoCode":"ORD","ColoID":14,"Datetime":"2023-05-02T22:49:53Z","DeviceID":"083a8354-d56c-11ed-9771-6a842b111aaa","DeviceName":"zt-test-vm1","DstIP":"203.0.113.8","DstPort":443,"Email":"user@example.com","Location":"GCP default","LocationID":"f233bd67-78c7-4050-9aff-ad63cce25732","MatchedCategoryIDs":[7,163],"MatchedCategoryNames":["Photography","Weather"],"Policy":"7bdc7a9c-81d3-4816-8e56-de1acad3dec5","PolicyID":"1412","Protocol":"https","QueryCategoryIDs":[26,155],"QueryCategoryNames":["Technology","Technology"],"QueryName":"security.ubuntu.com","QueryNameReversed":"com.ubuntu.security","QuerySize":48,"QueryType":1,"QueryTypeName":"A","RCode":0,"RData":[{"type":"1","data":"CHNlY3VyaXR5BnVidW50dQMjb20AAAEAAQAAAAgABLl9vic="},{"type":"1","data":"CHNlY3VyaXR5BnVidW50dQNjb20AAAEAABAAAAgABLl9viQ="}],"ResolvedIPs":["203.0.113.40","192.0.2.10"],"ResolverDecision":"allowedOnNoPolicyMatch","SrcIP":"198.51.100.15","SrcPort":0,"TimeZone":"UTC"}'
     key:
       - ApplicationID
@@ -186,107 +216,107 @@ logs:
   - type: Gateway HTTP
     sourcetype: cloudflare_logpush_gateway_http
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per web request through Gateway. Action is the verdict (block here), PolicyName the rule, Email and DeviceName the user, URL and HTTPHost the destination, and BlockedFileName/BlockedFileReason a file that was stopped (malware here). Addresses are documentation addresses.
     sample: '{"AccountID":"e1836771179f98aabb828da5ea69a348","Action":"block","BlockedFileHash":"91dc1db739a705105e1c763bfdbdaa84c0de8","BlockedFileName":"downloaded_test","BlockedFileReason":"malware","BlockedFileSize":43,"BlockedFileType":"bin","Datetime":"2023-05-03T20:55:05Z","DestinationIP":"198.51.100.25","DestinationPort":443,"DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","DownloadedFileNames":["downloaded_file","downloaded_test"],"Email":"user@example.com","FileInfo":{"files":[{"name":"downloaded_file","size":43},{"name":"downloaded_test","size":341}]},"HTTPHost":"guce.yahoo.com","HTTPMethod":"GET","HTTPStatusCode":302,"HTTPVersion":"HTTP/2","IsIsolated":false,"PolicyID":"85063bec-74cb-4546-85a3-e0cde2cdfda2","PolicyName":"Block Yahoo","Referer":"https://www.example.com/","RequestID":"1884fec9b600007fb06a299400000001","SourceInternalIP":"203.0.113.8","SourceIP":"203.0.113.40","SourcePort":47924,"UntrustedCertificateAction":"none","UploadedFileNames":["uploaded_file","uploaded_test"],"URL":"https://test.com"}'
     key:
       - AccountID
       - Action
       - BlockedFileHash
       - BlockedFileName
-  - type: Gateway Network
+  - type: Gateway network
     sourcetype: cloudflare_logpush_gateway_network
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per network-firewall decision. Action is the verdict (allowedOnNoRuleMatch here), SourceIP and DestinationIP/DestinationPort the session, SNI the requested host, Email and DeviceName the user. Addresses are documentation addresses.
     sample: '{"AccountID":"e1836771179f98aabb828da5ea69a111","Action":"allowedOnNoRuleMatch","Datetime":"2023-05-19T06:42:57+09:30","DestinationIP":"192.0.2.10","DestinationPort":443,"DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","Email":"user@example.com","OverrideIP":"192.0.2.20","OverridePort":8080,"PolicyID":"85063bec-74cb-4546-85a3-e0cde2cdfda2","PolicyName":"My policy","SNI":"www.elastic.co","SessionID":"5f2d04be-3512-11e8-b467-0ed5f89f718b","SourceIP":"198.51.100.15","SourceInternalIP":"198.51.100.25","SourcePort":47924,"Transport":"tcp","UserID":"166befbb-00e3-5e20-bd6e-27245723949f"}'
     key:
       - AccountID
       - Action
       - Datetime
       - DestinationIP
-  - type: HTTP Request
+  - type: HTTP requests
     sourcetype: cloudflare_logpush_http_request
     format: json
-    desc: 8 fixture events in the samples pool (elastic).
+    desc: One object per request at the edge. ClientIP, ClientCountry and ClientRequestHost say who asked for what, CacheCacheStatus whether cache answered, and BotScore with BotTags rate the client (a verified Bing crawler here). Addresses are documentation addresses.
     sample: '{"BotDetectionIDs":[7,8],"BotScore":20,"BotScoreSrc":"Verified Bot","BotTags":["bing"],"CacheCacheStatus":"dynamic","CacheResponseBytes":983828,"CacheResponseStatus":200,"CacheTieredFill":false,"ClientASN":43766,"ClientCountry":"sa","ClientDeviceType":"desktop","ClientIP":"203.0.113.8","ClientIPClass":"noRecord","ClientMTLSAuthCertFingerprint":"Fingerprint","ClientMTLSAuthStatus":"unknown","ClientRequestBytes":5800,"ClientRequestHost":"xyz.example.com","ClientRequestMethod":"POST","ClientRequestPath":"/xyz/checkout","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://example.com/s/example/default?sourcerer=(default:(id:!n,selectedPatterns:!(example,%27logs-endpoint.*-example%27,%27logs-system.*-example%27,%27logs-...","ClientRequestScheme":"https","ClientRequestSource":"edgeWorkerFetch","ClientRequestURI":"/s/example/api/telemetry/v2/clusters/_stats","ClientRequestUserAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36","ClientSrcPort":0,"ClientSSLCipher":"NONE","ClientSSLProtocol":"TLSv1.2","ClientTCPRTTMs":0,"ClientXRequestedWith":"Request With"}'
     key:
       - BotDetectionIDs[0]
       - BotDetectionIDs[1]
       - BotScore
       - BotScoreSrc
-  - type: Magic IDS
+  - type: Magic IDS detections
     sourcetype: cloudflare_logpush_magic_ids
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per signature match. SignatureID and SignatureMessage name the rule, Action is what was done (pass here, detection only), and SourceIP/DestinationIP/DestinationPort describe the flow. Addresses are documentation addresses.
     sample: '{"Action":"pass","ColoCode":"NRT","DestinationIP":"192.0.2.20","DestinationPort":80,"Protocol":"tcp","SignatureID":2031296,"SignatureMessage":"ET CURRENT_EVENTS [Fireeye] POSSIBLE HackTool.TCP.Rubeus.[User32LogonProcesss]","SignatureRevision":1,"SourceIP":"198.51.100.15","SourcePort":44667,"Timestamp":"2023-09-11T03:02:57Z","ColoCity":"Tokyo"}'
     key:
       - Action
       - ColoCode
       - DestinationIP
       - DestinationPort
-  - type: Nel Report
+  - type: Network error reports
     sourcetype: cloudflare_logpush_nel_report
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per browser report. Type and Phase say what failed (a network error during connection), ClientIPASN and ClientIPCountry where the visitor was, LastKnownGoodColoCode the data centre they last reached.
     sample: '{"ClientIPASN":"13335","ClientIPASNDescription":"CLOUDFLARENET","ClientIPCountry":"US","LastKnownGoodColoCode":"SJC","Phase":"connection","Timestamp":"2021-07-27T00:01:07Z","Type":"network-error"}'
     key:
       - ClientIPASN
       - ClientIPASNDescription
       - ClientIPCountry
       - LastKnownGoodColoCode
-  - type: Network Analytics
+  - type: Network analytics samples
     sourcetype: cloudflare_logpush_network_analytics
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One object per sampled packet. Direction, destination and source fields describe it, and AttackID/AttackCampaignID tie it to a DDoS attack that was mitigated.
     sample: '{"AttackCampaignID":"xyz987","AttackID":"abc777","ColoCountry":"AD","ColoGeoHash":"gbuun","ColoID":46,"ColoName":"SJC","Datetime":"2021-07-27T00:01:07Z","DestinationASN":1900,"DestinationASNDescription":"asn description","DestinationCountry":"AD","DestinationGeoHash":"gbuun","DestinationPort":5678,"Direction":"ingress","GREChecksum":10,"GREEthertype":10,"GREHeaderLength":1024,"GREKey":10,"GRESequenceNumber":10,"GREVersion":10,"ICMPChecksum":10,"ICMPCode":10,"ICMPType":10,"IPDestinationAddress":"198.51.100.25","IPDestinationSubnet":"/24","IPFragmentOffset":1480,"IPHeaderLength":20,"IPMoreFragments":1480,"IPProtocol":6,"IPProtocolName":"tcp","IPSourceAddress":"203.0.113.8"}'
     key:
       - AttackCampaignID
       - AttackID
       - ColoCountry
       - ColoGeoHash
-  - type: Network Session
+  - type: Zero Trust network sessions
     sourcetype: cloudflare_logpush_network_session
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per proxied session. BytesSent and BytesReceived size it, ClientTLSVersion and ClientTLSCipher describe the TLS, ConnectionCloseReason says how it ended, and DeviceName names the device. Addresses are documentation addresses.
     sample: '{"AccountID":"e1836771179f98aabb828da5ea69a111","BytesReceived":679,"BytesSent":2333,"ClientTCPHandshakeDurationMs":12,"ClientTLSCipher":"TLS_AES_128_GCM_SHA256","ClientTLSHandshakeDurationMs":125,"ClientTLSVersion":"TLS 1.3","ConnectionCloseReason":"CLIENT_CLOSED","ConnectionReuse":false,"DestinationTunnelID":"00000000-0000-0000-0000-000000000000","DeviceID":"083a8354-d56c-11ed-9771-6a842b100cff","DeviceName":"zt-test-vm1","EgressColoName":"ORD","EgressIP":"2001:db8::1","EgressPort":41052,"EgressRuleID":"00000000-0000-0000-0000-000000000000","EgressRuleName":"Egress Rule 1","Email":"user@example.com","IngressColoName":"ORD","Offramp":"INTERNET","OriginIP":"203.0.113.40","OriginPort":80,"OriginTLSCertificateIssuer":"DigiCert Inc","OriginTLSCertificateValidationResult":"VALID","OriginTLSCipher":"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384","OriginTLSHandshakeDurationMs":130,"OriginTLSVersion":"TLS 1.2","Protocol":"TCP","RuleEvaluationDurationMs":10,"SessionEndTime":"2023-05-04T11:29:14Z"}'
     key:
       - AccountID
       - BytesReceived
       - BytesSent
       - ClientTCPHandshakeDurationMs
-  - type: Page Shield Events
+  - type: Page Shield events
     sourcetype: cloudflare_logpush_page_shield_events
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per report from a visitor's browser. PageURL is the page, URL and URLHost the script or connection it loaded, CSPDirective the policy directive and Action what the policy did (log here). The sample uses example.com.
     sample: '{"Action":"log","CSPDirective":"directive","Host":"hostymchost.face","PageURL":"http://example.com/?query=42","PolicyID":"9","ResourceType":"other","Timestamp":"2023-05-04T11:29:14Z","URL":"https://example.com/?query=hog","URLContainsCDNCGIPath":true,"URLHost":"example.com"}'
     key:
       - Action
       - CSPDirective
       - Host
       - PageURL
-  - type: Sinkhole HTTP
+  - type: Sinkhole HTTP captures
     sourcetype: cloudflare_logpush_sinkhole_http
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per request that reached a sinkhole. SrcAddr and DestAddr are the connection, Method, URL and Headers the request, and Body with any captured credentials what was sent. Addresses are documentation addresses.
     sample: '{"AccountID":"AC123456","Body":"{\"action\": \"login\", \"user\": \"john_doe\"}","BodyLength":39,"DestAddr":"198.51.100.15","Headers":"Host: example.com\nUser-Agent: Mozilla/5.0\nAccept: */*\nConnection: keep-alive","Host":"example.com","Method":"POST","Password":"password123","R2Path":"","Referrer":"https://searchengine.com/","SinkholeID":"SH001","SrcAddr":"198.51.100.25","Timestamp":"2023-09-19T12:00:00Z","URI":"/api/v1/login","URL":"https://example.com/api/v1/login","UserAgent":"Mozilla/5.0","Username":"john_doe"}'
     key:
       - AccountID
       - Body
       - BodyLength
       - DestAddr
-  - type: Spectrum Event
+  - type: Spectrum connections
     sourcetype: cloudflare_logpush_spectrum_event
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per connect or disconnect on a Spectrum application. Event says which, ClientIP and ClientProto describe the client, ClientTlsProtocol the TLS, and ClientBytes the data sent. Addresses are documentation addresses.
     sample: '{"Application":"7ef659a2f8ef4810a9bade96fdad7c75","ClientAsn":200391,"ClientBytes":0,"ClientCountry":"bg","ClientIP":"203.0.113.8","ClientMatchedIpFirewall":"UNKNOWN","ClientPort":40456,"ClientProto":"tcp","ClientTcpRtt":0,"ClientTlsCipher":"UNK","ClientTlsClientHelloServerName":"server name","ClientTlsProtocol":"TLSv1.2","ClientTlsStatus":"UNKNOWN","ColoCode":"SOF","ConnectTimestamp":"2022-05-26T09:24:00Z","DisconnectTimestamp":"2022-06-01T00:00:00Z","Event":"connect","IpFirewall":false,"OriginBytes":0,"OriginIP":"203.0.113.40","OriginPort":3389,"OriginProto":"tcp","OriginTcpRtt":0,"OriginTlsCipher":"UNK","OriginTlsFingerprint":"0000000000000000000000000000000000000000000000000000000000000000.","OriginTlsMode":"off","OriginTlsProtocol":"unknown","OriginTlsStatus":"UNKNOWN","ProxyProtocol":"off","Status":0}'
     key:
       - Application
       - ClientAsn
       - ClientBytes
       - ClientCountry
-  - type: Workers Trace
+  - type: Workers trace events
     sourcetype: cloudflare_logpush_workers_trace
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per Worker invocation. Event.Request.URL and Event.Response.Status describe the request, EventType is fetch, and Exceptions and Logs carry what the script threw and printed.
     sample: '{"Event":{"RayID":"7e9ae7157ac0c33a","Request":{"URL":"http://chat-gpt-little-butterfly-0c3d.example.workers.dev/v2/_catalog","Method":"GET"},"Response":{"Status":404}},"EventTimestampMs":1689852946804,"EventType":"fetch","Exceptions":[{"Message":"Uncaught TypeError: Cannot read property ''x'' of undefined","Stack":"TypeError: Cannot read property ''x'' of undefined\n    at fetchHandler (/workers/script.js:12:27)\n    at handleRequest (/workers/script.js:6:13)"}],"Logs":[{"level":"info","message":"Request received for /api/data"},{"level":"error","message":"Something went wrong"}],"Outcome":"exception","ScriptName":"chat-gpt-little-butterfly-0c3d","ScriptTags":["api","chatgpt"],"DispatchNamespace":"my-worker-dispatch"}'
     key:
       - Event.RayID
@@ -295,17 +325,43 @@ logs:
       - Event.Response.Status
 cves: []
 detections:
-  - title: Cloudflare Logpush events arriving
-    severity: low
+  - title: Gateway blocked a request or file
+    severity: medium
     signals:
       - Action
-      - Allowed
-      - AppDomain
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cloudflare_logpush_access_request"'
-optimizations: []
+      - PolicyName
+      - BlockedFileReason
+      - Email
+      - URL
+    why: A Gateway block is a user's device trying to reach something policy forbids. A blocked file with reason malware is a download stopped in transit and points at the user and device that tried to fetch it.
+    kql: |
+      dataset="cloudflare-logpush_logs"
+      | where sourcetype == "cloudflare_logpush_gateway_http" and Action == "block"
+      | project Datetime, Email, DeviceName, URL, PolicyName, BlockedFileName, BlockedFileReason, SourceIP
+    mitre:
+      - T1105
+  - title: API token created or account changed
+    severity: medium
+    signals:
+      - ActionType
+      - ActionResult
+      - ActorEmail
+      - ActorIP
+    why: Account changes such as creating API tokens change who can control DNS, firewall and Zero Trust settings. Token creation from an unexpected actor or IP is a persistence step.
+    kql: |
+      dataset="cloudflare-logpush_logs"
+      | where sourcetype == "cloudflare_logpush_audit" and ActionType == "token_create"
+      | project When, ActorEmail, ActorIP, ActorType, Interface, ResourceType, ActionResult
+    mitre:
+      - T1098
+optimizations:
+  - title: Keep edge security events, sample plain requests
+    saving: most of the HTTP request volume
+    fn: Routes
+    how: The http_request dataset has one record per request and dwarfs the rest. Security monitoring needs firewall events, Access, Gateway blocks and audit records in full. Send cache hits to cheaper storage.
+    expr: sourcetype == 'cloudflare_logpush_http_request' && CacheCacheStatus == 'hit'
 references:
-  - title: elastic/integrations cloudflare_logpush/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cloudflare_logpush/data_stream/access_request/_dev/test/pipeline/test-pipeline-access-request.log
-  - title: Pack Generator sample cloudflare_logpush_access_request.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cloudflare_logpush_access_request.json
+  - title: Cloudflare Logs
+    url: https://developers.cloudflare.com/logs/
+  - title: Cloudflare log fields by dataset
+    url: https://developers.cloudflare.com/logs/reference/log-fields/

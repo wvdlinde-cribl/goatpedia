@@ -1,52 +1,74 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: kubernetes
 name: Kubernetes
 short: Kubernetes
-vendor: Kubernetes
+vendor: Cloud Native Computing Foundation
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - kubernetes
-  - Elastic integrations
+  - K8s
+  - kube-apiserver
 tags:
-  - elastic
+  - containers
+  - orchestration
+  - audit
+  - control-plane
   - json
-summary: Kubernetes is logged by the Elastic integrations package kubernetes. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source container orchestrator. Every change to a cluster, and every read of its objects, goes through the kube-apiserver. When an audit policy is set, the API server writes one audit event per request stage, saying who called which verb on which resource, from where, and whether it was allowed. That is the record of control-plane activity for the cluster.
 sourcetypes:
   - st: kubernetes_audit_logs
-    desc: 'Elastic integrations fixture, 6 events. Upstream: kubernetes/data_stream/audit_logs/_dev/test/pipeline/test-audit.log'
+    desc: Kubernetes API server audit events, one per request stage, with user, verb, resource, source IP, response code and authorization decision
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: kubernetes
-  Sourcetypes: '1'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: kind, apiVersion, level, auditID, stage, requestURI
+  Product: Container orchestration platform; the kube-apiserver is the single API for the cluster
+  Deployment: Self-managed clusters on servers or VMs, or managed services in public clouds
+  Clients: kubectl, controllers, operators, CI systems and service accounts inside pods
+  Log transport: Audit log backend (a JSON file on the control-plane node) or webhook backend; managed services export it through the cloud's logging
+  Log format: One JSON object per audit event (kind Event, apiVersion audit.k8s.io/v1)
+  What an audit event answers: Who (user.username, groups) did which verb on which object (objectRef), from which IP, with which result (responseStatus.code) and why it was allowed (annotations)
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Control plane (kube-apiserver)
+      desc: The API server runs on the control-plane nodes. Its audit backend writes the audit log there, or sends it to a webhook.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Managed Kubernetes
+      desc: In managed services the control plane is run by the cloud provider and audit events are exported through the provider's logging service. The event format is the same.
 howItWorks:
-  - title: What the fixture shows
-    body: Kubernetes events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries kind, apiVersion, level, auditID, stage, requestURI. Values in the sample were rewritten to documentation addresses.
+  - title: Every action is an API request
+    body: Users, controllers and pods change and read the cluster by calling the kube-apiserver. Each request names a verb (get, list, watch, create, update, patch, delete) and a resource such as pods or secrets in a namespace.
+  - title: Audit policy and stages
+    body: An audit policy decides which requests are recorded and at which level (None, Metadata, Request, RequestResponse). A request can produce events at several stages, such as RequestReceived and ResponseComplete. Metadata events carry the user, verb, object and response code but not the bodies.
+  - title: Authorization decision
+    body: The annotations authorization.k8s.io/decision and reason record whether RBAC or another authorizer allowed the request. responseStatus.code is the HTTP result, so 401 and 403 are rejected calls.
 traffic:
   handles:
-    - json
+    - Kubernetes API calls (get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete)
+    - RBAC authorization
+    - Service-account access from pods
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads kubernetes and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client calls the API
+      desc: kubectl, a controller or a pod's service account sends a request to the kube-apiserver.
+    - step: API server authorizes
+      desc: The API server authenticates the caller, checks RBAC and runs the request.
+    - step: Audit event written
+      desc: For each stage the policy selects, the audit backend writes one JSON event to the audit file or webhook. Goatpedia reads it as JSON.
 logs:
-  - type: Audit Logs
+  - type: API server audit events
     sourcetype: kubernetes_audit_logs
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per request stage. verb, objectRef and user.username say who did what to which object; sourceIPs and userAgent say from where; responseStatus.code and the authorization annotations give the result. This sample is the default service account listing pods in the default namespace with kubectl, allowed with 200. Values are documentation addresses.
     sample: '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"abcde12345","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/default/pods","verb":"get","user":{"username":"system:serviceaccounts:default:default","uid":"12345678","groups":["system:authenticated"]},"sourceIPs":["192.0.2.20"],"userAgent":"kubectl/v1.26.1","objectRef":{"resource":"pods","namespace":"default","name":"my-pod","apiGroup":"","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2025-03-04T06:22:18.819232Z","stageTimestamp":"2025-03-04T06:22:18.822532Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":""}}'
     key:
       - kind
@@ -55,17 +77,41 @@ logs:
       - auditID
 cves: []
 detections:
-  - title: Kubernetes events arriving
-    severity: low
+  - title: Secrets read through the API
+    severity: high
     signals:
-      - kind
-      - apiVersion
-      - level
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "kubernetes_audit_logs"'
-optimizations: []
+      - verb
+      - objectRef.resource
+      - objectRef.namespace
+      - user.username
+      - sourceIPs
+    why: Secrets hold tokens and passwords. A get, list or watch on secrets by a user or service account that does not normally read them is credential access inside the cluster.
+    kql: |
+      dataset="kubernetes_logs"
+      | where sourcetype == "kubernetes_audit_logs" and objectRef.resource == "secrets" and verb in ("get", "list", "watch")
+      | project requestReceivedTimestamp, user.username, verb, objectRef.namespace, objectRef.name, sourceIPs, userAgent
+    mitre:
+      - T1552.007
+  - title: API request rejected
+    severity: medium
+    signals:
+      - responseStatus.code
+      - user.username
+      - verb
+      - objectRef.resource
+    why: 401 and 403 responses are calls the API server refused, for a bad credential or missing RBAC permission. A burst from one identity is often a stolen token being tried against the cluster.
+    kql: |
+      dataset="kubernetes_logs"
+      | where sourcetype == "kubernetes_audit_logs" and responseStatus.code in (401, 403)
+      | project requestReceivedTimestamp, user.username, verb, objectRef.resource, objectRef.namespace, sourceIPs, userAgent
+    mitre:
+      - T1078.004
+optimizations:
+  - title: Drop system read chatter
+    saving: most of the audit volume
+    fn: Drop
+    how: Controllers and nodes running as system identities get, list and watch objects all the time. Keep writes, any access to secrets, and every request by a human or workload identity.
+    expr: (verb == 'get' || verb == 'list' || verb == 'watch') && user.username.startsWith('system:') && objectRef.resource != 'secrets'
 references:
-  - title: elastic/integrations kubernetes/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/kubernetes/data_stream/audit_logs/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample kubernetes_audit_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/kubernetes_audit_logs.json
+  - title: Kubernetes auditing
+    url: https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/

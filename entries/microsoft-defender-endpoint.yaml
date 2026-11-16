@@ -1,124 +1,147 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: microsoft-defender-endpoint
-name: Microsoft Defender Endpoint
-short: Endpoint
+name: Microsoft Defender for Endpoint
+short: MDE
 vendor: Microsoft
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - microsoft_defender_endpoint
-  - Elastic integrations
+  - MDE
+  - Microsoft Defender ATP
+  - Windows Defender ATP
 tags:
-  - elastic
+  - edr
+  - endpoint
+  - antivirus
+  - vulnerability-management
   - json
-summary: Microsoft Defender Endpoint is logged by the Elastic integrations package microsoft_defender_endpoint. The Pack Generator samples pool holds fixture events for 7 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's endpoint detection and response product. A sensor built into Windows, and agents for macOS, Linux and mobile, send device activity to the Defender cloud service, which raises alerts and lets analysts isolate devices and run scans. The API exposes alerts, the machine inventory, response actions taken, and posture data such as security baselines, secure configuration and vulnerabilities.
 sourcetypes:
   - st: microsoft_defender_endpoint
-    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/log/_dev/test/pipeline/test-defenderatp.log'
+    desc: Defender for Endpoint alerts, with title, severity, status, category, detection source and investigation state
   - st: microsoft_defender_endpoint_baseline
-    desc: 'Elastic integrations fixture, 3 events. Upstream: microsoft_defender_endpoint/data_stream/baseline/_dev/test/pipeline/test-baseline.log'
+    desc: Security baseline assessment results per device and configuration, with compliance and current and recommended values
   - st: microsoft_defender_endpoint_configuration
-    desc: 'Elastic integrations fixture, 4 events. Upstream: microsoft_defender_endpoint/data_stream/configuration/_dev/test/pipeline/test-configuration.log'
+    desc: Secure configuration assessment results per device, such as whether Telnet is disabled
   - st: microsoft_defender_endpoint_information_gathering
-    desc: 'Elastic integrations fixture, 3 events. Upstream: microsoft_defender_endpoint/data_stream/information_gathering/_dev/test/pipeline/test-info-gathering.log'
+    desc: Information gathering assessment per device, such as antivirus mode and versions reported by the sensor
   - st: microsoft_defender_endpoint_machine
-    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/machine/_dev/test/pipeline/test-machine.log'
+    desc: The machine inventory, one device with OS, IPs, health, risk score, exposure level and onboarding status
   - st: microsoft_defender_endpoint_machine_action
-    desc: 'Elastic integrations fixture, 5 events. Upstream: microsoft_defender_endpoint/data_stream/machine_action/_dev/test/pipeline/test-machine-action.log'
+    desc: Response actions on devices, such as isolate, unisolate, scan or collect package, with requestor and status
   - st: microsoft_defender_endpoint_vulnerability
-    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_defender_endpoint/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+    desc: Vulnerabilities found on devices, with CVE, CVSS, exploitability and recommended update
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: microsoft_defender_endpoint
-  Sourcetypes: '7'
-  Fixture events: '33'
-  Log format seen: json
-  Fields in the first fixture: id, incidentId, investigationId, assignedTo, severity, status
+  Product: Endpoint detection and response with antivirus, attack surface reduction and vulnerability management
+  Sensors: Built into Windows 10/11 and Windows Server; agents for macOS, Linux, Android and iOS
+  Log transport: Defender for Endpoint REST API (and Microsoft Graph) pulled by a collector
+  Log format: One JSON object per alert, machine, action or assessment row
+  What an alert answers: What was detected on which device, by which engine, and how it was handled
+  What a machine action answers: Who isolated, released, scanned or collected from which device, and whether it succeeded
+  What an assessment answers: Which device misses which baseline or configuration setting, or has which CVE
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Defender sensor
+      desc: The sensor runs on each workstation and server, records process, file, network and registry activity and applies response actions such as isolation.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Defender for Endpoint service
+      desc: Detections, inventory, response actions and posture assessments are kept in the tenant in Microsoft's cloud and read through the API.
 howItWorks:
-  - title: What the fixture shows
-    body: Microsoft Defender Endpoint events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, incidentId, investigationId, assignedTo, severity, status. Values in the sample were rewritten to documentation addresses.
+  - title: Detection and alerts
+    body: The sensor streams activity to the service. Cloud analytics and the antivirus engine raise alerts with severity, category, detectionSource (such as WindowsDefenderAv) and an automated investigation state.
+  - title: Response actions
+    body: Analysts or automation can isolate a device, release it, run an antivirus scan, restrict app execution or collect an investigation package. Each is a machine action with type, requestor, comment and status.
+  - title: Posture assessments
+    body: The service compares device settings with security baselines and secure configuration recommendations, gathers sensor information such as antivirus mode, and lists vulnerable software by CVE. These are snapshots per device, refreshed regularly.
 traffic:
   handles:
-    - json
+    - Process
+    - file
+    - network and registry activity on devices
+    - Antivirus and EDR detections
+    - Device isolation and other response actions
+    - Configuration and vulnerability assessment
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads microsoft_defender_endpoint and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Sensor records
+      desc: The sensor on a device records activity and reports configuration and installed software.
+    - step: Service analyses
+      desc: Defender raises alerts, runs response actions and computes assessments.
+    - step: Collector polls
+      desc: A collector calls the API for alerts, machines, actions and assessments.
+    - step: Records are JSON
+      desc: Each record is one JSON object. Goatpedia reads the samples as JSON.
 logs:
-  - type: Log
+  - type: Alerts
     sourcetype: microsoft_defender_endpoint
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per alert. title, severity, status, category and detectionSource describe it, and investigationState the automated investigation result. This sample is a low malware alert from the antivirus engine, resolved as benign. Values are documentation addresses.
     sample: '{"id":"da637291085411733957_-1043898914","incidentId":12,"investigationId":9,"assignedTo":"user@example.com","severity":"Low","status":"Resolved","classification":null,"determination":null,"investigationState":"Benign","detectionSource":"WindowsDefenderAv","category":"Malware","threatFamilyName":null,"title":"An active ''Exeselrun'' malware was detected","description":"Malware and unwanted software are undesirable applications that perform annoying, disruptive, or harmful actions on affected machines. Some of these undesira...","alertCreationTime":"2020-06-30T10:09:01.1569718Z","firstEventTime":"2020-06-30T10:07:44.333733Z","lastEventTime":"2020-06-30T10:07:44.333733Z","lastUpdateTime":"2020-07-03T15:15:39.13Z","resolvedTime":"2020-06-30T11:13:12.2680434Z","machineId":"c5a964f417c11f6277d5bf9489f0d","computerDnsName":"testserver4","rbacGroupName":null,"aadTenantId":"123543-d66c-4c7e-9e30-40034eb7c6f3","relatedUser":null,"comments":[],"evidence":{"entityType":"File","sha1":null,"sha256":null,"fileName":"SB.xsl","filePath":"C:\\Windows\\Temp\\sb-sim-temp-ikyxqi\\sb_10554_bs_h4qpk5","processId":null,"processCommandLine":null,"processCreationTime":null,"parentProcessId":null,"parentProcessCreationTime":null,"ipAddress":null,"url":null,"accountName":null,"domainName":null,"userSid":null,"aadUserId":null,"userPrincipalName":null}}'
     key:
       - id
       - incidentId
       - investigationId
       - assignedTo
-  - type: Baseline
+  - type: Security baseline assessment
     sourcetype: microsoft_defender_endpoint_baseline
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per device and baseline setting. deviceName, configurationId and isCompliant say which device fails which setting, with recommendedValue and currentValue.
     sample: '{"id":"a1b2c3d4e5f6789012345678901234567890abcd_9e1b90be-e83e-485b-a5ec-4a429412e734_1.1.1","configurationId":"1.1.1","deviceId":"a1b2c3d4e5f6789012345678901234567890abcd","deviceName":"srv-dc01.contoso.example","profileId":"9e1b90be-e83e-485b-a5ec-4a429412e734","osPlatform":"WindowsServer2019","osVersion":"10.0.17763.2330","rbacGroupId":86,"rbacGroupName":"Production-Servers","isApplicable":true,"isCompliant":false,"dataCollectionTimeOffset":"2026-08-10T08:15:02.478Z","complianceCalculationTimeOffset":"2026-08-10T09:00:00.000Z","recommendedValue":["Greater than or equal ''24''"],"currentValue":["24"],"source":["password_hist_len"]}'
     key:
       - id
       - configurationId
       - deviceId
       - deviceName
-  - type: Configuration
+  - type: Secure configuration assessment
     sourcetype: microsoft_defender_endpoint_configuration
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per device and configuration. configurationName, configurationImpact and isCompliant describe the setting. This sample is a domain controller that complies with disabling Telnet.
     sample: '{"deviceId":"00013ee62c6b12345b10214e1801b217b50ab455c293d","rbacGroupName":"Production-Servers","deviceName":"srv-dc01.contoso.example","osPlatform":"Windows10 and Windows 11","osVersion":"10.0.17763.2330","timestamp":"2021-01-11T09:47:58.854Z","configurationId":"scid-10000","configurationCategory":"Network","configurationSubcategory":"","configurationImpact":5,"isCompliant":true,"isApplicable":true,"isExpectedUserImpact":false,"configurationName":"Disable insecure administration protocol - Telnet","recommendationReference":"sca-_-scid-10000"}'
     key:
       - deviceId
       - rbacGroupName
       - deviceName
       - osPlatform
-  - type: Information Gathering
+  - type: Information gathering
     sourcetype: microsoft_defender_endpoint_information_gathering
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per device. DeviceName, OsPlatform and DeviceGatheredInfo describe what the sensor reports, such as antivirus mode and versions. This sample is a Linux device.
     sample: '{"RbacGroupName":"Unassigned","Timestamp":"2026-08-31 23:12:21","LastSeenTime":"2026-08-31 19:15:55","DeviceName":"prisma-cloud-test","OsPlatform":"Linux","OsVersion":"ubuntu_linux_22.04","DeviceGatheredInfo":"{\"AvMode\":null,\"AvEngineVersion\":null,\"AvSignatureVersion\":null,\"AvPlatformVersion\":null,\"AvScanResults\":null,\"AvModeDataRefreshTime\":null,\"CloudProtectionSt...","DeviceId":"38782510e0a0cd4dc377a65eab874f466dd5e484","RbacGroupId":0}'
     key:
       - RbacGroupName
       - Timestamp
       - LastSeenTime
       - DeviceName
-  - type: Machine
+  - type: Machines
     sourcetype: microsoft_defender_endpoint_machine
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per device in the inventory. computerDnsName, osPlatform, lastIpAddress, healthStatus, riskScore and onboardingStatus describe it. This sample is an onboarded Windows 10 machine managed by Intune. Values are documentation addresses.
     sample: '{"id":"0e23b8b23abcdefabcdef6f877b45d19c04a522d","mergedIntoMachineId":null,"isPotentialDuplication":false,"isExcluded":false,"exclusionReason":null,"computerDnsName":"c-lab-08","firstSeen":"2024-11-05T11:54:59.5717001Z","lastSeen":"2025-04-02T02:51:16.2059102Z","osPlatform":"Windows10","osVersion":null,"osProcessor":"x64","version":"22H2","lastIpAddress":"192.0.2.10","lastExternalIpAddress":"192.0.2.20","agentVersion":"10.8790.19045.5608","osBuild":19045,"healthStatus":"Active","deviceValue":"Normal","rbacGroupId":0,"rbacGroupName":null,"riskScore":"None","exposureLevel":"Low","isAadJoined":true,"aadDeviceId":"d78dc223-8dc8-1234-5678-abcdef03505b","machineTags":[],"onboardingStatus":"Onboarded","osArchitecture":"64-bit","managedBy":"Intune","managedByStatus":"Unknown","ipAddresses":[{"ipAddress":"198.51.100.15","macAddress":"00005E0053FF","type":"Ethernet","operationalStatus":"Up"}]}'
     key:
       - id
       - mergedIntoMachineId
       - isPotentialDuplication
       - isExcluded
-  - type: Machine Action
+  - type: Response actions
     sourcetype: microsoft_defender_endpoint_machine_action
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per response action. type, requestor, requestorComment and status say what was done to which computerDnsName and by whom. This sample is a successful release from isolation requested in the portal. Values are documentation addresses.
     sample: '{"id":"034e1b7b-1234-5678-abcd-abcdef7b1219","type":"Unisolate","title":null,"requestor":"user@example.com","requestorComment":"Isolation release","status":"Succeeded","machineId":"de693d7abcdefabcdefabcdef01f40b5bf2da1d8","computerDnsName":"c-lab-24","creationDateTimeUtc":"2024-11-25T12:59:35.8912364Z","lastUpdateDateTimeUtc":"2024-11-25T12:59:37.5532423Z","cancellationRequestor":null,"cancellationComment":null,"cancellationDateTimeUtc":null,"errorHResult":0,"scope":null,"externalId":null,"requestSource":"Portal","relatedFileInfo":null,"commands":[],"troubleshootInfo":null}'
     key:
       - id
       - type
       - title
       - requestor
-  - type: Vulnerability
+  - type: Device vulnerabilities
     sourcetype: microsoft_defender_endpoint_vulnerability
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One object per CVE on a device. CveId, CvssScore and ExploitabilityLevel rate it, DeviceName says where and RecommendedSecurityUpdate what fixes it. This sample is a Red Hat kernel CVE on a Linux host.
     sample: '{"CveBatchTitle":"Red_hat February 2025 Vulnerabilities","CveBatchUrl":"https://security.access.redhat.com/data/oval/v2/RHEL9/rhel-9.8-eus.oval.xml.bz2","CveId":"CVE-2022-49226","CvssScore":5.5,"DeviceId":"1212121212121212121212","DeviceName":"sample-host-1","EventTimestamp":"2025-10-06 12:00:00","ExploitabilityLevel":"NoExploit","FirstSeenTimestamp":"2025-10-06 10:43:58","Id":"1212121212121212121212_red_hat_kernel_0:5.14.0-427.42.1.el9_4_CVE-2022-49226","IsOnboarded":true,"LastSeenTimestamp":"2025-10-06 22:45:00","OSArchitecture":"x64","OSPlatform":"Linux","OSVersion":"enterprise_linux_9.4","RbacGroupId":0,"RbacGroupName":"Unassigned","RecommendationReference":"va-_-red_hat-_-kernel","RecommendedSecurityUpdate":"CVE-2022-49226_oval:com.redhat.rhsa:def:20249315","RecommendedSecurityUpdateId":"RHSA-2024:9315","RecommendedSecurityUpdateUrl":"https://access.redhat.com/errata/RHSA-2024:9315","RegistryPaths":[],"SoftwareName":"kernel","SoftwareVendor":"red_hat","SoftwareVersion":"0:5.14.0-427.42.1.el9_4","Status":"New","VulnerabilitySeverityLevel":"Medium"}'
     key:
       - CveBatchTitle
@@ -127,17 +150,38 @@ logs:
       - CvssScore
 cves: []
 detections:
-  - title: Microsoft Defender Endpoint events arriving
-    severity: low
+  - title: Unresolved Defender alert
+    severity: high
     signals:
-      - id
-      - incidentId
-      - investigationId
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "microsoft_defender_endpoint"'
-optimizations: []
+      - severity
+      - status
+      - title
+      - category
+      - detectionSource
+    why: Alerts are the sensor's detections. Medium and high alerts that are not resolved are the work queue for the SOC.
+    kql: |
+      dataset="microsoft-defender-endpoint_logs"
+      | where sourcetype == "microsoft_defender_endpoint" and severity in ("Medium", "High") and status != "Resolved"
+      | project alertCreationTime, severity, title, category, detectionSource, computerDnsName
+  - title: Device isolation changed
+    severity: medium
+    signals:
+      - type
+      - requestor
+      - requestorComment
+      - status
+      - computerDnsName
+    why: Isolating or releasing a device is a strong response action. Every isolation and release should trace to an analyst and a case.
+    kql: |
+      dataset="microsoft-defender-endpoint_logs"
+      | where sourcetype == "microsoft_defender_endpoint_machine_action" and type in ("Isolate", "Unisolate")
+      | project creationDateTimeUtc, type, requestor, requestorComment, status, computerDnsName
+optimizations:
+  - title: Drop compliant assessment rows
+    saving: most of the configuration and baseline volume
+    fn: Drop
+    how: Assessment snapshots repeat every compliant setting on every device. Keep the non-compliant rows, which are the ones that need action.
+    expr: isCompliant == true
 references:
-  - title: elastic/integrations microsoft_defender_endpoint/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_defender_endpoint/data_stream/log/_dev/test/pipeline/test-defenderatp.log
-  - title: Pack Generator sample microsoft_defender_endpoint.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_defender_endpoint.json
+  - title: Microsoft Defender for Endpoint
+    url: https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-endpoint

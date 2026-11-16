@@ -1,52 +1,63 @@
 id: backstage
 name: Backstage
 short: Backstage
-vendor: Backstage
+vendor: Spotify
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - backstage
-  - Elastic integrations
+  - Backstage developer portal
+  - Spotify Backstage
 tags:
-  - elastic
+  - developer-portal
+  - audit
+  - open-source
   - json
-summary: Backstage is logged by the Elastic integrations package backstage. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Backstage is an open-source framework for building an internal developer portal, created at Spotify and hosted by the Cloud Native Computing Foundation. Teams run it themselves to hold a software catalog, templates that scaffold new services, and plugins for CI, cloud and documentation. Its auditor writes structured audit events for actions on the catalog, the scaffolder and other plugins, so the logs show who read or changed what, from where, and whether it succeeded.
 sourcetypes:
   - st: backstage
-    desc: 'Elastic integrations fixture, 20 events. Upstream: backstage/data_stream/logs/_dev/test/pipeline/test-audit.log'
+    desc: Backstage audit events written by the auditor service, one record per audited plugin action such as a catalog entity fetch, with the actor, request, severity and status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: backstage
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: actor.hostname, actor.ip, actor.userAgent, eventId, isAuditEvent, level
+  Product: Self-hosted developer portal framework with a software catalog, software templates and plugins
+  Deployment: A Node.js backend and a web frontend, usually run as a container in the organisation's own Kubernetes or cloud
+  Log transport: The backend writes JSON log lines to standard output. Any collector that reads container or process logs picks them up
+  Log format: One JSON object per line. Audit events have isAuditEvent true and carry eventId, plugin, severityLevel and status
+  What an audit event answers: Which actor (IP, host, user agent) did which action in which plugin, with which request, and whether it was initiated, succeeded or failed
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Backstage backend
+      desc: The Backstage backend runs inside the organisation's network or cloud account, next to the systems its plugins talk to. Engineers reach it from a browser. The backend records audit events as it serves catalog and plugin requests.
 howItWorks:
-  - title: What the fixture shows
-    body: Backstage events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries actor.hostname, actor.ip, actor.userAgent, eventId, isAuditEvent, level. Values in the sample were rewritten to documentation addresses.
+  - title: Catalog and plugins
+    body: The software catalog holds entities such as components, APIs, users and groups, with relations between them. Plugins add features, for example the scaffolder that creates new repositories from templates. Each plugin serves its own API under the backend, such as /api/catalog.
+  - title: The auditor
+    body: Plugins report security-relevant actions to the auditor service. Each audit event has an eventId (for example entity-fetch), the plugin, a severityLevel from low to critical, and a status. A long action is logged when it is initiated and again when it succeeds or fails. The event also carries the actor and the HTTP request that triggered it.
+  - title: How the events leave the product
+    body: Backstage writes audit events through its root logger, by default as JSON lines on standard output. A container log collector, a file tailer or a log driver forwards them. The destination is a choice of the pipeline, not a property of Backstage.
 traffic:
   handles:
-    - json
+    - Software catalog reads and changes
+    - Scaffolder template runs
+    - Plugin API requests from engineers and automation
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads backstage and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Engineer acts
+      desc: Someone browses the catalog, runs a template or calls a plugin API from the Backstage frontend or a script.
+    - step: Plugin audits it
+      desc: The plugin reports the action to the auditor with the actor, the request and a severity.
+    - step: Backend writes JSON
+      desc: The auditor writes an audit event as one JSON line on the backend's log output, once at initiation and again on success or failure.
+    - step: Collector reads the log
+      desc: A container or file log collector picks up the line and forwards it.
 logs:
-  - type: Logs
+  - type: Audit event
     sourcetype: backstage
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One record per audited action. eventId and plugin name the action, status says whether it was initiated, succeeded or failed, and severityLevel rates it. actor.ip and actor.userAgent say who and from where, and request shows the API call. This sample is a low-severity catalog entity fetch at the initiated stage. The sample uses documentation addresses.
     sample: '{"actor":{"hostname":"localhost","ip":"192.0.2.10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36"},"eventId":"entity-fetch","isAuditEvent":true,"level":"info","message":"catalog.entity-fetch","meta":{"query":{"fields":["metadata","kind"],"filter":["kind=group,relations.hasMember=user:default/guest"]},"queryType":"all"},"plugin":"catalog","request":{"method":"GET","url":"/api/catalog/entities?fields=metadata,kind,spec.profile&filter=kind%3Dgroup%2Crelations.hasMember%3Duser%3Adefault%2Fguest"},"service":"backstage","severityLevel":"low","status":"initiated","timestamp":"2026-05-22T20:30:05.131Z"}'
     key:
       - actor.hostname
@@ -55,17 +66,25 @@ logs:
       - eventId
 cves: []
 detections:
-  - title: Backstage events arriving
-    severity: low
+  - title: High-severity or failed audited action
+    severity: medium
     signals:
-      - actor.hostname
+      - eventId
+      - plugin
+      - severityLevel
+      - status
       - actor.ip
-      - actor.userAgent
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "backstage"'
-optimizations: []
+    why: The auditor rates actions that change the catalog, run templates or touch credentials as high or critical. A failed action, or a high-severity one from an unexpected address, is worth review.
+    kql: |
+      dataset="backstage_logs"
+      | where sourcetype == "backstage" and (severityLevel in ("high", "critical") or status == "failed")
+      | project timestamp, eventId, plugin, severityLevel, status, actor.ip, request.method, request.url
+optimizations:
+  - title: Drop initiated records of low-severity reads
+    saving: a large share of the audit volume
+    fn: Drop
+    how: Each action is logged at initiation and again at the end. For low-severity reads such as catalog fetches the final record holds everything the initiated one does. Drop the initiated copy and keep every failed or higher-severity event.
+    expr: "status == 'initiated' && severityLevel == 'low'"
 references:
-  - title: elastic/integrations backstage/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/backstage/data_stream/logs/_dev/test/pipeline/test-audit.log
-  - title: Pack Generator sample backstage.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/backstage.json
+  - title: What is Backstage?
+    url: https://backstage.io/docs/overview/what-is-backstage

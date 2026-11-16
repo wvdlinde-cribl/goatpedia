@@ -4,49 +4,64 @@ short: Beelzebub
 vendor: Beelzebub
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - beelzebub
-  - Elastic integrations
+  - Beelzebub honeypot
 tags:
-  - elastic
+  - honeypot
+  - deception
+  - open-source
   - json
-summary: Beelzebub is logged by the Elastic integrations package beelzebub. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Beelzebub is an open-source honeypot framework. From a small configuration it emulates services such as SSH, HTTP and raw TCP, and it can hand the conversation to a large language model so an attacker gets a believable interactive shell. Nothing legitimate should connect to it, so every event is attacker activity, recording the source address, the protocol, the credentials tried and the commands or requests sent.
 sourcetypes:
   - st: beelzebub
-    desc: 'Elastic integrations fixture, 5 events. Upstream: beelzebub/data_stream/logs/_dev/test/pipeline/test-logs-ndjson.log'
+    desc: Honeypot interaction events, one record per connection attempt, login, command or HTTP request against an emulated service
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: beelzebub
-  Sourcetypes: '1'
-  Fixture events: '5'
-  Log format seen: json
-  Fields in the first fixture: event.DateTime, event.RemoteAddr, event.Protocol, event.Command, event.CommandOutput, event.Status
+  Product: Low-code honeypot framework with optional LLM-driven interaction
+  Deployment: Runs as a container or binary on a host exposed to the internet or placed inside a network as a decoy
+  Services: SSH, HTTP and TCP listeners defined in YAML, each with its own banner, credentials and responses
+  Log transport: JSON log lines on standard output or a log file, and optionally events to a message queue, read by any collector
+  Log format: One JSON object per line. The event object holds the interaction, the outer object holds level, msg and time
+  What an event answers: Who connected (SourceIp, RemoteAddr), to which emulated protocol, with which user and password or client, and what command or request they sent
 placement:
   slots:
-    - cloud
+    - dmz
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: dmz
+      title: Internet-facing decoy
+      desc: Placed in the DMZ or on a public cloud host, the honeypot attracts scanners and brute-force bots and records their credentials and commands.
+    - slot: internal
+      title: Internal decoy
+      desc: Placed inside the network, any connection to it is a strong sign of lateral movement or internal reconnaissance.
 howItWorks:
-  - title: What the fixture shows
-    body: Beelzebub events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event.DateTime, event.RemoteAddr, event.Protocol, event.Command, event.CommandOutput, event.Status. Values in the sample were rewritten to documentation addresses.
+  - title: Emulated services
+    body: Each service in the configuration listens on a port with a protocol, a banner and rules for how to answer. An SSH service can accept a list of passwords and reply to commands from canned responses or through an LLM plugin that plays a Linux shell.
+  - title: What an event records
+    body: Every attempt, login and command is an event. Protocol and Msg say what happened, User and Password show the credentials tried, Client is the SSH client banner, Command and CommandOutput show the session, and HTTP fields such as RequestURI, HTTPMethod and UserAgent cover web probes. Description names the emulated service.
+  - title: How the events leave the honeypot
+    body: Beelzebub writes each event as a JSON line to its log output and can also publish events to a message queue. Any collector that reads container logs, files or the queue can forward them. The destination is a choice of the pipeline, not a property of the honeypot.
 traffic:
   handles:
-    - json
+    - SSH login attempts and interactive commands
+    - HTTP requests to emulated web services
+    - Raw TCP connections
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads beelzebub and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Attacker connects
+      desc: A scanner, bot or intruder connects to a port the honeypot exposes.
+    - step: Service responds
+      desc: The emulated service answers with a banner, a login prompt or a page, and an LLM may play the shell.
+    - step: Event is recorded
+      desc: Each attempt, login and command becomes an event with the source address, protocol and content.
+    - step: Collector reads JSON
+      desc: The event is written as a JSON line, and a collector forwards it.
 logs:
-  - type: Logs
+  - type: Honeypot interaction
     sourcetype: beelzebub
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One record per interaction. event.Protocol and event.Msg say what happened, event.SourceIp and event.RemoteAddr name the attacker, event.User and event.Password show the credentials tried and event.Command any command sent. This sample is a new SSH login attempt as root from a dropbear client against an LLM-driven SSH service. The sample uses documentation addresses.
     sample: '{"event":{"DateTime":"2025-02-13T01:08:26Z","RemoteAddr":"203.0.113.40:60748","Protocol":"SSH","Command":"","CommandOutput":"","Status":"Stateless","Msg":"New SSH attempt","ID":"1974e109-d6f8-4bb1-934c-180a163e1cb8","Environ":"","User":"root","Password":"test","Client":"SSH-2.0-dropbear","Headers":"","Cookies":"","UserAgent":"","HostHTTPRequest":"","Body":"","HTTPMethod":"","RequestURI":"","Description":"SSH interactive ChatGPT","SourceIp":"192.0.2.10","SourcePort":"60748"},"level":"info","msg":"New Event","status":"Stateless","time":"2025-02-13T01:08:26Z"}'
     key:
       - event.DateTime
@@ -55,17 +70,34 @@ logs:
       - event.Command
 cves: []
 detections:
-  - title: Beelzebub events arriving
-    severity: low
+  - title: Credentials tried against the honeypot
+    severity: medium
     signals:
-      - event.DateTime
-      - event.RemoteAddr
+      - event.SourceIp
       - event.Protocol
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "beelzebub"'
+      - event.User
+      - event.Password
+    why: No legitimate user logs in to a honeypot. The source addresses are attackers to block, and the user and password pairs show which credentials are being sprayed. An internal source is a sign of lateral movement.
+    kql: |
+      dataset="beelzebub_logs"
+      | where sourcetype == "beelzebub" and event.User != ""
+      | project event.DateTime, event.SourceIp, event.Protocol, event.User, event.Password, event.Client
+    mitre:
+      - T1110
+  - title: Commands run in a honeypot session
+    severity: high
+    signals:
+      - event.SourceIp
+      - event.Command
+      - event.Protocol
+    why: A command means the attacker got past the login and is acting on what they think is a real host. The commands show their tooling and intent, such as downloaders and persistence.
+    kql: |
+      dataset="beelzebub_logs"
+      | where sourcetype == "beelzebub" and event.Command != ""
+      | project event.DateTime, event.SourceIp, event.Protocol, event.User, event.Command
+    mitre:
+      - T1059
 optimizations: []
 references:
-  - title: elastic/integrations beelzebub/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beelzebub/data_stream/logs/_dev/test/pipeline/test-logs-ndjson.log
-  - title: Pack Generator sample beelzebub.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beelzebub.json
+  - title: Beelzebub on GitHub
+    url: https://github.com/mariocandela/beelzebub

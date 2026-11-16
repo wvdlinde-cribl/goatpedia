@@ -1,52 +1,60 @@
 id: hadoop
-name: Hadoop
+name: Apache Hadoop
 short: Hadoop
-vendor: Hadoop
+vendor: Apache Software Foundation
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - hadoop
-  - Elastic integrations
+  - Hadoop YARN
+  - Apache Hadoop YARN
 tags:
-  - elastic
+  - yarn
+  - cluster
   - json
-summary: Hadoop is logged by the Elastic integrations package hadoop. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: 'Apache Hadoop is the data-processing platform. YARN is the part that schedules applications on the cluster. The ResourceManager keeps one report per application: the type, the queue, the user, the final status and the memory it used. This stream is that report, one JSON object per application. A collector reads it from the ResourceManager. The sample is a MapReduce job that succeeded.'
 sourcetypes:
   - st: hadoop_application
-    desc: 'Elastic integrations fixture, 2 events. Upstream: hadoop/data_stream/application/_dev/test/pipeline/test-application-metrics.log'
+    desc: One YARN application report. id, name, queue, applicationType and finalStatus say which job ran, where, and how it ended.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: hadoop
-  Sourcetypes: '1'
-  Fixture events: '2'
-  Log format seen: json
-  Fields in the first fixture: allocatedMB, allocatedVCores, amContainerLogs, amHostHttpAddress, amNodeLabelExpression, amRPCAddress
+  Product: Apache Hadoop. This stream is the YARN ResourceManager's report of one application.
+  Where it runs: A Hadoop cluster. The ResourceManager is the scheduler. Application masters run on the worker nodes.
+  Log transport: The ResourceManager exposes application reports as JSON on its HTTP API. A collector polls that API.
+  Log format: One JSON object per application. id is the application id. finalStatus is how it ended.
+  What a report answers: Which application ran, in which queue, as what type, whether it succeeded, and how much memory and how many cores it was given
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: YARN ResourceManager
+      desc: The ResourceManager schedules applications on the cluster and serves the application report. amHostHttpAddress is the node that ran the application master.
 howItWorks:
-  - title: What the fixture shows
-    body: Hadoop events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries allocatedMB, allocatedVCores, amContainerLogs, amHostHttpAddress, amNodeLabelExpression, amRPCAddress. Values in the sample were rewritten to documentation addresses.
+  - title: An application
+    body: A person or a scheduler submits an application. applicationType is MAPREDUCE, SPARK or another engine. name is the job name. queue is the YARN queue. user is in the application-master log URL when the report includes it. id is the application id, which embeds the cluster timestamp.
+  - title: How it ended
+    body: finalStatus is SUCCEEDED, FAILED or KILLED once the application is finished. state would say RUNNING while it is live. elapsedTime, allocatedMB and allocatedVCores are the size. The sample is a succeeded MapReduce application named wordcount, in the default queue, whose final status is SUCCEEDED.
+  - title: How a collector reads it
+    body: The ResourceManager serves the report over HTTP. A collector polls the application list and can forward each object anywhere. The cluster does not choose the destination.
 traffic:
   handles:
-    - json
+    - YARN applications
+    - Queue, type and final status
+    - Memory and core allocation
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads hadoop and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: A job is submitted
+      desc: An application is submitted to the ResourceManager and placed in a queue.
+    - step: The ResourceManager records it
+      desc: The application report carries the id, the type, the queue, the allocation and the final status.
+    - step: Collector polls
+      desc: A collector reads the JSON report and can forward it anywhere.
 logs:
-  - type: Application
+  - type: YARN application
     sourcetype: hadoop_application
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One application report. id and name identify the job. applicationType and queue say what ran and where. finalStatus is how it ended. This sample is a succeeded MapReduce word-count job.
     sample: '{"allocatedMB":-1,"allocatedVCores":-1,"amContainerLogs":"http://localhost:8042/node/containerlogs/container_1646029193591_0003_01_000001/bhagyaraj","amHostHttpAddress":"localhost:8042","amNodeLabelExpression":"","amRPCAddress":"localhost:38279","applicationTags":"","applicationType":"MAPREDUCE","clusterId":1646029193591,"clusterUsagePercentage":0,"diagnostics":"","elapsedTime":35114,"finalStatus":"SUCCEEDED","finishedTime":1646030395258,"id":"application_1646029193591_0003","launchTime":1646030360297,"logAggregationStatus":"DISABLED","masterNodeId":"localhost:45960","memorySeconds":103467,"name":"wordcount","numAMContainerPreempted":0,"numNonAMContainerPreempted":0,"preemptedMemorySeconds":0,"preemptedResourceMB":0,"preemptedResourceSecondsMap":{},"preemptedResourceVCores":0,"preemptedVcoreSeconds":0,"priority":0,"progress":100,"queue":"default"}'
     key:
       - allocatedMB
@@ -54,18 +62,8 @@ logs:
       - amContainerLogs
       - amHostHttpAddress
 cves: []
-detections:
-  - title: Hadoop events arriving
-    severity: low
-    signals:
-      - allocatedMB
-      - allocatedVCores
-      - amContainerLogs
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "hadoop_application"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations hadoop/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/hadoop/data_stream/application/_dev/test/pipeline/test-application-metrics.log
-  - title: Pack Generator sample hadoop_application.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/hadoop_application.json
+  - title: YARN ResourceManager REST API
+    url: https://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/ResourceManagerRest.html

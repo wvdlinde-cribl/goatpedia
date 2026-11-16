@@ -1,87 +1,99 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: microsoft-exchange-server
 name: Microsoft Exchange Server
-short: Server
+short: Exchange
 vendor: Microsoft
 category: email
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - microsoft_exchange_server
-  - Elastic integrations
+  - Exchange
+  - Exchange on-premises
 tags:
-  - elastic
+  - email
+  - mail-server
+  - smtp
+  - imap
+  - pop3
   - text
-summary: Microsoft Exchange Server is logged by the Elastic integrations package microsoft_exchange_server. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's on-premises mail and calendar server. It sends and receives mail over SMTP, serves mailboxes to Outlook, IMAP4 and POP3 clients, and often sits in the data centre with edge or hybrid connectors to the internet. Its transport and protocol logs record every message hop (message tracking), every SMTP conversation and every IMAP4 or POP3 command.
 sourcetypes:
   - st: microsoft_exchange_server_imap4_pop3
-    desc: 'Elastic integrations fixture, 6 events. Upstream: microsoft_exchange_server/data_stream/imap4_pop3/_dev/test/pipeline/test-imap4-pop3.json'
+    desc: IMAP4 and POP3 protocol logs, one CSV line per client command with session, client and server endpoints, user, command and result
   - st: microsoft_exchange_server_messagetracking
-    desc: 'Elastic integrations fixture, 7 events. Upstream: microsoft_exchange_server/data_stream/messagetracking/_dev/test/pipeline/test-messagetracking.log'
+    desc: Message tracking logs, one CSV line per event in a message's path through transport, such as receive, deliver, fail or redirect
   - st: microsoft_exchange_server_smtp
-    desc: 'Elastic integrations fixture, 7 events. Upstream: microsoft_exchange_server/data_stream/smtp/_dev/test/pipeline/test-smtp.json'
+    desc: SMTP send and receive protocol logs, one CSV line per step of an SMTP conversation on a connector
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: microsoft_exchange_server
-  Sourcetypes: '3'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: On-premises mail, calendar and mailbox server
+  Clients: Outlook, Outlook on the web, ActiveSync, IMAP4 and POP3 clients, other mail servers over SMTP
+  Log transport: CSV log files under the Exchange logging folders on each server, read by a file agent
+  Log format: Comma-separated lines with a header block naming the fields
+  What a message-tracking line answers: Which event happened to which message (message ID, sender, recipients, subject) on which server and why
+  What an SMTP line answers: Which connector talked to which remote endpoint, and what each step of the conversation was
+  What an IMAP4 or POP3 line answers: Which client IP issued which command for which user, and whether it succeeded
 placement:
   slots:
-    - cloud
+    - internal
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Mailbox servers
+      desc: Mailbox servers hold user mailboxes and run transport and client access. Message tracking and protocol logs are written on each server.
+    - slot: dmz
+      title: Edge or internet-facing connectors
+      desc: Mail from the internet arrives on receive connectors, sometimes on Edge Transport servers in the DMZ. Their SMTP protocol logs show every external conversation.
 howItWorks:
-  - title: What the fixture shows
-    body: Microsoft Exchange Server events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Transport and message tracking
+    body: The transport service moves each message through receive, categorisation, routing and delivery. Message tracking writes one line per event with the event-id (RECEIVE, DELIVER, SEND, FAIL, HAREDIRECTFAIL and others), source, message ID, sender, recipients and subject.
+  - title: SMTP protocol logging
+    body: When protocol logging is on for a connector, every SMTP conversation is written step by step. Each line carries the connector, session ID, sequence number, local and remote endpoints, an event marker (+ connect, - disconnect, > send, < receive, * information) and the data.
+  - title: IMAP4 and POP3 logging
+    body: The IMAP4 and POP3 services can log each client command with the session, server and client endpoints, user, duration, sizes, the command, its parameters (passwords masked) and the context, including the result.
 traffic:
   handles:
-    - text
+    - SMTP mail transfer
+    - IMAP4 and POP3 mailbox access
+    - Internal message routing and delivery
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads microsoft_exchange_server and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client or server connects
+      desc: A mail server or client connects over SMTP, IMAP4 or POP3.
+    - step: Exchange processes
+      desc: The connector or protocol service handles the conversation and transport moves the message.
+    - step: CSV line written
+      desc: Protocol and tracking logs append one line per step or event on the server.
+    - step: Collector reads it
+      desc: A file agent ships the lines. Goatpedia reads each line as text.
 logs:
-  - type: Imap4 Pop3
+  - type: IMAP4 and POP3 protocol log
     sourcetype: microsoft_exchange_server_imap4_pop3
     format: text
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One line per client command, with time, session, sequence, server and client endpoints, user, sizes, command, masked parameters and context. This sample is a POP3 pass command on port 110 that was proxied successfully (R=OK). Values are documentation addresses.
     sample: 2024-01-24T15:31:51.231Z,00000000000ABC12,2,203.0.113.40:110,192.0.2.10:12345,ccw.altitude,163,10,34,pass,*****,"R=OK;Msg=""Proxy:Host123.domain.tld:1995:SSL;ProxySuccess"";ActivityContextData=0cb2fd35-94c0-44de-9860-134d27654078",
     pattern: (?<message>[\s\S]+)
     key:
       - message
-  - type: Messagetracking
+  - type: Message tracking
     sourcetype: microsoft_exchange_server_messagetracking
     format: text
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One line per transport event. The event-id field, here HAREDIRECTFAIL, says what happened, with source, message ID, sender, recipient and subject. This sample is an SMTP message that found no suitable shadow server, on an incoming non-delivery report. Values are documentation addresses.
     sample: 2024-01-25T15:16:09.843Z,,,,exchange-mail,No suitable shadow servers,,SMTP,HAREDIRECTFAIL,70971234566456,<user@example.com>,2fd37dca-1234-5bfb-175d-08dc1db88f52,user@example.com,,15054,1,,,Undelivered Mail Returned to Sender,user@example.com,user@example.com,,Incoming,,,,S:DeliveryPriority=Normal;S:OriginalFromAddress=user@example.com;S:AccountForest=my.domain.com,Email,dc69df25-1234-564c-41c4-08dc1db88f7f,15.02.0330.005
     pattern: (?<message>[\s\S]+)
     key:
       - message
-  - type: Smtp
+  - type: SMTP protocol log
     sourcetype: microsoft_exchange_server_smtp
     format: text
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One line per step of an SMTP conversation, with time, connector, session, sequence, endpoints, event marker and data. This sample is the internal inbound proxy send connector setting session permissions. Values are documentation addresses.
     sample: 2024-01-25T15:14:39.460Z,Inbound Proxy Internal Send Connector,08DC1DB8591B22A0,0,,192.0.2.20:2525,*,None,Set Session Permissions
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Microsoft Exchange Server events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "microsoft_exchange_server_imap4_pop3"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations microsoft_exchange_server/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_exchange_server/data_stream/imap4_pop3/_dev/test/pipeline/test-imap4-pop3.json
-  - title: Pack Generator sample microsoft_exchange_server_imap4_pop3.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_exchange_server_imap4_pop3.json
+  - title: Message tracking in Exchange Server
+    url: https://learn.microsoft.com/en-us/exchange/mail-flow/transport-logs/message-tracking

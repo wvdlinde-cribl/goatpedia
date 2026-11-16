@@ -1,105 +1,131 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: windows
-name: Windows
+name: Microsoft Windows
 short: Windows
-vendor: Windows
+vendor: Microsoft
 category: os
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - windows
-  - Elastic integrations
+  - Windows
+  - Microsoft Windows
 tags:
-  - elastic
+  - endpoint
+  - sysmon
+  - powershell
   - xml
-summary: Windows is logged by the Elastic integrations package windows. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Microsoft Windows records security activity in its own event logs. A host writes Sysmon, PowerShell and Defender events locally. Windows Event Forwarding can also send another computer's events to a collector. These four streams are forwarded events, the PowerShell operational channel, the Sysmon operational channel, and Defender detections. Any collector that receives the forwarded XML or the Defender message can store them.
 sourcetypes:
   - st: windows_forwarded
-    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/forwarded/_dev/test/pipeline/test-sysmon-operational-events.json'
+    desc: A Windows event forwarded from another computer. The sample is a Sysmon DNS query
   - st: windows_powershell_operational
-    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/powershell_operational/_dev/test/pipeline/test-events.json'
+    desc: A PowerShell operational event. The sample is the engine starting a command
   - st: windows_sysmon_operational
-    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/sysmon_operational/_dev/test/pipeline/test-events.json'
+    desc: A Sysmon operational event. The sample is a DNS query made by a process
   - st: windows_windows_defender
-    desc: 'Elastic integrations fixture, 20 events. Upstream: windows/data_stream/windows_defender/_dev/test/pipeline/test-events-windows-defender-events.json'
+    desc: A Microsoft Defender Antivirus detection, kept as one text message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: windows
-  Sourcetypes: '4'
-  Fixture events: '80'
-  Log format seen: xml, text
-  Fields in the first fixture: Provider.Name, Provider.Guid, EventID, Version, Level, Task
+  Product: The Windows operating system and the security logs it writes on the endpoint
+  Where it sits: On each workstation and server. A Windows Event Collector, when used, sits on the internal network and receives forwarded events
+  Log transport: Event log XML, often via Windows Event Forwarding. Defender can also emit a text detection message. Any collector that subscribes to the channel or the forwarder can receive them
+  Log format: Forwarded, PowerShell and Sysmon events are Windows Event XML. Defender in this stream is one text line
+  What a Sysmon DNS event answers: Which process queried which name, and the result
+  What a PowerShell event answers: That the engine started a command in a runspace, and the script block id
+  What a Defender message answers: That Defender reported malware or unwanted software
 placement:
   slots:
-    - cloud
+    - endpoint
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Windows host
+      desc: Sysmon, PowerShell and Defender write their channels on the computer where the activity happened. Computer in the XML is that host. The process image and the query name are local observations.
+    - slot: internal
+      title: Event collector
+      desc: Windows Event Forwarding sends a copy of a channel to a collector. The forwarded stream is that copy. The sample forwarded event is still a Sysmon DNS query, from a host named vagrant-2016.
 howItWorks:
-  - title: What the fixture shows
-    body: Windows events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries Provider.Name, Provider.Guid, EventID, Version, Level, Task. Values in the sample were rewritten to documentation addresses.
+  - title: Sysmon DNS
+    body: Sysmon is the Sysinternals monitor many Windows hosts run. Event ID 22 on the Microsoft-Windows-Sysmon/Operational channel is a DNS query. QueryName is the name. QueryResults is what the resolver returned. Image is the process that asked. ProcessId and ProcessGuid identify that process. The forwarded sample and the Sysmon sample in this article are both event 22.
+  - title: PowerShell operational
+    body: The Microsoft-Windows-PowerShell/Operational channel records the engine, separate from script-block text. Event 4105 means a command started. ScriptBlockId and RunspaceId tie it to the script and the runspace. The sample is event 4105 on a computer named vagrant. It does not include the script text. Script text, when logging is enabled, is a different event.
+  - title: Defender
+    body: Microsoft Defender Antivirus writes a detection when it finds malware or unwanted software. This stream stores that report as one text message. The sample message is the sentence Defender uses for a detection. It does not include the file name or the threat name in this sample.
+  - title: How the events are collected
+    body: A collector subscribes to the channel on the host, or receives what Windows Event Forwarding sends. The XML events stay XML. The Defender line stays text. Any collector can be the subscriber. Goatpedia reads the XML samples as XML and the Defender sample as text.
 traffic:
   handles:
-    - xml
+    - DNS queries recorded by Sysmon
+    - PowerShell commands the engine started
+    - Malware detections from Microsoft Defender Antivirus
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads windows and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as xml / text.
+    - step: The host observes activity
+      desc: A process queries DNS, PowerShell starts a command, or Defender finds malware.
+    - step: Windows writes an event
+      desc: Sysmon and PowerShell write an XML event on their operational channel. Defender writes a detection message.
+    - step: A collector receives it
+      desc: Event forwarding or a local subscription sends the event on. The collector can deliver it anywhere.
 logs:
-  - type: Forwarded
+  - type: Forwarded events
     sourcetype: windows_forwarded
     format: xml
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One forwarded Windows event. Provider.Name and EventID say which channel and which event. This sample is Sysmon event 22, a DNS query for go.microsoft.com by Internet Explorer. QueryResults includes a documentation address. Computer is vagrant-2016.
     sample: '<Event xmlns=''http://schemas.microsoft.com/win/2004/08/events/event''><System><Provider Name=''Microsoft-Windows-Sysmon'' Guid=''{5770385f-c22a-43e0-bf4c-06f5698ffbd9}''/><EventID>22</EventID><Version>5</Version><Level>4</Level><Task>22</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime=''2019-07-18T03:34:02.025223900Z''/><EventRecordID>66</EventRecordID><Correlation/><Execution ProcessID=''2828'' ThreadID=''1684''/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>vagrant-2016</Computer><Security UserID=''S-1-5-18''/></System><EventData><Data Name=''RuleName''></Data><Data Name=''UtcTime''>2019-07-18 03:34:01.239</Data><Data Name=''ProcessGuid''>{fa4a0de6-e8a8-5d2f-0000-001094619900}</Data><Data Name=''ProcessId''>356</Data><Data Name=''QueryName''>go.microsoft.com</Data><Data Name=''QueryStatus''>0</Data><Data Name=''QueryResults''>type:  5 go.microsoft.com.edgekey.net;type:  5 e11290.dspg.akamaiedge.net;::ffff:203.0.113.40;</Data><Data Name=''Image''>C:\Program Files\Internet Explorer\iexplore.exe</Data></EventData></Event>'
     key:
       - Provider.Name
       - Provider.Guid
       - EventID
       - Version
-  - type: Powershell Operational
+  - type: PowerShell operational
     sourcetype: windows_powershell_operational
     format: xml
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One PowerShell operational event. This sample is EventID 4105, a command starting. ScriptBlockId and RunspaceId identify the script and the runspace. The event does not contain the script text. Computer is vagrant.
     sample: <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-PowerShell' Guid='{a0c1853b-5c40-4b15-8766-3cf1c58f985a}'/><EventID>4105</EventID><Version>1</Version><Level>5</Level><Task>102</Task><Opcode>15</Opcode><Keywords>0x0</Keywords><TimeCreated SystemTime='2020-05-13T09:04:04.755232500Z'/><EventRecordID>790</EventRecordID><Correlation ActivityID='{dd68516a-2930-0000-5962-68dd3029d601}'/><Execution ProcessID='4204' ThreadID='1476'/><Channel>Microsoft-Windows-PowerShell/Operational</Channel><Computer>vagrant</Computer><Security UserID='S-1-5-21-1350058589-2282154016-2764056528-1000'/></System><EventData><Data Name='ScriptBlockId'>f4a378ab-b74f-41a7-a5ef-6dd55562fdb9</Data><Data Name='RunspaceId'>9c031e5c-8d5a-4b91-a12e-b3624970b623</Data></EventData></Event>
     key:
       - Provider.Name
       - Provider.Guid
       - EventID
       - Version
-  - type: Sysmon Operational
+  - type: Sysmon operational
     sourcetype: windows_sysmon_operational
     format: xml
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One Sysmon operational event. This sample is EventID 22, a DNS query. QueryName is go.microsoft.com and Image is Internet Explorer. QueryResults includes a documentation address. Computer is vagrant-2016.
     sample: '<Event xmlns=''http://schemas.microsoft.com/win/2004/08/events/event''><System><Provider Name=''Microsoft-Windows-Sysmon'' Guid=''{5770385f-c22a-43e0-bf4c-06f5698ffbd9}''/><EventID>22</EventID><Version>5</Version><Level>4</Level><Task>22</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime=''2019-07-18T03:34:02.025223900Z''/><EventRecordID>66</EventRecordID><Correlation/><Execution ProcessID=''2828'' ThreadID=''1684''/><Channel>Microsoft-Windows-Sysmon/Operational</Channel><Computer>vagrant-2016</Computer><Security UserID=''S-1-5-18''/></System><EventData><Data Name=''RuleName''></Data><Data Name=''UtcTime''>2019-07-18 03:34:01.239</Data><Data Name=''ProcessGuid''>{fa4a0de6-e8a8-5d2f-0000-001094619900}</Data><Data Name=''ProcessId''>356</Data><Data Name=''QueryName''>go.microsoft.com</Data><Data Name=''QueryStatus''>0</Data><Data Name=''QueryResults''>type:  5 go.microsoft.com.edgekey.net;type:  5 e11290.dspg.akamaiedge.net;::ffff:192.0.2.10;</Data><Data Name=''Image''>C:\Program Files\Internet Explorer\iexplore.exe</Data></EventData></Event>'
     key:
       - Provider.Name
       - Provider.Guid
       - EventID
       - Version
-  - type: Windows Defender
+  - type: Defender detection
     sourcetype: windows_windows_defender
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One Defender message in the message field. This sample is the sentence Microsoft Defender Antivirus uses when it has detected malware or other potentially unwanted software. The sample does not name the file or the threat.
     sample: Microsoft Defender Antivirus has detected malware or other potentially unwanted software.
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Windows events arriving
-    severity: low
+  - title: Defender reported malware
+    severity: high
     signals:
-      - Provider.Name
-      - Provider.Guid
-      - EventID
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "windows_forwarded"'
-optimizations: []
+      - message
+    why: The Defender stream is a detection, not an inventory record. The sample text says Defender has detected malware or unwanted software. That message is the alert. Sysmon DNS queries are a different stream and are not this signal.
+    kql: |
+      dataset="windows_logs"
+      | where sourcetype == "windows_windows_defender" and message has "detected malware"
+      | project message
+optimizations:
+  - title: Drop Sysmon DNS queries
+    saving: most of the Sysmon DNS volume
+    fn: Drop
+    how: Event ID 22 is one line per DNS query, on both the Sysmon channel and the forwarded copy of it. That is the bulk of those two streams in this article. Security monitoring needs Defender detections, and the other Sysmon event ids, more than every name lookup. Drop event 22 before the SIEM.
+    expr: "EventID == '22'"
 references:
-  - title: elastic/integrations windows/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/windows/data_stream/forwarded/_dev/test/pipeline/test-sysmon-operational-events.json
-  - title: Pack Generator sample windows_forwarded.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/windows_forwarded.json
+  - title: Sysmon
+    url: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+  - title: About PowerShell logging
+    url: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging
+  - title: Microsoft Defender Antivirus
+    url: https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-antivirus-windows

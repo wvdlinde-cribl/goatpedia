@@ -1,52 +1,62 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: coredns
-name: Coredns
-short: Coredns
-vendor: Coredns
+name: CoreDNS
+short: CoreDNS
+vendor: CoreDNS (CNCF)
 category: dns
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
-aka:
-  - coredns
-  - Elastic integrations
+aka: []
 tags:
-  - elastic
+  - dns
+  - kubernetes
+  - container
   - json
-summary: Coredns is logged by the Elastic integrations package coredns. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source DNS server written in Go and built from plugins, and the default cluster DNS in Kubernetes. Pods ask it to resolve service names and external names, and it answers from the cluster or forwards upstream. With the log plugin enabled it writes one line per query to the container's stdout, which the container runtime wraps in JSON with Kubernetes metadata.
 sourcetypes:
   - st: coredns
-    desc: 'Elastic integrations fixture, 20 events. Upstream: coredns/data_stream/log/_dev/test/pipeline/test-coredns-json.log'
+    desc: Query log lines from a CoreDNS container, one per DNS query, wrapped in the container runtime's JSON with pod metadata
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: coredns
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: message, stream, time, kubernetes.container.name, kubernetes.node.name, kubernetes.pod.uid
+  Product: Plugin-based DNS server; the default DNS service in Kubernetes clusters
+  Form factor: Container (Deployment in kube-system) or a standalone binary
+  Log transport: Container stdout, read from the node's log files by any log agent
+  Log format: JSON from the container runtime with message, stream and time, plus Kubernetes pod metadata. The message is the log plugin's text line
+  What a query line answers: Which client asked for which name and type, over UDP or TCP, what the response code was, and how long it took
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Cluster DNS pods
+      desc: CoreDNS pods run in the kube-system namespace behind the kube-dns service IP. Every pod in the cluster uses them as its resolver, so their query log is the DNS view of the whole cluster.
 howItWorks:
-  - title: What the fixture shows
-    body: Coredns events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message, stream, time, kubernetes.container.name, kubernetes.node.name, kubernetes.pod.uid. Values in the sample were rewritten to documentation addresses.
+  - title: Plugins
+    body: The Corefile lists plugins per zone. kubernetes answers names in the cluster zone from the API server, forward sends other names to upstream resolvers, cache caches answers, and log writes a line per query.
+  - title: The query line
+    body: The default log format is the client IP and port, the query id, the question in quotes (type, class, name, protocol, size, DO bit, buffer size), the response code, the flags, the response size and the duration.
+  - title: How the logs leave the pod
+    body: CoreDNS writes to stdout. The container runtime stores each line as JSON on the node with the stream and time, and a node log agent adds pod, namespace and label metadata before forwarding. Any agent can do this.
 traffic:
   handles:
-    - json
+    - DNS queries from pods and nodes
+    - Service discovery for names in the cluster zone
+    - Forwarding to upstream resolvers
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads coredns and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Pod resolves
+      desc: A pod sends a DNS query to the cluster DNS service IP.
+    - step: CoreDNS answers
+      desc: CoreDNS answers from the cluster, its cache, or an upstream resolver.
+    - step: Query logged
+      desc: The log plugin writes one line with the question, response code and duration.
+    - step: Agent ships it
+      desc: A node log agent reads the container log file and forwards the JSON with Kubernetes metadata.
 logs:
-  - type: Log
+  - type: DNS query log
     sourcetype: coredns
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per query. message holds the log line, here an A query over UDP that returned NXDOMAIN in about 0.1 ms. kubernetes.pod.name and kubernetes.namespace say which CoreDNS pod answered. The client address is a documentation address.
     sample: '{"message":"[INFO] 198.51.100.25:36413 - 21583 \"A IN httpbin.org.cluster.local. udp 43 false 512\" NXDOMAIN qr,rd,ra 136 0.000102078s","stream":"stdout","time":"2019-02-12T00:27:28.903433597Z","kubernetes":{"container":{"name":"coredns"},"node":{"name":"minikube"},"pod":{"uid":"d57d545e-2a9d-11e9-995f-08002730e0dc","name":"coredns-86c58d9df4-jwhsg"},"namespace":"kube-system","replicaset":{"name":"coredns-86c58d9df4"},"labels":{"pod-template-hash":"86c58d9df4","k8s-app":"kube-dns"}}}'
     key:
       - message
@@ -55,17 +65,26 @@ logs:
       - kubernetes.container.name
 cves: []
 detections:
-  - title: Coredns events arriving
+  - title: Many failed lookups from one client
     severity: low
     signals:
       - message
-      - stream
-      - time
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "coredns"'
-optimizations: []
+      - kubernetes.pod.name
+    why: NXDOMAIN and SERVFAIL answers are normal in small numbers because of search-path expansion. A sustained burst from one client is a misconfigured workload, or random-looking names that point to DGA malware or DNS tunnelling from a compromised pod.
+    kql: |
+      dataset="coredns_logs"
+      | where sourcetype == "coredns" and (message contains "NXDOMAIN" or message contains "SERVFAIL")
+      | project time, message, kubernetes.pod.name
+    mitre:
+      - T1071.004
+optimizations:
+  - title: Drop successful answers
+    saving: most of the query volume
+    fn: Drop
+    how: Most cluster DNS queries are successful service lookups. Keep failures and send successful answers to cheaper storage, or drop them, before the SIEM.
+    expr: message.indexOf(' NOERROR ') >= 0
 references:
-  - title: elastic/integrations coredns/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/coredns/data_stream/log/_dev/test/pipeline/test-coredns-json.log
-  - title: Pack Generator sample coredns.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/coredns.json
+  - title: CoreDNS log plugin
+    url: https://coredns.io/plugins/log/
+  - title: CoreDNS manual
+    url: https://coredns.io/manual/toc/

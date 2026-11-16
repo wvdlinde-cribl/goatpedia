@@ -1,67 +1,67 @@
 id: bluecoat
-name: Bluecoat
-short: Bluecoat
-vendor: Bluecoat
+name: Blue Coat Director
+short: BC Director
+vendor: Broadcom
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - bluecoat
-  - Elastic integrations
+  - Symantec Director
+  - Blue Coat Systems Director
 tags:
-  - elastic
-  - text
-summary: Bluecoat is logged by the Elastic integrations package bluecoat. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - management
+  - proxy
+  - appliance
+  - syslog
+summary: Blue Coat Director, later sold as Symantec Director and now part of Broadcom, is a central management appliance for fleets of Blue Coat ProxySG secure web gateways. Administrators use it to push configuration, policy and overlays to many proxies at once and to monitor their health. Like other appliances it writes system syslog from its own services, which tells you about time sync, service starts, logins and errors on the management plane rather than about user web traffic.
 sourcetypes:
   - st: bluecoat_director
-    desc: 'Elastic integrations fixture, 20 events. Upstream: bluecoat/data_stream/director/_dev/test/pipeline/test-generated.log'
+    desc: Director appliance system log, one syslog line per message from a service on the appliance such as ntpd, sshd or the management daemons
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: bluecoat
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Central configuration and policy management for ProxySG secure web gateway appliances
+  Form factor: Hardware or virtual appliance on the management network
+  Log transport: Syslog from the appliance to a remote syslog server
+  Log format: Free-text syslog lines with a process name and id followed by the message
+  What a system log line answers: Which appliance service reported what, for example time synchronisation, administrative logins or service errors
+  Scope: Director logs cover the management appliance. User web traffic is logged by the ProxySG appliances themselves
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Management network
+      desc: Director sits on the internal management network and connects to each ProxySG it manages. Its own syslog describes the appliance and its management actions.
 howItWorks:
-  - title: What the fixture shows
-    body: Bluecoat events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Managing proxies
+    body: Director holds configuration overlays and policy that it pushes to groups of ProxySG appliances, and can run jobs such as backups and upgrades across them. Administrators log in to Director instead of to each proxy.
+  - title: System logging
+    body: Services on the appliance, such as ntpd, sshd and the management daemons, write syslog messages with their process name and id. These cover service status, time sync, administrator access and errors.
+  - title: How the logs leave the appliance
+    body: The appliance is configured with one or more remote syslog hosts and sends its messages to them. Any syslog collector can receive them. The destination is a choice of the pipeline, not a property of Director.
 traffic:
   handles:
-    - text
+    - Configuration and policy distribution to ProxySG appliances
+    - Administrator logins to the management appliance
+    - Appliance services such as NTP and SSH
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads bluecoat and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Service reports
+      desc: A service on the Director appliance writes a message, for example ntpd reporting time sync.
+    - step: Syslog daemon forwards
+      desc: The appliance's syslog daemon sends the line to the configured remote syslog host.
+    - step: Collector receives
+      desc: A syslog collector receives the line and keeps the message text.
 logs:
-  - type: Director
+  - type: System log
     sourcetype: bluecoat_director
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog message from an appliance service. The process name and id come first, then the message. This sample is ntpd reporting that kernel time sync is enabled.
     sample: 'ntpd[1001]: kernel time sync enabled utl'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Bluecoat events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "bluecoat_director"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations bluecoat/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bluecoat/data_stream/director/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample bluecoat_director.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bluecoat_director.json
+references: []

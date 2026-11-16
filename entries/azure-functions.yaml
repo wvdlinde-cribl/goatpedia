@@ -1,52 +1,63 @@
 id: azure-functions
 name: Azure Functions
-short: Functions
-vendor: Azure
+short: Az Functions
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_functions
-  - Elastic integrations
+  - Azure Function Apps
+  - Microsoft Azure Functions
 tags:
-  - elastic
+  - serverless
+  - azure
+  - application
   - json
-summary: Azure Functions is logged by the Elastic integrations package azure_functions. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Azure Functions is Microsoft's serverless compute service. Code runs as functions inside a function app, triggered by HTTP calls, timers, queues or other Azure events, without a server for the customer to manage. Through Azure Monitor diagnostic settings the function app emits FunctionAppLogs, which record each function start, completion, failure and the exception behind it.
 sourcetypes:
   - st: azure_functions_functionapplogs
-    desc: 'Elastic integrations fixture, 4 events. Upstream: azure_functions/data_stream/functionapplogs/_dev/test/pipeline/test-azure-functions-error-raw.log'
+    desc: Function app runtime logs from the FunctionAppLogs diagnostic category, one record per log line written by the Functions host or the function code, including executions, failures and exceptions
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_functions
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: time, resourceId, category, operationName, level, location
+  Product: Serverless compute in Microsoft Azure. Functions run on demand inside a function app
+  Hosting: Consumption, Flex Consumption, Premium and Dedicated (App Service) plans, Linux or Windows workers
+  Log transport: Azure Monitor diagnostic settings send FunctionAppLogs to a Log Analytics workspace, a storage account or an event hub, where any collector can read them
+  Log format: One JSON record per log line. Azure envelope fields (time, resourceId, category, operationName, level, location) wrap a properties object
+  What a FunctionAppLogs record answers: Which function in which app ran, which invocation it was, whether it succeeded, how long it took, and which exception it threw when it failed
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Function app
+      desc: The function app is an Azure resource in a subscription and resource group, named in resourceId. The Functions host runs the code on Azure-managed workers and writes runtime logs. Diagnostic settings on the app decide where those logs are delivered.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure Functions events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries time, resourceId, category, operationName, level, location. Values in the sample were rewritten to documentation addresses.
+  - title: Function apps and invocations
+    body: A function app groups one or more functions that share a runtime, configuration and scale settings. Each trigger starts an invocation with its own functionInvocationId. The Functions host logs when the invocation starts and when it completes, and the function code can write its own log lines through the same logger.
+  - title: What a record carries
+    body: The envelope says when (time), which resource (resourceId), the category FunctionAppLogs and the level. The properties object names the app (appName), the function (functionName), the invocation, the host version and instance, and the event name such as FunctionStarted or FunctionCompleted. Failed invocations add exceptionType, exceptionMessage and exceptionDetails.
+  - title: How the logs leave Azure
+    body: Azure Functions does not send syslog. A diagnostic setting on the function app streams the FunctionAppLogs category to Log Analytics, a storage account or an event hub. A collector reads the event hub or the storage container and receives the records as JSON. The destination is a choice of the pipeline, not a property of the function app.
 traffic:
   handles:
-    - json
+    - HTTP-triggered function calls
+    - Timer, queue and event-triggered function runs
+    - Runtime and function code log output
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_functions and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Trigger fires
+      desc: An HTTP request, timer, queue message or other event starts a function invocation in the function app.
+    - step: Host logs the run
+      desc: The Functions host writes FunctionStarted and FunctionCompleted records, plus any log lines from the code. A failure carries the exception.
+    - step: Diagnostic setting exports
+      desc: The FunctionAppLogs category is delivered to an event hub, storage account or Log Analytics workspace.
+    - step: Collector reads JSON
+      desc: A collector pulls the records from the event hub or storage and forwards each JSON object.
 logs:
-  - type: Functionapplogs
+  - type: Function app runtime log
     sourcetype: azure_functions_functionapplogs
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One record per runtime log line. category is FunctionAppLogs and level is the severity. properties.functionName and properties.functionInvocationId identify the run, and properties.eventName says what happened. This sample is a FunctionCompleted record for a failed invocation, with properties.exceptionType and properties.exceptionMessage naming the error.
     sample: '{"time":"2023-06-07T11:33:11Z","resourceId":"/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/TEST-RG/PROVIDERS/MICROSOFT.WEB/SITES/TEST-FUNCTION","category":"FunctionAppLogs","operationName":"Microsoft.Web/sites/functions/log","level":"Error","location":"East US","properties":{"appName":"mbranca-test-function","roleInstance":"54108609-638217294083255145","message":"Executed Functions.hello (Failed, Id=3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e, Duration=16ms)","category":"Function.hello","hostVersion":"203.0.113.8","functionInvocationId":"3a4b2e78-0549-4ebc-ba4c-ee9a6bc9a04e","functionName":"Functions.hello","hostInstanceId":"8699ec76-436a-43e2-a811-371c8e1472d7","level":"Error","levelId":4,"processId":64,"exceptionDetails":"Microsoft.Azure.WebJobs.Host.FunctionInvocationException : Exception while executing function: Functions.hello ---> Microsoft.Azure.WebJobs.Script.Workers.Rp...","exceptionMessage":"Result: Failure\nException: Exception: Ka-booom!\nStack:   File \"/azure-functions-host/workers/python/3.9/LINUX/X64/azure_functions_worker/dispatcher.py\", line...","exceptionType":"Microsoft.Azure.WebJobs.Script.Workers.Rpc.RpcException","eventId":3,"eventName":"FunctionCompleted"}}'
     key:
       - time
@@ -55,17 +66,24 @@ logs:
       - operationName
 cves: []
 detections:
-  - title: Azure Functions events arriving
+  - title: Function invocation failed
     severity: low
     signals:
-      - time
-      - resourceId
-      - category
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_functions_functionapplogs"'
-optimizations: []
+      - level
+      - properties.functionName
+      - properties.exceptionType
+      - properties.exceptionMessage
+    why: A burst of failed invocations for one function can mean a broken deployment, a changed dependency or input crafted to make the code throw. The exception type and message say which.
+    kql: |
+      dataset="azure-functions_logs"
+      | where sourcetype == "azure_functions_functionapplogs" and level == "Error"
+      | project time, resourceId, properties.appName, properties.functionName, properties.exceptionType, properties.exceptionMessage
+optimizations:
+  - title: Keep warnings and errors, sample the rest
+    saving: most of the runtime log volume
+    fn: Drop
+    how: A busy function app writes Information and Trace lines for every invocation. Investigation needs the warnings, errors and exceptions. Drop or sample the lower levels before the SIEM and keep them in cheaper storage if needed.
+    expr: "level == 'Information' || level == 'Trace' || level == 'Debug'"
 references:
-  - title: elastic/integrations azure_functions/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_functions/data_stream/functionapplogs/_dev/test/pipeline/test-azure-functions-error-raw.log
-  - title: Pack Generator sample azure_functions_functionapplogs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_functions_functionapplogs.json
+  - title: Monitor executions in Azure Functions
+    url: https://learn.microsoft.com/en-us/azure/azure-functions/functions-monitoring

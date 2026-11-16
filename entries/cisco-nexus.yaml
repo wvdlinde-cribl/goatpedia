@@ -4,64 +4,64 @@ short: Cisco Nexus
 vendor: Cisco
 category: netinfra
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cisco_nexus
-  - Elastic integrations
+  - Cisco NX-OS
+  - Nexus switches
 tags:
-  - elastic
-  - text
-summary: Cisco Nexus is logged by the Elastic integrations package cisco_nexus. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - switch
+  - data-center
+  - network
+  - syslog
+summary: Cisco Nexus is Cisco's family of data centre switches running the NX-OS operating system. They form the leaf, spine and core layers that connect servers, storage and other networks, either as standalone switches or under ACI. NX-OS sends syslog for interface changes, routing protocol events, hardware and environment alerts, configuration changes and administrator logins, which tell you about the state and changes of the data centre network.
 sourcetypes:
   - st: cisco_nexus
-    desc: 'Elastic integrations fixture, 20 events. Upstream: cisco_nexus/data_stream/log/_dev/test/pipeline/test-nexus.log'
+    desc: NX-OS switch syslog, one message per event from the switch, typically in %FACILITY-SEVERITY-MNEMONIC form, plus syslog daemon lines such as message repeat notices
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cisco_nexus
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Data centre switches running NX-OS, standalone or in Cisco ACI fabrics
+  Form factor: Fixed and modular hardware switches (Nexus 3000, 5000, 7000, 9000) and the virtual Nexus 9000v
+  Log transport: Syslog over UDP, TCP or TLS to configured logging servers, optionally from a management VRF
+  Log format: Cisco syslog text with priority, year, date, time and zone, then a %FACILITY-SEVERITY-MNEMONIC tag and the message
+  What a switch message answers: Which interface, protocol, module or user caused what change, at which severity, for example a port going down, a BGP neighbour change, a fan failure or a configuration commit
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Data centre fabric
+      desc: Nexus switches sit in the data centre as leaf, spine or core switches between servers, storage and the rest of the network. Each switch sends its own syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Cisco Nexus events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: NX-OS
+    body: NX-OS runs each feature, such as interfaces, routing protocols, VPC and AAA, as a separate process. Each process reports events with its facility name, a severity from 0 to 7 and a mnemonic.
+  - title: Repeated messages
+    body: When the same message repeats, the syslog daemon suppresses the copies and writes a line saying the last message was repeated n times. That line carries no facility tag of its own.
+  - title: How the logs leave the switch
+    body: The switch is configured with logging server entries, a severity level and a source interface or VRF. Any syslog collector can receive the messages. The destination is a choice of the pipeline, not a property of the switch.
 traffic:
   handles:
-    - text
+    - Ethernet switching and routing in the data centre
+    - Interface, VPC and routing protocol state
+    - Hardware and environment monitoring
+    - Administrator logins and configuration changes
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cisco_nexus and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Switch event happens
+      desc: An interface changes state, a protocol neighbour changes, hardware raises an alert or an administrator changes the configuration.
+    - step: NX-OS logs it
+      desc: The responsible process writes a syslog message with facility, severity and mnemonic.
+    - step: Syslog is sent
+      desc: The switch sends the message to its configured logging servers.
 logs:
-  - type: Log
+  - type: Switch syslog
     sourcetype: cisco_nexus
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog message from the switch. Most lines carry a %FACILITY-SEVERITY-MNEMONIC tag that names the process and severity. This sample is the syslog daemon's notice that the previous message was repeated once.
     sample: '<187>: 2023 May  2 12:55:19 UTC: last message repeated 1 times'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Cisco Nexus events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cisco_nexus"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations cisco_nexus/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cisco_nexus/data_stream/log/_dev/test/pipeline/test-nexus.log
-  - title: Pack Generator sample cisco_nexus.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cisco_nexus.json
+references: []

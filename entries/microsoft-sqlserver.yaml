@@ -1,67 +1,78 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: microsoft-sqlserver
-name: Microsoft Sqlserver
-short: Sqlserver
+name: Microsoft SQL Server
+short: SQL Server
 vendor: Microsoft
 category: db
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - microsoft_sqlserver
-  - Elastic integrations
+  - MSSQL
+  - SQL Server
 tags:
-  - elastic
+  - database
+  - rdbms
   - text
-summary: Microsoft Sqlserver is logged by the Elastic integrations package microsoft_sqlserver. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Microsoft's relational database server. Applications connect to it over TDS, usually on port 1433, inside the data centre or in cloud VMs. Its error log (ERRORLOG) records server startup and version, configuration, recovery, backups, and, depending on the login audit setting, failed and successful logins.
 sourcetypes:
   - st: microsoft_sqlserver
-    desc: 'Elastic integrations fixture, 20 events. Upstream: microsoft_sqlserver/data_stream/log/_dev/test/pipeline/test-sqlserver.log'
+    desc: The SQL Server error log, one line per message with timestamp, source (Server, spid or Logon) and text
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: microsoft_sqlserver
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Relational database server (database engine)
+  Clients: Applications and tools over TDS, default port 1433
+  Log transport: ERRORLOG text files in the instance's log directory, read by a file agent; the same messages can go to the Windows Application event log
+  Log format: Plain text, one line per message as date time source text
+  What an error-log line answers: What the engine did or reported, from which session or component, and when
+  Logins: With login auditing set to failed or all logins, each failed login is written as a Logon line naming the user and client
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Database server
+      desc: SQL Server runs on Windows or Linux servers, or cloud VMs, behind the applications that use it. The error log is written in the instance's log directory.
 howItWorks:
-  - title: What the fixture shows
-    body: Microsoft Sqlserver events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Engine and sessions
+    body: The database engine serves client sessions, each identified by a spid. Startup, recovery, backups and errors are written to the error log with the source that reported them.
+  - title: Error log rotation
+    body: The current file is ERRORLOG, and older ones are kept as ERRORLOG.1, .2 and so on. A new file starts when the service restarts or the log is cycled.
+  - title: Login auditing
+    body: The server's login auditing setting decides whether failed logins, successful logins, both or none are written. Failed logins appear as Logon lines with the user name, the reason and the client address.
 traffic:
   handles:
-    - text
+    - TDS client connections and logins
+    - Queries and transactions
+    - Backups and recovery
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads microsoft_sqlserver and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Engine acts
+      desc: The server starts, recovers a database, runs a backup or rejects a login.
+    - step: Line written
+      desc: The engine appends one text line to ERRORLOG.
+    - step: Collector reads it
+      desc: A file agent ships the line. Goatpedia reads it as text.
 logs:
-  - type: Log
+  - type: Error log
     sourcetype: microsoft_sqlserver
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per error-log message, with date, time, source and text. This sample is the startup banner from the Server source naming SQL Server 2019 CU16 and its build number.
     sample: 2022-07-08 05:42:10.35 Server      Microsoft SQL Server 2019 (RTM-CU16-GDR) (KB5014353) - 15.0.4236.7 (X64)
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Microsoft Sqlserver events arriving
-    severity: low
+  - title: SQL Server login failed
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "microsoft_sqlserver"'
+    why: With failed-login auditing on, each rejected login is written with the user and client. Bursts against one account, or against sa, are password guessing against the database.
+    kql: |
+      dataset="microsoft-sqlserver_logs"
+      | where sourcetype == "microsoft_sqlserver" and message contains "Login failed"
+      | project _time, message
+    mitre:
+      - T1110
 optimizations: []
-references:
-  - title: elastic/integrations microsoft_sqlserver/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/microsoft_sqlserver/data_stream/log/_dev/test/pipeline/test-sqlserver.log
-  - title: Pack Generator sample microsoft_sqlserver.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/microsoft_sqlserver.json
+references: []

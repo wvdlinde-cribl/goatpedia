@@ -1,52 +1,74 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: nextron-thor
-name: Nextron Thor
-short: Nextron Thor
-vendor: Nextron
+name: THOR APT Scanner
+short: THOR
+vendor: Nextron Systems
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - nextron_thor
-  - Elastic integrations
+  - Nextron THOR
+  - THOR Lite
+  - THOR Cloud
 tags:
-  - elastic
+  - compromise-assessment
+  - yara
+  - ioc-scanner
+  - forensics
   - json
-summary: Nextron Thor is logged by the Elastic integrations package nextron_thor. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A forensic compromise-assessment scanner that runs on endpoints and servers and checks files, processes, memory, registry and logs against YARA and Sigma rules and other indicators. Incident responders run it in a scan campaign across many hosts. Its log reports each finding at Alert, Warning or Notice level, and a final summary per host with the count of each.
 sourcetypes:
   - st: nextron_thor_thor_forwarding
-    desc: 'Elastic integrations fixture, 20 events. Upstream: nextron_thor/data_stream/thor_forwarding/_dev/test/pipeline/test-thorscanlogs.log'
+    desc: 'THOR scan log lines forwarded in JSON: individual findings by module and level, and the end-of-scan summary for a host'
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: nextron_thor
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: campaign_id, time, hostname, level, module, message
+  Product: Portable compromise-assessment and IOC/YARA scanner
+  Form factor: Command-line scanner for Windows, Linux and macOS, run ad hoc, by a management tool, or from THOR Cloud
+  Log transport: Local log file, plus optional syslog or other forwarding to a receiver while the scan runs
+  Log format: Text or JSON lines. JSON lines carry log_version, hostname, module, level and message
+  What a finding answers: Which module found what on which host, and how serious THOR rates it (Alert, Warning, Notice)
+  What a scan summary answers: When the scan on a host finished and how many alerts, warnings, notices and errors it produced
 placement:
   slots:
-    - cloud
+    - endpoint
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Scanned host
+      desc: THOR runs on the endpoint or server being assessed. It reads the local file system, processes and logs, so findings are tied to that hostname.
+    - slot: internal
+      title: Log receiver
+      desc: During a campaign THOR forwards its log from every scanned host to a central receiver, so responders see findings as they happen.
 howItWorks:
-  - title: What the fixture shows
-    body: Nextron Thor events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries campaign_id, time, hostname, level, module, message. Values in the sample were rewritten to documentation addresses.
+  - title: Modules and signatures
+    body: A scan runs modules such as Filescan, ProcessCheck, Eventlog and Registry. Each module tests what it reads against Nextron signatures, YARA rules, Sigma rules and custom IOCs.
+  - title: Levels
+    body: Every log line has a level. Alert is a strong match, Warning a suspicious one, Notice a weak or informational one, and Info is progress. The Report module writes the summary at the end with alert, warning, notice and error counts.
+  - title: Campaigns
+    body: A campaign_id groups the scans of one assessment, and scanid identifies one scan on one host.
+  - title: How the log leaves the product
+    body: THOR writes its log locally and can forward each line as it is written, in text or JSON, to a syslog or TCP receiver.
 traffic:
   handles:
-    - json
+    - File and memory scanning
+    - YARA and Sigma matching
+    - IOC checks
+    - Scan reporting
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads nextron_thor and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Scan starts
+      desc: A responder or a tool starts THOR on a host as part of a campaign.
+    - step: Modules match
+      desc: Each module checks artefacts and writes a line for every finding at its level.
+    - step: Report
+      desc: At the end the Report module writes the summary with the counts per level.
+    - step: Forward
+      desc: Lines are forwarded in JSON to the receiver while the scan runs.
 logs:
-  - type: Thor Forwarding
+  - type: THOR scan log
     sourcetype: nextron_thor_thor_forwarding
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One JSON object per log line. level and module say what kind of line it is, hostname is the scanned host, campaign_id and scanid group the scan. This sample is the Report summary at the end of a scan, with alerts, warnings and notices counted.
     sample: '{"campaign_id":"2b054111-bad7-4bac-a14e-8fa8a88f1111","time":"2025-12-10T17:58:42Z","hostname":"mymachinename","level":"Info","module":"Report","message":"Thor Scan finished","scanid":"S-VavZi0stuDo","end_time":"2025-11-10T17:58:42.4290563Z","alerts":0,"warnings":16,"notices":30,"errors":0,"log_version":"v2.0.0"}'
     key:
       - campaign_id
@@ -55,17 +77,24 @@ logs:
       - level
 cves: []
 detections:
-  - title: Nextron Thor events arriving
-    severity: low
+  - title: THOR reported an alert or warning
+    severity: high
     signals:
-      - campaign_id
-      - time
+      - level
+      - module
       - hostname
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "nextron_thor_thor_forwarding"'
-optimizations: []
+      - message
+    why: 'Alert and Warning lines are the findings of a compromise assessment: a signature, YARA or IOC match on that host. They are the lines responders triage first.'
+    kql: |
+      dataset="nextron-thor_logs"
+      | where sourcetype == "nextron_thor_thor_forwarding" and level in ("Alert", "Warning")
+      | project time, hostname, module, level, message, campaign_id
+optimizations:
+  - title: Keep findings, sample progress lines
+    saving: most of the scan log volume
+    fn: Drop
+    how: Info lines report scan progress. The findings are Alert, Warning and Notice, plus the Report summary. Drop Info lines that are not from the Report module.
+    expr: level == 'Info' && module != 'Report'
 references:
-  - title: elastic/integrations nextron_thor/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/nextron_thor/data_stream/thor_forwarding/_dev/test/pipeline/test-thorscanlogs.log
-  - title: Pack Generator sample nextron_thor_thor_forwarding.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/nextron_thor_thor_forwarding.json
+  - title: THOR manual
+    url: https://thor-manual.nextron-systems.com/

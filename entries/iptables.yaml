@@ -1,52 +1,63 @@
 id: iptables
-name: Iptables
-short: Iptables
-vendor: Iptables
+name: iptables
+short: iptables
+vendor: Netfilter
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - iptables
-  - Elastic integrations
+  - netfilter
 tags:
-  - elastic
+  - firewall
+  - netfilter
   - kv
-summary: Iptables is logged by the Elastic integrations package iptables. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: iptables is the administration tool for the Linux netfilter packet filter. Rules on a host or a router match packets and accept, drop or log them. The LOG target writes one kernel line per matched packet, with a prefix the rule was given and the packet's addresses and ports. This stream is those lines, as they appear in syslog. Any collector that receives the kernel log can store them.
 sourcetypes:
   - st: iptables
-    desc: 'Elastic integrations fixture, 20 events. Upstream: iptables/data_stream/log/_dev/test/pipeline/test-iptables-raw.log'
+    desc: One packet recorded by the iptables LOG target. The rule prefix, the interfaces, the addresses and the ports are on the line.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: iptables
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: header, [wan-lan-default-D]IN, OUT, MAC, SRC, DST
+  Product: Linux packet filter. This stream is the kernel log written by the LOG target, not a separate appliance.
+  Where it runs: Any Linux host or router that has iptables rules. The sample prefix is a WAN-to-LAN rule.
+  Log transport: Kernel messages, delivered through syslog. The line often starts with a syslog priority and timestamp.
+  Log format: Key-value fields after a log prefix. IN and OUT are interfaces. SRC and DST are addresses. PROTO, SPT and DPT are the protocol and ports.
+  What a line answers: Which packet hit a logged rule, on which interface, and between which addresses and ports
 placement:
   slots:
-    - cloud
+    - endpoint
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: Host firewall
+      desc: A server uses iptables as its host firewall. A LOG rule writes a kernel line when a packet matches. A collector on the host, or a syslog receiver, takes the line.
+    - slot: edge
+      title: Router
+      desc: The same LOG target is used on a Linux router. The sample prefix, wan-lan-default-D, is the label of a rule between a WAN and a LAN interface. IN=eth0 is the interface the packet arrived on.
 howItWorks:
-  - title: What the fixture shows
-    body: Iptables events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, [wan-lan-default-D]IN, OUT, MAC, SRC, DST. Values in the sample were rewritten to documentation addresses.
+  - title: The LOG target
+    body: A rule matches a packet and, if it includes LOG, the kernel writes one line. The text in brackets is the log prefix the administrator set. IN and OUT are the interfaces. SRC, DST, PROTO, SPT and DPT describe the packet. PROTO TCP with ACK and a destination port is a TCP segment of that kind.
+  - title: This sample
+    body: The prefix is wan-lan-default-D. The packet arrived on eth0. It is TCP, acknowledgement set, destination port 443. SRC and DST are documentation addresses. The LOG target records the packet. A later rule in the same chain may drop it. The log line itself is the record of the match.
+  - title: How the lines leave
+    body: The kernel hands the line to syslog. Any collector that receives that syslog can parse the key-value fields and forward them.
 traffic:
   handles:
-    - kv
+    - Packets that match a LOG rule
+    - Interfaces, addresses and ports of those packets
+    - The rule prefix the administrator set
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads iptables and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: A packet hits a rule
+      desc: netfilter matches the packet against a chain. The matching rule includes the LOG target.
+    - step: The kernel writes a line
+      desc: One syslog line carries the prefix, the interfaces, the addresses and the ports.
+    - step: Collector receives syslog
+      desc: A collector takes the line and can forward the parsed fields anywhere.
 logs:
-  - type: Log
+  - type: Logged packet
     sourcetype: iptables
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One packet the LOG target recorded. The bracketed prefix is the rule's label. IN is the arrival interface. SRC, DST, PROTO, SPT and DPT are the packet. This sample is a TCP acknowledgement to port 443 with the prefix wan-lan-default-D. The addresses are documentation addresses.
     sample: '<161>Oct 10 07:25:12 Hostname kernel: [wan-lan-default-D]IN=eth0 OUT= MAC=2001:db8::12001:db8::1 SRC=203.0.113.8 DST=203.0.113.40 LEN=52 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=38842 DPT=443 WINDOW=2853 RES=0x00 ACK URGP=0'
     key:
       - '[wan-lan-default-D]IN'
@@ -54,18 +65,8 @@ logs:
       - MAC
       - SRC
 cves: []
-detections:
-  - title: Iptables events arriving
-    severity: low
-    signals:
-      - header
-      - '[wan-lan-default-D]IN'
-      - OUT
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "iptables"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations iptables/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/iptables/data_stream/log/_dev/test/pipeline/test-iptables-raw.log
-  - title: Pack Generator sample iptables.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/iptables.json
+  - title: iptables
+    url: https://www.netfilter.org/projects/iptables/index.html

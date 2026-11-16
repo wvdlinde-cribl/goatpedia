@@ -1,76 +1,95 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: armis
-name: Armis
+name: Armis Centrix
 short: Armis
 vendor: Armis
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - armis
-  - Elastic integrations
+  - Armis
+  - Armis Asset Intelligence
 tags:
-  - elastic
+  - asset-management
+  - iot
+  - ot
+  - vulnerability-management
   - json
-summary: Armis is logged by the Elastic integrations package armis. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: An agentless asset intelligence and security platform that discovers every device on the network, including IoT, OT and medical devices that cannot run agents. It learns devices from network traffic, collectors and integrations, profiles their behaviour and raises alerts when a device breaks policy or behaves abnormally. Its API returns devices, alerts and vulnerabilities as JSON.
 sourcetypes:
   - st: armis_alert
-    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/alert/_dev/test/pipeline/test-alert.log'
+    desc: Alerts Armis raised, such as policy violations and threat detections, with severity, MITRE label, policy and affected devices
   - st: armis_device
-    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/device/_dev/test/pipeline/test-device.log'
+    desc: Devices in the Armis inventory, with type, OS, addresses, site, risk level, boundaries and data sources
   - st: armis_vulnerability
-    desc: 'Elastic integrations fixture, 2 events. Upstream: armis/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+    desc: Vulnerabilities Armis tracks across devices, with CVE, CVSS, EPSS, exploit status and number of affected devices
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: armis
-  Sourcetypes: '3'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: activityUUIDs[0], activityUUIDs[1], affectedDevicesCount, alertId, classification, connectionIds[0]
+  Product: Agentless asset discovery and risk platform for IT, IoT, OT and medical devices
+  Data sources: Traffic from switches and collectors, plus integrations with existing IT and security tools
+  Log transport: HTTPS JSON REST API of the Armis tenant, polled by a collector with an API secret key
+  Log format: One JSON object per alert, device or vulnerability
+  What an alert answers: What policy or behaviour was violated, how severe it is and which devices were involved
+  What a device record answers: What a device is, where it is, how risky it is and who uses it
+  What a vulnerability answers: Which CVE affects how many devices and how likely it is to be exploited
 placement:
   slots:
     - cloud
+    - internal
   items:
+    - slot: internal
+      title: Network visibility
+      desc: Armis sees devices through traffic mirrored from switches, on-premises collectors and integrations. No agent runs on the device.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Armis tenant
+      desc: The inventory, policies, alerts and vulnerability data live in the Armis cloud tenant. A collector polls its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Armis events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries activityUUIDs[0], activityUUIDs[1], affectedDevicesCount, alertId, classification, connectionIds[0]. Values in the sample were rewritten to documentation addresses.
+  - title: Device discovery
+    body: Armis builds one record per device from all its data sources, with type, category, manufacturer, model, operating system, addresses, site, boundaries and a risk level. firstSeen and lastSeen say when it appeared and was last seen.
+  - title: Policies and alerts
+    body: Policies describe what devices may do. A device that violates one, or an activity that matches a threat detection, raises an alert with a severity, status, policy title, MITRE ATT&CK label and the devices and endpoints involved.
+  - title: Vulnerabilities
+    body: Armis matches devices to known vulnerabilities and enriches each with CVSS, EPSS, weaponisation, ransomware use and CISA due dates, plus its own rating and the number of affected devices.
+  - title: How the events leave the product
+    body: A collector exchanges an API secret key for an access token and queries alerts, devices and vulnerabilities through the API, keeping a time filter between polls.
 traffic:
   handles:
-    - json
+    - Discovery and profiling of IT, IoT, OT and medical devices
+    - Policy violations and threat detections on device behaviour
+    - Vulnerability exposure of devices
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads armis and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Device seen
+      desc: Armis sees a device in traffic or in an integrated tool and updates its record.
+    - step: Armis evaluates
+      desc: Behaviour is checked against policies and threat detections, and known vulnerabilities are matched.
+    - step: Collector polls
+      desc: A collector reads alerts, devices and vulnerabilities from the API as JSON.
 logs:
-  - type: Alert
+  - type: Alerts
     sourcetype: armis_alert
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per alert. title, severity, status and type describe it, policyTitle and mitreAttackLabels say what was detected (here network scanning, T1046). deviceIds and affectedDevicesCount say which devices are involved.
     sample: '{"activityUUIDs":["ec44388f-9530-4ca3-9781-8029905776ef","0b0900f0-b118-4892-86a3-c06f42f848f3"],"affectedDevicesCount":2,"alertId":71,"classification":"Security - Other","connectionIds":["conn-12345","conn-67890"],"description":"The Armis security platform has detected a violation of a policy and generated an alert.","destinationEndpoints":["device-abc","server-xyz"],"deviceIds":[19,469],"lastAlertUpdateTime":"2025-03-29T02:50:06.124100+00:00","mitreAttackLabels":"T1046 - Network Service Scanning","policyId":345,"policyLabels":["Network Anomaly Detection","Threat Detection"],"policyTitle":"Unusual Network Scanning Activity","severity":"Critical","sourceEndpoints":["laptop-001","iot-device-007"],"status":"Unhandled","statusChangeTime":"2025-03-29T02:50:06.124100+00:00","time":"2025-03-29T02:50:06.124100+00:00","title":"[Threat] Heavy Port Scan in Network","type":"System Policy Violation"}'
     key:
       - activityUUIDs[0]
       - activityUUIDs[1]
       - affectedDevicesCount
       - alertId
-  - type: Device
+  - type: Devices
     sourcetype: armis_device
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per device. type, category, operatingSystem and name identify it, ipAddress and macAddress address it, site and boundaries place it, riskLevel rates it. Addresses are documentation addresses.
     sample: '{"accessSwitch":"test Enterprise","boundaries":"Corporate, Guest","businessImpact":"Unassigned","category":"Computers","customProperties":{},"dataSources":[{"firstSeen":"2024-09-13T18:16:00.620093+00:00","instances":[{"firstSeen":"2024-09-13T18:16:00.620093+00:00","lastSeen":"2024-12-07T13:53:32.184177+00:00","name":"test"}],"lastSeen":"2024-12-07T13:53:32.184177+00:00","name":"test","types":["Vulnerability Management"]}],"displayTitle":"49f9ef97_1b8","firstSeen":"2024-09-11T01:13:13.620093+00:00","id":469,"ipAddress":"192.0.2.10","ipv6":["::ffff:192.0.2.20"],"lastSeen":"2025-03-29T02:02:09.124100+00:00","macAddress":"2001:db8::1","manufacturer":"test","model":"test","name":"49f9ef97_1b8","names":"49f9ef97_1b8","operatingSystem":"Windows","operatingSystemVersion":"Server 2016 Standard","protections":[{"creationTime":"Tue, 18 Feb 2025 00:29:19 GMT","deviceId":469,"lastSeenTime":"Tue, 18 Feb 2025 00:29:19 GMT","protectionName":"test"}],"purdueLevel":4,"riskLevel":80,"sensor":{"name":"test","type":"test Controller"},"site":{"location":"Geneva","name":"Geneva Enterprise"},"tags":["Misconfigurations"],"type":"Servers","typeEnum":"SERVER","userIds":[5],"visibility":"Full"}'
     key:
       - accessSwitch
       - boundaries
       - businessImpact
       - category
-  - type: Vulnerability
+  - type: Vulnerabilities
     sourcetype: armis_vulnerability
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per vulnerability. cveUid, cvssScore, epssScore and isWeaponized say how serious it is, affectedDevicesCount how widespread. This sample names CVE-2021-45046, a Log4j vulnerability.
     sample: '{"affectedDevicesCount":7,"attackComplexity":"Medium","attackVector":"Remote","availabilityImpact":"High","avmRating":"CRITICAL","avmRatingManualChangeReason":"Revised due to increased exploit activity","avmRatingManualChangedBy":"security_admin","avmRatingManualUpdateTime":"2025-03-30T12:45:00.000000+00:00","botnets":["Mirai","Mozi"],"cisaDueDate":"2023-06-01T00:00:00.000000+00:00","commonName":"test","confidentialityImpact":"High","cveUid":"CVE-2021-45046","cvssScore":9.8,"cvssScoreV4":"cvss_score1","description":"An advanced exploit of the vulnerability.","epssPercentile":98.5,"epssScore":0.92,"exploitabilityScore":9.5,"firstDetected":"2025-03-25T14:30:00.123456+00:00","firstReferencePublishDate":"2021-12-10T00:00:00.000000+00:00","firstWeaponizedReferencePublishDate":"2021-12-18T00:00:00.000000+00:00","hasRansomware":true,"hasRemediationInfo":"Yes","id":"CVE-2021-45046","impactScore":9.7,"integrityImpact":"Moderate","isWeaponized":true,"lastDetected":"2025-03-29T20:15:45.678901+00:00","latestExploitUpdate":"2025-03-31T08:00:00.000000+00:00"}'
     key:
       - affectedDevicesCount
@@ -79,17 +98,17 @@ logs:
       - availabilityImpact
 cves: []
 detections:
-  - title: Armis events arriving
-    severity: low
+  - title: Critical alert not handled
+    severity: high
     signals:
-      - activityUUIDs[0]
-      - activityUUIDs[1]
-      - affectedDevicesCount
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "armis_alert"'
+      - severity
+      - status
+      - title
+      - mitreAttackLabels
+    why: Armis alerts with Critical or High severity that stay Unhandled are detections nobody has picked up.
+    kql: |
+      dataset="armis_logs"
+      | where sourcetype == "armis_alert" and severity in ("Critical", "High") and status == "Unhandled"
+      | project time, title, severity, policyTitle, mitreAttackLabels, affectedDevicesCount
 optimizations: []
-references:
-  - title: elastic/integrations armis/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/armis/data_stream/alert/_dev/test/pipeline/test-alert.log
-  - title: Pack Generator sample armis_alert.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/armis_alert.json
+references: []

@@ -1,52 +1,66 @@
 id: azure-openai
-name: Azure Openai
-short: Azure Openai
-vendor: Azure
+name: Azure OpenAI
+short: Azure OpenAI
+vendor: Microsoft
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - azure_openai
-  - Elastic integrations
+  - Azure OpenAI Service
+  - Azure OpenAI in Azure AI Foundry
 tags:
-  - elastic
+  - ai
+  - llm
+  - azure
+  - api-gateway
   - json
-summary: Azure Openai is logged by the Elastic integrations package azure_openai. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Azure OpenAI is Microsoft's hosted service for OpenAI models such as GPT, deployed in a customer's Azure subscription and called over a REST API. Organisations often put Azure API Management in front of it as an AI gateway, to share one endpoint, enforce keys and quotas and log every call. The gateway logs record who called which model deployment, from which IP, whether it succeeded, how long it took and, when body logging is on, the prompt and the response.
 sourcetypes:
   - st: azure_openai
-    desc: 'Elastic integrations fixture, 6 events. Upstream: azure_openai/data_stream/logs/_dev/test/pipeline/test-open-ai-gateway.log'
+    desc: API Management gateway logs (GatewayLogs) for calls to an Azure OpenAI deployment, one record per request with caller IP, operation, backend URL, response code, timing and optional request and response bodies
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: azure_openai
-  Sourcetypes: '1'
-  Fixture events: '6'
-  Log format seen: json
-  Fields in the first fixture: DeploymentVersion, Level, Sku, callerIpAddress, category, correlationId
+  Product: Hosted OpenAI models in Microsoft Azure, called through a REST API per model deployment
+  Clients: Applications, SDKs and agents calling chat completions, embeddings and other operations, often through an API Management gateway
+  Log transport: Azure Monitor diagnostic settings on the API Management instance or the Azure OpenAI resource send logs to Log Analytics, a storage account or an event hub, where any collector can read them
+  Log format: One JSON record per request. Azure envelope fields (time, resourceId, category, operationName, callerIpAddress) wrap a properties object
+  Privacy: With body logging on, requestBody and responseBody contain user prompts and model output
+  What a gateway record answers: Who called which deployment and operation, from which IP, with what result code and latency, and what the content filter decided
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: API gateway and model deployment
+      desc: The API Management instance and the Azure OpenAI resource are both in the customer's Azure subscription. Clients call the gateway URL, the gateway forwards to the deployment's backendUrl, and the gateway writes one log record per call.
 howItWorks:
-  - title: What the fixture shows
-    body: Azure Openai events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries DeploymentVersion, Level, Sku, callerIpAddress, category, correlationId. Values in the sample were rewritten to documentation addresses.
+  - title: Deployments and operations
+    body: An Azure OpenAI resource hosts one or more deployments, each a named instance of a model. Clients call an operation on a deployment, such as ChatCompletions_Create, with an API key or a Microsoft Entra token. The response carries the model output plus content filter results for categories such as hate and self-harm.
+  - title: The gateway in front
+    body: API Management exposes the Azure OpenAI API under its own URL (url) and forwards each call to the backend (backendUrl). It can authenticate callers, apply rate limits and token quotas, and cache answers. Its GatewayLogs record the client side (callerIpAddress, method, responseCode, clientTlsVersion) and the backend side (backendResponseCode, backendTime).
+  - title: How the logs leave Azure
+    body: A diagnostic setting on the API Management instance streams GatewayLogs to an event hub, a storage account or Log Analytics. Body logging is optional and truncated to a configured size. A collector reads the event hub or storage and receives JSON records. The destination is a choice of the pipeline, not a property of the service.
 traffic:
   handles:
-    - json
+    - Chat completion and embedding API calls
+    - API key and Entra ID authenticated requests
+    - Prompts and model responses (when body logging is on)
+    - Content filter decisions
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads azure_openai and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Client calls the API
+      desc: An application sends a chat completion or other request to the gateway URL for a model deployment.
+    - step: Gateway forwards
+      desc: API Management checks the caller, applies policies and forwards the request to the Azure OpenAI deployment.
+    - step: Gateway logs the call
+      desc: When the response returns, the gateway writes a GatewayLogs record with result, timing and optionally the bodies.
+    - step: Collector reads JSON
+      desc: A diagnostic setting delivers the record to an event hub or storage, where a collector reads it.
 logs:
-  - type: Logs
+  - type: AI gateway request
     sourcetype: azure_openai
     format: json
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One record per API call through the gateway. callerIpAddress is the client, properties.operationId the operation, properties.url and properties.backendUrl the gateway and model endpoints, and properties.responseCode with isRequestSuccess the result. This sample is a successful ChatCompletions_Create call with the prompt and the truncated response, including content filter results, in the body fields. The sample uses documentation addresses.
     sample: '{"DeploymentVersion":"0.44.18652.0","Level":4,"Sku":"Basic","callerIpAddress":"203.0.113.40","category":"GatewayLogs","correlationId":"99789635-18d0-480f-8182-a3a3c477a6a4","durationMs":176,"isRequestSuccess":true,"location":"East US","operationName":"Microsoft.ApiManagement/GatewayLogs","properties":{"apiId":"azure-openai-service-api","apiRevision":"1","backendMethod":"POST","backendProtocol":"HTTP/1.1","backendRequestBody":"{\"model\": \"gpt-chat-pilot\", \"messages\": [{\"role\": \"user\", \"content\": \"capital of tamilnadu?\"}]}","backendResponseBody":"{\"choices\":[{\"content_filter_results\":{\"custom_blocklists\":[],\"hate\":{\"filtered\":true,\"severity\":\"low\"},\"profanity\":{\"filtered\":false,\"detected\":false},\"self...","backendResponseCode":200,"backendTime":176,"backendUrl":"https://obs-openai-test-01.openai.azure.com/openai/deployments/gpt-chat-pilot/chat/completions?api-version=2024-02-15-preview","cache":"none","clientProtocol":"HTTP/1.1","clientTlsVersion":"1.3","method":"POST","operationId":"ChatCompletions_Create","requestBody":"{\"model\": \"gpt-chat-pilot\", \"messages\": [{\"role\": \"user\", \"content\": \"capital of tamilnadu?\"}]}","requestSize":536,"responseBody":"{\"choices\":[{\"content_filter_results\":{\"custom_blocklists\":[],\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"profanity\":{\"filtered\":false,\"detected\":false},\"se...","responseCode":200,"responseSize":1604,"url":"https://azure-openai-apm.azure-api.net/deployments/gpt-chat-pilot/chat/completions?api-version=2024-02-15-preview"},"resourceId":"/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/OBS-OPENAI-APIM-TEST/PROVIDERS/MICROSOFT.APIMANAGEMENT/SERVICE/AZURE-OPENAI-APM","resultType":"Succeeded","time":"2024-07-02T06:31:31.4465902Z","truncated":0}'
     key:
       - DeploymentVersion
@@ -55,17 +69,21 @@ logs:
       - callerIpAddress
 cves: []
 detections:
-  - title: Azure Openai events arriving
-    severity: low
+  - title: Rejected calls to the model API
+    severity: medium
     signals:
-      - DeploymentVersion
-      - Level
-      - Sku
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "azure_openai"'
+      - callerIpAddress
+      - isRequestSuccess
+      - properties.responseCode
+      - properties.operationId
+    why: 401 and 403 responses are calls with a missing, wrong or revoked key or token. Many of them from one IP is someone probing the endpoint or using a leaked key. 429 responses show a caller hitting the quota.
+    kql: |
+      dataset="azure-openai_logs"
+      | where sourcetype == "azure_openai" and properties.responseCode in (401, 403, 429)
+      | project time, callerIpAddress, properties.operationId, properties.responseCode, properties.url
+    mitre:
+      - T1078.004
 optimizations: []
 references:
-  - title: elastic/integrations azure_openai/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/azure_openai/data_stream/logs/_dev/test/pipeline/test-open-ai-gateway.log
-  - title: Pack Generator sample azure_openai.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/azure_openai.json
+  - title: Monitor API Management with Azure Monitor
+    url: https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-use-azure-monitor

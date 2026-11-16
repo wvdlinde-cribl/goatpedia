@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: activemq
-name: Activemq
-short: Activemq
-vendor: Activemq
+name: Apache ActiveMQ
+short: ActiveMQ
+vendor: Apache Software Foundation
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - activemq
-  - Elastic integrations
+  - ActiveMQ Classic
+  - Apache ActiveMQ Classic
 tags:
-  - elastic
+  - message-broker
+  - jms
+  - middleware
+  - java
   - text
-summary: Activemq is logged by the Elastic integrations package activemq. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source Java message broker that implements JMS and speaks OpenWire, AMQP, MQTT and STOMP. Applications publish to queues and topics on the broker, and other applications consume from them. Its own log records broker start-up and shutdown, the persistence store, transport connectors, and warnings or errors from the Java classes that raised them.
 sourcetypes:
   - st: activemq
-    desc: 'Elastic integrations fixture, 20 events. Upstream: activemq/data_stream/log/_dev/test/pipeline/test-activemq.log'
+    desc: The broker's own application log (activemq.log), one line per message from a broker component with level, text and Java class
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: activemq
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Open-source message broker for JMS and other messaging protocols
+  Deployment: Java process on a server or container, often in a primary and standby pair or a network of brokers
+  Protocols: OpenWire, AMQP, MQTT, STOMP, and WebSocket transports
+  Log transport: Local file (data/activemq.log) written by Log4j. Read by a file-tailing agent or sent by a configured Log4j appender
+  Log format: Pipe-separated text line with timestamp, level, message, logger class and thread
+  What a log line answers: Which broker component reported what, at what level, and when
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Message broker
+      desc: The broker runs on an internal server next to the applications that send and receive messages. It writes its log to local disk, where an agent can read it.
 howItWorks:
-  - title: What the fixture shows
-    body: Activemq events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Queues, topics and connectors
+    body: Producers send messages to a queue (one consumer each) or a topic (every subscriber). Clients connect through transport connectors that each listen on a port for one protocol. The broker logs when each connector starts, stops or fails to bind.
+  - title: Persistence
+    body: Persistent messages are written to a store, by default KahaDB on local disk. Store start-up, recovery after a crash, index rebuilds and journal cleanup appear in the log under the org.apache.activemq.store classes.
+  - title: How the log is produced
+    body: ActiveMQ logs through Log4j. The default layout is timestamp | level | message | logger | thread, written to activemq.log under the broker's data directory. Any collector can tail that file or receive it from a syslog or socket appender.
 traffic:
   handles:
-    - text
+    - JMS queue and topic messaging
+    - OpenWire, AMQP, MQTT and STOMP client connections
+    - Message persistence to the broker store
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads activemq and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Broker acts
+      desc: A broker component starts, accepts a connection, writes to the store or hits an error.
+    - step: Log4j writes
+      desc: The component logs a line with its level and class name to activemq.log.
+    - step: Agent reads
+      desc: A file agent tails the log, or an appender forwards the lines.
 logs:
-  - type: Log
+  - type: Broker log
     sourcetype: activemq
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One line per broker log message. The fields are timestamp, level, message text, the Java class that logged it and the thread. This sample is the KahaDB store reporting its version at start-up.
     sample: 2019-11-27 15:09:34,491 | INFO  | KahaDB is version 6 | org.apache.activemq.store.kahadb.MessageDatabase | main
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Activemq events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "activemq"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations activemq/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/activemq/data_stream/log/_dev/test/pipeline/test-activemq.log
-  - title: Pack Generator sample activemq.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/activemq.json
+  - title: Apache ActiveMQ
+    url: https://activemq.apache.org/

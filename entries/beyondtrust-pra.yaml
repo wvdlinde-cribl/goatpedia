@@ -1,52 +1,74 @@
 id: beyondtrust-pra
-name: Beyondtrust Pra
-short: Pra
-vendor: Beyondtrust
+name: BeyondTrust Privileged Remote Access
+short: BT PRA
+vendor: BeyondTrust
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - beyondtrust_pra
-  - Elastic integrations
+  - Privileged Remote Access
+  - Bomgar Privileged Access
 tags:
-  - elastic
+  - pam
+  - remote-access
+  - privileged-access
+  - session-recording
   - json
-summary: Beyondtrust Pra is logged by the Elastic integrations package beyondtrust_pra. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: BeyondTrust Privileged Remote Access (PRA) gives administrators, vendors and contractors controlled remote access to critical systems without a VPN. Users connect through the PRA appliance or cloud site to Jump Clients and Jumpoints inside the network, and every session is brokered, permission-checked and recorded. The access session reports show who connected to which system, through which Jump Group and Jumpoint, for how long, what files moved, and where the recordings are.
 sourcetypes:
   - st: beyondtrust_pra_access_session
-    desc: 'Elastic integrations fixture, 2 events. Upstream: beyondtrust_pra/data_stream/access_session/_dev/test/pipeline/test-event.log'
+    desc: Access session reports, one record per session event (such as Session Start or Session End) with the session, the representative who performed it, the target system, Jump Group, Jumpoint, file transfer counts and recording links
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: beyondtrust_pra
-  Sourcetypes: '1'
-  Fixture events: '2'
-  Log format seen: json
-  Fields in the first fixture: body, data.value[0].name, data.value[0].value, data.value[1].name, data.value[1].value, destination.display_name
+  Product: Privileged remote access broker with session recording, the successor of Bomgar Privileged Access
+  Form factor: Physical or virtual appliance (B Series), or a BeyondTrust-hosted cloud site. Jump Clients on endpoints and Jumpoints in remote networks reach the targets
+  Clients: Access Console on desktop and mobile, and a web console
+  Log transport: Session reports are read from the PRA reporting API by any collector with an API account. The appliance can also send syslog
+  Log format: The reporting API returns XML, normalised here to JSON (elements with text become "#text"). One record per session event
+  What a session record answers: Who (performed_by) opened which session to which system, through which Jump Group and Jumpoint, when it started and ended, how many files were transferred, moved or deleted, and where the shell, chat and video recordings are
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
+    - remote
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: PRA appliance or cloud site
+      desc: The appliance sits in the DMZ or at the edge, or BeyondTrust hosts it. Users and Jump Clients both connect out to it, so no inbound port to the internal network is opened. It brokers and records every session.
+    - slot: internal
+      title: Jumpoints and target systems
+      desc: Jumpoints inside the network reach servers, network devices and databases over RDP, SSH and other protocols on behalf of the user. The target is the system named in the session.
+    - slot: remote
+      title: Administrators and vendors
+      desc: Privileged users, including third-party vendors, work from wherever they are through the Access Console. performed_by names them.
 howItWorks:
-  - title: What the fixture shows
-    body: Beyondtrust Pra events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries body, data.value[0].name, data.value[0].value, data.value[1].name, data.value[1].value, destination.display_name. Values in the sample were rewritten to documentation addresses.
+  - title: Jump Groups and Jumpoints
+    body: Systems are reached through Jump Items, organised in Jump Groups that decide who may access them. A Jump Client is an agent on the target. A Jumpoint is an agent in a network segment that reaches agentless targets. Session policies decide whether the user needs approval, what they may do and what is recorded.
+  - title: Sessions and recordings
+    body: Each session has an lsid and a sequence of events such as Session Start, file transfers, shell commands and Session End. PRA records the screen, command shells and chat. The session report links to those recordings and counts file transfers, moves and deletes.
+  - title: How the reports leave the product
+    body: A collector with an API account calls the reporting API for access sessions since its last poll. The API returns XML reports that a collector normalises to JSON, one record per session event. The destination is a choice of the pipeline, not a property of PRA.
 traffic:
   handles:
-    - json
+    - Remote desktop and SSH sessions to internal systems
+    - Vendor and administrator privileged access
+    - File transfers within sessions
+    - Session recordings of screen, shell and chat
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads beyondtrust_pra and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User requests access
+      desc: An administrator or vendor picks a Jump Item in the Access Console.
+    - step: PRA brokers the session
+      desc: The appliance checks policy and approvals and connects the user through the Jump Client or Jumpoint to the target.
+    - step: Session is recorded
+      desc: Each session event, file transfer and command is captured, and the recordings are stored.
+    - step: Collector reads the report
+      desc: A collector pulls the access session report from the reporting API and forwards each record.
 logs:
-  - type: Access Session
+  - type: Access session event
     sourcetype: beyondtrust_pra_access_session
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One record per session event. event_type and body say what happened, performed_by names the user, destination the system side, session.jump_group and session.jumpoint the access path, session.start_time, session.end_time and session.duration the timing, and session.file_transfer_count with file_move_count and file_delete_count the file activity. This sample is a Session Start for a one-hour session through Main Jumpoint with three file transfers. The sample uses documentation addresses.
     sample: '{"body":"Session started by Admin","data":{"value":[{"name":"username","value":"JohnDoe"},{"name":"private_ip","value":"203.0.113.8"}]},"destination":{"display_name":"Admin","gsnumber":"R56789","hostname":"admin-host","id":"112233","invited":1,"os":"Windows 11","private_ip":"203.0.113.40","public_ip":"192.0.2.10","seconds_involved":3600,"session_owner":1,"type":"representative","username":"admin_user"},"encoded_body":"U2Vzc2lvbiBzdGFydGVkIGJ5IEFkbWlu","event_type":"Session Start","filename":"logfile.txt","filesize":1024,"files":{"file":[{"filename":"logfile.txt","filesize":1024},{"filename":"logfile.txt","filesize":1024}]},"performed_by":{"display_name":"Admin","gsnumber":"R56789","hostname":"admin-host","id":"112233","invited":1,"os":"Windows 11","private_ip":"192.0.2.20","public_ip":"198.51.100.15","seconds_involved":3600,"session_owner":1,"type":"representative","username":"admin_user"},"system_information":{"category":[{"data":{"row":[{"field":[{"name":"os","#text":"Windows 10"},{"name":"hostname","#text":"remote-host"}]}]},"description":{"field":[{"name":"os","#text":"Operating System"},{"name":"hostname","#text":"Hostname"}]}}]},"timestamp":"2024-01-01T12:30:00Z","session":{"lsid":"12345","jump_group":{"#text":"Support Team","id":"56789","type":"shared"},"jumpoint":{"id":"98765","#text":"Main Jumpoint"},"command_shell_recordings":{"command_shell_recording":[{"download_url":"https://example.com/shell_download/12345","view_url":"https://example.com/shell_view/12345","instance":"0"},{"view_url":"https://example.com/shell_view/12345","instance":"0","download_url":"https://example.com/shell_download/12345"}]},"duration":"01:00:00","lseq":"12345","session_chat_view_url":"https://example.com/chat_view/12345","session_recording_view_url":"https://example.com/recording_view/12345","end_time":{"#text":"2024-01-01T13:00:00Z","timestamp":"1704114000"},"file_transfer_count":3,"start_time":{"timestamp":"1704110400","#text":"2024-01-01T12:00:00Z"},"file_move_count":1,"file_delete_count":0,"session_recording_download_url":"https://example.com/recording_download/12345","primary_customer":{"#text":"Remote PC","gsnumber":"C12345"},"custom_attributes":{"custom_attribute":[{"code_name":"priority","#text":"High","display_name":"priority"},{"code_name":"priority","#text":"High","display_name":"priority"}]},"primary_rep":{"gsnumber":"R56789","id":"112233","#text":"John Doe"},"session_chat_download_url":"https://example.com/chat_download/12345","session_type":"support"}}'
     key:
       - body
@@ -55,17 +77,19 @@ logs:
       - data.value[1].name
 cves: []
 detections:
-  - title: Beyondtrust Pra events arriving
-    severity: low
+  - title: Files transferred in a privileged session
+    severity: medium
     signals:
-      - body
-      - data.value[0].name
-      - data.value[0].value
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "beyondtrust_pra_access_session"'
+      - event_type
+      - performed_by.username
+      - destination.hostname
+      - session.file_transfer_count
+    why: A privileged session that moves files is how data leaves a critical system, or tooling arrives on it. Transfers by vendors, or to systems where file transfer is unusual, are worth review with the recording.
+    kql: |
+      dataset="beyondtrust-pra_logs"
+      | where sourcetype == "beyondtrust_pra_access_session" and session.file_transfer_count > 0
+      | project timestamp, event_type, performed_by.username, destination.hostname, session.lsid, session.file_transfer_count, session.session_recording_view_url
+    mitre:
+      - T1021
 optimizations: []
-references:
-  - title: elastic/integrations beyondtrust_pra/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/beyondtrust_pra/data_stream/access_session/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample beyondtrust_pra_access_session.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/beyondtrust_pra_access_session.json
+references: []

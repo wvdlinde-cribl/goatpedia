@@ -1,64 +1,78 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: withsecure-elements
-name: Withsecure Elements
+name: WithSecure Elements
 short: Elements
-vendor: Withsecure
+vendor: WithSecure
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - withsecure_elements
-  - Elastic integrations
+  - F-Secure Elements
+  - WithSecure Elements Endpoint Protection
 tags:
-  - elastic
+  - endpoint
+  - edr
+  - incident
   - json
-summary: Withsecure Elements is logged by the Elastic integrations package withsecure_elements. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: WithSecure Elements is a cloud endpoint protection service. An agent on a workstation or server reports malware and security events to the Elements portal, and the portal groups the serious ones into incidents. Two JSON streams cover that. Incidents are the cases. Security events are the individual agent observations, including settings changes. Any collector the organization has authorized can pull them.
 sourcetypes:
   - st: withsecure_elements_incidents
-    desc: 'Elastic integrations fixture, 1 events. Upstream: withsecure_elements/data_stream/incidents/_dev/test/pipeline/test-incident.json'
+    desc: One incident in the Elements portal, with its severity, status and categories
   - st: withsecure_elements_security_events
-    desc: 'Elastic integrations fixture, 1 events. Upstream: withsecure_elements/data_stream/security_events/_dev/test/pipeline/test-security-event.json'
+    desc: One security event from an agent, such as a settings change, with the device and the engine
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: withsecure_elements
-  Sourcetypes: '2'
-  Fixture events: '2'
-  Log format seen: json
-  Fields in the first fixture: incidentId, incidentPublicId, organizationId, name, status, severity
+  Product: Cloud endpoint protection. Agents on Windows, Mac and Linux report to the Elements portal
+  Where the agent sits: On endpoints. The incidents and the event store are in the WithSecure cloud
+  Log transport: HTTPS JSON from the Elements API. Incidents and security events are separate calls
+  Log format: One JSON object per incident or per security event
+  What an incident answers: What was opened, how severe it is, and whether it is still new
+  What a security event answers: What the agent reported or what setting changed, on which device, and at what severity
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Elements agent
+      desc: The agent on the device is what saw the malware or the settings change. Security events name that device and the user. The sample device is a desktop.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Elements portal
+      desc: The portal stores incidents and security events for the organization. organizationId is the tenant. A collector polls the API. The product does not bind the stream to one SIEM.
 howItWorks:
-  - title: What the fixture shows
-    body: Withsecure Elements events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries incidentId, incidentPublicId, organizationId, name, status, severity. Values in the sample were rewritten to documentation addresses.
+  - title: Incidents
+    body: An incident is a case the portal opened. name is the title, such as Malware Detection. severity and riskLevel rate it. status is the workflow state, such as new. categories and sources say what kind of finding it is and where it came from. The sample is a high-severity malware incident from an endpoint, status new, resolution unconfirmed.
+  - title: Security events
+    body: A security event is one observation, and it is not always an attack. engine is the part of the product that wrote it. severity is info, warning or higher. action is what the product did, such as reported. message is the sentence. details carries the specifics. The sample engine is setting, the message is that the firewall was turned on, and details.alertType is product.path.excluded, so an exclusion path was also recorded. device and userName say where.
+  - title: How the two streams are collected
+    body: Elements keeps incidents and security events as separate API results. A collector requests each one. Any collector with access to the organization can do this. The host address in the sample security event is a documentation address. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Malware and other incidents opened in the portal
+    - Agent security events, including product settings changes
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads withsecure_elements and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent sees something
+      desc: The endpoint agent reports malware, a blocked action, or a change to a product setting.
+    - step: Portal stores it
+      desc: Elements writes a security event and, when the finding is a case, an incident.
+    - step: Collector pulls JSON
+      desc: A collector requests incidents and security events separately and forwards each object.
 logs:
   - type: Incidents
     sourcetype: withsecure_elements_incidents
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per incident. severity and status are the triage fields. This sample is named Malware Detection, severity high, status new, category MALWARE, source endpoint. incidentPublicId is the human id. resolution is unconfirmed.
     sample: '{"incidentId":"2c902c73-e2a6-40fd-9532-257ee102e1c1","incidentPublicId":"INC-12345","organizationId":"222298dc-3785-4d2d-a957-f7399c2cd084","name":"Malware Detection","status":"new","severity":"high","riskLevel":"high","riskScore":85.5,"resolution":"unconfirmed","createdTimestamp":"2023-08-09T12:10:43.537Z","updatedTimestamp":"2023-08-09T12:10:43.537Z","initialReceivedTimestamp":"2023-08-09T12:10:43.537Z","categories":["MALWARE"],"sources":["endpoint"]}'
     key:
       - incidentId
       - incidentPublicId
       - organizationId
       - name
-  - type: Security Events
+  - type: Security events
     sourcetype: withsecure_elements_security_events
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per agent event. engine and message say what happened. This sample is a setting event, severity info, message "Firewall was turned on", and details.alertType is product.path.excluded. device.name is the desktop. details.hostIpAddress is a documentation address.
     sample: '{"id":"07a286cc-99ba-3538-8997-557076ff95ab_0","action":"reported","engine":"setting","severity":"info","serverTimestamp":"2023-08-31T09:31:01.092Z","persistenceTimestamp":"2023-08-31T09:31:03.292Z","eventTransactionId":"0000-187cf62797634fef","clientTimestamp":"2023-08-31T07:31:03.292Z","acknowledged":false,"message":"Firewall was turned on","description":"Setting event","organization":{"id":"222298dc-3785-4d2d-a957-f7399c2cd084","name":"my-org"},"target":{"name":"Doe,John DESKTOP","id":"71cceb9f-2728-4ac4-8e63-402cbbf76e18"},"device":{"id":"71cceb9f-2728-4ac4-8e63-402cbbf76e18","name":"Doe,John DESKTOP"},"userName":"John Doe","details":{"profileName":"My Company Profile","path":"C:\\Program Files\\WithSecure\\PSB\\diagnostics\\fsdiag.exe","alertType":"product.path.excluded","throttledCount":"0","profileId":"12444818","profileVersion":"34313431491","hostIpAddress":"192.0.2.20/8","userName":"John Doe","clientTimestamp":"1695889223479"}}'
     key:
       - id
@@ -67,17 +81,33 @@ logs:
       - severity
 cves: []
 detections:
-  - title: Withsecure Elements events arriving
-    severity: low
+  - title: High-severity incident is still new
+    severity: high
     signals:
-      - incidentId
-      - incidentPublicId
-      - organizationId
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "withsecure_elements_incidents"'
+      - severity
+      - status
+      - name
+      - categories
+    why: A new incident at high severity is a case nobody has moved out of the opening state. The sample is a malware detection from an endpoint. Info-level settings events are a different stream and are not this signal.
+    kql: |
+      dataset="withsecure-elements_logs"
+      | where sourcetype == "withsecure_elements_incidents" and severity == "high" and status == "new"
+      | project createdTimestamp, incidentPublicId, name, severity, status, categories, sources
+    mitre:
+      - T1204
+  - title: An exclusion path was recorded
+    severity: medium
+    signals:
+      - details.alertType
+      - details.path
+      - device.name
+      - userName
+    why: product.path.excluded means a path was excluded from scanning. That is an administrative weakening of the agent, not a malware detection. The sample records that alert type on a settings event.
+    kql: |
+      dataset="withsecure-elements_logs"
+      | where sourcetype == "withsecure_elements_security_events" and details.alertType == "product.path.excluded"
+      | project serverTimestamp, severity, message, details.alertType, details.path, device.name, userName
+    mitre:
+      - T1562
 optimizations: []
-references:
-  - title: elastic/integrations withsecure_elements/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/withsecure_elements/data_stream/incidents/_dev/test/pipeline/test-incident.json
-  - title: Pack Generator sample withsecure_elements_incidents.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/withsecure_elements_incidents.json
+references: []

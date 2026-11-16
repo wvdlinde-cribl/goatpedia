@@ -1,67 +1,81 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: vectra-detect
 name: Vectra Detect
 short: Vectra Detect
-vendor: Vectra
+vendor: Vectra AI
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - vectra_detect
-  - Elastic integrations
+  - Vectra NDR
+  - Cognito Detect
 tags:
-  - elastic
+  - ndr
+  - detection
+  - syslog
   - text
-summary: Vectra Detect is logged by the Elastic integrations package vectra_detect. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Vectra Detect is a network detection product. Sensors watch traffic, and a brain scores each host and account for threat and certainty. When a score changes, Detect can send a syslog line whose message is a JSON object describing that host. The sample line is a host-scoring update. Any syslog collector can receive it.
 sourcetypes:
   - st: vectra_detect
-    desc: 'Elastic integrations fixture, 20 events. Upstream: vectra_detect/data_stream/log/_dev/test/pipeline/test-host-scoring.log'
+    desc: One syslog line from Vectra Detect. This stream keeps the line as text. The sample is a host-scoring update
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: vectra_detect
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Network detection and response. Sensors observe traffic and a brain scores hosts and accounts
+  Where it sits: Sensors on the internal network or in cloud accounts. The brain can be on a premises appliance or in the Vectra cloud
+  Log transport: Syslog from the brain. The line begins with a program tag and then a JSON object
+  Log format: One text line. The JSON fields (host, threat, certainty, category, quadrant) sit inside message
+  What a host-scoring line answers: Which host was rescored, how high the threat and certainty are, and the last detection type that contributed
 placement:
   slots:
+    - internal
     - cloud
   items:
+    - slot: internal
+      title: Sensors and brain
+      desc: Sensors sit where they can see traffic. The brain correlates that metadata and scores hosts. Host-scoring syslog is emitted by the brain, not by the endpoint. host_ip and host_name are the scored host.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Vectra cloud brain
+      desc: The same scoring runs when the brain is the Vectra cloud service. headend_addr is the brain the sensor reports to. A collector receives the syslog either way.
 howItWorks:
-  - title: What the fixture shows
-    body: Vectra Detect events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Host scoring
+    body: Detect does not write a line per packet. It writes a line when a host's score changes. The JSON inside the line has category HOST SCORING, a host_id, host_name and host_ip, plus threat and certainty scores. quadrant is the band those scores fall in, such as critical. last_detection_type is the detection that last moved the score, and detection_profile names the scoring profile.
+  - title: How to read the line
+    body: The stream stores the syslog line as one message string. The useful fields are inside that string, after the vectra_json_v2 tag. score_decreases says whether this update is a score going down. href is the link back to the host in the Vectra UI. The sample host is in the critical quadrant because of cryptocurrency mining, with threat 53 and certainty 98.
+  - title: How the line is sent
+    body: The brain sends syslog to whatever collector the operator configured. The collector can forward the line anywhere. Goatpedia reads these samples as text.
 traffic:
   handles:
-    - text
+    - Host and account score changes
+    - The detection type that last moved a host's score
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads vectra_detect and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Sensors see traffic
+      desc: Network sensors send metadata to the Vectra brain. The brain updates threat and certainty for a host.
+    - step: Brain emits a scoring line
+      desc: A syslog line carries a JSON object with the host, the scores, the quadrant and the last detection type.
+    - step: Collector receives syslog
+      desc: Any syslog receiver can take the line. The line is stored as text in message.
 logs:
-  - type: Log
+  - type: Host scoring
     sourcetype: vectra_detect
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line. The JSON after the vectra_json_v2 tag is a host-scoring update. This sample scores host desktop01 in the critical quadrant, threat 53 and certainty 98, and the last detection type is Cryptocurrency Mining. host_ip and headend_addr are documentation addresses.
     sample: 'vectra_json_v2 -: {"version": "7.4", "host_id": 522, "headend_addr": "192.0.2.20", "host_name": "desktop01", "dvchost": "x29-1-13.sc.tvec", "host_ip": "198.51.100.15", "threat": 53, "certainty": 98, "privilege": 0, "score_decreases": false, "href": "https://x29-1-13.sc.tvec/hosts/522", "host_roles": "", "src_key_asset": false, "dst_key_asset": false, "category": "HOST SCORING", "quadrant": "critical", "sensor": "Vectra X", "detection_profile": "{\"name\": \"botnet\", \"vname\": \"Botnet\", \"scoringDetections\": [\"Cryptocurrency Mining\"]}", "host_groups": "[]", "tags": "[]", "account_access_history": "[]", "service_access_history": "[]", "mac_address": "00-00-5E-00-53-23", "mac_vendor": "Nortel Networks", "last_detection_type": "Cryptocurrency Mining", "vectra_timestamp": "1678013510"}'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Vectra Detect events arriving
-    severity: low
+  - title: Host scored critical
+    severity: high
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "vectra_detect"'
+    why: A critical quadrant means threat and certainty are both high enough that Vectra placed the host in the top band. The sample is a critical score whose last detection is cryptocurrency mining. Low-band score updates are context. Critical is the line worth an alert.
+    kql: |
+      dataset="vectra-detect_logs"
+      | where sourcetype == "vectra_detect" and message has "\"quadrant\": \"critical\""
+      | project message
 optimizations: []
 references:
-  - title: elastic/integrations vectra_detect/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/vectra_detect/data_stream/log/_dev/test/pipeline/test-host-scoring.log
-  - title: Pack Generator sample vectra_detect.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/vectra_detect.json
+  - title: Vectra AI documentation
+    url: https://docs.vectra.ai/

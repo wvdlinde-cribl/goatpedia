@@ -1,52 +1,62 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: atlassian-jira
-name: Atlassian Jira
-short: Atlassian Jira
+name: Atlassian Jira Data Center
+short: Jira
 vendor: Atlassian
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - atlassian_jira
-  - Elastic integrations
+  - Jira Server
+  - Jira Software Data Center
 tags:
-  - elastic
+  - issue-tracking
+  - project-management
   - json
-summary: Atlassian Jira is logged by the Elastic integrations package atlassian_jira. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: Atlassian's self-managed issue and project tracker, run on a company's own servers or cloud instances as Jira Server or Data Center. Teams work on issues in projects, and administrators manage users, permissions, workflows and apps. Its audit log records administrative and security-relevant actions, and at higher coverage also searches, with the author, source IP and affected objects.
 sourcetypes:
   - st: atlassian_jira_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: atlassian_jira/data_stream/audit/_dev/test/pipeline/test-audit-api.log'
+    desc: The Jira audit log, one event per audited action with author, category, action, affected objects, extra attributes and source IP
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: atlassian_jira
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: affectedObjects, author.avatarUri, author.id, author.name, author.type, author.uri
+  Product: Self-managed issue and project tracking
+  Clients: Web browser and REST API
+  Log transport: Audit REST API (/rest/auditing/1.0/events), or audit log files on each node read by a file agent
+  Log format: One JSON object per audit event, the same structure across Atlassian Data Center products
+  What an audit event answers: Who did which action to which project, issue, user or setting, from where, and through which proxy
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Jira nodes
+      desc: Jira runs on internal servers or a private cloud, usually behind a load balancer. Each node writes the audit log.
 howItWorks:
-  - title: What the fixture shows
-    body: Atlassian Jira events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries affectedObjects, author.avatarUri, author.id, author.name, author.type, author.uri. Values in the sample were rewritten to documentation addresses.
+  - title: Audited actions
+    body: Jira audits actions in categories such as user management, permissions, projects, workflows, apps and search. Each event has a type with a category and an action. Coverage levels decide how much is recorded. Full coverage includes JQL searches.
+  - title: Author, objects and client
+    body: author is who acted, with a name and profile link. affectedObjects and changedValues say what changed. source holds the client IP chain, and extraAttributes can carry the load balancer or proxy address and the JQL query.
+  - title: How the events leave the product
+    body: A collector with an admin token reads the audit REST API with a time window, or an agent tails the audit log files on each node.
 traffic:
   handles:
-    - json
+    - Issue and project work
+    - User, group, permission and workflow administration
+    - JQL searches at full audit coverage
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads atlassian_jira and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Someone acts
+      desc: A user searches or edits, or an admin changes users, permissions or workflows.
+    - step: Jira audits
+      desc: The node writes an audit event with the author, action, objects and client addresses.
+    - step: Collector reads
+      desc: A collector polls the audit API or tails the audit files.
 logs:
-  - type: Audit
+  - type: Audit events
     sourcetype: atlassian_jira_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per audited action. type.category and type.action say what happened, here a JQL search. author.name is who did it, source the client IP chain, extraAttributes the query and the proxy address. Addresses are documentation addresses.
     sample: '{"affectedObjects":[],"author":{"avatarUri":"","id":"18166","name":"max.mustermann","type":"ApplicationUser","uri":"https://jira.example.com/jira/secure/ViewProfile.jspa?name=max.mustermann"},"changedValues":[],"extraAttributes":[{"name":"JQLquery","nameI18nKey":"issuenav.jqlsearch.query","value":"project=\"TEST\"ANDresolution=UnresolvedORDERBYpriorityDESC,updatedDESC"},{"name":"Loadbalancer/proxyIPaddress","nameI18nKey":"atlassian.audit.event.attribute.forwarder","value":"192.0.2.20"}],"method":"Browser","node":"my-jira-node","source":"198.51.100.15,198.51.100.25","system":"https://jira.example.com/jira","timestamp":"2025-02-25T08:03:35.815Z","type":{"action":"JQLsearchperformed","actionI18nKey":"issuenav.jqlsearch.performed","category":"search","categoryI18nKey":"jira.auditing.category.search"}}'
     key:
       - affectedObjects
@@ -54,18 +64,11 @@ logs:
       - author.id
       - author.name
 cves: []
-detections:
-  - title: Atlassian Jira events arriving
-    severity: low
-    signals:
-      - affectedObjects
-      - author.avatarUri
-      - author.id
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "atlassian_jira_audit"'
-optimizations: []
-references:
-  - title: elastic/integrations atlassian_jira/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/atlassian_jira/data_stream/audit/_dev/test/pipeline/test-audit-api.log
-  - title: Pack Generator sample atlassian_jira_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/atlassian_jira_audit.json
+detections: []
+optimizations:
+  - title: Drop search events
+    saving: most of the audit volume at full coverage
+    fn: Drop
+    how: At full coverage every JQL search is an audit event. Administration and permission changes are the security-relevant part. Drop the search category, or route it to cheaper storage.
+    expr: type.category == 'search'
+references: []

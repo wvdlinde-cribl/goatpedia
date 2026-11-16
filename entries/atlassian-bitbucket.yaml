@@ -1,52 +1,63 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: atlassian-bitbucket
-name: Atlassian Bitbucket
+name: Atlassian Bitbucket Data Center
 short: Bitbucket
 vendor: Atlassian
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - atlassian_bitbucket
-  - Elastic integrations
+  - Bitbucket Server
+  - Bitbucket Data Center
 tags:
-  - elastic
+  - source-code
+  - git
+  - devops
   - json
-summary: Atlassian Bitbucket is logged by the Elastic integrations package atlassian_bitbucket. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - audit
+summary: Atlassian's self-managed Git repository server, run on a company's own servers or cloud instances as Bitbucket Server or Data Center. Developers push and pull code over HTTPS and SSH, and administrators manage users, groups, projects and permissions. Its audit log records security-relevant actions such as user changes, permission grants and repository settings, with the author, source IP and affected objects.
 sourcetypes:
   - st: atlassian_bitbucket_audit
-    desc: 'Elastic integrations fixture, 20 events. Upstream: atlassian_bitbucket/data_stream/audit/_dev/test/pipeline/test-audit-api.log'
+    desc: The Bitbucket audit log, one event per audited action with author, category, action, affected objects, changed values and source IP
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: atlassian_bitbucket
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: timestamp, author.name, author.type, author.id, author.uri, author.avatarUri
+  Product: Self-managed Git repository hosting and code review
+  Clients: Web browser, Git over HTTPS and SSH, REST API
+  Log transport: Audit REST API (/rest/auditing/1.0/events), or audit log files on each node read by a file agent
+  Log format: One JSON object per audit event, the same structure across Atlassian Data Center products
+  What an audit event answers: Who did which action to which user, project or repository, from where, and what changed
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Bitbucket nodes
+      desc: Bitbucket runs on internal servers or a private cloud. Each node writes the audit log, and the audit API returns events for the whole cluster.
 howItWorks:
-  - title: What the fixture shows
-    body: Atlassian Bitbucket events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries timestamp, author.name, author.type, author.id, author.uri, author.avatarUri. Values in the sample were rewritten to documentation addresses.
+  - title: Audited actions
+    body: Bitbucket audits actions in categories such as Users and groups, Permissions, Repositories, Projects and Security. Each event has a type with a category and an action, for example User deleted.
+  - title: Author, objects and changes
+    body: author is who acted (with type NORMAL for a person, or a system author). affectedObjects lists the users, projects or repositories the action applied to. changedValues holds before and after values for settings. source is the client IP, method says Browser or API, node is the cluster node.
+  - title: How the events leave the product
+    body: A collector with an admin token reads the audit REST API with a time window, or an agent tails the audit log files on each node. The coverage level set by the administrator decides which actions are audited.
 traffic:
   handles:
-    - json
+    - Git push and pull over HTTPS and SSH
+    - User, group and permission administration
+    - Repository and project settings
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads atlassian_bitbucket and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Someone acts
+      desc: A user or admin changes users, permissions or repository settings in the browser or through the API.
+    - step: Bitbucket audits
+      desc: The node writes an audit event with the author, action and affected objects.
+    - step: Collector reads
+      desc: A collector polls the audit API or tails the audit files.
 logs:
-  - type: Audit
+  - type: Audit events
     sourcetype: atlassian_bitbucket_audit
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per audited action. type.category and type.action say what happened (User deleted here). author.name is who did it, affectedObjects what it applied to, source the client IP, method Browser or API. The source is a documentation address.
     sample: '{"timestamp":"2021-11-27T17:38:58.087Z","author":{"name":"admin","type":"NORMAL","id":"2","uri":"http://bitbucket.internal:7990/users/admin","avatarUri":""},"type":{"categoryI18nKey":"bitbucket.service.audit.category.usersandgroups","category":"Users and groups","actionI18nKey":"bitbucket.service.user.audit.action.userdeleted","action":"User deleted"},"affectedObjects":[{"name":"test.user","type":"USER"}],"changedValues":[],"source":"203.0.113.40","system":"http://bitbucket.internal:7990","node":"8767044c-1b98-4d64-82db-ef29af8c3792","method":"Browser","extraAttributes":[{"nameI18nKey":"bitbucket.audit.attribute.legacy.target","name":"target","value":"test.user"}]}'
     key:
       - timestamp
@@ -55,17 +66,19 @@ logs:
       - author.id
 cves: []
 detections:
-  - title: Atlassian Bitbucket events arriving
-    severity: low
+  - title: User or permission change
+    severity: medium
     signals:
-      - timestamp
+      - type.category
+      - type.action
       - author.name
-      - author.type
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "atlassian_bitbucket_audit"'
+      - source
+    why: Deleting users and changing permissions decide who can read and push code. A change by an unusual author or from an unusual address is worth review.
+    kql: |
+      dataset="atlassian-bitbucket_logs"
+      | where sourcetype == "atlassian_bitbucket_audit" and (type.category == "Users and groups" or type.category == "Permissions")
+      | project timestamp, type.action, author.name, affectedObjects, source, method
+    mitre:
+      - T1098
 optimizations: []
-references:
-  - title: elastic/integrations atlassian_bitbucket/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/atlassian_bitbucket/data_stream/audit/_dev/test/pipeline/test-audit-api.log
-  - title: Pack Generator sample atlassian_bitbucket_audit.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/atlassian_bitbucket_audit.json
+references: []

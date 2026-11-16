@@ -1,66 +1,83 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: zoom
 name: Zoom
 short: Zoom
-vendor: Zoom
+vendor: Zoom Video Communications
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - zoom
-  - Elastic integrations
+  - Zoom Meetings
+  - Zoom Workplace
 tags:
-  - elastic
+  - collaboration
+  - meetings
+  - audit
   - json
-summary: Zoom is logged by the Elastic integrations package zoom. The Pack Generator samples pool holds fixture events for 3 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Zoom is a meetings and collaboration service. People sign in from a browser or an app, start and join meetings, and administrators change users and account settings in the Zoom account. Zoom records those as separate activity, meeting and operation reports. A collector pulls each report as JSON. Any collector the account has authorized can do that.
 sourcetypes:
   - st: zoom_activity
-    desc: 'Elastic integrations fixture, 5 events. Upstream: zoom/data_stream/activity/_dev/test/pipeline/test-zoom-activity.log'
+    desc: A sign-in or other account activity, with the user, the client type and the client IP
   - st: zoom_meeting_activity
-    desc: 'Elastic integrations fixture, 5 events. Upstream: zoom/data_stream/meeting_activity/_dev/test/pipeline/test-zoom-meeting-activity.log'
+    desc: Something that happened in a meeting, such as the meeting starting, and who did it
   - st: zoom_operation
-    desc: 'Elastic integrations fixture, 5 events. Upstream: zoom/data_stream/operation/_dev/test/pipeline/test-zoom-operation.log'
+    desc: An administrator changing the account, such as activating a user
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: zoom
-  Sourcetypes: '3'
-  Fixture events: '15'
-  Log format seen: json
-  Fields in the first fixture: client_type, email, ip_address, time, type, version
+  Product: Cloud meetings and collaboration. Users join from a browser, a desktop app or a mobile app. Administrators manage users in the account
+  Log transport: HTTPS JSON from the Zoom report APIs. Sign-in activity, meeting activity and operation logs are separate reports
+  Log format: One JSON object per activity. The three streams use different fields and are collected separately
+  What a sign-in event answers: Which user signed in, from which client type and IP, and when
+  What a meeting event answers: Which meeting, what happened in it, and which user did it
+  What an operation event answers: Which administrator changed which kind of object, and the detail of that change
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Zoom account
+      desc: Meetings and account administration live in the Zoom service. The three reports are stored there. A collector calls the report APIs for that account. The destination is a choice of the pipeline.
+    - slot: endpoint
+      title: Zoom client
+      desc: People sign in and join meetings on laptops and phones. Sign-in activity names the client type and the client IP. The meeting itself is hosted in the account.
 howItWorks:
-  - title: What the fixture shows
-    body: Zoom events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries client_type, email, ip_address, time, type, version. Values in the sample were rewritten to documentation addresses.
+  - title: Sign-in activity
+    body: An activity event is one account action such as a sign-in. type is the action. email is the user. client_type is the app or browser. ip_address is the client. time is when it happened. version is the client version when Zoom has it. The sample type is Sign in, from a browser.
+  - title: Meetings
+    body: A meeting-activity event is one thing that happened inside a meeting. meeting_number identifies the meeting. activity_category and activity_detail say what happened. operator and operator_email are the person. The sample category is Meeting Started.
+  - title: Account administration
+    body: An operation event is an administrator changing the account. action is the verb, such as Update. category_type is the kind of object, such as User. operation_detail is the sentence Zoom stored, such as activating a user. operator is who did it. Read action together with category_type. Activating a user is an account change, not a sign-in.
+  - title: How the reports are collected
+    body: Zoom does not push these three reports as syslog. A collector with a report-capable token calls the Zoom APIs and pages through each report. Any collector can do this. Addresses in the samples are documentation addresses. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Sign-in to the Zoom account
+    - Actions inside a meeting
+    - Administration of users and other account objects
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads zoom and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Someone acts
+      desc: A user signs in or starts a meeting, or an administrator changes a user or a setting.
+    - step: Account records a report row
+      desc: Zoom stores the action on the activity report, the meeting-activity report, or the operation log. The three are separate.
+    - step: Collector pulls JSON
+      desc: A collector requests the report and forwards each object.
 logs:
-  - type: Activity
+  - type: Sign-in activity
     sourcetype: zoom_activity
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per account activity. type is the action. This sample is a sign-in. email is the user, client_type is Browser, and ip_address is the client. The address and email are documentation values.
     sample: '{"client_type":"Browser","email":"user@example.com","ip_address":"203.0.113.8","time":"2024-06-07T10:00:00Z","type":"Sign in","version":"6.0.0.1000"}'
     key:
       - client_type
       - email
       - ip_address
       - time
-  - type: Meeting Activity
+  - type: Meeting activity
     sourcetype: zoom_meeting_activity
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per meeting action. activity_category is what happened. This sample is Meeting Started. meeting_number identifies the meeting. operator_email is who started it. The email is a documentation address.
     sample: '{"meeting_number":"982 610 0285","activity_time":"2024-03-21 07:09:03:216","operator":"Jill Chill","operator_email":"user@example.com","activity_category":"Meeting Started","activity_detail":"Meeting Started"}'
     key:
       - meeting_number
@@ -70,7 +87,7 @@ logs:
   - type: Operation
     sourcetype: zoom_operation
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per administrative change. Read action with category_type. This sample is an Update of a User, and operation_detail says the user was activated. operator is the administrator. The email is a documentation address.
     sample: '{"action":"Update","category_type":"User","operation_detail":"Activate User user@example.com","operator":"user@example.com","time":"2024-06-07T10:00:00Z"}'
     key:
       - action
@@ -79,17 +96,26 @@ logs:
       - operator
 cves: []
 detections:
-  - title: Zoom events arriving
-    severity: low
+  - title: Administrator changed a user
+    severity: medium
     signals:
-      - client_type
-      - email
-      - ip_address
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "zoom_activity"'
-optimizations: []
+      - action
+      - category_type
+      - operation_detail
+      - operator
+    why: Operation logs are account administration. An update whose category is User, such as activating a user, changes who can sign in. Meeting starts and ordinary sign-ins are not this stream.
+    kql: |
+      dataset="zoom_logs"
+      | where sourcetype == "zoom_operation" and category_type == "User"
+      | project time, action, category_type, operation_detail, operator
+    mitre:
+      - T1098
+optimizations:
+  - title: Keep admin changes, sample meetings
+    saving: most of the meeting-activity volume
+    fn: Drop
+    how: Every meeting start, join and in-meeting action is a meeting-activity event, and that is most of the volume from a busy account. Security monitoring needs operation logs, where administrators change users and settings, and sign-in activity when the question is who authenticated. Drop or sample meeting activity before the SIEM.
+    expr: "sourcetype == 'zoom_meeting_activity'"
 references:
-  - title: elastic/integrations zoom/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/zoom/data_stream/activity/_dev/test/pipeline/test-zoom-activity.log
-  - title: Pack Generator sample zoom_activity.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/zoom_activity.json
+  - title: Zoom REST API
+    url: https://developers.zoom.us/docs/api/

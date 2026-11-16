@@ -1,52 +1,65 @@
 id: fortinet-fortimail
-name: Fortinet Fortimail
-short: Fortimail
+name: FortiMail
+short: FortiMail
 vendor: Fortinet
 category: email
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - fortinet_fortimail
-  - Elastic integrations
+  - Fortinet FortiMail
 tags:
-  - elastic
+  - email
+  - gateway
+  - smtp
   - kv
-summary: Fortinet Fortimail is logged by the Elastic integrations package fortinet_fortimail. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: FortiMail is Fortinet's email security gateway. It accepts SMTP, inspects messages for spam, malware and policy, and then delivers or quarantines them. Administrators change profiles and policy in the console. The appliance writes each of those actions, and the mail it handled, as one key-value line. Any collector that receives the syslog can store it.
 sourcetypes:
   - st: fortinet_fortimail
-    desc: 'Elastic integrations fixture, 20 events. Upstream: fortinet_fortimail/data_stream/log/_dev/test/pipeline/test-system.log'
+    desc: FortiMail syslog. Each line is one appliance event. type and subtype say whether it is mail, a security verdict, or a system or configuration change.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: fortinet_fortimail
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: kv
-  Fields in the first fixture: header, date, time, device_id, log_id, type
+  Product: Email security gateway for inbound and outbound SMTP
+  Form factor: Appliance, virtual machine, or FortiMail Cloud
+  Log transport: Syslog. A priority value such as <190> is the syslog header.
+  Log format: One key-value line per event. type and subtype classify it.
+  What a configuration event answers: Which admin changed which profile, from which client, and what the message says they changed
+  What device_id answers: Which FortiMail wrote the event
 placement:
   slots:
-    - cloud
+    - edge
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Mail gateway
+      desc: FortiMail sits on the SMTP path, in front of the mailboxes. Inbound and outbound mail pass through it, and the security verdict is decided there.
+    - slot: dmz
+      title: Management console
+      desc: Administrators change URL filters, antispam profiles and policy in the console. Those changes are the configuration events. A collector receives the syslog. The destination is a choice of the pipeline.
 howItWorks:
-  - title: What the fixture shows
-    body: Fortinet Fortimail events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries header, date, time, device_id, log_id, type. Values in the sample were rewritten to documentation addresses.
+  - title: Mail it inspects
+    body: A session is one SMTP message through the gateway. FortiMail records the envelope, the verdict (accept, reject, quarantine, discard) and which profile matched. Those lines are the mail history. A configuration line is a different kind of event and is marked type kevent.
+  - title: Configuration changes
+    body: When an administrator changes a profile, FortiMail writes a kevent with subtype config. user is the admin account. ui is the client, including the address it connected from. msg is the change in the appliance's own words. The sample is an admin adding categories to a URL-filter profile over HTTP.
+  - title: How the lines leave
+    body: FortiMail sends syslog. Each event is one line of key-value pairs, optionally wrapped in a syslog priority and timestamp. Any collector can listen. Nothing in the product ties the log to one destination.
 traffic:
   handles:
-    - kv
+    - Inbound and outbound SMTP
+    - Spam, malware and content policy on mail
+    - Administrator changes to profiles and policy
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads fortinet_fortimail and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as kv.
+    - step: Mail or an admin action
+      desc: A message arrives or leaves on SMTP, or an administrator changes a profile in the console.
+    - step: Appliance writes a line
+      desc: FortiMail appends one key-value record. type and subtype name the kind of event. device_id names the box.
+    - step: Collector receives syslog
+      desc: A collector takes the syslog and can forward the parsed fields anywhere.
 logs:
-  - type: Log
+  - type: System and configuration
     sourcetype: fortinet_fortimail
     format: kv
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: 'One key-value line. type and subtype say what happened. This sample is a configuration change: an admin on HTTP added categories to a URL-filter profile. device_id is the appliance. The client addresses are documentation addresses.'
     sample: '<190>date=2023-02-06 time=19:10:00.391 device_id=FEVM02TM23000064 log_id=0700001767 type=kevent subtype=config pri=information  user=admin ui=http(192.0.2.10) module=unknown submodule=unknown msg="Added ''Test_copy'' to ''profile url-filter'' : category[child-abuse drug-abuse adult-materials nudity-risque pornograph..] (user: admin, from: http(192.0.2.20))"'
     key:
       - date
@@ -55,17 +68,20 @@ logs:
       - log_id
 cves: []
 detections:
-  - title: Fortinet Fortimail events arriving
-    severity: low
+  - title: Administrator changed a profile
+    severity: medium
     signals:
-      - header
-      - date
-      - time
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "fortinet_fortimail"'
+      - type
+      - subtype
+      - user
+      - msg
+      - device_id
+    why: type kevent and subtype config is an administrator editing the appliance, not a mail delivery. The sample is a URL-filter profile being changed. Repeated config events from one admin, or a change outside a maintenance window, are the question this stream answers.
+    kql: |
+      dataset="fortinet-fortimail_logs"
+      | where sourcetype == "fortinet_fortimail" and type == "kevent" and subtype == "config"
+      | project date, time, device_id, user, ui, msg
 optimizations: []
 references:
-  - title: elastic/integrations fortinet_fortimail/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/fortinet_fortimail/data_stream/log/_dev/test/pipeline/test-system.log
-  - title: Pack Generator sample fortinet_fortimail.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/fortinet_fortimail.json
+  - title: FortiMail documentation
+    url: https://docs.fortinet.com/product/fortimail

@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: thycotic-ss
-name: Thycotic Ss
-short: Thycotic Ss
-vendor: Thycotic
+name: Delinea Secret Server
+short: Secret Server
+vendor: Delinea
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - thycotic_ss
-  - Elastic integrations
+  - Thycotic Secret Server
+  - Secret Server
 tags:
-  - elastic
-  - cef
-summary: Thycotic Ss is logged by the Elastic integrations package thycotic_ss. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - pam
+  - privileged-access
+  - password-vault
+  - audit
+summary: A privileged access management vault that stores passwords, keys and other secrets for administrators and service accounts, and can rotate them and launch sessions without showing the password. It runs on premises or as Secret Server Cloud. Its audit events — viewing, editing, copying or checking out a secret, folder and permission changes, logins — are sent as CEF over syslog, so each event says who touched which secret from where.
 sourcetypes:
   - st: thycotic_ss
-    desc: 'Elastic integrations fixture, 2 events. Upstream: thycotic_ss/data_stream/logs/_dev/test/pipeline/test-thycotic-ss.json'
+    desc: Secret Server audit events in CEF over syslog, one per action on a secret, folder, user or the system, with user, item, folder and source IP
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: thycotic_ss
-  Sourcetypes: '1'
-  Fixture events: '2'
-  Log format seen: cef
-  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+  Product: Privileged access management (PAM) vault for passwords and secrets
+  Form factor: Windows web application with SQL Server on premises, or Secret Server Cloud
+  Log transport: Syslog (UDP, TCP or TLS) in CEF, configured in Secret Server's syslog/CEF settings
+  Log format: CEF with vendor Thycotic Software, product Secret Server. The CEF name is the audit action, such as SECRET - VIEW
+  What a secret event answers: Who (suser) did which action (name) on which secret (fname, fileId) in which folder (cs3), from which IP (src)
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Secret Server
+      desc: The Secret Server web application and its database run in the data center, often in a management segment. It sends audit events by syslog to any collector.
 howItWorks:
-  - title: What the fixture shows
-    body: Thycotic Ss events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+  - title: Secrets and folders
+    body: A secret holds credentials built from a template, lives in a folder, and is shared through folder and secret permissions. Secrets can require approval, checkout, a comment, or automatic password rotation.
+  - title: Audit events
+    body: Every action is audited — viewing a secret, copying or viewing its password, editing it, launching a session, changing permissions, and user and system events. The CEF name is the object type and action (for example SECRET - VIEW), and msg repeats the event in prose.
+  - title: How the events leave the product
+    body: An administrator enables syslog/CEF logging with a server, port and protocol. Secret Server then sends each audit event as one CEF line. Any syslog collector can receive it.
 traffic:
   handles:
-    - cef
+    - Secret view, copy, edit and checkout
+    - Privileged session launch
+    - Folder and permission changes
+    - User logins to the vault
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads thycotic_ss and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as cef.
+    - step: User acts
+      desc: An administrator opens a secret, copies a password, or changes a folder's permissions in Secret Server.
+    - step: Secret Server audits it
+      desc: Secret Server records the action in its audit tables.
+    - step: CEF line is sent
+      desc: The audit event is sent by syslog as a CEF line with the user, item and source IP.
+    - step: Collector receives
+      desc: A syslog collector receives the line. Goatpedia reads it as CEF.
 logs:
-  - type: Logs
+  - type: Audit events
     sourcetype: thycotic_ss
     format: cef
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One audited action. name is the action, suser the user, fname and fileId the secret, cs3 the folder, and src the client IP. This sample is U.Admin viewing a personal admin account secret. The IP uses a documentation address.
     sample: 'Nov 10 13:13:32 THYCOTICSS02 CEF:0|Thycotic Software|Secret Server|11.3.000001|10004|SECRET - VIEW|2|msg=[[SecretServer]] Event: [Secret] Action: [View] By User: U.Admin Item Name: Admin User Personal Admin Account - example\adminuser (Item Id: 12) Container Name: Admin User (Container Id: 11)  suid=2 suser=U.Admin cs4=Unlimited Administrator cs4Label=suser Display Name src=192.0.2.10 rt=Nov 10 2022 13:13:23 fname=Admin User Personal Admin Account - example\adminuser fileType=Secret fileId=12 cs3Label=Folder cs3=Admin User'
     key:
       - cef_version
@@ -55,17 +68,21 @@ logs:
       - device_version
 cves: []
 detections:
-  - title: Thycotic Ss events arriving
-    severity: low
+  - title: Privileged secret viewed
+    severity: medium
     signals:
-      - syslog_header
-      - cef_version
-      - device_vendor
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "thycotic_ss"'
+      - name
+      - suser
+      - fname
+      - src
+    why: Viewing a secret reveals a privileged credential to a person. Views of administrator or service account secrets by unusual users, from unusual addresses, or in bulk deserve review.
+    kql: |
+      dataset="thycotic-ss_logs"
+      | where sourcetype == "thycotic_ss" and name == "SECRET - VIEW"
+      | project rt, suser, fname, fileId, cs3, src
+    mitre:
+      - T1555
 optimizations: []
 references:
-  - title: elastic/integrations thycotic_ss/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/thycotic_ss/data_stream/logs/_dev/test/pipeline/test-thycotic-ss.json
-  - title: Pack Generator sample thycotic_ss.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/thycotic_ss.json
+  - title: Delinea documentation
+    url: https://docs.delinea.com/

@@ -1,112 +1,137 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: prisma-cloud
 name: Prisma Cloud
 short: Prisma Cloud
-vendor: Prisma
+vendor: Palo Alto Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - prisma_cloud
-  - Elastic integrations
+  - Palo Alto Networks Prisma Cloud
+  - Prisma Cloud Compute
+  - Twistlock
+  - RedLock
 tags:
-  - elastic
+  - cnapp
+  - cspm
+  - cwpp
+  - vulnerability
+  - cloud-security
   - json
-summary: Prisma Cloud is logged by the Elastic integrations package prisma_cloud. The Pack Generator samples pool holds fixture events for 6 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Palo Alto Networks' cloud-native application protection platform. Its posture side scans cloud accounts for misconfigurations and raises policy alerts. Its compute side runs Defenders on hosts and containers to profile workloads, find vulnerabilities and detect runtime attacks. Its data covers alerts, the console audit trail, misconfigured assets, vulnerabilities, host profiles and runtime incident audits.
 sourcetypes:
   - st: prisma_cloud_alert
-    desc: 'Elastic integrations fixture, 4 events. Upstream: prisma_cloud/data_stream/alert/_dev/test/pipeline/test-alert.log'
+    desc: 'Posture alerts: a cloud resource violating a policy, with the policy, status, resource and attribution'
   - st: prisma_cloud_audit
-    desc: 'Elastic integrations fixture, 5 events. Upstream: prisma_cloud/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: 'Audit trail of the Prisma Cloud console and API: logins and changes by users and access keys'
   - st: prisma_cloud_host_profile
-    desc: 'Elastic integrations fixture, 1 events. Upstream: prisma_cloud/data_stream/host_profile/_dev/test/pipeline/test-host-profile.log'
+    desc: 'Runtime profiles that Defenders learned for a host: apps, processes, ports and SSH activity'
   - st: prisma_cloud_incident_audit
-    desc: 'Elastic integrations fixture, 1 events. Upstream: prisma_cloud/data_stream/incident_audit/_dev/test/pipeline/test-incident-audit.log'
+    desc: Runtime incidents from Defenders, with the attack type, technique, effect and the host or container
   - st: prisma_cloud_misconfiguration
-    desc: 'Elastic integrations fixture, 4 events. Upstream: prisma_cloud/data_stream/misconfiguration/_dev/test/pipeline/test-misconfiguration.log'
+    desc: Assets scanned against posture policies, with pass or fail and alert counts by severity
   - st: prisma_cloud_vulnerability
-    desc: 'Elastic integrations fixture, 3 events. Upstream: prisma_cloud/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log'
+    desc: Vulnerabilities found on cloud assets, with CVE, CVSS, EPSS, KEV, exposure and fix status
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: prisma_cloud
-  Sourcetypes: '6'
-  Fixture events: '18'
-  Log format seen: json
-  Fields in the first fixture: id, alertAdditionalInfo.scannerVersion, alertAttribution.attributionEventList[0].event, alertAttribution.attributionEventList[0].event_ts, alertAttribution.attributionEventList[0].username, alertAttribution.resourceCreatedBy
+  Product: 'CNAPP: cloud security posture (CSPM) plus workload protection (CWPP)'
+  Deployment: SaaS console, cloud account onboarding by API, and Defender agents on hosts, containers and serverless
+  Log transport: HTTPS REST APIs for posture and Compute, polled by a collector with an access key. Alerts can also be pushed through integrations
+  Log format: One JSON object per alert, audit entry, asset, vulnerability, profile or incident
+  What an alert answers: Which cloud resource broke which policy, how severe it is, and who created the resource
+  What an audit entry answers: Who logged in to or changed the console, from where, and whether it succeeded
+  What an incident audit answers: What runtime attack Defender saw on which host or container, and what it did about it
 placement:
   slots:
     - cloud
+    - internal
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Prisma Cloud console
+      desc: The console and its APIs run as SaaS. It connects to AWS, Azure, GCP and OCI accounts by API to read configuration and activity. A collector polls its APIs.
+    - slot: internal
+      title: Defenders on workloads
+      desc: Defender agents run on hosts, Kubernetes nodes and containers in cloud or on-premises networks. They profile workloads and report runtime events and vulnerabilities to the console.
 howItWorks:
-  - title: What the fixture shows
-    body: Prisma Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries id, alertAdditionalInfo.scannerVersion, alertAttribution.attributionEventList[0].event, alertAttribution.attributionEventList[0].event_ts, alertAttribution.attributionEventList[0].username, alertAttribution.resourceCreatedBy. Values in the sample were rewritten to documentation addresses.
+  - title: Posture
+    body: Prisma Cloud reads cloud account configuration and evaluates it against policies. A failing resource produces an alert with the policy, the resource and attribution of who created it. Misconfiguration records list each asset with its pass or fail state.
+  - title: Workload protection
+    body: Defenders learn a runtime model of each host and container (processes, ports, network) and flag deviations and known attack techniques as incidents, with an effect such as alert, prevent or block.
+  - title: Vulnerabilities
+    body: Images, hosts and packages are scanned for CVEs. Each finding carries CVSS, EPSS, KEV, internet exposure and whether a fix exists.
+  - title: How the data leaves the product
+    body: A collector uses an access key to call the alert, audit, asset and vulnerability APIs, and the Compute API for host profiles and incidents. Each call returns JSON pages.
 traffic:
   handles:
-    - json
+    - Cloud account configuration
+    - Host and container runtime activity
+    - Vulnerability scanning
+    - Console administration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads prisma_cloud and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Scan or observe
+      desc: Prisma Cloud scans cloud accounts, and Defenders watch workloads.
+    - step: Findings raised
+      desc: Policy failures become alerts, runtime attacks become incidents, and CVEs become vulnerability findings.
+    - step: Collector polls
+      desc: A collector calls the APIs with an access key for each data type.
+    - step: JSON out
+      desc: Each finding or audit entry becomes one JSON event.
 logs:
-  - type: Alert
+  - type: Posture alerts
     sourcetype: prisma_cloud_alert
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per alert. policy.name and policy.policyType say which rule failed, status and reason the alert state, and alertAttribution who created the resource. This sample is an open network policy alert on an EC2 instance. The sample uses documentation addresses.
     sample: '{"id":"N-3910","alertAdditionalInfo":{"scannerVersion":"CS_2.0"},"alertAttribution":{"attributionEventList":[{"event":"first_event","event_ts":1694003441966,"username":"alex123"}],"resourceCreatedBy":"alex123","resourceCreatedOn":1694003441966},"status":"open","reason":"NEW_ALERT","firstSeen":1694003441966,"history":[{"modifiedOn":"1694003441966","modifiedBy":"alex123","reason":"Reason1","status":"OPEN"}],"lastSeen":1694003441966,"alertTime":1694003441966,"lastUpdated":1694003441966,"policyId":"ad23603d-754e-4499-8988-b80xxxxx898","metadata":{"saveSearchId":"8ec3f878-0f5e-4782-b4cd-98xxxxx17be5"},"policy":{"policyId":"ad23603d-754e-4499-8988-b8xxx785898","name":"AWS EC2 instance that is internet reachable with unrestricted access (198.51.100.25/0)","policyType":"network","systemDefault":true,"complianceMetadata":[{"complianceId":"qwer345bv","customAssigned":true,"policyId":"werf435tr","requirementDescription":"Description of policy compliance.","requirementId":"req-123-xyz","requirementName":"rigidity","sectionDescription":"Description of section.","sectionId":"sect-453-abc","sectionLabel":"label-1","standardDescription":"Description of standard.","standardId":"stand-543-pqr","standardName":"Class 1"}],"description":"This policy identifies AWS EC2 instances that are internet reachable with unrestricted access (203.0.113.8/0). EC2 instances with unrestricted access to the ...","severity":"high","recommendation":"The following steps are recommended to restrict unrestricted access from the Internet:\n1. Visit the Network path Analysis from Source to Destination and revi...","labels":["Prisma_Cloud","Attack Path Rule"],"lastModifiedOn":1687474999057,"lastModifiedBy":"user@example.com","deleted":false,"findingTypes":[],"remediable":false,"remediation":{"actions":[{"operation":"buy","payload":"erefwsdf"}],"cliScriptTemplate":"temp1","description":"Description of CLI Script Template."}},"alertRules":[],"resource":{"additionalInfo":{"accessKeyAge":"1691053278000","abc":"hello","how":"are you","inactiveSinceTs":"N/A"},"rrn":"rrn:aws:instance:us-xxxx-1:711162259376:e7ddce5a1ffcb47b59bfd898c622635a3b4d9da3:i-04578e97178100947","id":"i-04578e97170000047","name":"IS-37133","account":"AWS Cloud Account","accountId":"7111xx259376","cloudAccountGroups":["Default Account Group"],"region":"AWS Virginia","regionId":"us-xxxx-1","resourceType":"INSTANCE","resourceApiName":"aws-ec2-xxxx-instances","cloudServiceName":"Amazon EC2","url":"https://console.aws.amazon.com/ec2/v2/home?region=us-xxxx-1#Instances:instanceId=i-04578e9xxxxx00947","data":null,"cloudType":"aws","resourceTs":1694044541915,"unifiedAssetId":"66c543b6261xxxxx23c8eab42e15f4","resourceConfigJsonAvailable":false,"resourceDetailsAvailable":true},"investigateOptions":{"alertId":"N-3910"}}'
     key:
       - id
       - alertAdditionalInfo.scannerVersion
       - alertAttribution.attributionEventList[0].event
       - alertAttribution.attributionEventList[0].event_ts
-  - type: Audit
+  - type: Console audit
     sourcetype: prisma_cloud_audit
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per console or API action. actionType and action describe it, user and ipAddress say who and from where, and result is the outcome. This sample is a failed login by access key. The sample uses documentation addresses.
     sample: '{"timestamp":1693819702240,"user":"user@example.com","ipAddress":"203.0.113.40","actionType":"LOGIN","resourceName":"user@example.com","action":"''user@example.com''(with role ''System Admin'':''System Admin'') logged in via access key.","resourceType":"Login","result":"fail"}'
     key:
       - timestamp
       - user
       - ipAddress
       - actionType
-  - type: Host Profile
+  - type: Host profiles
     sourcetype: prisma_cloud_host_profile
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per host profile. apps lists the learned applications with their processes, listening and outgoing ports, and sshEvents lists SSH logins and the commands they ran. The sample uses documentation addresses.
     sample: '{"_id":"localhost","hash":9,"created":"2023-09-05T09:19:52.991Z","time":"0001-01-01T00:00:00Z","apps":[{"name":"ServiceUser","startupProcess":{"user":"root","path":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser -d","ppath":"/usr/lib/systemd/systemd","md5":"aaa","time":"2023-09-05T09:19:54.613Z"},"processes":[{"user":"root","interactive":true,"path":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser -d","ppath":"/usr/lib/systemd/systemd","md5":"i98ujh","time":"2023-09-05T09:19:54.613Z"}],"outgoingPorts":[{"port":25,"processPath":"/opt/Service/ServiceUser/python38/bin/pybin","command":"/opt/Service/ServiceUser/python38/bin/pybin -E ../../Tools/tantls/py/sslserveraudit/auditpackage.py ","modified":"2023-09-05T09:48:28.472Z","ip":"192.0.2.10"}],"listeningPorts":[{"port":17473,"processPath":"/opt/Service/ServiceUser/ServiceUser","command":"/opt/Service/ServiceUser/ServiceUser","modified":"2023-09-05T09:20:42.893Z"}]},{"name":"filebeat","startupProcess":{"user":"root","path":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat --environment systemd -c /etc/filebeat/filebeat.yml --path.home /us","ppath":"/usr/lib/systemd/systemd","md5":"mnj87","time":"2023-09-05T09:21:13.92Z","interactive":true,"modified":true},"processes":[{"user":"root","path":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat --environment systemd -c /etc/filebeat/filebeat.yml --path.home /us","ppath":"/usr/lib/systemd/systemd","md5":"kjj","time":"2023-09-05T09:21:13.92Z","modified":true}],"listeningPorts":[{"port":9001,"processPath":"/usr/share/filebeat/bin/filebeat","command":"/usr/share/filebeat/bin/filebeat","modified":"2023-09-05T09:21:16.37Z"}]}],"sshEvents":[{"loginTime":1694016061,"ip":"192.0.2.20","user":"root","path":"/usr/libexec/docker/cli-plugins/docker-app","command":"/usr/libexec/docker/cli-plugins/docker-app docker-cli-plugin-metadata - High rate of events, throttling started","ppath":"/usr/bin/docker","md5":"dhdj","time":"2023-09-06T16:05:43.768Z","interactive":false,"modified":true}],"geoip":{"countries":[{"ip":"198.51.100.15","code":"US","modified":"2023-09-06T16:03:30.578Z"},{"ip":"198.51.100.25","code":"CA","modified":"2023-09-06T16:03:30.229Z"}],"modified":"2023-09-06T16:03:30.703Z"},"labels":["osDistro:redhat","osVersion:7"],"accountID":"Non-onboarded cloud accounts","collections":["All"]}'
     key:
       - _id
       - hash
       - created
       - time
-  - type: Incident Audit
+  - type: Runtime incidents
     sourcetype: prisma_cloud_incident_audit
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per incident. category is the incident type (malware here), and audits lists each runtime event with attackType, attackTechniques, effect, and the host, container and image. The sample uses documentation addresses.
     sample: '{"_id":"651c46b145d15228585exxxx","accountID":"123abc","acknowledged":false,"app":"string","appID":"string","audits":[{"_id":"651c46b145d15228585exxxx","accountID":"abdcsfData","app":"string","appID":"string","attackTechniques":["exploitationForPrivilegeEscalation"],"attackType":"cloudMetadataProbing","cluster":"string","collections":["string"],"command":"string","container":true,"containerId":"5490e85a1a0c1c9f9c74591a9d3fcbf61beb84a952f14a17277be5fcf00xxxxx","containerName":"nginx","count":0,"country":"string","domain":"string","effect":["block","prevent"],"err":"string","filepath":"string","fqdn":"audits-fqdn-hostname","function":"string","functionID":"string","hostname":"gke-tp-cluster-tp-pool1-9658xxxx-j87v","imageId":"sha256:61395b4c586da2b9b3b7ca903ea6a448e6783dfdd7f768ff2c1a0f3360aaxxxx","imageName":"docker.io/library/nginx:latest","interactive":true,"ip":"203.0.113.8","label":"string","labels":{},"md5":"string","msg":"string"}],"category":"malware","cluster":"string","collections":["string"],"containerID":"string","containerName":"string","customRuleName":"string","fqdn":"string","function":"string","functionID":"string","hostname":"string","imageID":"string","imageName":"string","labels":{},"namespace":"string","profileID":"string","provider":"oci","region":"string","resourceID":"string","runtime":"string","serialNum":0,"shouldCollect":true,"time":"2023-09-19T07:15:31.899Z","type":"host","vmID":"string"}'
     key:
       - _id
       - accountID
       - acknowledged
       - app
-  - type: Misconfiguration
+  - type: Asset posture
     sourcetype: prisma_cloud_misconfiguration
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per scanned asset. assetType, name and cloudType identify it, scannedPolicy and overallPassed say whether it passed, and alertStatus counts open alerts by severity.
     sample: '{"accountId":"aa88885-8888-4444-8fd2-00000000efc3","accountName":"Azure Account","alertStatus":{"critical":0,"high":0,"informational":0,"low":0,"medium":1},"appNames":["CSPM"],"assetType":"Azure Log Analytics Workspace","cloudType":"azure","id":"/subscriptions/aa88885-8888-4444-8fd2-00000000efc3/resourceGroups/grpc/providers/Microsoft.OperationalInsights/workspaces/sampleworkpace","name":"sampleworkpace","overallPassed":false,"regionId":"westeurope","regionName":"Azure West Europe","resourceConfigJsonAvailable":true,"resourceDetailsAvailable":true,"rrn":"rrn:azure:other:westeurope:aa88885-8888-4444-8fd2-00000000efc3:b3b5eadac382f498db09acc473e5c20a281d420b:%2Fsubscriptions%2Faa88885-8888-4444-8fd2-00000000efc...","scannedPolicy":{"id":"463d8b58-1f01-462c-9e30-eca36d8fa11d","labels":[],"name":"Azure Log Analytics workspace configured with overly permissive network access","passed":false,"severity":"medium"},"unifiedAssetId":"4b000a6af8c000b000ecd6c91c0000bd"}'
     key:
       - accountId
       - accountName
       - alertStatus.critical
       - alertStatus.high
-  - type: Vulnerability
+  - type: Vulnerabilities
     sourcetype: prisma_cloud_vulnerability
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per vulnerability on an asset. CVE_ID, CVSS_BASE_SCORE and SEVERITY rate it, CISA_KEV, EPSS_SCORE and EXPLOITABLE say how likely it is to be used, INTERNET_EXPOSED and PATCHABLE say how urgent it is, and PACKAGE_NAME and INSTALLED_VERSIONS what is affected.
     sample: '{"3RD_PARTY_EXPLOIT_SOURCE":"N/A","ASSET_ID":"bb298aa950d0000d5b000a6b0c3a2f","ASSET_TYPE":"host","ATTACK_COMPLEXITY":"N/A","ATTACK_VECTOR":"N/A","AT_RISK":"N","CISA_KEV":"N","CLOUD_ACCOUNT_ID":"aa8f0000-6888-0000-8fd1-0000004efc3","CVE_ID":"CVE-2025-38438","CVE_LINK":"https://nvd.nist.gov/vuln/detail/CVE-2025-38438","CVSS_BASE_SCORE":"5.5","DISCOVERED_DATE":"Oct 31 2025","DISTRIBUTION":"ubuntu","DOS":"N/A","EPSS_SCORE":"1.7E-4","EXPLOITABLE":"N","FIX_DATE":"N/A","FIX_VERSION":"[N/A]","INSTALLED_VERSIONS":"[5.15.0-161.171]","INTERNET_EXPOSED":"Y","OS_RELEASE":"jammy","PACKAGE_IN_USE":"false","PACKAGE_NAME":"linux","PATCHABLE":"N","PRIVILEGES_REQUIRED":"N/A","PUBLISHED_DATE":"Jul 25 2025","REGISTRY":"N/A","SERVICE_PROVIDER":"azure","SEVERITY":"medium","USER_INTERACTION":"N/A"}'
     key:
       - 3RD_PARTY_EXPLOIT_SOURCE
@@ -115,17 +140,38 @@ logs:
       - ATTACK_COMPLEXITY
 cves: []
 detections:
-  - title: Prisma Cloud events arriving
-    severity: low
+  - title: Failed Prisma Cloud console login
+    severity: medium
     signals:
-      - id
-      - alertAdditionalInfo.scannerVersion
-      - alertAttribution.attributionEventList[0].event
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "prisma_cloud_alert"'
-optimizations: []
-references:
-  - title: elastic/integrations prisma_cloud/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/prisma_cloud/data_stream/alert/_dev/test/pipeline/test-alert.log
-  - title: Pack Generator sample prisma_cloud_alert.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/prisma_cloud_alert.json
+      - actionType
+      - result
+      - user
+      - ipAddress
+    why: A failed login to the console or by access key is someone using a wrong or revoked credential. The console controls cloud-wide security policy, so repeated failures matter.
+    kql: |
+      dataset="prisma-cloud_logs"
+      | where sourcetype == "prisma_cloud_audit" and actionType == "LOGIN" and result == "fail"
+      | project timestamp, user, ipAddress, action
+    mitre:
+      - T1110
+  - title: Internet-exposed vulnerability that is known exploited
+    severity: high
+    signals:
+      - CVE_ID
+      - CISA_KEV
+      - INTERNET_EXPOSED
+      - ASSET_ID
+    why: A KEV vulnerability on an asset reachable from the internet is the case attackers reach first. These findings should go to the front of the patch queue.
+    kql: |
+      dataset="prisma-cloud_logs"
+      | where sourcetype == "prisma_cloud_vulnerability" and CISA_KEV == "Y" and INTERNET_EXPOSED == "Y"
+      | project CVE_ID, CVSS_BASE_SCORE, SEVERITY, ASSET_ID, PACKAGE_NAME, FIX_VERSION
+    mitre:
+      - T1190
+optimizations:
+  - title: Send posture inventory to cheaper storage
+    saving: most of the Prisma Cloud volume
+    fn: Routes
+    how: Misconfiguration records and host profiles are inventory that is refreshed on every scan. Alerts, audit entries, runtime incidents and exploitable vulnerabilities are the security subset for the SIEM.
+    expr: sourcetype == 'prisma_cloud_misconfiguration' || sourcetype == 'prisma_cloud_host_profile'
+references: []

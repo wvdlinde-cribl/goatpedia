@@ -1,67 +1,87 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: symantec-endpoint
-name: Symantec Endpoint
-short: Endpoint
-vendor: Symantec
+name: Symantec Endpoint Protection
+short: SEP
+vendor: Broadcom (Symantec)
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - symantec_endpoint
-  - Elastic integrations
+  - SEP
+  - Symantec Endpoint Protection Manager
+  - SEPM
 tags:
-  - elastic
-  - text
-summary: Symantec Endpoint is logged by the Elastic integrations package symantec_endpoint. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - endpoint-protection
+  - antivirus
+  - host-ips
+  - firewall
+summary: 'An endpoint protection suite for Windows, macOS and Linux that combines antivirus, a host firewall, intrusion prevention, application and device control. Clients on endpoints report to an on-premises Symantec Endpoint Protection Manager (SEPM), which can export its logs to a syslog server. The lines here are those exported client logs — security (IPS), traffic, risk and system events — written as comma-separated "Label: value" fields.'
 sourcetypes:
   - st: symantec_endpoint
-    desc: 'Elastic integrations fixture, 20 events. Upstream: symantec_endpoint/data_stream/log/_dev/test/pipeline/test-agent-security.log'
+    desc: Symantec Endpoint Protection Manager syslog export, one line per client log record such as agent security (IPS), traffic, packet, risk, scan and system events
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: symantec_endpoint
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Endpoint antivirus, host IPS, firewall, application and device control
+  Clients: SEP clients on Windows, macOS and Linux, managed by Symantec Endpoint Protection Manager
+  Log transport: Syslog from SEPM to a remote server (External Logging), or log files on the SEPM server
+  Log format: 'Text. The host name, then comma-separated "Label: value" fields whose order depends on the log type'
+  What an agent security line answers: Which IPS signature matched, whether it was blocked, which application, local and remote IPs and ports, user and direction
+  Other log types: Agent traffic (firewall), risk (malware), scan, packet and system logs share the same export
 placement:
   slots:
-    - cloud
+    - endpoint
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: endpoint
+      title: SEP client
+      desc: The client on each computer detects network attacks, malware and policy violations and uploads its logs to the manager.
+    - slot: internal
+      title: Endpoint Protection Manager
+      desc: SEPM runs on a server inside the network. It stores client logs in its database and sends them by syslog to any collector through External Logging.
 howItWorks:
-  - title: What the fixture shows
-    body: Symantec Endpoint events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Protection on the client
+    body: The SEP client scans files for malware, filters traffic with its firewall rules and inspects network traffic with intrusion prevention (IPS) signatures. Each detection or block is a log record on the client.
+  - title: Agent security logs
+    body: An IPS detection records the event description with the signature ID (SID), whether the attack was blocked, the application path, local and remote host IP and MAC, direction and protocol, begin and end times, occurrences, user and domain, ports and the CIDS signature string, plus the file hashes.
+  - title: How the logs leave the product
+    body: Clients upload logs to SEPM on a heartbeat. In the SEPM console, External Logging sends selected log types to a syslog server. Any collector can receive those lines.
 traffic:
   handles:
-    - text
+    - Network intrusion prevention on endpoints
+    - Host firewall decisions
+    - Malware detection and remediation
+    - Application and device control
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads symantec_endpoint and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client detects
+      desc: The SEP client on an endpoint matches an IPS signature, blocks a connection or finds malware.
+    - step: Manager collects
+      desc: The client uploads the log record to Symantec Endpoint Protection Manager.
+    - step: Manager exports
+      desc: 'SEPM External Logging sends the record as one syslog line of "Label: value" fields.'
+    - step: Collector receives
+      desc: A syslog collector receives the line. Goatpedia reads it as text with the whole line in message.
 logs:
-  - type: Log
+  - type: Agent security (IPS)
     sourcetype: symantec_endpoint
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One client log record. Inside message, Event Description gives the signature and whether it was blocked, Local Host IP, Remote Host IP and the ports say which connection, and User Name and Application say who and what. This sample is a Nessus scanner audit signature that was detected but not blocked. Addresses use documentation ranges.
     sample: 'server01,Event Description: [SID: 29464] Audit: Nessus Vulnerability Scanner Activity attack detected but not blocked. Application path: C:\PROGRAM FILES (X86)\VMWARE\VMWARE WORKSTATION\VMWARE-HOSTD.EXE,Local Host IP: 203.0.113.8,Local Host MAC: 000000000000,Remote Host Name: ,Remote Host IP: 203.0.113.40,Remote Host MAC: 000000000000,Inbound,TCP,Intrusion ID: 0,Begin: 2020-07-12 08:05:50,End Time: 2020-07-12 08:05:50,Occurrences: 2,Application: C:/PROGRAM FILES (X86)/VMWARE/VMWARE WORKSTATION/VMWARE-HOSTD.EXE,Location: Office,User Name: axelrod,Domain Name: CC,Local Port: 8080,Remote Port: 63462,CIDS Signature ID: 29464,CIDS Signature string: Audit: Nessus Vulnerability Scanner Activity,CIDS Signature SubID: 75167,Intrusion URL: server01.example.com/sdk,Intrusion Payload URL: ,SHA-256: 9CD356A59A42BF8BDB7F5C93D5677A1AF079C7AE77361105A3AB2A0BA88CE2F8,MD-5:'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Symantec Endpoint events arriving
-    severity: low
+  - title: Attack detected but not blocked
+    severity: high
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "symantec_endpoint"'
+    why: SEP marks IPS detections it only logged as "detected but not blocked". Those are attacks that reached the endpoint, which deserve more attention than blocked ones.
+    kql: |
+      dataset="symantec-endpoint_logs"
+      | where sourcetype == "symantec_endpoint" and message contains "attack detected but not blocked"
+      | project _time, message
 optimizations: []
 references:
-  - title: elastic/integrations symantec_endpoint/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/symantec_endpoint/data_stream/log/_dev/test/pipeline/test-agent-security.log
-  - title: Pack Generator sample symantec_endpoint.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/symantec_endpoint.json
+  - title: Broadcom TechDocs
+    url: https://techdocs.broadcom.com/

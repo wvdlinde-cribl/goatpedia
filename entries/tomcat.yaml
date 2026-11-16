@@ -1,67 +1,71 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: tomcat
-name: Tomcat
+name: Apache Tomcat
 short: Tomcat
-vendor: Tomcat
+vendor: Apache Software Foundation
 category: web
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - tomcat
-  - Elastic integrations
+  - Apache Tomcat
+  - Tomcat
 tags:
-  - elastic
+  - web-server
+  - java
+  - access-log
   - text
-summary: Tomcat is logged by the Elastic integrations package tomcat. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Apache Tomcat is a Java application server. It hosts servlets and web applications, and it sits behind a load balancer or directly on an application network. For each HTTP request it handles, Tomcat can write an access line. This stream keeps that line as one text message. Any collector that can read the server's log file or syslog can receive it.
 sourcetypes:
   - st: tomcat
-    desc: 'Elastic integrations fixture, 20 events. Upstream: tomcat/data_stream/log/_dev/test/pipeline/test-generated.log'
+    desc: One HTTP access line written by Tomcat, kept as a single text message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: tomcat
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Java servlet and JSP application server
+  Where it sits: On an application host, often behind a reverse proxy, in an internal network or a DMZ
+  Log transport: Access log file on the host, or syslog if the host forwards it. Any collector that tails the file or receives the syslog can take it
+  Log format: One text line per request. This stream does not split the line into columns. The whole line is the message field
+  What an access line answers: Which client asked for which URL, when, and with which user agent, once the line is read
 placement:
   slots:
-    - cloud
+    - internal
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Application host
+      desc: Tomcat runs on a server that hosts Java web applications. The access log is a file on that host. A collector on the host, or a syslog forwarder, sends the lines on.
+    - slot: dmz
+      title: Published application
+      desc: The same server is often placed in a DMZ when the application is reachable from outside. The log is still written on the Tomcat host. Placement of the host does not change the shape of the line.
 howItWorks:
-  - title: What the fixture shows
-    body: Tomcat events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Requests and the access log
+    body: A client sends HTTP to a web application running in Tomcat. The Access Log Valve, or a custom pattern the operator configured, writes one line per request. A stock pattern is close to the combined log format. Operators also use their own separators and fields. This stream does not assume a stock pattern.
+  - title: What this line contains
+    body: The sample line is pipe-separated. It carries a client address, a timestamp, a request URL, a referrer and a user agent, plus application-specific tokens. Because the stream stores the line as message, a search reads the line as text. Addresses in the sample are documentation addresses.
+  - title: How the line is collected
+    body: Tomcat writes the file locally. A collector tails catalina or the access log the valve was pointed at, or the host forwards it as syslog. Nothing in the product sends the line to one particular SIEM. Goatpedia reads these samples as text.
 traffic:
   handles:
-    - text
+    - HTTP requests to applications hosted on Tomcat
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads tomcat and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client requests a page
+      desc: A browser or another client calls a URL on a web application running in Tomcat.
+    - step: Tomcat writes a line
+      desc: The access log records that request as one text line, using the valve pattern configured on the server.
+    - step: Collector reads the line
+      desc: A collector tails the log file or receives the syslog and forwards the line as message.
 logs:
-  - type: Log
+  - type: Access log
     sourcetype: tomcat
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One access line. The whole line is message, so the client address, timestamp, URL and user agent stay inside that string. This sample is a pipe-separated line with a documentation URL and a documentation client address.
     sample: '%APACHETOMCAT-1516-asdf: 198.51.100.25||eacommod||rci||[29/Jan/2016:6:09:59 OMST]||exercita||https://example.com/illumqui/ventore.html?min=ite#utl||vol||amremap||oremi||ntsunti||5293||https://mail.example.net/turadipi/aeca.htm?ntium=psaq#cer||Mozilla/5.0 (Linux; Android 9; G8142) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.83 Mobile Safari/537.36||aliqu'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Tomcat events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "tomcat"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations tomcat/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/tomcat/data_stream/log/_dev/test/pipeline/test-generated.log
-  - title: Pack Generator sample tomcat.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/tomcat.json
+  - title: Apache Tomcat logging
+    url: https://tomcat.apache.org/tomcat-10.1-doc/logging.html

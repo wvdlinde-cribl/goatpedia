@@ -1,66 +1,89 @@
 id: box-events
-name: Box Events
-short: Box Events
+name: Box
+short: Box
 vendor: Box
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - box_events
-  - Elastic integrations
+  - Box Enterprise Events
+  - Box admin logs
 tags:
-  - elastic
+  - content-collaboration
+  - file-sharing
+  - audit
   - json
-summary: Box Events is logged by the Elastic integrations package box_events. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Box is a cloud content management and file sharing service. Users upload, preview, download, share and collaborate on files and folders, and administrators manage users, groups and security settings for the enterprise. Box records these actions in its enterprise event stream, which any collector can read through the Events API, so the logs show who logged in, who accessed or shared which content, and which admin settings changed.
 sourcetypes:
   - st: box_events
-    desc: 'Elastic integrations fixture, 20 events. Upstream: box_events/data_stream/events/_dev/test/pipeline/test-event-types.log'
+    desc: Box enterprise events (admin_logs stream), one record per user or admin action identified by event_type, such as LOGIN, FAILED_LOGIN, DOWNLOAD, SHARE or ACCESS_GRANTED
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: box_events
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: event_type
+  Product: Cloud content management, file sharing and collaboration
+  Clients: Web app, Box Drive, desktop and mobile apps, and integrations through the Box API
+  Log transport: HTTPS JSON from the Box Events API with stream_type admin_logs (or admin_logs_streaming), pulled by any collector authorised as an enterprise admin app
+  Log format: One JSON object per event with event_type, created_by, source (the affected item or user), ip_address, created_at and additional_details
+  What an event answers: Who did what (event_type) to which file, folder, user or setting, from which IP, and when
 placement:
   slots:
     - cloud
+    - endpoint
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Box enterprise
+      desc: Files, folders, users and settings live in the Box service. Every action against them is recorded in the enterprise event stream there.
+    - slot: endpoint
+      title: Box apps and browsers
+      desc: People act from the web app, Box Drive or mobile apps. The event records the user and the client IP address.
 howItWorks:
-  - title: What the fixture shows
-    body: Box Events events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_type. Values in the sample were rewritten to documentation addresses.
+  - title: Enterprise events
+    body: Box keeps an event for every significant action in the enterprise. event_type names it, for example LOGIN, FAILED_LOGIN, UPLOAD, DOWNLOAD, PREVIEW, DELETE, SHARE, COLLABORATION_INVITE or ADMIN_LOGIN. ACCESS_GRANTED and ACCESS_REVOKED record a user granting or revoking Box access to their account.
+  - title: Who and what
+    body: created_by is the user who acted, source is the file, folder or user the action applied to, ip_address is the client, and additional_details holds event-specific detail such as a shared link's access level.
+  - title: How the events leave the product
+    body: A collector authorised as an enterprise application with admin scope calls the Events API with stream_type admin_logs and a stream position, and receives a page of JSON events plus the next position. Any collector can do this. The destination is a choice of the pipeline, not a property of Box.
 traffic:
   handles:
-    - json
+    - User logins and failed logins
+    - File and folder upload, preview, download and delete
+    - Sharing, shared links and collaboration invites
+    - Admin changes to users, groups and settings
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads box_events and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: User or admin acts
+      desc: Someone logs in, works with a file or folder, shares content or changes an enterprise setting.
+    - step: Box records it
+      desc: Box adds an enterprise event with the event type, the actor, the affected item and the IP address.
+    - step: Collector polls
+      desc: A collector calls the Events API with the admin_logs stream type and its saved stream position.
+    - step: Events are JSON
+      desc: Each event is one JSON object and is forwarded as one record.
 logs:
-  - type: Events
+  - type: Enterprise event
     sourcetype: box_events
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One record per enterprise event. event_type says what happened, and in full events created_by, source and ip_address say who, to what and from where. This sample is a minimal ACCESS_GRANTED event, a user granting Box access to their account, carrying only the event type.
     sample: '{"event_type":"ACCESS_GRANTED"}'
     key:
       - event_type
 cves: []
 detections:
-  - title: Box Events events arriving
-    severity: low
+  - title: Failed logins to Box
+    severity: medium
     signals:
       - event_type
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "box_events"'
-optimizations: []
+    why: FAILED_LOGIN events are someone failing to sign in to the enterprise. A burst for one user or from one address is password guessing against the Box account.
+    kql: |
+      dataset="box-events_logs"
+      | where sourcetype == "box_events" and event_type == "FAILED_LOGIN"
+    mitre:
+      - T1110
+optimizations:
+  - title: Keep sharing, admin and login events, sample previews
+    saving: much of the event volume
+    fn: Routes
+    how: Previews and downloads of ordinary content make up much of a busy enterprise's events. Sharing, collaboration, admin and login events carry the security questions. Send those to the SIEM in full and send routine previews to cheaper storage.
+    expr: "event_type == 'PREVIEW'"
 references:
-  - title: elastic/integrations box_events/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/box_events/data_stream/events/_dev/test/pipeline/test-event-types.log
-  - title: Pack Generator sample box_events.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/box_events.json
+  - title: Box API list events
+    url: https://developer.box.com/reference/get-events/

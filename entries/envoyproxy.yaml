@@ -1,67 +1,76 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: envoyproxy
-name: Envoyproxy
-short: Envoyproxy
-vendor: Envoyproxy
+name: Envoy Proxy
+short: Envoy
+vendor: Envoy (CNCF)
 category: swg
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
+  - Envoy
   - envoyproxy
-  - Elastic integrations
 tags:
-  - elastic
+  - proxy
+  - service-mesh
+  - load-balancer
+  - api-gateway
   - text
-summary: Envoyproxy is logged by the Elastic integrations package envoyproxy. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source L4/L7 proxy built for cloud-native applications, used as an edge gateway, as a sidecar in service meshes such as Istio, and inside many API gateways. Listeners accept connections, filter chains route HTTP, gRPC or raw TCP to upstream clusters, and each finished request or connection can be written to an access log. The access log tells you who connected to what, the response code, bytes moved, timing and which upstream host served it.
 sourcetypes:
   - st: envoyproxy
-    desc: 'Elastic integrations fixture, 7 events. Upstream: envoyproxy/data_stream/log/_dev/test/pipeline/test-log.log'
+    desc: Envoy access log lines, one per HTTP request or TCP connection, in the default text format
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: envoyproxy
-  Sourcetypes: '1'
-  Fixture events: '7'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Cloud-native L4/L7 proxy, edge gateway and service-mesh data plane
+  Form factor: Binary or container; often a sidecar next to each service, or a gateway deployment at the edge
+  Log transport: Access log written to a file or stdout, or sent over gRPC to an access-log service; any agent can read it
+  Log format: Default text format "[start time] "METHOD PATH PROTOCOL" code flags bytes_received bytes_sent duration upstream_time "x-forwarded-for" "user-agent" "request-id" "authority" "upstream host"", or a custom or JSON format
+  What an access log line answers: Which request or connection went to which upstream host, what the response code and flags were, how many bytes moved and how long it took
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Edge gateway
+      desc: An Envoy deployment at the edge terminates client connections and routes them to internal services.
+    - slot: internal
+      title: Service-mesh sidecars
+      desc: In a mesh, an Envoy sidecar sits next to each service and proxies its inbound and outbound calls. Each sidecar writes its own access log.
 howItWorks:
-  - title: What the fixture shows
-    body: Envoyproxy events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Listeners, filters and clusters
+    body: A listener accepts connections on an address. Its filter chain decides what to do, such as the HTTP connection manager for HTTP routing or the TCP proxy for raw streams. Routes send traffic to clusters, which are pools of upstream hosts.
+  - title: Access log fields
+    body: The default line has the start time, the request line (or - - - for a TCP connection), the response code (0 when there is none), response flags (for example UF for upstream connection failure), bytes received and sent, total duration, upstream service time, and quoted forwarded-for, user agent, request id, authority and upstream host.
+  - title: How the logs leave Envoy
+    body: Each listener or route can have access loggers that write to a file, to stdout, or to a gRPC access-log service. In containers the usual choice is stdout, which a log agent picks up. Any agent can do this.
 traffic:
   handles:
-    - text
+    - HTTP/1.1, HTTP/2 and gRPC requests
+    - Raw TCP proxying
+    - Load balancing to upstream clusters
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads envoyproxy and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client connects
+      desc: A client opens a connection to an Envoy listener.
+    - step: Envoy routes
+      desc: The filter chain picks a route and upstream cluster and proxies the traffic.
+    - step: Access log written
+      desc: When the request or connection ends, Envoy writes one access log line.
+    - step: Agent ships it
+      desc: A log agent reads the file or stdout and forwards the line.
 logs:
-  - type: Log
+  - type: Access log
     sourcetype: envoyproxy
     format: text
-    desc: 7 fixture events in the samples pool (elastic).
-    sample: '[2019-04-08T16:50:12.533Z] "- - -" 0 - 87 254 4 - "-" "-" "-" "-" "203.0.113.40:80"'
+    desc: One line per request or connection, held as message. This sample is a TCP connection ("- - -" in place of a request line, response code 0) that received 87 bytes, sent 254 bytes, lasted 4 ms and was proxied to upstream host 203.0.113.40:80, a documentation address.
     pattern: (?<message>[\s\S]+)
+    sample: '[2019-04-08T16:50:12.533Z] "- - -" 0 - 87 254 4 - "-" "-" "-" "-" "203.0.113.40:80"'
     key:
       - message
 cves: []
-detections:
-  - title: Envoyproxy events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "envoyproxy"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations envoyproxy/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/envoyproxy/data_stream/log/_dev/test/pipeline/test-log.log
-  - title: Pack Generator sample envoyproxy.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/envoyproxy.json
+  - title: Envoy access logging
+    url: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage

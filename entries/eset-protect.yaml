@@ -1,100 +1,126 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: eset-protect
-name: Eset Protect
-short: Eset Protect
-vendor: Eset
+name: ESET PROTECT
+short: ESET PROTECT
+vendor: ESET
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - eset_protect
-  - Elastic integrations
+  - ESET PROTECT Cloud
+  - ESET PROTECT On-Prem
+  - ESET Security Management Center
+  - ESMC
 tags:
-  - elastic
+  - epp
+  - edr
+  - antivirus
+  - endpoint
+  - vulnerability-management
   - json
-summary: Eset Protect is logged by the Elastic integrations package eset_protect. The Pack Generator samples pool holds fixture events for 5 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: The management console for ESET endpoint security products, available in the cloud or on-premises. ESET agents and security products on Windows, macOS, Linux and mobile devices report detections, device state and task results to it, and administrators run scans and other tasks from it. It can export events as JSON syslog and exposes detections, devices, tasks and device vulnerabilities through its API.
 sourcetypes:
   - st: eset_protect
-    desc: 'Elastic integrations fixture, 20 events. Upstream: eset_protect/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Events exported from the console, such as threat, firewall and audit events, one per occurrence
   - st: eset_protect_detection
-    desc: 'Elastic integrations fixture, 7 events. Upstream: eset_protect/data_stream/detection/_dev/test/pipeline/test-detection.log'
+    desc: Detections from the API, with category, type, severity, affected object, process and network details
   - st: eset_protect_device
-    desc: 'Elastic integrations fixture, 2 events. Upstream: eset_protect/data_stream/device/_dev/test/pipeline/test-device.log'
+    desc: Device inventory, with name, group, deployed ESET components, status, addresses and hardware
   - st: eset_protect_device_task
-    desc: 'Elastic integrations fixture, 5 events. Upstream: eset_protect/data_stream/device_task/_dev/test/pipeline/test-device-task.log'
+    desc: Client tasks, such as on-demand scans, with action parameters, targets and triggers
   - st: eset_protect_device_vulnerability
-    desc: 'Elastic integrations fixture, 3 events. Upstream: eset_protect/data_stream/device_vulnerability/_dev/test/pipeline/test-device-vulnerability.log'
+    desc: Vulnerable applications found on devices, with CVE, risk score, severity and patch availability
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: eset_protect
-  Sourcetypes: '5'
-  Fixture events: '37'
-  Log format seen: json
-  Fields in the first fixture: event_type, ipv4, hostname, group_name, os_name, group_description
+  Product: Central management for ESET endpoint protection, EDR and vulnerability and patch management
+  Form factor: ESET PROTECT Cloud (SaaS) or ESET PROTECT On-Prem server; ESET Management Agent and security products on devices
+  Log transport: Syslog export of events (JSON) from the console; HTTPS API (ESET Connect) for detections, devices, tasks and vulnerabilities
+  Log format: One JSON object per event or record
+  What an event answers: What threat or other event happened on which host, to which object, by which process and user, and what action was taken
+  What a detection answers: What was detected, how severe it is, on which device and object, and over which network connection
+  What a device record answers: Which device it is, which group and ESET products it has, and whether it is healthy
+  What a vulnerability record answers: Which application on which device has which CVE, how risky it is, and whether a patch exists
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: ESET agent and security products
+      desc: The management agent and ESET Endpoint Security run on each device, detect threats, run tasks and report to the console.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: ESET PROTECT console
+      desc: The console, in ESET's cloud or on a customer server, stores devices, detections and tasks, exports events as syslog and serves its API.
 howItWorks:
-  - title: What the fixture shows
-    body: Eset Protect events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries event_type, ipv4, hostname, group_name, os_name, group_description. Values in the sample were rewritten to documentation addresses.
+  - title: Detections and events
+    body: When the security product finds a threat it records the threat name and type, the scanner (for example real-time file system protection), the object, the process and user, and the action taken, such as cleaned or deleted. Network attacks such as port scans are detections too.
+  - title: Devices and tasks
+    body: Devices sit in static or dynamic groups. Administrators send client tasks such as on-demand scans, updates or software installs to devices or groups, with triggers that say when they run.
+  - title: Vulnerabilities
+    body: With vulnerability and patch management, ESET inventories applications on devices and matches them against known CVEs, with a risk score and whether a patch is available.
+  - title: How the data leaves the console
+    body: The console exports events as JSON over syslog to a configured receiver. A collector with API credentials reads detections, devices, tasks and vulnerabilities from the ESET Connect API. Any collector can do either.
 traffic:
   handles:
-    - json
+    - Malware detection and cleaning on endpoints
+    - Network attack detection
+    - Client tasks such as scans
+    - Application vulnerability inventory
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads eset_protect and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Device activity
+      desc: The ESET product on a device detects a threat, finishes a task or reports its inventory.
+    - step: Agent reports
+      desc: The management agent sends the result to the console.
+    - step: Console stores and exports
+      desc: The console stores the record, and exports events as syslog.
+    - step: Collector receives or polls
+      desc: A collector receives the syslog events and polls the API for the other streams.
 logs:
-  - type: Event
+  - type: Exported events
     sourcetype: eset_protect
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One object per event. event_type is Threat_Event, threat_name and threat_type are the detection (XF/Gydhex.A, a virus), object_uri is the file, processname and username who touched it, action_taken is Deleted and threat_handled says it was resolved. The address is a documentation address.
     sample: '{"event_type":"Threat_Event","ipv4":"192.0.2.10","hostname":"030-mg","group_name":"All/Lost & found","os_name":"Microsoft Windows 11 Pro","group_description":"Lost & found static group","source_uuid":"1361a9f6-1d45-4561-b33a-b5d6c62c71e0","occured":"21-Jun-2021 09:46:15","severity":"Warning","threat_type":"Virus","threat_name":"XF/Gydhex.A","scanner_id":"Real-time file system protection","scan_id":"virlog.dat","engine_version":"23497 (20210621)","object_type":"file","object_uri":"file:///C:/Users/Administrator/Downloads/xls/YICT080714.xls","action_taken":"Deleted","threat_handled":true,"need_restart":false,"username":"030-MG\\Administrator","processname":"C:\\Program Files\\WinRAR\\WinRAR.exe","circumstances":"Event occurred on a newly created file.","firstseen":"21-Jun-2021 09:46:14","hash":"5B97884A45C6C05F93B22C4059F3D9189E88E8B7"}'
     key:
       - event_type
       - ipv4
       - hostname
       - group_name
-  - type: Detection
+  - type: Detections
     sourcetype: eset_protect_detection
     format: json
-    desc: 7 fixture events in the samples pool (elastic).
+    desc: One object per detection. category and typeName say it is a network intrusion (TCP port scanning attack), severityLevel is high, networkCommunication gives the remote address and port, and context names the process, user and device. Addresses are documentation addresses.
     sample: '{"category":"DETECTION_CATEGORY_NETWORK_INTRUSION","typeName":"TCP Port scanning attack","objectUrl":"file:///C:/Users/Administrator/Downloads/xls/YICT080714.xls","uuid":"xxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx","severityLevel":"SEVERITY_LEVEL_HIGH","responses":[{"deviceRestartRequired":true}],"occurTime":"2023-10-26T13:36:53Z","objectTypeName":"File","objectHashSha1":"AAF4C61DDCC5E8A2DABEDE0F3B482CD9AEA9434D","networkCommunication":{"protocolName":"0","remoteIpAddress":"192.0.2.20","remotePort":443},"context":{"process":{"path":"C:\\Windows\\explorer.exe"},"deviceUuid":"xxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx","userName":"testingpc\\user","circumstances":"Malware: Win32/PSW.Fareit.A"}}'
     key:
       - category
       - typeName
       - objectUrl
       - uuid
-  - type: Device
+  - type: Devices
     sourcetype: eset_protect_device
     format: json
-    desc: 2 fixture events in the samples pool (elastic).
+    desc: One object per device. displayName and deviceType identify it, deployedComponents lists the ESET products, functionalityStatus says it is OK, and primaryLocalIpAddress and publicIpAddress give its addresses. Addresses are documentation addresses.
     sample: '{"uuid":"device-uuid-XXXX-1234","displayName":"WORKSTATION01","etag":"etag-value-1234","ownerUuid":"owner-uuid-XXXX-1234","description":"Sales department workstation","tags":[{"name":"dept:sales"},{"name":"floor:2"}],"deployedComponents":[{"displayName":"ESET Endpoint Security","version":{"name":"198.51.100.15"}}],"lastSyncTime":"2024-01-22T10:30:00Z","originalDisplayName":"SALES-PC-01","parentGroupUuid":"group-uuid-XXXX-1234","isMobile":false,"enrollmentStatus":"DEVICE_ENROLLMENT_STATUS_ENROLLED","functionalityStatus":"DEVICE_FUNCTIONALITY_STATUS_OK","isMuted":false,"functionalityProblemCount":0,"isMaster":false,"activeProducts":["ENDPOINT_SECURITY"],"deviceType":"DEVICE_TYPE_DESKTOP","primaryLocalIpAddress":"198.51.100.25","publicIpAddress":"203.0.113.8","hardwareProfiles":[{"bios":{"serialNumber":"BIOS-SN-1234"},"processors":[{"caption":"Intel Core i7","manufacturer":"Intel","id":"CPU0","architecture":"x86_64"}],"hardDrives":[{"serialNumber":"HD-SN-1234","capacityBytes":512000000000,"hardwareEncryptionSupported":true,"manufacturerName":"Samsung","displayName":"NVMe SSD","driveType":"DRIVE_TYPE_SSD"}],"networkAdapters":[{"macAddress":"AA-BB-CC-DD-EE-FF"}]}],"operatingSystem":{"displayName":"Windows 11 Pro","version":{"name":"22H2"}},"managementDomain":"example.com"}'
     key:
       - uuid
       - displayName
       - etag
       - ownerUuid
-  - type: Device Task
+  - type: Client tasks
     sourcetype: eset_protect_device_task
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One object per task. action.name is OnDemandScan, action.params gives the scan profile and targets, targets.devicesUuids lists the devices, and triggers says it is run manually.
     sample: '{"uuid":"c93070e0-XXXX-XXXX-XXXX-c48f0e5e0b7e","action":{"params":{"customProfileName":"DefaultProfile","scanTargets":["eset://AllTargets"],"cleaningEnabled":true,"scanProfile":"InDepth","@type":"type.googleapis.com/Era.Common.DataDefinition.Task.ESS.OnDemandScan"},"name":"OnDemandScan"},"targets":{"devicesUuids":["0205321e-XXXX-XXXX-XXXX-feeb35010ea7"]},"displayName":"Scan Task - Full System","triggers":[{"manual":{"expireTime":"2023-12-02T15:30:00Z"}}],"versionId":"1511","description":"Perform a full system scan on all devices for security purposes."}'
     key:
       - uuid
       - action.params.customProfileName
       - action.params.scanTargets[0]
       - action.params.cleaningEnabled
-  - type: Device Vulnerability
+  - type: Device vulnerabilities
     sourcetype: eset_protect_device_vulnerability
     format: json
-    desc: 3 fixture events in the samples pool (elastic).
+    desc: One object per vulnerable application on a device. applicationVulnerability.application names it (Google Chrome 120), cveNumber is the CVE, severity and riskScore rate it, and patchAvailable says a fix exists.
     sample: '{"deviceUuid":"device-uuid-XXXX-1234","deviceGroupUuid":"group-uuid-XXXX-0001","availablePatchUuids":[],"applicationVulnerability":{"application":{"developerDisplayName":"Google LLC","displayName":"Google Chrome","version":{"name":"120.0.6099.109","id":"0","major":120,"minor":0,"patch":6099},"uuid":"app-uuid-XXXX-1234"},"cveNumber":"CVE-2024-0519","firstDetectTime":"2024-01-15T08:30:00Z","lastDetectTime":"2024-01-20T10:15:00Z","patchAvailable":true,"riskScore":72,"severity":"SEVERITY_LEVEL_HIGH","vulnerabilityId":98765}}'
     key:
       - deviceUuid
@@ -103,17 +129,31 @@ logs:
       - applicationVulnerability.application.developerDisplayName
 cves: []
 detections:
-  - title: Eset Protect events arriving
-    severity: low
+  - title: Threat not handled
+    severity: high
     signals:
       - event_type
-      - ipv4
+      - threat_name
+      - threat_handled
       - hostname
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "eset_protect"'
+    why: Most threats are cleaned or deleted automatically. A threat event with threat_handled false is malware still present on the host, which needs manual action.
+    kql: |
+      dataset="eset-protect_logs"
+      | where sourcetype == "eset_protect" and event_type == "Threat_Event" and threat_handled == false
+      | project occured, hostname, ipv4, threat_name, threat_type, object_uri, processname, username, action_taken
+    mitre:
+      - T1204
+  - title: High-severity detection
+    severity: high
+    signals:
+      - severityLevel
+      - category
+      - typeName
+      - context.deviceUuid
+    why: High-severity detections include network intrusions and serious malware. Repeated ones from the same remote address or on the same device point to an active attack.
+    kql: |
+      dataset="eset-protect_logs"
+      | where sourcetype == "eset_protect_detection" and severityLevel == "SEVERITY_LEVEL_HIGH"
+      | project occurTime, category, typeName, objectUrl, networkCommunication.remoteIpAddress, context.userName, context.deviceUuid
 optimizations: []
-references:
-  - title: elastic/integrations eset_protect/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/eset_protect/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample eset_protect.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/eset_protect.json
+references: []

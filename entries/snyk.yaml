@@ -1,52 +1,65 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: snyk
 name: Snyk
 short: Snyk
-vendor: Snyk
+vendor: Snyk Ltd.
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - snyk
-  - Elastic integrations
+  - Snyk Open Source
+  - Snyk Code
+  - Snyk Container
 tags:
-  - elastic
-  - json
-summary: Snyk is logged by the Elastic integrations package snyk. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - application-security
+  - sca
+  - devsecops
+  - audit
+summary: A developer security platform that scans source code, open-source dependencies, containers and infrastructure-as-code for vulnerabilities. Teams work in Snyk groups and organizations that own projects imported from source repositories and CI. Its audit log records administrative actions in those groups and organizations — settings edits, membership and role changes, integrations and API access — with the user and the before and after values.
 sourcetypes:
   - st: snyk_audit_logs
-    desc: 'Elastic integrations fixture, 20 events. Upstream: snyk/data_stream/audit_logs/_dev/test/pipeline/test-snyk-audit.json'
+    desc: Audit log of a Snyk organization or group, one event per administrative action with user, organization and before/after content
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: snyk
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: content.after.name, content.before.name, created, event, org_id, user_id
+  Product: Developer security scanning (SCA, SAST, container and IaC)
+  Tenant model: Groups contain organizations. Organizations contain projects, members and integrations
+  Log transport: HTTPS JSON, pulled from the Snyk REST API audit log endpoints by a collector with a service account token
+  Log format: One JSON object per audit event
+  What an audit event answers: Which user did which action (event) in which organization, and what changed (content.before and content.after)
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Snyk organization
+      desc: Projects, members, settings and the audit log live in the Snyk SaaS tenant. A collector polls the audit log API for the organization or group.
 howItWorks:
-  - title: What the fixture shows
-    body: Snyk events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries content.after.name, content.before.name, created, event, org_id, user_id. Values in the sample were rewritten to documentation addresses.
+  - title: Organizations and projects
+    body: A Snyk organization holds projects imported from SCM integrations, the CLI or CI. Members have roles. Settings control integrations, policies and notifications.
+  - title: Audit events
+    body: Every administrative action in an organization or group is recorded with an event name in dotted form, such as org.edit. The event names the user_id and org_id and, where relevant, content with the before and after values.
+  - title: How the data leaves the product
+    body: A collector calls the audit log search endpoint with a token and a time range or cursor, and pages through results. Each event is one JSON object for any destination.
 traffic:
   handles:
-    - json
+    - Organization and group administration
+    - Membership and role changes
+    - Integration and API access configuration
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads snyk and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Admin acts
+      desc: A user renames an organization, changes a member, or edits an integration.
+    - step: Snyk records it
+      desc: Snyk writes an audit event with the event name, user, organization and changed content.
+    - step: Collector polls
+      desc: A collector calls the audit log API for new events.
+    - step: Events are JSON
+      desc: Each event is one JSON object. Goatpedia reads these samples as JSON.
 logs:
-  - type: Audit Logs
+  - type: Audit log
     sourcetype: snyk_audit_logs
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One administrative action. event names it, user_id and org_id say who and where, and content.before and content.after show the change. This sample is an organization being renamed (org.edit).
     sample: '{"content":{"after":{"name":"elastic-integration"},"before":{"name":"admin.user"}},"created":"2024-04-15T19:47:21.565Z","event":"org.edit","org_id":"86054e75-398a-4a1a-9dd8-72d026d8c237","user_id":"b4b324c4-a55c-4cd6-82b8-f96e3b3b8d85"}'
     key:
       - content.after.name
@@ -55,17 +68,22 @@ logs:
       - event
 cves: []
 detections:
-  - title: Snyk events arriving
+  - title: Organization settings changed
     severity: low
     signals:
-      - content.after.name
+      - event
+      - user_id
+      - org_id
       - content.before.name
-      - created
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "snyk_audit_logs"'
+      - content.after.name
+    why: org.edit changes the organization itself. An unexpected change by an unusual user is an admin change worth confirming.
+    kql: |
+      dataset="snyk_logs"
+      | where sourcetype == "snyk_audit_logs" and event == "org.edit"
+      | project created, user_id, org_id, content.before.name, content.after.name
 optimizations: []
 references:
-  - title: elastic/integrations snyk/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/snyk/data_stream/audit_logs/_dev/test/pipeline/test-snyk-audit.json
-  - title: Pack Generator sample snyk_audit_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/snyk_audit_logs.json
+  - title: Snyk documentation
+    url: https://docs.snyk.io/
+  - title: Snyk API reference
+    url: https://apidocs.snyk.io/

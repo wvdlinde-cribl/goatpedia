@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: trellix-edr-cloud
-name: Trellix EDR Cloud
-short: Cloud
+name: Trellix EDR
+short: Trellix EDR
 vendor: Trellix
 category: edr
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - trellix_edr_cloud
-  - Elastic integrations
+  - Trellix Endpoint Security
+  - FireEye Endpoint Security
 tags:
-  - elastic
+  - edr
+  - endpoint
   - json
-summary: Trellix EDR Cloud is logged by the Elastic integrations package trellix_edr_cloud. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Trellix EDR is endpoint detection and response software. An agent on a workstation or server watches processes, files and network connections, and ships those events to the Trellix cloud console. Each event names the endpoint, the kind of activity, and the file or destination involved. A collector pulls the JSON from the cloud API. Any collector the tenant has authorized can do that.
 sourcetypes:
   - st: trellix_edr_cloud
-    desc: 'Elastic integrations fixture, 1 events. Upstream: trellix_edr_cloud/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: One endpoint activity or detection event from the Trellix cloud, with the host, the action and the file or destination
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: trellix_edr_cloud
-  Sourcetypes: '1'
-  Fixture events: '1'
-  Log format seen: json
-  Fields in the first fixture: _ver, _serverId, _eventType, accessType, _deviceId, _parentEventId
+  Product: Endpoint detection and response. Agents report process, file and network activity to a cloud console
+  Where the agent sits: Workstations and servers. The console that stores the events is the Trellix cloud
+  Log transport: HTTPS JSON from the cloud events API. The agent itself does not syslog this stream
+  Log format: One JSON object per event. _eventType is the kind of activity. _deviceId and _serverId identify the endpoint and the console
+  What an event answers: What happened on the endpoint, which file or command was involved, and which remote address and port if the event has one
 placement:
   slots:
+    - endpoint
     - cloud
   items:
+    - slot: endpoint
+      title: Trellix agent
+      desc: The agent runs on the host. It records process, file and connection activity and sends it to the cloud. _deviceId is that host. cmdLine, filePath and the file hashes are what the agent saw locally.
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: EDR console
+      desc: The cloud console stores the events and serves them on an API. _serverId is the console side of the event. A collector polls that API. The SIEM the collector writes to is not part of the product.
 howItWorks:
-  - title: What the fixture shows
-    body: Trellix EDR Cloud events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries _ver, _serverId, _eventType, accessType, _deviceId, _parentEventId. Values in the sample were rewritten to documentation addresses.
+  - title: What the agent records
+    body: An event has a type and a name. _eventType is the broad activity, such as a file being deleted. name is the specific observation, such as a process writing another process's memory. accessType adds the access the agent classified. cmdLine is the process command. filePath, fileMd5, fileSha1 and fileSha256 identify a file when the event has one.
+  - title: Network and identity on the same event
+    body: Some events also carry a remote side. destAddress and destPort are that peer. dnsName and direction say which name was looked up and whether the flow was outbound. _time is when the agent observed it. _eventId and _parentEventId tie the event to a parent observation on the same host.
+  - title: How events leave the console
+    body: The agent uploads to the Trellix cloud. A collector with API access pulls events as JSON. Any collector can do this. Goatpedia reads these samples as JSON.
 traffic:
   handles:
-    - json
+    - Process, file and memory activity on an endpoint
+    - Connections the agent observed, with a destination address and port
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads trellix_edr_cloud and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Agent observes the host
+      desc: The Trellix agent sees a process, a file change or a connection and builds one event.
+    - step: Console stores it
+      desc: The cloud console keeps the event, keyed by the device and the event id.
+    - step: Collector pulls JSON
+      desc: A collector requests events from the API and forwards each object.
 logs:
-  - type: Event
+  - type: Endpoint event
     sourcetype: trellix_edr_cloud
     format: json
-    desc: 1 fixture events in the samples pool (elastic).
+    desc: One object per agent observation. _eventType is the activity and name is the specific observation. This sample is a file-deleted event whose name is Write Process Memory, with a command line, file hashes and an outbound destination on port 443. destAddress is a documentation address.
     sample: '{"_ver":2107,"_serverId":"5B0539BF-0932-4BEA-BD12-EA52687E58BD","_eventType":"File Deleted","accessType":"connection_opened","_deviceId":"D435435b0-BB33-4625-891E-XXXXXXX","_parentEventId":"1XXXXX-8566-404c-87a3-a4c46017b87d","_eventId":"675XXXX-054c-48e8-9549-468dbb5ae5bc","_time":"2023-04-05T07:05:21.186Z","name":"Write Process Memory","authorName":"Example","data":"AAA9UFgBAAA=","arguments":["0x220a50d0000","0x1000"],"cmdLine":"\"C:\\Users\\XXXX\\AppData\\Local\\Microsoft\\OneDrive\\Update\\setup.exe\"/update","result":"2085503003216","fileModificationDate":"2023-04-04T12:38:42.821Z","fileType":"PE","fileCreationDate":"2023-04-04T12:38:40.984Z","fileMd5":"A7F7A4EEC248E6C1841EC6D5B735357B","fileSha1":"B8F93C2963CF1415A3D1C49668BF56665E3DC334","fileSha256":"F36CD7BAD72D6B6144234DBA8A101A529DABEDC07D48056126A1356A4EECA418","filePath":"C:\\ProgramFiles\\WindowsApps\\Deleted\\XXX.PowerAutomateDesktop_1.0.414.0_x64__8wekyb3d8e7483ce5b-4hhh-4a05-a9d8-a3e99e12498d\\kk-KZ\\PPP.Console.XX.YY.dll","fileSize":5632,"fileAttributes":32,"subsystem":3,"fileMagicBytes":"d0cf11e0a1b11ae1","direction":"outbound","dnsName":"content-autofill.example.com","pipeName":"\\\\.\\pipe\\Sessions\\3\\AppContainerNamedObjects\\S-1-15-2-3573721485-3817616455-324955835-1810672402-3651098853-3568380600-1295794929","destAddress":"198.51.100.15","destPort":443}'
     key:
       - _ver
@@ -55,17 +67,22 @@ logs:
       - accessType
 cves: []
 detections:
-  - title: Trellix EDR Cloud events arriving
-    severity: low
+  - title: Process memory write on an endpoint
+    severity: high
     signals:
-      - _ver
-      - _serverId
+      - name
       - _eventType
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "trellix_edr_cloud"'
+      - cmdLine
+      - fileSha256
+      - destAddress
+    why: Write Process Memory is one process opening another process's memory. That is a common injection step. The event also carries the command line and, when present, the file hash and the remote address.
+    kql: |
+      dataset="trellix-edr-cloud_logs"
+      | where sourcetype == "trellix_edr_cloud" and name == "Write Process Memory"
+      | project _time, _eventType, name, cmdLine, filePath, fileSha256, destAddress, destPort, _deviceId
+    mitre:
+      - T1055
 optimizations: []
 references:
-  - title: elastic/integrations trellix_edr_cloud/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/trellix_edr_cloud/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample trellix_edr_cloud.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/trellix_edr_cloud.json
+  - title: Trellix documentation
+    url: https://docs.trellix.com/

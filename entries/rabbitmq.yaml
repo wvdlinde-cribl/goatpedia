@@ -1,67 +1,82 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: rabbitmq
-name: Rabbitmq
-short: Rabbitmq
-vendor: Rabbitmq
+name: RabbitMQ
+short: RabbitMQ
+vendor: Broadcom
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - rabbitmq
-  - Elastic integrations
+  - RabbitMQ Server
+  - VMware RabbitMQ
+  - Tanzu RabbitMQ
 tags:
-  - elastic
+  - message-broker
+  - amqp
+  - mqtt
+  - middleware
   - text
-summary: Rabbitmq is logged by the Elastic integrations package rabbitmq. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: An open-source message broker that implements AMQP, MQTT and STOMP, maintained by Broadcom (formerly VMware). Applications publish messages to exchanges and consume them from queues. The broker log records node start-up, cluster membership, client connections and authentication, and warnings such as memory or disk alarms.
 sourcetypes:
   - st: rabbitmq
-    desc: 'Elastic integrations fixture, 20 events. Upstream: rabbitmq/data_stream/log/_dev/test/pipeline/test-rabbitmq.log'
+    desc: RabbitMQ node log lines with timestamp, level, Erlang process id and message
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: rabbitmq
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Message broker for AMQP 0-9-1, AMQP 1.0, MQTT and STOMP
+  Deployment: Erlang nodes on servers, containers or Kubernetes, often in a cluster
+  Log transport: Log file per node, console output, or syslog
+  Log format: 'Text lines: timestamp, [level], <Erlang pid>, message'
+  What a log line answers: What the node did or saw, such as a client connection, an authentication refusal, or a resource alarm
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Broker cluster
+      desc: RabbitMQ nodes run in the application tier and are reached by producers and consumers over AMQP or MQTT. Each node writes its own log.
 howItWorks:
-  - title: What the fixture shows
-    body: Rabbitmq events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Connections and channels
+    body: Clients open a connection, authenticate with a user and vhost, then publish and consume on channels. Connection open, close and authentication results are logged.
+  - title: Cluster and alarms
+    body: Nodes log cluster joins and partitions, and raise memory and disk alarms that block publishers.
+  - title: How the log leaves the product
+    body: Each node writes to its log file or console, and can send to syslog. A collector tails the file or container output.
 traffic:
   handles:
-    - text
+    - AMQP, MQTT and STOMP client connections
+    - Broker authentication
+    - Cluster membership
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads rabbitmq and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client connects
+      desc: An application opens a connection and authenticates.
+    - step: Node logs
+      desc: The node writes a line for the connection, the result or any alarm.
+    - step: Collector reads
+      desc: A collector tails the log file or container output.
 logs:
-  - type: Log
+  - type: Broker log
     sourcetype: rabbitmq
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: 'One line per log entry: timestamp, level in brackets, the Erlang process id and the message. This sample is an info-level line with no message text after the process id.'
     sample: 2023-01-24 10:38:45.236018+00:00 [info] <0.229.0>
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Rabbitmq events arriving
-    severity: low
+  - title: Broker login refused
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "rabbitmq"'
+    why: A refused login is a client using wrong credentials, or someone trying the default guest account. Repeated refusals from one address are guessing.
+    kql: |
+      dataset="rabbitmq_logs"
+      | where sourcetype == "rabbitmq" and message contains "login refused"
+      | project message
+    mitre:
+      - T1110
 optimizations: []
 references:
-  - title: elastic/integrations rabbitmq/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/rabbitmq/data_stream/log/_dev/test/pipeline/test-rabbitmq.log
-  - title: Pack Generator sample rabbitmq.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/rabbitmq.json
+  - title: RabbitMQ logging
+    url: https://www.rabbitmq.com/docs/logging

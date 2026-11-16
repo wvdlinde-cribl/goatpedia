@@ -1,67 +1,81 @@
 id: haproxy
-name: Haproxy
-short: Haproxy
-vendor: Haproxy
+name: HAProxy
+short: HAProxy
+vendor: HAProxy Technologies
 category: swg
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - haproxy
-  - Elastic integrations
+  - HAProxy Community
+  - HAProxy Enterprise
 tags:
-  - elastic
-  - text
-summary: Haproxy is logged by the Elastic integrations package haproxy. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - proxy
+  - load-balancer
+  - syslog
+summary: HAProxy is a load balancer and reverse proxy. It accepts TCP and HTTP connections, picks a backend server, and writes one syslog line per session. The line names the frontend, the backend, the client, the timers and how the session ended. This stream is that line. Any collector that receives the syslog can store it. The sample is a TCP session that closed without a server being chosen.
 sourcetypes:
   - st: haproxy
-    desc: 'Elastic integrations fixture, 15 events. Upstream: haproxy/data_stream/log/_dev/test/pipeline/test-tcplog.log'
+    desc: One HAProxy session as a syslog line. The frontend, the backend, the client and the termination state are in the text.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: haproxy
-  Sourcetypes: '1'
-  Fixture events: '15'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: TCP and HTTP load balancer and reverse proxy
+  Form factor: A process on a host, a container, or HAProxy Enterprise appliances
+  Log transport: Syslog. HAProxy sends one line per session to a syslog server.
+  Log format: A single text line in HAProxy's log format. The whole line is the message.
+  What a line answers: Which client connected, which frontend and backend handled it, and how the session ended
+  What <NOSRV> answers: No backend server was selected for that session.
 placement:
   slots:
-    - cloud
+    - edge
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: edge
+      title: Load balancer
+      desc: HAProxy sits in front of the servers. Clients connect to a frontend. The process chooses a backend server and logs the session when it ends.
+    - slot: internal
+      title: Syslog
+      desc: The log line is sent to syslog. A collector receives it. The destination beyond that is a choice of the pipeline.
 howItWorks:
-  - title: What the fixture shows
-    body: Haproxy events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: One session
+    body: The default log line starts with the syslog timestamp and the HAProxy process, then the client address and port, the accept time, the frontend and backend, the timers, a status and a termination state. frontend/backend is written as frontend backend/server.
+  - title: This sample
+    body: The frontend is main and the server token is <NOSRV>, so the proxy closed the connection without choosing a server. The termination state on the line is SC. The two addresses are documentation addresses. Because the line is one text field, a search looks for those tokens inside message.
+  - title: How the lines leave
+    body: HAProxy is configured with a log target and sends syslog. Any collector can receive that syslog.
 traffic:
   handles:
-    - text
+    - TCP and HTTP sessions through the proxy
+    - Frontend, backend and server selection
+    - Sessions that ended without a server
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads haproxy and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: A client connects
+      desc: A connection arrives on a frontend. HAProxy accepts it and tries to choose a backend server.
+    - step: The session ends
+      desc: HAProxy writes one syslog line with the client, the frontend, the server and the termination state.
+    - step: Collector receives syslog
+      desc: A collector takes the line and can forward it anywhere.
 logs:
-  - type: Log
+  - type: Session log
     sourcetype: haproxy
     format: text
-    desc: 15 fixture events in the samples pool (elastic).
+    desc: One syslog line for a session. The text names the client, the frontend and the backend server. This sample is a TCP session on frontend main that ended with no server selected (<NOSRV>). The addresses are documentation addresses.
     sample: 'Sep 20 15:44:23 192.0.2.10 haproxy[25457]: 192.0.2.20:40962 [20/Sep/2018:15:44:23.285] main app/<NOSRV> -1/-1/1 212 SC 1/1/0/0/0 0/0'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
 detections:
-  - title: Haproxy events arriving
-    severity: low
+  - title: Session had no backend server
+    severity: medium
     signals:
       - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "haproxy"'
+    why: <NOSRV> means HAProxy closed the session without selecting a server. A burst of those lines is clients who could not reach a backend, which is the failure signal in this text log.
+    kql: |
+      dataset="haproxy_logs"
+      | where sourcetype == "haproxy" and message has "<NOSRV>"
+      | project message
 optimizations: []
 references:
-  - title: elastic/integrations haproxy/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/haproxy/data_stream/log/_dev/test/pipeline/test-tcplog.log
-  - title: Pack Generator sample haproxy.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/haproxy.json
+  - title: HAProxy documentation
+    url: https://docs.haproxy.org/

@@ -1,67 +1,70 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: aws-mq
-name: AWS Mq
-short: AWS Mq
-vendor: AWS
+name: Amazon MQ
+short: Amazon MQ
+vendor: Amazon Web Services
 category: cloud
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - aws_mq
-  - Elastic integrations
+  - AWS MQ
+  - Amazon MQ for RabbitMQ
 tags:
-  - elastic
+  - message-broker
+  - rabbitmq
+  - aws
+  - cloud
   - text
-summary: AWS Mq is logged by the Elastic integrations package aws_mq. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A managed message broker service on AWS that runs Apache ActiveMQ or RabbitMQ for the customer. Applications connect over AMQP, MQTT, STOMP or OpenWire, and AWS operates the broker hosts. For RabbitMQ brokers, Amazon MQ publishes the broker's general log to CloudWatch Logs, which records connections, TLS handshakes, authentication and broker events.
 sourcetypes:
   - st: aws_mq_rabbitmq_general_logs
-    desc: 'Elastic integrations fixture, 12 events. Upstream: aws_mq/data_stream/rabbitmq_general_logs/_dev/test/pipeline/test-amazonmq-rabbitmq-general.log'
+    desc: The RabbitMQ general log of an Amazon MQ broker, one line per broker message with time, level, Erlang process and text
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: aws_mq
-  Sourcetypes: '1'
-  Fixture events: '12'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Managed ActiveMQ and RabbitMQ brokers
+  Deployment: Single-instance or cluster brokers in the customer's VPC or publicly accessible
+  Log transport: CloudWatch Logs log group per broker, when general logging is enabled
+  Log format: RabbitMQ text log line with timestamp, level in brackets, Erlang process id and message
+  What a general log line answers: What the broker did, such as accepting or closing a connection, authenticating a user or rejecting a TLS handshake
 placement:
   slots:
     - cloud
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Amazon MQ broker
+      desc: The broker runs in AWS, reachable from the customer's VPC or publicly. Its general log goes to a CloudWatch log group in the account.
 howItWorks:
-  - title: What the fixture shows
-    body: AWS Mq events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: Brokers
+    body: Amazon MQ runs the RabbitMQ engine on hosts AWS manages. Clients connect to the broker endpoint with a username and password over TLS.
+  - title: General log
+    body: The RabbitMQ general log records connections opening and closing, user authentication, channel errors and TLS alerts. Each line has a level such as info, notice, warning or error.
+  - title: How the logs leave the service
+    body: With general logging enabled, Amazon MQ writes the broker's log to CloudWatch Logs. A collector subscribes to or reads the log group.
 traffic:
   handles:
-    - text
+    - AMQP and other client connections to the broker
+    - Authentication and TLS handshakes
+    - Queue and exchange operations
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads aws_mq and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Client connects
+      desc: An application opens a TLS connection to the broker and authenticates.
+    - step: Broker logs
+      desc: RabbitMQ writes a line to its general log about the connection or error.
+    - step: CloudWatch receives
+      desc: Amazon MQ publishes the line to the broker's CloudWatch log group, where a collector reads it.
 logs:
-  - type: Rabbitmq General Logs
+  - type: RabbitMQ general log
     sourcetype: aws_mq_rabbitmq_general_logs
     format: text
-    desc: 12 fixture events in the samples pool (elastic).
+    desc: One line per broker message with time, level, Erlang process and text. This sample is a TLS handshake refused with Insufficient Security, a client offering ciphers or a protocol version the broker does not accept.
     sample: '2025-03-21 06:25:13.777161+00:00 [notice] <0.10337402.0> TLS server: In state hello at tls_handshake.erl:354 generated SERVER ALERT: Fatal - Insufficient Security'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: AWS Mq events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "aws_mq_rabbitmq_general_logs"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations aws_mq/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/aws_mq/data_stream/rabbitmq_general_logs/_dev/test/pipeline/test-amazonmq-rabbitmq-general.log
-  - title: Pack Generator sample aws_mq_rabbitmq_general_logs.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/aws_mq_rabbitmq_general_logs.json
+  - title: Amazon MQ developer guide
+    url: https://docs.aws.amazon.com/amazon-mq/latest/developer-guide/welcome.html

@@ -1,64 +1,88 @@
 id: cato-networks
-name: Cato Networks
-short: Cato Networks
-vendor: Cato
+name: Cato SASE Cloud
+short: Cato SASE
+vendor: Cato Networks
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cato_networks
-  - Elastic integrations
+  - Cato Networks
+  - Cato SASE Cloud Platform
 tags:
-  - elastic
+  - sase
+  - sd-wan
+  - ztna
+  - swg
   - json
-summary: Cato Networks is logged by the Elastic integrations package cato_networks. The Pack Generator samples pool holds fixture events for 2 sourcetypes. This article describes those fixtures and does not add CVE history.
+summary: Cato SASE Cloud is a secure access service edge platform. Branch offices connect through Cato Socket appliances, cloud networks through virtual sockets, and remote users through the Cato Client, all into Cato's global network of points of presence, where firewalling, secure web gateway, IPS, CASB and ZTNA run as one service. Its events feed records the network and security decisions taken for every flow, and its audit feed records every change administrators make to the account.
 sourcetypes:
   - st: cato_networks
-    desc: 'Elastic integrations fixture, 5 events. Upstream: cato_networks/data_stream/event/_dev/test/pipeline/test-event.log'
+    desc: Cato events feed, one record per network or security event, such as an Internet Firewall or web gateway decision, with user, device, client, application, category, destination and action
   - st: cato_networks_audit
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cato_networks/data_stream/audit/_dev/test/pipeline/test-audit.log'
+    desc: Cato audit feed, one record per configuration change in the Cato account, with the admin, the change type, the object and the module
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cato_networks
-  Sourcetypes: '2'
-  Fixture events: '9'
-  Log format seen: json
-  Fields in the first fixture: ISP_name, account_id, account_name, action, ad_name, app_stack
+  Product: Single-vendor SASE with SD-WAN, firewall as a service, secure web gateway, IPS, CASB, DLP and ZTNA
+  Form factor: Cloud points of presence, with Socket appliances at sites, virtual sockets in cloud networks and the Cato Client on user devices
+  Log transport: HTTPS from the Cato API (GraphQL eventsFeed and auditFeed queries), pulled by any collector with an API key. Events can also be streamed to cloud storage
+  Log format: One JSON object per event with flat snake_case fields
+  What an event answers: Which user and device (ad_name, device_name, client_ip) reached which application or destination (application_name, dest_ip, dns_query), in which category, and whether Cato allowed, blocked or prompted
+  What an audit record answers: Which admin created, modified or deleted which object (model_name, model_type) in which module of the account
 placement:
   slots:
     - cloud
+    - edge
+    - remote
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cato points of presence
+      desc: The security and networking stack runs in Cato's cloud PoPs. Every flow from sites and users is inspected there, and the events are stored in the account.
+    - slot: edge
+      title: Cato Socket at the site
+      desc: A Socket appliance at each branch or data centre builds tunnels to the nearest PoP and sends the site's traffic through it.
+    - slot: remote
+      title: Cato Client on user devices
+      desc: Remote users run the Cato Client, which connects the device to a PoP. Events name the client version, device posture profile and device.
 howItWorks:
-  - title: What the fixture shows
-    body: Cato Networks events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries ISP_name, account_id, account_name, action, ad_name, app_stack. Values in the sample were rewritten to documentation addresses.
+  - title: Traffic into the PoP
+    body: Sockets, virtual sockets and clients tunnel traffic to the nearest PoP. There Cato identifies the application, the user and the device, then applies WAN and Internet firewall rules, threat prevention and web gateway policy, and routes the flow over its backbone.
+  - title: Security and connectivity events
+    body: Each decision becomes an event. action records the outcome, such as Allow, Block or Prompt (the user is warned and asked to continue). Fields name the application and its risk, the URL category, the destination, the DNS query, and the user, device and posture profile.
+  - title: Audit trail
+    body: Every change in the Cato Management Application or through the API is recorded with the admin, change_type (CREATED, MODIFIED, DELETED), the object name and type, and the module.
+  - title: How the events leave the product
+    body: A collector calls the Cato API with an API key, asking the eventsFeed and auditFeed queries for records after its saved marker. Each record comes back as JSON. The destination is a choice of the pipeline, not a property of Cato.
 traffic:
   handles:
-    - json
+    - Internet and WAN traffic from sites and remote users
+    - Firewall, web gateway and IPS decisions
+    - DNS and application identification
+    - Administrator configuration changes
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cato_networks and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Traffic reaches a PoP
+      desc: A site Socket or a Cato Client sends a flow to the nearest point of presence.
+    - step: Cato inspects it
+      desc: The PoP identifies the application, user and device and applies firewall, web gateway and threat policy.
+    - step: Event is recorded
+      desc: The decision is stored in the account's events feed, and admin changes in the audit feed.
+    - step: Collector polls the API
+      desc: A collector reads new records from eventsFeed and auditFeed and forwards each JSON object.
 logs:
-  - type: Event
+  - type: Network and security event
     sourcetype: cato_networks
     format: json
-    desc: 5 fixture events in the samples pool (elastic).
+    desc: One record per event. action is the decision, ad_name and device_name the user and device, client_ip the client, application_name, categories and dest_ip what was reached, and connection_origin how the user was connected. This sample is a Prompt for HTTPS traffic in the Anonymizers category from a managed Windows workstation on the Cato Client. The sample uses documentation addresses.
     sample: '{"ISP_name":"Cato Networks Inc.","account_id":"12345","account_name":"Demo-Mode","action":"Prompt","ad_name":"John Doe","app_stack":"TCP, TLS, HTTP(S)","socket_version":"25.0.22040","application_id":"http","application_name":"HTTP(S)","application_risk":"2","application_type":"System","categories":"Anonymizers","cato_app":"http","client_class":"unclassified tls","client_ip":"203.0.113.8","client_version":"5.21.5.8548","configured_host_name":"WORKSTATION-01","congestion_algorithm":"BBR","connection_origin":"Cato Client","dest_country":"Sweden","dest_country_code":"SE","dest_ip":"203.0.113.40","dest_port":"443","dns_query":"dns-query.example.com","dns_record_type":"A","device_categories":"PC","device_id":"000000000000000000000001","device_name":"WORKSTATION-01","device_os_type":"Windows Workstation","device_posture_profile":"Windows managed"}'
     key:
       - ISP_name
       - account_id
       - account_name
       - action
-  - type: Audit
+  - type: Audit record
     sourcetype: cato_networks_audit
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One record per configuration change. admin and admin_id say who, change_type what kind of change, model_name and model_type which object, and module which part of the product. This sample is a system user creating a data export connector in the SaaS Security API module.
     sample: '{"account_id":"12345","admin":"System User #31363","admin_id":"31363","change_type":"CREATED","creation_date":"1765293188000","insertion_date":"1765293190178","model_name":"Demo_splunk_connector","model_type":"Splunk2001:db8::1Data Export","module":"SaaS Security API"}'
     key:
       - account_id
@@ -67,17 +91,39 @@ logs:
       - change_type
 cves: []
 detections:
-  - title: Cato Networks events arriving
-    severity: low
+  - title: Traffic blocked or prompted by policy
+    severity: medium
     signals:
-      - ISP_name
-      - account_id
-      - account_name
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cato_networks"'
-optimizations: []
-references:
-  - title: elastic/integrations cato_networks/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cato_networks/data_stream/event/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample cato_networks.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cato_networks.json
+      - action
+      - categories
+      - application_name
+      - ad_name
+      - client_ip
+    why: Block and Prompt decisions are users or devices reaching categories or applications the policy restricts, such as anonymizers. Repeated attempts by one user or device can mean policy evasion or malware calling out.
+    kql: |
+      dataset="cato-networks_logs"
+      | where sourcetype == "cato_networks" and action in ("Block", "Prompt")
+      | project ad_name, device_name, client_ip, application_name, categories, dest_ip, dest_country, action
+    mitre:
+      - T1090
+  - title: Account configuration deleted or changed
+    severity: medium
+    signals:
+      - change_type
+      - admin
+      - model_name
+      - module
+    why: Changes to firewall rules, connectors or users alter what the SASE enforces for every site and user. Deletions and modifications by unexpected admins deserve review.
+    kql: |
+      dataset="cato-networks_logs"
+      | where sourcetype == "cato_networks_audit" and change_type in ("DELETED", "MODIFIED")
+      | project creation_date, admin, change_type, model_name, model_type, module
+    mitre:
+      - T1562
+optimizations:
+  - title: Keep blocks and prompts, summarise allowed flows
+    saving: most of the event volume
+    fn: Routes
+    how: Allowed traffic makes up most security events. Send Block and Prompt decisions to the SIEM in full and send allowed events to cheaper storage or aggregate them per user and application.
+    expr: "action == 'Allow'"
+references: []

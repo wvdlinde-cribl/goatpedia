@@ -1,52 +1,69 @@
 id: bbot
-name: Bbot
-short: Bbot
-vendor: Bbot
+name: BBOT
+short: BBOT
+vendor: Black Lantern Security
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - bbot
-  - Elastic integrations
+  - Bighuge BLS OSINT Tool
 tags:
-  - elastic
+  - attack-surface
+  - osint
+  - scanner
+  - open-source
   - json
-summary: Bbot is logged by the Elastic integrations package bbot. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: BBOT is an open-source recursive internet scanner from Black Lantern Security, used for subdomain enumeration, OSINT and external attack surface management. Starting from seed targets such as a domain, its modules discover DNS names, IP addresses, open ports, URLs, technologies, findings and vulnerabilities, and feed each discovery back in as a new target. Every discovery is emitted as a typed event, so the output is an inventory of what an organisation exposes and what is wrong with it.
 sourcetypes:
   - st: bbot_asm_intel
-    desc: 'Elastic integrations fixture, 20 events. Upstream: bbot/data_stream/asm_intel/_dev/test/pipeline/test-bbot-v2-ndjson.log'
+    desc: BBOT scan events from the JSON output module, one record per discovery (SCAN, DNS_NAME, IP_ADDRESS, OPEN_TCP_PORT, URL, FINDING, VULNERABILITY and other types) with its scope, source module and discovery path
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: bbot
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: json
-  Fields in the first fixture: type, id, uuid, scope_description, data.SCAN.id, data.SCAN.name
+  Product: Recursive OSINT and attack surface scanner, run from the command line or as a Python library
+  Deployment: Runs on a Linux host or container chosen by the operator, usually on a schedule against the organisation's own domains
+  Log transport: Output modules write JSON lines to a file, or post them to an HTTP endpoint (the http module, as configured in this sample)
+  Log format: One JSON object per event, with type, id, data, scope_description, module, tags and parent fields. siem_friendly nests data under its event type
+  What a SCAN event answers: Which scan started or finished, with which seeds, scope, preset and modules
+  What a discovery event answers: What was found (host, port, URL, finding or vulnerability), which module found it, and from which parent event
 placement:
   slots:
-    - cloud
+    - internal
+    - edge
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Scanner host
+      desc: BBOT runs on a host the security team controls and reaches out to DNS, search engines, APIs and the targets themselves. Its output modules write the events there or post them to a collector.
+    - slot: edge
+      title: The external attack surface
+      desc: What BBOT reports on is the organisation's internet-facing footprint, its domains, hosts, open ports and web applications, as seen from outside.
 howItWorks:
-  - title: What the fixture shows
-    body: Bbot events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries type, id, uuid, scope_description, data.SCAN.id, data.SCAN.name. Values in the sample were rewritten to documentation addresses.
+  - title: Seeds, scope and recursion
+    body: A scan starts from seeds and a whitelist and blacklist that define scope. Every event BBOT produces is checked against scope and gets a scope_distance. In-scope events are passed back to modules, so a found DNS name leads to resolution, port scans and web probing of that name.
+  - title: Modules and events
+    body: Modules such as httpx, DNS brute forcing or cloud enumeration consume events of some types and produce others. Each event records the module that made it, the parent event and the discovery path that led to it. Presets bundle modules, flags such as cloud-enum and code-enum, and their configuration.
+  - title: How the events leave the tool
+    body: Output modules decide where events go. The json module writes NDJSON. The http module posts each event to a URL. With siem_friendly on, the data field is nested under the event type so that a collector can parse each type consistently. The destination is a choice of the operator, not a property of BBOT.
 traffic:
   handles:
-    - json
+    - DNS enumeration and resolution
+    - Port and service discovery
+    - Web crawling and technology detection
+    - Finding and vulnerability reporting
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads bbot and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Scan starts
+      desc: The operator runs BBOT with seeds and a preset. A SCAN event records the target, scope and configuration.
+    - step: Modules discover
+      desc: Modules query sources and probe targets, producing typed events for each discovery.
+    - step: Recursion
+      desc: In-scope discoveries are fed back to modules until nothing new is found within the configured distance.
+    - step: Output module emits JSON
+      desc: Each event is written as one JSON object to a file or posted to an HTTP collector.
 logs:
-  - type: Asm Intel
+  - type: Scan event
     sourcetype: bbot_asm_intel
     format: json
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One record per event BBOT produces. type is the event type, scope_description and scope_distance say how it relates to the target, module names the producer and parent links it to what led to it. This sample is the SCAN event that opens a run against example.com, with its target, preset, modules and output configuration under data.SCAN. The sample uses documentation addresses.
     sample: '{"type":"SCAN","id":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","uuid":"SCAN:acfbaed0-ef27-4d69-9e33-aca7cb1fd973","scope_description":"in-scope","data":{"SCAN":{"id":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","name":"dramatic_jacob","target":{"seeds":["example.com"],"whitelist":["example.com"],"blacklist":[],"strict_scope":false,"hash":"cffefd70a4eac5b8389a3c16987fb2ae91328c4c","seed_hash":"29b7be19a3f7633571a48c40f320d465c918c26b","whitelist_hash":"29b7be19a3f7633571a48c40f320d465c918c26b","blacklist_hash":"da39a3ee5e6b4b0d3255bfef95601890afd80709","scope_hash":"ef4a64d445f60a4ae47d81411d8994e40c3382d1"},"preset":{"description":"dramatic_jacob","config":{"keep_scans":1,"omit_event_types":[],"modules":{"json":{"siem_friendly":true},"http":{"url":"https://example.com/bbot","method":"POST","timeout":10,"siem_friendly":true},"iis_shortnames":{"detect_only":false}},"dns":{"threads":25,"brute_threads":1000},"web":{"spider_distance":2,"spider_depth":2,"spider_links_per_page":25}},"flags":["cloud-enum","code-enum"],"modules":["httpx"],"output_modules":["emails","json"]},"started_at":"2024-11-14T06:44:01.665790","status":"RUNNING"}},"web_spider_distance":0,"scope_distance":0,"scan":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","timestamp":"2024-11-14T06:44:01.668069","parent":"SCAN:cdca144972c93f0612e045f9e83e949dc447e8f8","parent_uuid":"SCAN:acfbaed0-ef27-4d69-9e33-aca7cb1fd973","tags":["in-scope","target"],"module":"TARGET","module_sequence":"TARGET","discovery_context":"Scan dramatic_jacob started at 2024-11-14 06:44:01.665790","discovery_path":[],"parent_chain":[]}'
     key:
       - type
@@ -55,17 +72,18 @@ logs:
       - scope_description
 cves: []
 detections:
-  - title: Bbot events arriving
-    severity: low
+  - title: Vulnerability or finding on the attack surface
+    severity: high
     signals:
       - type
-      - id
-      - uuid
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "bbot_asm_intel"'
+      - scope_description
+      - module
+    why: FINDING and VULNERABILITY events are BBOT reporting a weakness on an in-scope asset, such as an exposed panel, a takeover-prone record or a known vulnerable service. These are the events to triage.
+    kql: |
+      dataset="bbot_logs"
+      | where sourcetype == "bbot_asm_intel" and type in ("FINDING", "VULNERABILITY") and scope_description == "in-scope"
+      | project timestamp, type, module, scan, discovery_context
 optimizations: []
 references:
-  - title: elastic/integrations bbot/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/bbot/data_stream/asm_intel/_dev/test/pipeline/test-bbot-v2-ndjson.log
-  - title: Pack Generator sample bbot_asm_intel.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/bbot_asm_intel.json
+  - title: BBOT on GitHub
+    url: https://github.com/blacklanternsecurity/bbot

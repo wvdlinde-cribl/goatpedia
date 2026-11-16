@@ -1,52 +1,64 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: citrix-waf
-name: Citrix WAF
+name: Citrix Web App Firewall
 short: Citrix WAF
-vendor: Citrix
+vendor: Citrix (NetScaler)
 category: waf
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - citrix_waf
-  - Elastic integrations
+  - NetScaler Web App Firewall
+  - Citrix AppFirewall
+  - NetScaler AppFW
 tags:
-  - elastic
+  - waf
+  - web-security
   - cef
-summary: Citrix WAF is logged by the Elastic integrations package citrix_waf. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+  - syslog
+summary: The Web App Firewall module of Citrix ADC (NetScaler). It runs on the appliance in front of web applications and checks each request against security checks such as start URL, cross-site scripting, SQL injection and form-field rules. Each violation is logged as a CEF syslog event that names the check, the client, the URL and whether the request was blocked.
 sourcetypes:
   - st: citrix_waf
-    desc: 'Elastic integrations fixture, 20 events. Upstream: citrix_waf/data_stream/log/_dev/test/pipeline/test-citrix-waf-cef.log'
+    desc: Web App Firewall violations in CEF, one event per request that failed a security check
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: citrix_waf
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: cef
-  Fields in the first fixture: syslog_header, cef_version, device_vendor, device_product, device_version, signature_id
+  Product: Web application firewall, a feature of the Citrix ADC / NetScaler appliance
+  Form factor: Runs on MPX, SDX, VPX or CPX appliances that front web applications
+  Log transport: Syslog from the appliance to any receiver
+  Log format: CEF:0 with vendor Citrix and product NetScaler. The signature id is APPFW and the name is the check, for example APPFW_STARTURL
+  What an event answers: Which security check a request failed, from which client and port, on which URL, under which profile, and what the firewall did with it
 placement:
   slots:
-    - cloud
+    - dmz
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: dmz
+      title: ADC appliance with AppFW profile
+      desc: The firewall runs inside the ADC that publishes the application, usually in a DMZ. A profile bound to a virtual server decides which checks apply. Violations are sent as CEF syslog.
 howItWorks:
-  - title: What the fixture shows
-    body: Citrix WAF events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries syslog_header, cef_version, device_vendor, device_product, device_version, signature_id. Values in the sample were rewritten to documentation addresses.
+  - title: Profiles and checks
+    body: An AppFW profile is a set of security checks with an action for each (block, log, learn, transform). Checks include start URL, deny URL, cross-site scripting, SQL injection, buffer overflow, cookie consistency and field formats. A policy binds the profile to traffic on a virtual server.
+  - title: One request, one verdict
+    body: When a request violates a check, the appliance writes one event. In CEF the name field is the check (APPFW_STARTURL, APPFW_XSS, APPFW_SQL and so on), msg is the human reason, cs1 is the profile, and act is the action (blocked, not blocked, transformed).
+  - title: How the events leave the appliance
+    body: The administrator turns on CEF logging and points syslog at a receiver. Any collector that listens for syslog can take the events. The format is a choice on the appliance, not tied to one log vendor.
 traffic:
   handles:
-    - cef
+    - HTTP and HTTPS requests to protected applications
+    - Form, cookie and URL validation
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads citrix_waf and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as cef.
+    - step: Request arrives
+      desc: A client sends a request to an application published through the ADC.
+    - step: Checks run
+      desc: The AppFW profile bound to that virtual server evaluates the request.
+    - step: Violation logged
+      desc: A failed check produces one CEF event with the check name, client, URL and action.
+    - step: Syslog out
+      desc: The appliance sends the event to the configured syslog receiver.
 logs:
-  - type: Log
+  - type: Web App Firewall violation
     sourcetype: citrix_waf
     format: cef
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One CEF event per violation. name (APPFW_STARTURL here) is the check, msg says why ("Disallow Illegal URL."), src and spt are the client, request and method are what was asked for, cs1 is the profile and act is the action, here blocked. Addresses are documentation addresses.
     sample: Jun 12 23:37:17 <local0.info> 203.0.113.40 CEF:0|Citrix|NetScaler|NS11.0|APPFW|APPFW_STARTURL|6|src=192.0.2.10 spt=47606 method=GET request=http://aaron.stratum8.net/FFC/login.html msg=Disallow Illegal URL. cn1=1340 cn2=653 cs1=pr_ffc cs2=PPE1 cs3=EsdGd3VD0OaaURLcZnj05Y6DOmE0002 cs4=ALERT cs5=2015 act=blocked
     key:
       - cef_version
@@ -55,17 +67,21 @@ logs:
       - device_version
 cves: []
 detections:
-  - title: Citrix WAF events arriving
-    severity: low
+  - title: Request blocked by the Web App Firewall
+    severity: medium
     signals:
-      - syslog_header
-      - cef_version
-      - device_vendor
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "citrix_waf"'
+      - name
+      - act
+      - src
+      - request
+    why: A blocked violation is a request the firewall judged to be an attack or an illegal URL. Many blocks from one source, or blocks on injection checks, point to scanning or exploitation attempts against the application.
+    kql: |
+      dataset="citrix-waf_logs"
+      | where sourcetype == "citrix_waf" and act == "blocked"
+      | project _time, name, msg, src, request, cs1, act
+    mitre:
+      - T1190
 optimizations: []
 references:
-  - title: elastic/integrations citrix_waf/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/citrix_waf/data_stream/log/_dev/test/pipeline/test-citrix-waf-cef.log
-  - title: Pack Generator sample citrix_waf.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/citrix_waf.json
+  - title: NetScaler documentation
+    url: https://docs.netscaler.com/

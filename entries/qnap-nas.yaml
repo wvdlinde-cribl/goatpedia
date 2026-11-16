@@ -1,67 +1,69 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: qnap-nas
-name: Qnap Nas
-short: Qnap Nas
-vendor: Qnap
+name: QNAP NAS (QTS)
+short: QNAP NAS
+vendor: QNAP Systems
 category: storage
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - qnap_nas
-  - Elastic integrations
+  - QNAP QTS
+  - QNAP QuTS hero
+  - QuLog Center
 tags:
-  - elastic
+  - nas
+  - storage
+  - file-sharing
+  - syslog
   - text
-summary: Qnap Nas is logged by the Elastic integrations package qnap_nas. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: Network-attached storage appliances from QNAP running the QTS or QuTS hero operating system. They serve files over SMB, NFS, AFP and web apps and run many add-on applications. Their system event and connection logs, collected by QuLog Center, record admin and user actions, network and storage events, and are sent as syslog.
 sourcetypes:
   - st: qnap_nas
-    desc: 'Elastic integrations fixture, 20 events. Upstream: qnap_nas/data_stream/log/_dev/test/pipeline/test-event.log'
+    desc: QNAP system event and access log lines sent as syslog by qulogd, with user, source IP, application, category and content
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: qnap_nas
-  Sourcetypes: '1'
-  Fixture events: '20'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Network-attached storage with file sharing and apps
+  Form factor: Desktop and rack NAS appliances running QTS or QuTS hero
+  Log transport: Syslog from QuLog Center to a remote server
+  Log format: 'Syslog lines with labelled fields: Users, Source IP, Computer name, Application, Category, Content'
+  What an event answers: Which user from which address did what in which NAS application, or what changed on the system
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: NAS appliance
+      desc: The NAS sits on the internal network and serves files to users and servers. Some are exposed to the internet through myQNAPcloud or port forwarding, which is a common attack path.
 howItWorks:
-  - title: What the fixture shows
-    body: Qnap Nas events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: System events
+    body: 'QTS logs system events from its applications and services: users, network, storage, updates and security settings. Each names the user, source IP, application and category.'
+  - title: Access logs
+    body: Connection logs record file service and web logins and file access by protocol.
+  - title: How the log leaves the product
+    body: QuLog Center collects the logs and can send them as syslog to a remote server.
 traffic:
   handles:
-    - text
+    - SMB, NFS and AFP file sharing
+    - NAS web administration
+    - Storage and network events
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads qnap_nas and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: Action or change
+      desc: A user logs in or changes a setting, or the system has a network or storage event.
+    - step: QTS logs it
+      desc: The event is written to the system or connection log.
+    - step: Syslog out
+      desc: QuLog Center sends it as syslog to the receiver.
 logs:
-  - type: Log
+  - type: NAS event log
     sourcetype: qnap_nas
     format: text
-    desc: 20 fixture events in the samples pool (elastic).
+    desc: One syslog line per event from qulogd. Users is the account, Source IP the client, Application and Category where it happened, and Content what happened. This sample is a network adapter disconnecting. The sample uses documentation addresses.
     sample: '<28>Oct 30 20:28:41 qnap-nas01 qulogd[14629]: event log: Users: admin, Source IP: 198.51.100.25, Computer name: ---, Application: Network & Virtual Switch, Category: Infrastructure, Content: [Network & Virtual Switch] Interface "Adapter 2" disconnected.'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Qnap Nas events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "qnap_nas"'
+detections: []
 optimizations: []
-references:
-  - title: elastic/integrations qnap_nas/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/qnap_nas/data_stream/log/_dev/test/pipeline/test-event.log
-  - title: Pack Generator sample qnap_nas.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/qnap_nas.json
+references: []

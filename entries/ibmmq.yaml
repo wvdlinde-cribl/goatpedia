@@ -1,67 +1,67 @@
 id: ibmmq
-name: Ibmmq
-short: Ibmmq
-vendor: Ibmmq
+name: IBM MQ
+short: IBM MQ
+vendor: IBM
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - ibmmq
-  - Elastic integrations
+  - WebSphere MQ
+  - MQSeries
 tags:
-  - elastic
+  - messaging
+  - queue
   - text
-summary: Ibmmq is logged by the Elastic integrations package ibmmq. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: IBM MQ is IBM's message queue. Applications put and get messages on queues, and a queue manager moves those messages, including between queue managers. The queue manager writes an error log that also carries informational and warning lines. Each line has an AMQ code, a user, a program and the queue manager name. This stream is that log. The sample is an informational line that a queue-manager task started.
 sourcetypes:
   - st: ibmmq_errorlog
-    desc: 'Elastic integrations fixture, 6 events. Upstream: ibmmq/data_stream/errorlog/_dev/test/pipeline/test-errorlog.log'
+    desc: One line from the queue manager error log. The AMQ code, the user, the program and the queue manager name are in the text.
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: ibmmq
-  Sourcetypes: '1'
-  Fixture events: '6'
-  Log format seen: text
-  Fields in the first fixture: message
+  Product: Message-oriented middleware. Applications exchange messages through queues owned by a queue manager.
+  Form factor: Queue managers on hosts you run, or IBM MQ on cloud platforms
+  Log transport: The queue manager writes a text error log on the host. A collector tails that file.
+  Log format: One text line, often several sentences. The AMQ code ends in I for information, W for warning or E for error.
+  What a line answers: Which queue manager, which program and which user, and the AMQ code that says what happened
 placement:
   slots:
-    - cloud
+    - internal
   items:
-    - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+    - slot: internal
+      title: Queue manager
+      desc: The queue manager process runs beside the applications that use it. The error log is a file on that host. A collector tails the file.
 howItWorks:
-  - title: What the fixture shows
-    body: Ibmmq events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries message. Values in the sample were rewritten to documentation addresses.
+  - title: The error log
+    body: Queue managers write AMQERR logs. A line names the time, the process, the user, the program, the host, the installation and the queue manager, then an AMQ code and a paragraph. The suffix on the code is the severity. I is informational, W is a warning, E is an error. EXPLANATION and ACTION are the product's own text.
+  - title: This sample
+    body: The code is AMQ5037I. The message says the queue manager task APP-SIGNAL has started, and that this start is the third. The user is mqm, the program is amqzmur0 and the queue manager is QM1. That is a task starting, not a failed command. The line also contains a documentation address in the version field.
+  - title: How the lines leave
+    body: IBM MQ writes the file locally. Any collector that can tail it can forward the lines. The queue manager does not choose the destination.
 traffic:
   handles:
-    - text
+    - Queue manager task start and stop
+    - Informational, warning and error AMQ codes
+    - The queue manager, program and user named on the line
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads ibmmq and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as text.
+    - step: The queue manager acts
+      desc: A task starts, a channel changes, or the queue manager hits a warning or an error.
+    - step: A line is appended
+      desc: The error log gains one AMQ message with the user, the program and the queue manager.
+    - step: Collector tails the file
+      desc: A collector reads the line and can forward it anywhere.
 logs:
-  - type: Errorlog
+  - type: Queue manager log
     sourcetype: ibmmq_errorlog
     format: text
-    desc: 6 fixture events in the samples pool (elastic).
+    desc: One error-log line. The AMQ code is the message id and its suffix is the severity. User, Program and QMgr name who and where. This sample is AMQ5037I, an informational line that the APP-SIGNAL task started. The line contains a documentation address.
     sample: '06/14/22 11:54:29 - Process(119.8) User(mqm) Program(amqzmur0) Host(00c6b2142371) Installation(Installation1) VRMF(192.0.2.20) QMgr(QM1) Time(2022-06-14T11:54:29.349Z) ArithInsert2(3) CommentInsert1(APP-SIGNAL) AMQ5037I: The queue manager task ''APP-SIGNAL'' has started. EXPLANATION: The restartable utility task manager has started the APP-SIGNAL task. This task has now started 3 times. ACTION: None.'
     pattern: (?<message>[\s\S]+)
     key:
       - message
 cves: []
-detections:
-  - title: Ibmmq events arriving
-    severity: low
-    signals:
-      - message
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "ibmmq_errorlog"'
+detections: []
 optimizations: []
 references:
-  - title: elastic/integrations ibmmq/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/ibmmq/data_stream/errorlog/_dev/test/pipeline/test-errorlog.log
-  - title: Pack Generator sample ibmmq_errorlog.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/ibmmq_errorlog.json
+  - title: IBM MQ documentation
+    url: https://www.ibm.com/docs/en/ibm-mq

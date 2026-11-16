@@ -1,52 +1,69 @@
+# Goatpedia entry — see CONTRIBUTING.md and schema/entry.schema.json
 id: cloudflare
 name: Cloudflare
 short: Cloudflare
 vendor: Cloudflare
 category: saas
 status: full
-updated: '2026-11-12'
+updated: '2026-11-16'
 contributors:
   - wlinde
 aka:
-  - cloudflare
-  - Elastic integrations
+  - Cloudflare Logpull
+  - Cloudflare CDN
 tags:
-  - elastic
+  - cdn
+  - waf
+  - reverse-proxy
+  - ddos
   - json
-summary: Cloudflare is logged by the Elastic integrations package cloudflare. The Pack Generator samples pool holds fixture events for 1 sourcetype. This article describes those fixtures and does not add CVE history.
+summary: A global reverse-proxy network that sits in front of websites and APIs as a CDN, WAF, bot manager and DDoS shield. Every request to a proxied zone passes through a Cloudflare edge data centre, which decides whether to serve it from cache, challenge it, block it or pass it to the origin. Logpull lets an Enterprise zone fetch those HTTP request logs as JSON over the Cloudflare API.
 sourcetypes:
   - st: cloudflare_logpull
-    desc: 'Elastic integrations fixture, 4 events. Upstream: cloudflare/data_stream/logpull/_dev/test/pipeline/test-http-json.log'
+    desc: HTTP request logs for one zone, pulled from the Cloudflare API, one record per request handled at the edge
 facts:
-  Where the sample comes from: Elastic integrations
-  Integration package: cloudflare
-  Sourcetypes: '1'
-  Fixture events: '4'
-  Log format seen: json
-  Fields in the first fixture: BotScore, BotScoreSrc, CacheCacheStatus, CacheResponseBytes, CacheResponseStatus, CacheTieredFill
+  Product: CDN, web application firewall, bot management and DDoS protection delivered as a reverse proxy
+  Form factor: Cloud service; customers point DNS for their zone at Cloudflare
+  Log transport: HTTPS pull from the Logpull API (Enterprise plans), with a time window per request
+  Log format: Newline-delimited JSON, one object per request, with the fields the caller asks for
+  What a request record answers: Who asked for what (client IP, country, ASN, host, path, user agent), how the edge handled it (cache status, firewall action, bot score) and what the origin answered
 placement:
   slots:
     - cloud
+    - internal
   items:
     - slot: cloud
-      title: Elastic integrations
-      desc: Fixtures were harvested from elastic/integrations. The product may also be deployed on a network or an endpoint; this article only places the source of the sample.
+      title: Cloudflare edge
+      desc: Requests for the zone land on the nearest Cloudflare data centre (EdgeColoID). The edge applies cache, firewall, bot and rate-limit rules and stores a record of each request.
+    - slot: internal
+      title: Origin servers
+      desc: Requests that are not served or stopped at the edge are forwarded to the customer's origin. Origin response fields in the record describe that leg.
 howItWorks:
-  - title: What the fixture shows
-    body: Cloudflare events in this library are the test fixtures shipped with elastic/integrations (cbfff90638). The first event carries BotScore, BotScoreSrc, CacheCacheStatus, CacheResponseBytes, CacheResponseStatus, CacheTieredFill. Values in the sample were rewritten to documentation addresses.
+  - title: Edge decisions
+    body: For each request the edge decides a pathing operation. EdgePathingSrc says which feature decided (for example filter_based_firewall), EdgePathingOp what it did (ban, wl, chl) and EdgePathingStatus the detail, such as a new captcha challenge. Cache fields say whether the response came from cache.
+  - title: Bot and client signals
+    body: Cloudflare scores each request for bot likelihood (BotScore, BotScoreSrc), classifies the client IP (ClientIPClass) and records country and ASN. These help separate verified crawlers from automation.
+  - title: How the logs leave Cloudflare
+    body: Logpull is a pull model. A collector holding an API token calls the zone's logs/received endpoint with a start and end time and a field list, and receives NDJSON. Logpush, which pushes the same data to storage or an HTTP endpoint, is the newer alternative.
 traffic:
   handles:
-    - json
+    - HTTP and HTTPS requests to proxied zones
+    - Firewall, bot and rate-limit decisions
+    - Cache hits and misses
   flow:
-    - step: Collect
-      desc: The Elastic integrations package reads cloudflare and the samples pool stores the fixture used here.
-    - step: Parse
-      desc: Goatpedia reads the fixture as json.
+    - step: Visitor requests
+      desc: A browser, bot or API client sends a request to a hostname in the zone.
+    - step: Edge handles it
+      desc: The Cloudflare data centre applies firewall and bot rules, then serves from cache or forwards to the origin.
+    - step: Request recorded
+      desc: The edge stores one log record with client, request, edge decision and origin fields.
+    - step: Collector pulls
+      desc: A collector requests a time window from the Logpull API and receives one JSON object per request.
 logs:
-  - type: Logpull
+  - type: HTTP requests
     sourcetype: cloudflare_logpull
     format: json
-    desc: 4 fixture events in the samples pool (elastic).
+    desc: One object per request. ClientIP, ClientCountry and ClientRequestHost/ClientRequestURI say who asked for what. EdgePathingSrc, EdgePathingOp and EdgePathingStatus show the edge decision, here a firewall filter that served a new captcha. BotScore and BotScoreSrc rate the client. The client address is a documentation address.
     sample: '{"BotScore":20,"BotScoreSrc":"Verified Bot","CacheCacheStatus":"unknown","CacheResponseBytes":0,"CacheResponseStatus":0,"CacheTieredFill":false,"ClientASN":15169,"ClientCountry":"us","ClientDeviceType":"desktop","ClientIP":"192.0.2.10","ClientIPClass":"noRecord","ClientRequestBytes":2577,"ClientRequestHost":"cf-analytics.com","ClientRequestMethod":"POST","ClientRequestPath":"/wp-cron.php","ClientRequestProtocol":"HTTP/1.1","ClientRequestReferer":"https://cf-analytics.com/wp-cron.php?doing_wp_cron=1564759748.3962020874023437500000","ClientRequestURI":"/wp-cron.php?doing_wp_cron=1564759748.3962020874023437500000","ClientRequestUserAgent":"WordPress/5.2.2;https://cf-analytics.com","ClientSSLCipher":"ECDHE-ECDSA-AES128-GCM-SHA256","ClientSSLProtocol":"TLSv1.2","ClientSrcPort":55028,"EdgeColoID":14,"EdgeEndTimestamp":"2019-08-02T15:29:08Z","EdgePathingOp":"ban","EdgePathingSrc":"filter_based_firewall","EdgePathingStatus":"captchaNew","EdgeRateLimitAction":"","EdgeRateLimitID":0,"EdgeRequestHost":""}'
     key:
       - BotScore
@@ -55,17 +72,29 @@ logs:
       - CacheResponseBytes
 cves: []
 detections:
-  - title: Cloudflare events arriving
+  - title: Request stopped or challenged by the firewall
     severity: low
     signals:
-      - BotScore
-      - BotScoreSrc
-      - CacheCacheStatus
-    why: Confirms this source is present. It is not a vulnerability claim.
-    kql: '| where sourcetype == "cloudflare_logpull"'
-optimizations: []
+      - EdgePathingSrc
+      - EdgePathingOp
+      - EdgePathingStatus
+      - ClientIP
+      - ClientRequestURI
+    why: Requests the edge banned or challenged are the ones its firewall rules flagged. A surge from one client or ASN, or against one path such as a login page, is an attack on the site that the edge is absorbing.
+    kql: |
+      dataset="cloudflare_logs"
+      | where sourcetype == "cloudflare_logpull" and EdgePathingOp in ("ban", "chl")
+      | project EdgeEndTimestamp, ClientIP, ClientCountry, ClientRequestHost, ClientRequestURI, EdgePathingSrc, EdgePathingStatus
+    mitre:
+      - T1190
+optimizations:
+  - title: Drop cache hits for static content
+    saving: much of the request volume on cache-heavy sites
+    fn: Drop
+    how: Cached static assets make up a large share of requests and say little about security. Keep misses, dynamic requests and anything the firewall acted on.
+    expr: CacheCacheStatus == 'hit' && EdgePathingSrc != 'filter_based_firewall'
 references:
-  - title: elastic/integrations cloudflare/data_stream
-    url: https://github.com/elastic/integrations/blob/cbfff90638a7565377768f50726775c0febc7bf4/packages/cloudflare/data_stream/logpull/_dev/test/pipeline/test-http-json.log
-  - title: Pack Generator sample cloudflare_logpull.json
-    url: https://github.com/wvdlinde-cribl/cribl-pack-samples/blob/main/samples/cloudflare_logpull.json
+  - title: Cloudflare Logpull
+    url: https://developers.cloudflare.com/logs/logpull/
+  - title: Cloudflare Logs
+    url: https://developers.cloudflare.com/logs/
