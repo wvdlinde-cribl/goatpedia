@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Truncate large tool results",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "49fbe6c87faa2dfc",
+    "in": {
+      "events": 1,
+      "bytes": 377
+    },
+    "out": {
+      "events": 1,
+      "bytes": 377
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop pings and progress notifications",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "35d241823d407d7a",
+    "in": {
+      "events": 2,
+      "bytes": 625
+    },
+    "out": {
+      "events": 1,
+      "bytes": 330
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Sample repetitive discovery calls",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "29e7f3de329ff402",
+    "in": {
+      "events": 11,
+      "bytes": 3376
+    },
+    "out": {
+      "events": 2,
+      "bytes": 721
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Mask secrets in arguments and results",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5100ad218e72cf00",
+    "in": {
+      "events": 2,
+      "bytes": 865
+    },
+    "out": {
+      "events": 2,
+      "bytes": 827
+    },
+    "ok": true
+  }
+}

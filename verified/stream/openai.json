@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Unroll usage buckets to one event per result",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "aded3b48adc6c2a3",
+    "in": {
+      "events": 2,
+      "bytes": 653
+    },
+    "out": {
+      "events": 1,
+      "bytes": 378
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Send usage and costs as metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bafa90aa36c4fcaa",
+    "in": {
+      "events": 1,
+      "bytes": 487
+    },
+    "out": {
+      "events": 1,
+      "bytes": 281
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Trim geo precision in audit events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4e9d9b143fac2739",
+    "in": {
+      "events": 1,
+      "bytes": 712
+    },
+    "out": {
+      "events": 1,
+      "bytes": 655
+    },
+    "ok": true
+  }
+}
