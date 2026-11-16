@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop internal infrastructure lookups",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8b12a28a550ad34c",
+    "in": {
+      "events": 3,
+      "bytes": 503
+    },
+    "out": {
+      "events": 1,
+      "bytes": 161
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated identical queries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "af3c75d18e53dd79",
+    "in": {
+      "events": 3,
+      "bytes": 483
+    },
+    "out": {
+      "events": 1,
+      "bytes": 161
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip the client object id and duplicate name",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d77e6e0884e488c6",
+    "in": {
+      "events": 1,
+      "bytes": 161
+    },
+    "out": {
+      "events": 1,
+      "bytes": 105
+    },
+    "ok": true
+  }
+}

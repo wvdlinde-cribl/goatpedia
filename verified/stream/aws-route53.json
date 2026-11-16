@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop AWS-internal and reverse lookups",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b4edc9f81449db53",
+    "in": {
+      "events": 2,
+      "bytes": 802
+    },
+    "out": {
+      "events": 1,
+      "bytes": 395
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated identical queries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1150cf13ad1f90e7",
+    "in": {
+      "events": 3,
+      "bytes": 1185
+    },
+    "out": {
+      "events": 1,
+      "bytes": 395
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Flatten answers and strip constants",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cef820ebab5726ac",
+    "in": {
+      "events": 1,
+      "bytes": 395
+    },
+    "out": {
+      "events": 1,
+      "bytes": 273
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Unwrap CloudWatch Logs subscription envelopes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "09343b5cf4f9003c",
+    "in": {
+      "events": 2,
+      "bytes": 885
+    },
+    "out": {
+      "events": 3,
+      "bytes": 580
+    },
+    "ok": true
+  }
+}

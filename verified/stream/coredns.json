@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop successful answers",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "52979947e4d70e8f",
+    "in": {
+      "events": 2,
+      "bytes": 965
+    },
+    "out": {
+      "events": 1,
+      "bytes": 488
+    },
+    "ok": true
+  }
+}

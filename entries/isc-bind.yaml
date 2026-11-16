@@ -291,21 +291,77 @@ optimizations:
     fn: Drop
     how: Reverse lookups for internal ranges, AD SRV records, WPAD/ISATAP and the resolver's own health checks dominate volume and are rarely searched.
     expr: /in-addr\.arpa$|_ldap\._tcp|_kerberos\._|^wpad\./.test(query_name)
+    stream:
+      log: Query log
+      functions:
+        - id: drop
+          filter: /in-addr\.arpa$|_ldap\._tcp|_kerberos\._|^wpad\./.test(query_name)
+          description: Drop internal reverse lookups, AD SRV and WPAD queries
+          conf: {}
+      test:
+        - '12-Nov-2026 09:14:22.123 queries: info: client @0x7f3a2c0e1168 10.20.30.44#51544 (10.2.0.192.in-addr.arpa): view internal: query: 10.2.0.192.in-addr.arpa IN PTR +E(0)K (10.0.0.53)'
+        - '12-Nov-2026 09:14:22.123 queries: info: client @0x7f3a2c0e1168 10.20.30.44#51544 (wpad.example.com): view internal: query: wpad.example.com IN A +E(0)K (10.0.0.53)'
+      expect:
+        out: 1
   - title: Suppress repeated identical queries
     saving: 30–50 %
     fn: Suppress
     how: Clients re-query the same name every TTL. Keep one event per client/name/type per 5 minutes with a count — enough for hunting.
     expr: "key: `${client_ip}:${query_name}:${query_type}`  allow 1 / 300s"
+    stream:
+      log: Query log
+      functions:
+        - id: suppress
+          filter: category == 'queries'
+          description: Keep one query per client, name and type per 5 minutes
+          conf:
+            keyExpr: client_ip + ':' + query_name + ':' + query_type
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '12-Nov-2026 09:14:22.123 queries: info: client @0x7f3a2c0e1168 10.20.30.44#51544 (www.example.com): view internal: query: www.example.com IN A +E(0)K (10.0.0.53)'
+        - '12-Nov-2026 09:14:22.123 queries: info: client @0x7f3a2c0e1168 10.20.30.44#51544 (www.example.com): view internal: query: www.example.com IN A +E(0)K (10.0.0.53)'
+      expect:
+        out: 1
   - title: Strip the client object id and duplicate name
     saving: 15–25 %
     fn: Parser → Serialize
     how: The @0x… object id and the parenthesised qname repeat other fields; serialise to compact JSON or CSV without them.
     expr: "remove: client_obj, query_name_paren, category, severity"
+    stream:
+      log: Query log
+      parse: false
+      functions:
+        - id: eval
+          filter: '/ queries: \w+: client @0x/.test(_raw)'
+          description: Rewrite _raw without the category, severity, client object id and parenthesised duplicate query name
+          conf:
+            add:
+              - name: _raw
+                value: '_raw.replace(/ [a-z-]+: [a-z]+: client @0x[0-9a-f]+ /, '' '').replace(/ \([^)]+\): /, '': '')'
+      expect:
+        out: 1
+        smaller: true
   - title: Enrich with threat intel and route RPZ/security to the SIEM
     saving: SIEM licence
     fn: Lookup
     how: Look up the parent domain against a threat list and newly-registered-domain list; send rpz, security and matching queries to the SIEM, the full query log to Cribl Lake.
     expr: category in ('rpz','security','query-errors') || threat_match → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: BIND rpz, security and query-errors → SIEM
+          filter: '/^\S+ \S+ (rpz|security|query-errors): /.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: BIND query log → Lake
+          filter: '/^\S+ \S+ queries: /.test(_raw)'
+          to: Cribl Lake; queries matching the threat-intel lookup also cloned to the SIEM
+          final: true
+      note: Routes match the category in _raw; put the SIEM route first. The threat-intel and newly-registered-domain enrichment needs a lookup file you supply, applied with a Lookup function on the parent domain of query_name in the query-log pipeline.
 references:
   - title: BIND 9 Administrator Reference Manual — configuration reference (logging)
     url: https://bind9.readthedocs.io/en/latest/reference.html

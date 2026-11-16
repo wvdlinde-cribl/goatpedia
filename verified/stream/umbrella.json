@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Aggregate allowed DNS to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6527e03b00405c6a",
+    "in": {
+      "events": 4,
+      "bytes": 966
+    },
+    "out": {
+      "events": 2,
+      "bytes": 491
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated identical lookups",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "482d05b814d45214",
+    "in": {
+      "events": 3,
+      "bytes": 801
+    },
+    "out": {
+      "events": 1,
+      "bytes": 267
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop redundant columns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8707484b5f14e1db",
+    "in": {
+      "events": 1,
+      "bytes": 267
+    },
+    "out": {
+      "events": 1,
+      "bytes": 183
+    },
+    "ok": true
+  }
+}
