@@ -317,21 +317,94 @@ optimizations:
     fn: Unroll + Eval
     how: Each Event Hub message is a records[] batch. Unroll it, set _time from properties.Timestamp (or record time), and drop the original records array — otherwise the SIEM sees one huge event per batch with a single timestamp.
     expr: "unroll records → __r; _time = Date.parse(__r.properties.Timestamp)/1000; remove: records"
+    stream:
+      log: DeviceNetworkEvents (Streaming API)
+      functions:
+        - id: unroll
+          filter: Array.isArray(records)
+          description: Split each Event Hub records[] batch into one event per record
+          conf:
+            srcExpr: records
+            dstField: record
+        - id: eval
+          filter: record && record.properties
+          description: Set _time from the record's Timestamp and drop the batch array
+          conf:
+            add:
+              - name: _time
+                value: Date.parse((record.properties || {}).Timestamp || record.time) / 1000
+            remove:
+              - records
+      test:
+        - '{"records":[{"time":"2026-11-12T09:14:25.0021000Z","tenantId":"00000000-1111-2222-3333-444444444444","operationName":"Publish","category":"AdvancedHunting-DeviceNetworkEvents","properties":{"Timestamp":"2026-11-12T09:14:23.8810000Z","DeviceName":"ws-fin-042.corp.example.com","ActionType":"ConnectionSuccess","RemoteIP":"198.51.100.77","RemotePort":443,"RemoteIPType":"Public","ReportId":18355}},{"time":"2026-11-12T09:14:26.0021000Z","tenantId":"00000000-1111-2222-3333-444444444444","operationName":"Publish","category":"AdvancedHunting-DeviceNetworkEvents","properties":{"Timestamp":"2026-11-12T09:14:24.8810000Z","DeviceName":"ws-fin-042.corp.example.com","ActionType":"ConnectionSuccess","RemoteIP":"203.0.113.9","RemotePort":443,"RemoteIPType":"Public","ReportId":18356}}]}'
+      expect:
+        out: 3
+        absent:
+          - records
   - title: Drop null, empty and version-info columns
     saving: 30–50 %
     fn: Eval (remove fields)
     how: Advanced Hunting rows serialise every column, mostly null. Remove nulls/empty strings plus *VersionInfo*, AppGuardContainerId and duplicate hash columns (SHA256 is usually null; MD5 redundant with SHA1).
     expr: "remove: properties.*VersionInfo*, properties.AppGuardContainerId, operationName; drop null/empty"
+    stream:
+      log: DeviceProcessEvents (Streaming API)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove version-info, empty and duplicate hash columns
+          conf:
+            remove:
+              - operationName
+              - properties.ProcessVersionInfoCompanyName
+              - properties.ProcessVersionInfoProductName
+              - properties.ProcessVersionInfoProductVersion
+              - properties.ProcessVersionInfoInternalFileName
+              - properties.ProcessVersionInfoOriginalFileName
+              - properties.ProcessVersionInfoFileDescription
+              - properties.InitiatingProcessVersionInfoCompanyName
+              - properties.AppGuardContainerId
+              - properties.SHA256
+              - properties.MD5
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - operationName
+        present:
+          - properties
+        smaller: true
   - title: Reduce DeviceNetworkEvents
     saving: 20–40 %
     fn: Drop + Aggregations
     how: ListeningConnectionCreated and connections from well-known update/telemetry processes to Microsoft ranges are rarely searched. Drop them or aggregate per device/process/remote IP per minute; keep ConnectionSuccess to public IPs raw.
     expr: category=='AdvancedHunting-DeviceNetworkEvents' && (properties.ActionType=='ListeningConnectionCreated' || properties.RemoteIPType!='Public')
+    stream:
+      log: DeviceNetworkEvents (Streaming API)
+      functions:
+        - id: drop
+          filter: category == 'AdvancedHunting-DeviceNetworkEvents' && ((properties || {}).ActionType == 'ListeningConnectionCreated' || (properties || {}).RemoteIPType != 'Public')
+          description: Drop listening sockets and non-public connections; keep ConnectionSuccess to public IPs
+          conf: {}
+      test:
+        - '{"time":"2026-11-12T09:14:25.0021000Z","tenantId":"00000000-1111-2222-3333-444444444444","operationName":"Publish","category":"AdvancedHunting-DeviceNetworkEvents","properties":{"Timestamp":"2026-11-12T09:14:23.8810000Z","DeviceId":"8f2b1c0d9e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c","DeviceName":"ws-fin-042.corp.example.com","ActionType":"ListeningConnectionCreated","RemoteIP":"","RemotePort":0,"RemoteUrl":"","LocalIP":"10.20.30.44","LocalPort":51544,"Protocol":"Tcp","LocalIPType":"Private","RemoteIPType":"","InitiatingProcessFileName":"svchost.exe","InitiatingProcessId":7412,"InitiatingProcessAccountName":"system","AppGuardContainerId":"","ReportId":18356,"AdditionalFields":null,"MachineGroup":"Finance Workstations"}}'
+      expect:
+        out: 1
   - title: Route by table
     saving: SIEM licence
     fn: Routes
     how: Alerts, incidents, DeviceEvents (ASR/AV/tamper), DeviceLogonEvents and DeviceProcessEvents → SIEM. DeviceNetworkEvents, DeviceFileEvents, DeviceImageLoadEvents → Cribl Lake raw + SIEM optimised. Advanced Hunting keeps only 30 days; the lake is your long-term copy.
     expr: "category in (AlertInfo, AlertEvidence, DeviceEvents, DeviceProcessEvents) → SIEM  |  else → Lake + SIEM(optimised)"
+    stream:
+      routes:
+        - name: MDE alerts and high-value tables → SIEM
+          filter: /"incidentId":/.test(_raw) || /"category":"AdvancedHunting-(AlertInfo|AlertEvidence|DeviceEvents|DeviceLogonEvents|DeviceProcessEvents)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: MDE other Advanced Hunting tables → Lake raw, SIEM optimised
+          filter: /"category":"AdvancedHunting-/.test(_raw)
+          to: Cribl Lake (raw, long-term copy), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the category key in the JSON text (alerts API records by incidentId). Put the SIEM route first.
 references:
   - title: Microsoft Learn — Stream Microsoft Defender XDR events to Azure Event Hubs
     url: https://learn.microsoft.com/en-us/defender-xdr/streaming-api-event-hub

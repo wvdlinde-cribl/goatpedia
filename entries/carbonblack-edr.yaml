@@ -296,21 +296,84 @@ optimizations:
     fn: Event forwarder config + Routes
     how: The forwarder README itself recommends at most procstart and netconn for broadcasting raw events. Enable filemod/regmod/modload only for the lake route, never for the SIEM.
     expr: "events_raw_sensor = ingress.event.procstart, ingress.event.netconn; events_watchlist = ALL; events_alert = ALL"
+    stream:
+      note: Not a pipeline function. In the Carbon Black EDR event forwarder config, set events_raw_sensor to ingress.event.procstart,ingress.event.netconn and keep events_watchlist and events_alert at ALL. If you enable filemod, regmod or modload, send them only to the Cribl Lake route and never to the SIEM.
   - title: Drop links and constant fields
     saving: 20–35 %
     fn: Eval (remove fields)
     how: link_process, link_sensor, link_parent (long URLs), cb_server, expect_followon_w_md5, filtering_known_dlls and proxy=false are on most events and rebuildable from process_guid.
     expr: "remove: link_*, cb_server, expect_followon_w_md5, filtering_known_dlls; drop proxy when false"
+    stream:
+      log: Process start (ingress.event.procstart)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove the long link URLs and the constant fields; remove proxy when it is false
+          conf:
+            remove:
+              - link_process
+              - link_sensor
+              - link_parent
+              - cb_server
+              - expect_followon_w_md5
+              - filtering_known_dlls
+            add:
+              - name: proxy
+                value: 'proxy === false ? undefined : proxy'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - link_process
+          - link_sensor
+          - link_parent
+          - cb_server
+          - expect_followon_w_md5
+          - filtering_known_dlls
+        present:
+          - process_guid
+        smaller: true
   - title: Aggregate netconn
     saving: 20–40 %
     fn: Aggregations
     how: Roll up repeated outbound connections per computer_name / process_path / remote_ip / remote_port per minute; keep first-seen raw.
     expr: "type=='ingress.event.netconn'  group by computer_name, process_path, remote_ip, remote_port  window 60s"
+    stream:
+      log: Network connection (ingress.event.netconn)
+      functions:
+        - id: aggregation
+          filter: type == 'ingress.event.netconn'
+          description: Roll up repeated connections per computer, process, remote IP and port per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+              - earliest(timestamp).as(first_seen)
+              - latest(timestamp).as(last_seen)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - computer_name
+              - process_path
+              - remote_ip
+              - remote_port
+      test:
+        - '{"cb_server":"cbserver","type":"ingress.event.netconn","event_type":"netconn","timestamp":1762938865,"sensor_id":1042,"computer_name":"WS-FIN-042","process_guid":"00000412-0000-1cf4-01db-53a1f0e2c3d4","pid":7412,"process_path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","md5":"7353f60b1739074eb17c5f4dddefe239","direction":"outbound","domain":"cdn.update-check.example.org","protocol":6,"local_ip":"10.20.30.44","local_port":51545,"remote_ip":"198.51.100.77","remote_port":443,"proxy":false,"link_process":"https://cbserver.corp.example.com/#analyze/00000412-0000-1cf4-01db-53a1f0e2c3d4/1","link_sensor":"https://cbserver.corp.example.com/#/host/1042"}'
+        - '{"cb_server":"cbserver","type":"ingress.event.netconn","event_type":"netconn","timestamp":1762938866,"sensor_id":1042,"computer_name":"WS-FIN-042","process_guid":"00000412-0000-1cf4-01db-53a1f0e2c3d4","pid":7412,"process_path":"c:\\windows\\system32\\windowspowershell\\v1.0\\powershell.exe","md5":"7353f60b1739074eb17c5f4dddefe239","direction":"outbound","domain":"cdn.update-check.example.org","protocol":6,"local_ip":"10.20.30.44","local_port":51546,"remote_ip":"198.51.100.77","remote_port":443,"proxy":false,"link_process":"https://cbserver.corp.example.com/#analyze/00000412-0000-1cf4-01db-53a1f0e2c3d4/1","link_sensor":"https://cbserver.corp.example.com/#/host/1042"}'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop trusted system processes
     saving: 10–25 %
     fn: Lookup + Drop
     how: Drop procstart/netconn for known-good hashes (AV, backup, management agents) from a lookup; keep anything with an unknown hash.
     expr: C.Lookup('cb_trusted_sha256.csv','sha256').match(sha256) && type.startsWith('ingress.event.')
+    stream:
+      note: This needs a lookup file you supply. Upload cb_trusted_sha256.csv with the known-good hashes of AV, backup and management agents. Then add a Lookup function on sha256 and a Drop function for ingress.event.* events that match, so that any event with an unknown hash is kept.
 references:
   - title: carbonblack/cb-event-forwarder (GitHub)
     url: https://github.com/carbonblack/cb-event-forwarder

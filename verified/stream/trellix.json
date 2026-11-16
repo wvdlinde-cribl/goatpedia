@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Filter event IDs at the source",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b4f8913a3f95b6ee",
+    "in": {
+      "events": 2,
+      "bytes": 3059
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1626
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Remove null and duplicate columns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "dcf79361c729660d",
+    "in": {
+      "events": 1,
+      "bytes": 1626
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1189
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Parse syslog XML to JSON once",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "36d2f94f254f0fc2",
+    "in": {
+      "events": 1,
+      "bytes": 1312
+    },
+    "out": {
+      "events": 1,
+      "bytes": 604
+    },
+    "ok": true
+  },
+  "4": {
+    "title": "Aggregate EDR network and DNS activity",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "85192aae183cdaff",
+    "in": {
+      "events": 3,
+      "bytes": 2670
+    },
+    "out": {
+      "events": 1,
+      "bytes": 258
+    },
+    "ok": true
+  }
+}

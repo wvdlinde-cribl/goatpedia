@@ -391,26 +391,102 @@ optimizations:
     fn: Drop + Lookup
     how: FDR ships hundreds of event types; most SOCs use a few dozen. Keep a lookup of allowed event_simpleName values (PR2, DnsRequest, NetworkConnectIP4, file-written, registry, user logon, detections) and drop the rest to Lake only.
     expr: "!C.Lookup('event_simpleName_keep.csv','event_simpleName').match(event_simpleName)"
+    stream:
+      note: 'This needs a lookup file you supply: create event_simpleName_keep.csv with the event_simpleName values your SOC uses (ProcessRollup2, DnsRequest, NetworkConnectIP4, file-written, registry, user logon and detection events). Then add a Drop function with filter !C.Lookup(''event_simpleName_keep.csv'',''event_simpleName'').match(event_simpleName) to the SIEM pipeline, and keep sending all events raw to Cribl Lake.'
   - title: Remove config and flag fields
     saving: 15–25 %
     fn: Eval (remove fields)
     how: ConfigBuild, ConfigStateHash, Entitlements, EffectiveTransmissionClass, *Flags, Tags and empty strings are present on almost every event and never searched.
     expr: "remove: ConfigBuild, ConfigStateHash, Entitlements, EffectiveTransmissionClass, *Flags, Tags; drop empty"
+    stream:
+      log: ProcessRollup2 (FDR)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove config, flag and tag fields and the empty ProcessEndTime
+          conf:
+            remove:
+              - ConfigBuild
+              - ConfigStateHash
+              - Entitlements
+              - EffectiveTransmissionClass
+              - ProcessSxsFlags
+              - WindowFlags
+              - ShowWindowFlags
+              - Tags
+              - ProcessEndTime
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - ConfigBuild
+          - ConfigStateHash
+          - Entitlements
+          - EffectiveTransmissionClass
+          - ProcessSxsFlags
+          - WindowFlags
+          - ShowWindowFlags
+          - Tags
+        present:
+          - CommandLine
+          - aid
+        smaller: true
   - title: Drop DNS to top domains
     saving: 10–20 %
     fn: Lookup + Drop
     how: Most DnsRequest events resolve Microsoft, Google and CDN names. Drop DomainName values in a top-5k list (Majestic/Tranco) before the SIEM; keep everything in the lake.
     expr: event_simpleName=='DnsRequest' && C.Lookup('top_domains.csv','domain').match(DomainName)
+    stream:
+      note: This needs a top-domains lookup file you supply, such as top_domains.csv built from the Tranco or Majestic top 5k list with a domain column. Add a Drop function with filter event_simpleName=='DnsRequest' && C.Lookup('top_domains.csv','domain').match(DomainName) to the SIEM pipeline only, and keep all DNS events in Cribl Lake.
   - title: Aggregate network connections
     saving: 10–25 %
     fn: Aggregations
     how: Repeated NetworkConnectIP4 / NetworkReceiveAcceptIP4 from the same process to the same destination roll up to one record with a count per minute.
     expr: "event_simpleName.startsWith('Network')  group by aid, ContextProcessId, RemoteAddressIP4, RemotePort  window 60s"
+    stream:
+      log: DnsRequest (FDR)
+      functions:
+        - id: aggregation
+          filter: typeof event_simpleName == 'string' && event_simpleName.indexOf('Network') == 0
+          description: Roll up repeated network connections per sensor, process and destination to one record per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - aid
+              - ContextProcessId
+              - RemoteAddressIP4
+              - RemotePort
+      test:
+        - '{"event_simpleName":"NetworkConnectIP4","name":"DnsRequestV4","aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","event_platform":"Win","timestamp":"1762938863102","ContextTimeStamp":"1762938862.977","ContextProcessId":"5642133882","ContextThreadId":"788961645231","DomainName":"cdn.update-check.example.org","RequestType":"1","QueryStatus":"0","DnsResponseType":"2","IP4Records":"198.51.100.77;","FirstIP4Record":"198.51.100.77","CNAMERecords":"","RespondingDnsServer":"10.10.0.10","DnsRequestCount":"1","InterfaceIndex":"0","DualRequest":"0","EventOrigin":"1","ConfigBuild":"1007.3.0018207.1","ConfigStateHash":"840884426","Entitlements":"15","EffectiveTransmissionClass":"3"}'
+        - '{"event_simpleName":"NetworkConnectIP4","name":"DnsRequestV4","aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","event_platform":"Win","timestamp":"1762938863102","ContextTimeStamp":"1762938862.977","ContextProcessId":"5642133882","ContextThreadId":"788961645231","DomainName":"cdn.update-check.example.org","RequestType":"1","QueryStatus":"0","DnsResponseType":"2","IP4Records":"198.51.100.77;","FirstIP4Record":"198.51.100.77","CNAMERecords":"","RespondingDnsServer":"10.10.0.10","DnsRequestCount":"1","InterfaceIndex":"0","DualRequest":"0","EventOrigin":"1","ConfigBuild":"1007.3.0018207.1","ConfigStateHash":"840884426","Entitlements":"15","EffectiveTransmissionClass":"3"}'
+        - '{"event_simpleName":"NetworkConnectIP4","name":"DnsRequestV4","aid":"3f1c2a9e8b7d4c6e9a0b1c2d3e4f5a6b","cid":"0a1b2c3d4e5f60718293a4b5c6d7e8f9","aip":"203.0.113.45","event_platform":"Win","timestamp":"1762938863102","ContextTimeStamp":"1762938862.977","ContextProcessId":"5642133882","ContextThreadId":"788961645231","DomainName":"cdn.update-check.example.org","RequestType":"1","QueryStatus":"0","DnsResponseType":"2","IP4Records":"198.51.100.77;","FirstIP4Record":"198.51.100.77","CNAMERecords":"","RespondingDnsServer":"10.10.0.10","DnsRequestCount":"1","InterfaceIndex":"0","DualRequest":"0","EventOrigin":"1","ConfigBuild":"1007.3.0018207.1","ConfigStateHash":"840884426","Entitlements":"15","EffectiveTransmissionClass":"3"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Enrich with aidmaster, route by value
     saving: Analyst time + SIEM licence
     fn: Lookup + Routes
     how: Join aid → ComputerName/OS/OU from aidmaster so detections are readable; send Event Streams detections and audit at full fidelity to the SIEM, all FDR raw to Cribl Lake for replay.
     expr: "metadata.eventType → SIEM  |  event_simpleName → Lake + SIEM(optimised)"
+    stream:
+      routes:
+        - name: Falcon Event Streams detections and audit → SIEM
+          filter: /^\{"metadata":\{/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Falcon FDR → Lake raw, SIEM optimised
+          filter: /"event_simpleName":"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the Event Streams metadata key or the FDR event_simpleName key. Put the Event Streams route first. For the aid enrichment, load aidmaster into a lookup file you maintain (aid, ComputerName, Version, OU) and add a Lookup function on aid in the SIEM pipeline.
 references:
   - title: Cribl Stream — CrowdStrike FDR Source
     url: https://docs.cribl.io/stream/sources-crowdstrike/

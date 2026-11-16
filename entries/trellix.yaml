@@ -311,26 +311,130 @@ optimizations:
     fn: ePO Event Filtering + Drop
     how: ePO Event Filtering decides which event IDs are forwarded. Forward threat, exploit-prevention, access-protection and firewall-block events; keep update / scan-completed / informational events in ePO only, or drop them in Stream.
     expr: attributes.threatcategory.startsWith('ops.') || attributes.threatname=='None'
+    stream:
+      log: Threat event (ePO - SaaS Events API)
+      functions:
+        - id: drop
+          filter: ((attributes || {}).threatcategory || '').indexOf('ops.') == 0 || (attributes || {}).threatname == 'None'
+          description: Drop operational (update, scan-completed, informational) events that carry no threat
+          conf: {}
+      test:
+        - '{"id":"0102be3a-41db-448c-9a68-bce7c480d444","type":"MVEvents","links":{"self":"/epo/v2/events/0102be3a-41db-448c-9a68-bce7c480d444"},"attributes":{"timestamp":"2026-11-12T09:14:24.041Z","autoguid":"9fcf439b-82d7-425c-9a11-0c2d3e4f5a6b","detectedutc":"1762938860000","receivedutc":"1762938864041","agentguid":"8630b925-cbd2-ed11-8a7b-0c2d3e4f5a6b","analyzer":"ENDP_AM_1070","analyzername":"Trellix Endpoint Security","analyzerversion":"10.7.0.6842","analyzerhostname":"WS-FIN-042","analyzeripv4":"10.20.30.44","analyzeripv6":"/::ffff:10.20.30.44","analyzermac":"00005E005301","analyzerdatversion":"5912.0","analyzerengineversion":"6700.10107","analyzerdetectionmethod":"On-Demand Scan","sourcehostname":null,"sourceipv4":"198.51.100.77","sourceipv6":"/::ffff:198.51.100.77","sourcemac":null,"sourceusername":"CORP\\jdoe","sourceprocessname":null,"sourceurl":null,"targethostname":"WS-FIN-042","targetipv4":"10.20.30.44","targetipv6":"/::ffff:10.20.30.44","targetmac":"00005E005301","targetusername":"CORP\\jdoe","targetport":null,"targetprotocol":null,"targetprocessname":null,"targetfilename":null,"threatcategory":"ops.task.end","threateventid":1203,"threatseverity":"4","threatname":"None","threattype":"none","threatactiontaken":"none","threathandled":true,"nodepath":"1\\854691\\901751","targethash":null,"sourceprocesshash":null,"sourceprocesssigned":"true","sourceprocesssigner":"MICROSOFT CORPORATION","sourcefilepath":null}}'
+      expect:
+        out: 1
   - title: Remove null and duplicate columns
     saving: 25–40 %
     fn: Eval (remove fields)
     how: Threat events carry many nulls (source*/target* not applicable), IPv6-mapped duplicates of IPv4 and self links. Remove them and flatten attributes.* to top level.
     expr: "remove: links.*, attributes.*ipv6, attributes.*mac, attributes.autoguid; drop null"
+    stream:
+      log: Threat event (ePO - SaaS Events API)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove self links, IPv6-mapped and MAC duplicates and autoguid
+          conf:
+            remove:
+              - links
+              - attributes.analyzeripv6
+              - attributes.sourceipv6
+              - attributes.targetipv6
+              - attributes.analyzermac
+              - attributes.sourcemac
+              - attributes.targetmac
+              - attributes.autoguid
+        - id: eval
+          filter: 'true'
+          description: Remove attributes that are null
+          conf:
+            add:
+              - name: attributes.sourcehostname
+                value: '(attributes || {}).sourcehostname === null ? undefined : (attributes || {}).sourcehostname'
+              - name: attributes.targetport
+                value: '(attributes || {}).targetport === null ? undefined : (attributes || {}).targetport'
+              - name: attributes.targetprotocol
+                value: '(attributes || {}).targetprotocol === null ? undefined : (attributes || {}).targetprotocol'
+              - name: attributes.targetprocessname
+                value: '(attributes || {}).targetprocessname === null ? undefined : (attributes || {}).targetprocessname'
+              - name: attributes.sourceprocesshash
+                value: '(attributes || {}).sourceprocesshash === null ? undefined : (attributes || {}).sourceprocesshash'
+              - name: attributes.sourcefilepath
+                value: '(attributes || {}).sourcefilepath === null ? undefined : (attributes || {}).sourcefilepath'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - links
+        present:
+          - attributes
+        smaller: true
   - title: Parse syslog XML to JSON once
     saving: 30–50 % (XML tag overhead)
     fn: Parser (XML) → Serialize
     how: On-prem events arrive as verbose XML. Parse with the XML parser, keep CommonFields + MachineInfo, and serialise as JSON so on-prem and SaaS share one schema.
     expr: "C.Text.parseXml(_raw) → EPOEvent.SoftwareInfo.Event.CommonFields.*, EPOEvent.MachineInfo.*"
+    stream:
+      log: Threat event (ePO - On-prem syslog XML)
+      parse: false
+      functions:
+        - id: eval
+          filter: /^<EPOEvent>/.test(_raw)
+          description: Parse the ePO XML once
+          conf:
+            add:
+              - name: __x
+                value: C.Text.parseXml(_raw, false)
+        - id: eval
+          filter: __x && __x.EPOEvent
+          description: Rewrite _raw as JSON with MachineInfo and the event CommonFields
+          conf:
+            add:
+              - name: _raw
+                value: 'JSON.stringify({MachineInfo: (__x.EPOEvent || {}).MachineInfo, CommonFields: (((__x.EPOEvent || {}).SoftwareInfo || {}).Event || {}).CommonFields, EventID: (((__x.EPOEvent || {}).SoftwareInfo || {}).Event || {}).EventID, GMTTime: (((__x.EPOEvent || {}).SoftwareInfo || {}).Event || {}).GMTTime})'
+            remove:
+              - __x
+      expect:
+        out: 1
+        smaller: true
   - title: Enrich with devices and groups
     saving: Analyst time
     fn: Lookup
     how: Join events on agentguid / computerName to the Devices API (tags, OS, agent version) and nodepath to the Groups API (nodeTextPath) so alerts show business unit and owner.
     expr: "lookup trellix_devices.csv on agentguid → tags, osType, agentVersion; lookup trellix_groups.csv on nodepath → nodeTextPath"
+    stream:
+      note: Export the ePO Devices API to trellix_devices.csv (agentguid, tags, osType, agentVersion) and the Groups API to trellix_groups.csv (nodepath, nodeTextPath), upload them as Cribl lookups, then add Lookup functions keyed on attributes.agentguid and attributes.nodepath.
   - title: Aggregate EDR network and DNS activity
     saving: 20–40 %
     fn: Aggregations
     how: EDR network and DNS events repeat heavily. Aggregate per device / process / destination per minute for the SIEM; keep raw in Cribl Lake.
     expr: "_eventType in ('Network Connection','DNS Query')  group by _deviceId, name, destAddress, destPort  window 60s"
+    stream:
+      log: EDR activity event
+      functions:
+        - id: aggregation
+          filter: _eventType == 'Network Connection' || _eventType == 'DNS Query'
+          description: Roll EDR network and DNS activity up per device, process and destination per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - _deviceId
+              - name
+              - destAddress
+              - destPort
+      test:
+        - '{"_ver":2107,"_serverId":"5B0539BF-0932-4BEA-BD12-EA52687E58BD","_eventType":"Network Connection","_deviceId":"D435435B-BB33-4625-891E-0C2D3E4F5A6B","_parentEventId":"1a2b3c4d-8566-404c-87a3-a4c46017b87d","_eventId":"675e9f10-054c-48e8-9549-468dbb5ae5bd","_time":"2026-11-12T09:14:25.186Z","name":"powershell.exe","authorName":"Microsoft Windows","cmdLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","pid":"7412","fileSha256":"9F914D42706FE215501044ACD85A32D58AAEF1419D404FDDFA5D3B48F66CCD9F","fileMd5":"7353F60B1739074EB17C5F4DDDEFE239","filePath":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","fileType":"PE","fileAttributes":32,"fileMagicBytes":"4d5a90","subsystem":3,"direction":"outbound","protocol":"tcp","sourceAddress":"10.20.30.44","sourcePort":51545,"destAddress":"198.51.100.77","destPort":443,"dnsName":"cdn.update-check.example.org","data":"AAA9UFgBAAA="}'
+        - '{"_ver":2107,"_serverId":"5B0539BF-0932-4BEA-BD12-EA52687E58BD","_eventType":"Network Connection","_deviceId":"D435435B-BB33-4625-891E-0C2D3E4F5A6B","_parentEventId":"1a2b3c4d-8566-404c-87a3-a4c46017b87d","_eventId":"675e9f10-054c-48e8-9549-468dbb5ae5be","_time":"2026-11-12T09:14:26.186Z","name":"powershell.exe","authorName":"Microsoft Windows","cmdLine":"powershell.exe -nop -w hidden -enc SQBFAFgA","pid":"7412","fileSha256":"9F914D42706FE215501044ACD85A32D58AAEF1419D404FDDFA5D3B48F66CCD9F","fileMd5":"7353F60B1739074EB17C5F4DDDEFE239","filePath":"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe","fileType":"PE","fileAttributes":32,"fileMagicBytes":"4d5a90","subsystem":3,"direction":"outbound","protocol":"tcp","sourceAddress":"10.20.30.44","sourcePort":51546,"destAddress":"198.51.100.77","destPort":443,"dnsName":"cdn.update-check.example.org","data":"AAA9UFgBAAA="}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Trellix docs — Register syslog servers (ePO - On-prem, TLS only)
     url: https://docs.trellix.com/docs/register-syslog-servers

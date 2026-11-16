@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Keep end-of-flow records only",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "31d0e6ba1315dd32",
+    "in": {
+      "events": 2,
+      "bytes": 1792
+    },
+    "out": {
+      "events": 1,
+      "bytes": 903
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop duplicated time and module fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4ddf126c379a4cc9",
+    "in": {
+      "events": 1,
+      "bytes": 903
+    },
+    "out": {
+      "events": 1,
+      "bytes": 754
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate high-volume benign flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1a3fbfdf68361fd7",
+    "in": {
+      "events": 4,
+      "bytes": 3204
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1151
+    },
+    "ok": true
+  }
+}

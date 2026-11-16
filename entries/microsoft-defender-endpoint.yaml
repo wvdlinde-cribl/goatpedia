@@ -182,6 +182,17 @@ optimizations:
     fn: Drop
     how: Assessment snapshots repeat every compliant setting on every device. Keep the non-compliant rows, which are the ones that need action.
     expr: isCompliant == true
+    stream:
+      log: Secure configuration assessment
+      functions:
+        - id: drop
+          filter: isCompliant === true
+          description: Drop compliant assessment rows; keep the non-compliant ones that need action
+          conf: {}
+      test:
+        - '{"deviceId":"00013ee62c6b12345b10214e1801b217b50ab455c293d","rbacGroupName":"Production-Servers","deviceName":"srv-dc01.contoso.example","osPlatform":"Windows10 and Windows 11","osVersion":"10.0.17763.2330","timestamp":"2021-01-11T09:47:58.854Z","configurationId":"scid-10000","configurationCategory":"Network","configurationSubcategory":"","configurationImpact":5,"isCompliant":false,"isApplicable":true,"isExpectedUserImpact":false,"configurationName":"Disable insecure administration protocol - Telnet","recommendationReference":"sca-_-scid-10000"}'
+      expect:
+        out: 1
 references:
   - title: Microsoft Defender for Endpoint
     url: https://learn.microsoft.com/en-us/defender-endpoint/microsoft-defender-endpoint

@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop passed and skipped snapshots",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1f8112cace84e4b7",
+    "in": {
+      "events": 3,
+      "bytes": 2581
+    },
+    "out": {
+      "events": 1,
+      "bytes": 860
+    },
+    "ok": true
+  }
+}

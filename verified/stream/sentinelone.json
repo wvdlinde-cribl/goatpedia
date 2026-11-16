@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Filter categories at the source, then in Stream",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e1ee9e061d496784",
+    "in": {
+      "events": 2,
+      "bytes": 1735
+    },
+    "out": {
+      "events": 1,
+      "bytes": 866
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Remove counters and ingest metadata",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2a39a093f2342495",
+    "in": {
+      "events": 1,
+      "bytes": 1933
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1645
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Normalise v1 and v2 to one schema",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c366839e6b9e53d7",
+    "in": {
+      "events": 1,
+      "bytes": 863
+    },
+    "out": {
+      "events": 1,
+      "bytes": 885
+    },
+    "ok": true
+  }
+}
