@@ -328,6 +328,17 @@ optimizations:
     fn: Routes
     how: process_kprobe hits and enforcement actions go to the SIEM at full fidelity. Exec and connect go to Cribl Lake raw plus the SIEM after the trims above.
     expr: process_kprobe → SIEM  |  process_exec, process_connect → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: Tetragon kprobe hits → SIEM
+          filter: /^\{"process_kprobe":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Tetragon exec and connect → Lake raw, SIEM optimised
+          filter: /^\{"process_(exec|connect)":/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the top-level event-type key in the JSON text. Put the kprobe route first.
 references:
   - title: Tetragon — Events (JSON export, export and field filters)
     url: https://tetragon.io/docs/concepts/events/

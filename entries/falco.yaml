@@ -308,6 +308,17 @@ optimizations:
     fn: Routes
     how: Critical/Error alerts go to the SIEM and the paging tool. Notice/Warning goes to the SIEM. Everything goes raw to Lake for rule tuning and hunting.
     expr: priority in ('Emergency','Alert','Critical','Error') → SIEM + pager  |  else → SIEM + Lake
+    stream:
+      routes:
+        - name: Falco Emergency/Alert/Critical/Error → SIEM + pager
+          filter: /"priority":"(Emergency|Alert|Critical|Error)"/.test(_raw)
+          to: The SIEM and the paging tool, plus Cribl Lake raw
+          final: true
+        - name: Falco other priorities → SIEM + Lake
+          filter: /"priority":"/.test(_raw)
+          to: The SIEM and Cribl Lake (raw)
+          final: true
+      note: Routes see the raw event, so they match the priority key in the JSON text. Put the high-priority route first; use a clone or output router so every event also reaches Lake.
 references:
   - title: Falco — Output channels and JSON output fields
     url: https://falco.org/docs/concepts/outputs/channels/

@@ -316,11 +316,24 @@ optimizations:
     fn: Parser → Unroll
     how: Firehose/Kinesis payloads are gzip+base64 CloudWatch envelopes with a logEvents array. Decompress, unroll logEvents, parse message as JSON and set _time from stageTimestamp, so each audit record is one event.
     expr: "unroll: logEvents → parse message as JSON; _time = stageTimestamp"
+    stream:
+      note: 'Handle this on the Firehose/Kinesis source: enable gzip decompression and use an Event Breaker or Unroll on logEvents so each CloudWatch message becomes one event, then parse message as JSON and set _time from stageTimestamp before routing.'
   - title: Route writes and denies to the SIEM
     saving: SIEM licence
     fn: Routes
     how: Writes, exec/attach, RBAC and secret access, and any 401/403 go to the SIEM. Reads by system identities go to Cribl Lake raw for replay.
     expr: "!['get','list','watch'].includes(verb) || responseStatus.code >= 400 || objectRef.resource=='secrets' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: EKS writes, exec, secrets and denies → SIEM
+          filter: /"verb":"(create|update|patch|delete|deletecollection)"/.test(_raw) || /"code":4\d\d/.test(_raw) || /"resource":"secrets"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: EKS other audit events → Lake
+          filter: /"auditID":"/.test(_raw)
+          to: Cribl Lake raw, replay on demand
+          final: true
+      note: Routes see the raw JSON, so they match verb, response code and resource in _raw. Put the SIEM route first.
 references:
   - title: Amazon EKS — Send control plane logs to CloudWatch Logs
     url: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html
