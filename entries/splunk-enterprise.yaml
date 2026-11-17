@@ -288,21 +288,70 @@ optimizations:
     fn: Drop
     how: Requests for /static/, fonts, images and JS bundles are page loads. Keep everything else, plus any 4xx/5xx.
     expr: status<400 && /\/static\/|\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(uri)
+    stream:
+      log: Splunk Web access (splunkd_ui_access)
+      functions:
+        - id: drop
+          filter: Number(status) < 400 && /\/static\/|\.(js|css|png|svg|woff2?|ico)(\?|$)/.test(uri)
+          description: Drop successful static asset requests (page loads); keep everything else and any 4xx/5xx
+          conf: {}
+      test:
+        - 203.0.113.45 - jdoe [12/Nov/2026:09:14:07.512 +0000] "GET /en-US/static/@1A2B3C/build/pages/enterprise/search.js HTTP/1.1" 200 1543 "https://splunk.example.com/en-US/app/search/search" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" - 5f3c8a1b2c7f0d8e9a6b3c2d1e0f9a8b 12ms
+        - 203.0.113.45 - jdoe [12/Nov/2026:09:14:07.512 +0000] "GET /en-US/static/@1A2B3C/img/logo.png HTTP/1.1" 404 1543 "https://splunk.example.com/en-US/app/search/search" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" - 5f3c8a1b2c7f0d8e9a6b3c2d1e0f9a8b 12ms
+      expect:
+        out: 2
   - title: Drop routine splunkd_access polling
     saving: 30–60 % of REST access
     fn: Drop
     how: Search-job status polls and server/info calls from the UI and deployment clients repeat every few seconds. Keep writes, auth endpoints and errors.
     expr: method=='GET' && status<400 && /\/services\/(server\/info|search\/jobs\/[^/]+$|messages|broker\/phonehome)/.test(uri)
+    stream:
+      log: REST API access (splunkd_access)
+      functions:
+        - id: drop
+          filter: method == 'GET' && Number(status) < 400 && /\/services\/(server\/info|search\/jobs\/[^\/]+$|messages|broker\/phonehome)/.test(uri)
+          description: Drop routine successful GET polls of job status, server info, messages and phonehome; keep writes, auth and errors
+          conf: {}
+      test:
+        - 198.51.100.23 - svc_automation [12/Nov/2026:09:16:11.204 +0000] "GET /services/server/info HTTP/1.1" 200 2876 "-" "python-requests/2.32.3" - 9ms
+      expect:
+        out: 1
   - title: Filter splunkd.log to WARN and above
     saving: 50–80 % of splunkd
     fn: Drop
     how: INFO lines (metrics flushes, bucket rolls) rarely matter outside Splunk itself. Keep WARN/ERROR/FATAL and auth or license messages.
     expr: log_level=='INFO' && !/auth|license|TcpInput|TcpOutput/i.test(component + ' ' + message)
+    stream:
+      log: splunkd.log
+      functions:
+        - id: drop
+          filter: log_level == 'INFO' && !/auth|license|TcpInput|TcpOutput/i.test(component + ' ' + message)
+          description: Drop INFO lines except auth, license and forwarding messages; keep WARN and above
+          conf: {}
+      test:
+        - 11-12-2026 09:16:20.417 +0000 INFO  BucketMover [4120 bucketMoverThread] - Will attempt to freeze bucket idx=main
+      expect:
+        out: 1
   - title: Route by consumer
     saving: SIEM licence
     fn: Routes
     how: Send _audit and filtered access logs to the SOC SIEM; send full _internal (incl. metrics.log) to Cribl Lake or the platform team's monitoring.
     expr: "sourcetype=='audittrail' || sourcetype=='splunkd_access' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: Splunk audit trail → SIEM
+          filter: /^Audit:\[/.test(_raw)
+          to: The SOC SIEM
+          final: true
+        - name: Splunk splunkd_access → SIEM (filtered)
+          filter: /^\S+ \S+ \S+ \[[^\]]+\] "\S+ \/services\//.test(_raw)
+          to: The SOC SIEM through the splunkd_access drop pipeline above
+          final: true
+        - name: Other Splunk _internal → Lake
+          filter: 'true'
+          to: Cribl Lake or the platform team's monitoring, full fidelity
+          final: true
+      note: Routes see the raw event, so audit is matched on the Audit:[ prefix and splunkd_access on a /services/ request path. Keep the catch-all route last.
 references:
   - title: Splunk advisory SVD-2026-0603 (CVE-2026-20253)
     url: https://advisory.splunk.com/advisories/SVD-2026-0603
