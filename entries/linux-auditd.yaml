@@ -280,26 +280,100 @@ optimizations:
     fn: Aggregations / Event Breaker
     how: Group SYSCALL, EXECVE, CWD, PATH and PROCTITLE records with the same msg=audit(…:serial) into one event, keeping identity fields once. Cuts repeated headers and makes detections single-event.
     expr: "group by: msg serial  window: 2s"
+    stream:
+      note: Records that belong together share the serial in msg=audit(<time>:<serial>). Join SYSCALL, EXECVE, CWD, PATH and PROCTITLE records into one event before the SIEM, either with an Event Breaker or Aggregations keyed on that serial with a 2 s window, or with a host-side tool such as auditd's enriched format or laurel.
   - title: Drop known-noisy daemons
     saving: 20–50 %
     fn: Drop
     how: Monitoring agents, cron and package managers trigger huge numbers of execve and file events. Drop by exe for a reviewed allow-list, or better, exclude them in the audit rules with -F exe!=.
     expr: exe in ('/usr/bin/prometheus-node-exporter','/usr/sbin/crond') && type=='SYSCALL'
+    stream:
+      log: SYSCALL record
+      functions:
+        - id: drop
+          filter: type == 'SYSCALL' && /exe="?(\/usr\/bin\/prometheus-node-exporter|\/usr\/sbin\/crond)"?( |$)/.test(_raw)
+          description: Drop SYSCALL records from reviewed noisy daemons (node exporter, crond)
+          conf: {}
+      test:
+        - 'node=web01.example.com type=SYSCALL msg=audit(1731402862.123:4568): arch=c000003e syscall=59 success=yes exit=0 a0=55d1c2a3b4c0 a1=55d1c2a3b5e0 a2=55d1c2a3b6f0 a3=8 items=2 ppid=1 pid=2246 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="crond" exe="/usr/sbin/crond" subj=unconfined key="exec"'
+      expect:
+        out: 1
   - title: Remove raw syscall arguments
     saving: 10–20 %
     fn: Eval
     how: a0–a3 on SYSCALL records are raw pointers (not useful); PROCTITLE duplicates EXECVE. Remove them after the merge.
     expr: "remove: a0, a1, a2, a3 when type=='SYSCALL'; drop type=='PROCTITLE' when EXECVE present"
+    stream:
+      log: SYSCALL record
+      functions:
+        - id: eval
+          filter: type == 'SYSCALL'
+          description: Remove raw syscall argument pointers a0-a3
+          conf:
+            remove:
+              - a0
+              - a1
+              - a2
+              - a3
+        - id: drop
+          filter: type == 'PROCTITLE'
+          description: Drop PROCTITLE records; EXECVE carries the same command line
+          conf: {}
+      serialize: true
+      test:
+        - 'node=web01.example.com type=PROCTITLE msg=audit(1731402862.123:4567): proctitle=6375726C'
+      expect:
+        out: 1
+        absent:
+          - a0
+          - a1
+          - a2
+          - a3
+        smaller: true
   - title: Decode hex values once
     saving: 0 % (quality)
     fn: Eval
     how: Decode hex-encoded proctitle, EXECVE arguments and PATH name in the pipeline so the SIEM indexes readable command lines and analysts do not run ausearch by hand.
     expr: /^[0-9A-F]+$/.test(a1)
+    stream:
+      log: EXECVE record
+      functions:
+        - id: eval
+          filter: type == 'EXECVE'
+          description: Decode hex-encoded EXECVE arguments into readable text
+          conf:
+            add:
+              - name: a0
+                value: '(typeof a0 == ''string'' && /^([0-9A-F]{2})+$/.test(a0)) ? C.Decode.hex(a0) : a0'
+              - name: a1
+                value: '(typeof a1 == ''string'' && /^([0-9A-F]{2})+$/.test(a1)) ? C.Decode.hex(a1) : a1'
+              - name: a2
+                value: '(typeof a2 == ''string'' && /^([0-9A-F]{2})+$/.test(a2)) ? C.Decode.hex(a2) : a2'
+              - name: a3
+                value: '(typeof a3 == ''string'' && /^([0-9A-F]{2})+$/.test(a3)) ? C.Decode.hex(a3) : a3'
+      serialize: true
+      test:
+        - 'node=web01.example.com type=EXECVE msg=audit(1731402862.123:4569): argc=4 a0="curl" a1="-s" a2=687474703A2F2F3230332E302E3131332E35302F782E7368 a3="-o/tmp/.x"'
+      expect:
+        out: 2
+        present:
+          - a2
   - title: Route by rule key
     saving: SIEM licence
     fn: Routes
     how: Security rule keys (exec as root, identity, shadow, modules, sudoers) → SIEM. Broad file-access keys → Lake only, replayed on demand.
     expr: key in ('exec','identity','shadow','modules','sudoers','priv_esc')
+    stream:
+      routes:
+        - name: auditd security rule keys → SIEM
+          filter: / key="(exec|identity|shadow|modules|sudoers|priv_esc)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: auditd other records → Lake
+          filter: / type=[A-Z_]+ msg=audit\(/.test(_raw)
+          to: Cribl Lake only; replay on demand
+          final: true
+      note: Routes see the raw record, so they match the key="..." value in _raw. Put the security-key route first.
 references:
   - title: auditd(8) manual page
     url: https://man7.org/linux/man-pages/man8/auditd.8.html

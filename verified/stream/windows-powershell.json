@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Suppress repeated script blocks from management agents",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8623fa6b1058c1bd",
+    "in": {
+      "events": 4,
+      "bytes": 4008
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2114
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop start/stop invocation noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8d5e8c3f34b9fe70",
+    "in": {
+      "events": 2,
+      "bytes": 2006
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1167
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip XML boilerplate and verbose ContextInfo",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "17cba02ced471824",
+    "in": {
+      "events": 1,
+      "bytes": 1673
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1437
+    },
+    "ok": true
+  }
+}

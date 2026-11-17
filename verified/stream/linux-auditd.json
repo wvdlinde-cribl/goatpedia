@@ -1,0 +1,47 @@
+{
+  "1": {
+    "title": "Drop known-noisy daemons",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e81542c1856eac0f",
+    "in": {
+      "events": 2,
+      "bytes": 679
+    },
+    "out": {
+      "events": 1,
+      "bytes": 331
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Remove raw syscall arguments",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "47b88adefac57a3c",
+    "in": {
+      "events": 2,
+      "bytes": 419
+    },
+    "out": {
+      "events": 1,
+      "bytes": 272
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Decode hex values once",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e4391b7f3682df0c",
+    "in": {
+      "events": 2,
+      "bytes": 294
+    },
+    "out": {
+      "events": 2,
+      "bytes": 235
+    },
+    "ok": true
+  }
+}

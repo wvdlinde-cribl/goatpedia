@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Convert classic events to compact JSON",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f77d953a33a7ea35",
+    "in": {
+      "events": 1,
+      "bytes": 927
+    },
+    "out": {
+      "events": 1,
+      "bytes": 794
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip XML boilerplate",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "88060750b92a670d",
+    "in": {
+      "events": 1,
+      "bytes": 1781
+    },
+    "out": {
+      "events": 1,
+      "bytes": 987
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop low-value high-volume event IDs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "16eef36203ce8e1e",
+    "in": {
+      "events": 2,
+      "bytes": 2613
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1781
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress repetitive DNS Client and WFP events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2f1ac63e4f8c46a9",
+    "in": {
+      "events": 3,
+      "bytes": 2640
+    },
+    "out": {
+      "events": 1,
+      "bytes": 880
+    },
+    "ok": true
+  }
+}

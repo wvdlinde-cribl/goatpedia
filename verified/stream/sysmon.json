@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Parse XML to compact JSON / KV",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a9b37c0a2d08e465",
+    "in": {
+      "events": 1,
+      "bytes": 2084
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1624
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip System block noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3b6dee6d4f2c7327",
+    "in": {
+      "events": 1,
+      "bytes": 2084
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1857
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop noisy image loads and DNS",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8f2237718e7c4c92",
+    "in": {
+      "events": 2,
+      "bytes": 2861
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1439
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Remove PE metadata on Linux and from repeat processes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "40a6aadd149cd2e5",
+    "in": {
+      "events": 1,
+      "bytes": 1551
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1361
+    },
+    "ok": true
+  }
+}

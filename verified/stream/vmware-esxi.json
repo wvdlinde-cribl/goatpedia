@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop debug / verbose hostd and vpxa lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "04364d3b2cc9501d",
+    "in": {
+      "events": 2,
+      "bytes": 358
+    },
+    "out": {
+      "events": 1,
+      "bytes": 173
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop vmkernel storage path noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3bad69d08b827cc8",
+    "in": {
+      "events": 2,
+      "bytes": 270
+    },
+    "out": {
+      "events": 1,
+      "bytes": 96
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated rejected logins",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0988da7059c05259",
+    "in": {
+      "events": 3,
+      "bytes": 519
+    },
+    "out": {
+      "events": 1,
+      "bytes": 173
+    },
+    "ok": true
+  }
+}
