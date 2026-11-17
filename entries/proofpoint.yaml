@@ -308,26 +308,110 @@ optimizations:
     fn: Aggregations
     how: One message produces 5–20 rprt lines. Aggregate by x= into one record with sender, recipients, module scores and final action, then drop the per-line records (keep raw in Lake).
     expr: "group by: x  window: 60s  fields: mod, cmd, score, phishscore, rule, action"
+    stream:
+      log: PPS filter log
+      functions:
+        - id: aggregation
+          filter: / rprt /.test(_raw) && x
+          description: Collapse per-module rprt lines into one summary per message (x=) per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(lines)
+              - max(score).as(max_score)
+              - max(phishscore).as(max_phishscore)
+              - max(spamscore).as(max_spamscore)
+              - values(mod).as(modules)
+              - last(rule).as(rule)
+              - last(cmd).as(cmd)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - x
+      test:
+        - '<14>Nov 12 09:11:46 pps01 filter_instance1[2145]: rprt s=3nabc12def m=1 x=3nabc12def-1 mod=av cmd=run rule=clean policy=default_inbound score=0 ndrscore=0 ipscore=0 suspectscore=0 phishscore=91 bulkscore=0 spamscore=4 adultscore=0 classifier=phish adjust=0 reason=mlx scancategory=phish engine=8.19.0-2311070000 definitions=2026-11-12_04'
+        - '<14>Nov 12 09:11:46 pps01 filter_instance1[2145]: rprt s=3nabc12def m=1 x=3nabc12def-1 mod=session cmd=dispose rule=quarantine policy=default_inbound score=100 ndrscore=0 ipscore=0 suspectscore=0 phishscore=91 bulkscore=0 spamscore=4 adultscore=0 classifier=phish adjust=0 reason=mlx scancategory=phish engine=8.19.0-2311070000 definitions=2026-11-12_04'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop clean-mail module chatter
     saving: 20–40 % of PPS
     fn: Drop
     how: For messages scoring 0 on spam, phish and virus, module run lines add little. Keep the session summary and the final delivery line only.
     expr: mod=='spam' && score=='0' && phishscore=='0'
+    stream:
+      log: PPS filter log
+      functions:
+        - id: drop
+          filter: mod == 'spam' && score == '0' && phishscore == '0'
+          description: Drop spam-module lines for clean mail scoring zero
+          conf: {}
+      test:
+        - '<14>Nov 12 09:11:46 pps01 filter_instance1[2145]: rprt s=3nabc12def m=1 x=3nabc12def-1 mod=spam cmd=run rule=notspam policy=default_inbound score=0 ndrscore=0 ipscore=0 suspectscore=0 phishscore=0 bulkscore=0 spamscore=0 adultscore=0 classifier=notspam adjust=0 reason=mlx scancategory=notspam engine=8.19.0-2311070000 definitions=2026-11-12_04'
+      expect:
+        out: 1
   - title: Strip TAP envelope arrays
     saving: 15–30 % of TAP
     fn: Eval
     how: messageParts hashes for benign inline parts, modulesRun, policyRoutes and threatUrl links add size but little detection value; keep threatsInfoMap and message identity.
     expr: "remove: messageParts[*].md5, modulesRun, clusterId; keep: threatsInfoMap"
+    stream:
+      log: TAP message event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove modulesRun, policyRoutes and clusterId; keep threatsInfoMap and message identity
+          conf:
+            remove:
+              - modulesRun
+              - policyRoutes
+              - clusterId
+        - id: eval
+          filter: Array.isArray(messageParts)
+          description: Strip md5 hashes from message parts
+          conf:
+            add:
+              - name: messageParts
+                value: JSON.parse(JSON.stringify(messageParts).replace(/"md5":"[0-9a-fA-F]*",?/g, ''))
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - modulesRun
+          - policyRoutes
+          - clusterId
+        present:
+          - threatsInfoMap
+          - GUID
+          - messageID
+        smaller: true
   - title: Join clicks to messages
     saving: 0 % (quality)
     fn: Lookup
     how: Store message events by GUID in a lookup (or Lake) and enrich click events with subject and sender so analysts see the full chain in one event.
     expr: "lookup tap_messages on GUID → subject, senderIP, threatsInfoMap"
+    stream:
+      note: Export TAP message events (GUID, subject, senderIP, threatsInfoMap) into a lookup file such as tap_messages.csv, refreshed on a schedule from Lake or the SIEM. Then add a Lookup function on click events matching GUID to add subject, senderIP and threat info.
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: TAP messages and clicks → SIEM at full fidelity (low volume, high value). PPS filter and sendmail lines → Lake, with aggregated per-message summaries to the SIEM.
     expr: sourcetype.startsWith('proofpoint_tap') → SIEM  |  proofpoint_pps_* → Lake + SIEM(aggregated)
+    stream:
+      routes:
+        - name: Proofpoint TAP messages and clicks → SIEM
+          filter: /^\{.*"GUID":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Proofpoint PPS filter and sendmail → Lake + SIEM aggregated
+          filter: '/ (filter_instance\d+|sendmail)\[\d+\]: /.test(_raw)'
+          to: Cribl Lake (raw), and the SIEM through the per-message aggregation pipeline
+          final: true
+      note: Routes see the raw event, so TAP JSON is matched on the GUID key and PPS lines on the process name. Put the TAP route first.
 references:
   - title: Proofpoint TAP SIEM API documentation
     url: https://help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation/SIEM_API
