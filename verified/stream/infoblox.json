@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop internal and infrastructure noise queries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6aa39fa857fcd0dc",
+    "in": {
+      "events": 3,
+      "bytes": 570
+    },
+    "out": {
+      "events": 1,
+      "bytes": 168
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated identical queries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b1fb9ecf7e4823e5",
+    "in": {
+      "events": 3,
+      "bytes": 504
+    },
+    "out": {
+      "events": 1,
+      "bytes": 168
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Parse and strip BIND boilerplate",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "78abf8f6b68f1580",
+    "in": {
+      "events": 1,
+      "bytes": 168
+    },
+    "out": {
+      "events": 1,
+      "bytes": 118
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate DHCP DORA to one record per lease",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "575c5cdd4eb5497c",
+    "in": {
+      "events": 2,
+      "bytes": 303
+    },
+    "out": {
+      "events": 1,
+      "bytes": 179
+    },
+    "ok": true
+  }
+}

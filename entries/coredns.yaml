@@ -83,6 +83,17 @@ optimizations:
     fn: Drop
     how: Most cluster DNS queries are successful service lookups. Keep failures and send successful answers to cheaper storage, or drop them, before the SIEM.
     expr: message.indexOf(' NOERROR ') >= 0
+    stream:
+      log: DNS query log
+      functions:
+        - id: drop
+          filter: typeof message == 'string' && message.indexOf(' NOERROR ') >= 0
+          description: Drop successful (NOERROR) DNS answers; keep failures such as NXDOMAIN and SERVFAIL
+          conf: {}
+      test:
+        - '{"message":"[INFO] 198.51.100.25:36413 - 21584 \"A IN api.example.com. udp 43 false 512\" NOERROR qr,rd,ra 136 0.000102078s","stream":"stdout","time":"2019-02-12T00:27:28.903433597Z","kubernetes":{"container":{"name":"coredns"},"node":{"name":"minikube"},"pod":{"uid":"d57d545e-2a9d-11e9-995f-08002730e0dc","name":"coredns-86c58d9df4-jwhsg"},"namespace":"kube-system","replicaset":{"name":"coredns-86c58d9df4"},"labels":{"pod-template-hash":"86c58d9df4","k8s-app":"kube-dns"}}}'
+      expect:
+        out: 1
 references:
   - title: CoreDNS log plugin
     url: https://coredns.io/plugins/log/

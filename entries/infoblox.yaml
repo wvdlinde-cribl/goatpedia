@@ -357,26 +357,112 @@ optimizations:
     fn: Drop
     how: Queries for your own AD zones (_ldap._tcp, _kerberos, wpad), PTR lookups for RFC1918 space and health-check names repeat millions of times and are seldom searched. Drop them, or send them to Lake only.
     expr: /\.(in-addr|ip6)\.arpa$/.test(query) || /^_(ldap|kerberos|gc)\./.test(query) || query.endsWith('.corp.example.com')
+    stream:
+      log: DNS query
+      functions:
+        - id: drop
+          filter: /\.(in-addr|ip6)\.arpa\.?$/.test(query) || /^_(ldap|kerberos|gc)\./.test(query) || /^wpad\./.test(query) || /\.corp\.example\.com\.?$/.test(query)
+          description: Drop internal AD, reverse-lookup and own-zone noise queries
+          conf: {}
+      test:
+        - '<30>Nov 12 09:14:22 ns1.example.com named[16041]: queries: client @0x7f92101ae090 10.20.30.44#59775 (44.30.20.10.in-addr.arpa): view 3: query: 44.30.20.10.in-addr.arpa IN PTR + (10.0.0.53)'
+        - '<30>Nov 12 09:14:22 ns1.example.com named[16041]: queries: client @0x7f92101ae090 10.20.30.44#59775 (_ldap._tcp.dc._msdcs.corp.example.com): view 3: query: _ldap._tcp.dc._msdcs.corp.example.com IN SRV + (10.0.0.53)'
+      expect:
+        out: 1
   - title: Suppress repeated identical queries
     saving: 15–30 %
     fn: Suppress
     how: Chatty clients repeat the same qname every few seconds (telemetry, NTP, update checks). Keep one per client, qname and qtype per minute, with a count.
     expr: "key: `${src_ip}:${query}:${qtype}`  allow 1 / 60s"
+    stream:
+      log: DNS query
+      functions:
+        - id: suppress
+          filter: category == 'queries'
+          description: Keep one query per client, name and type per minute
+          conf:
+            keyExpr: src_ip + ':' + query + ':' + qtype
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<30>Nov 12 09:14:23 ns1.example.com named[16041]: queries: client @0x7f92101ae090 10.20.30.44#59776 (www.example.com): view 3: query: www.example.com IN A + (10.0.0.53)'
+        - '<30>Nov 12 09:14:24 ns1.example.com named[16041]: queries: client @0x7f92101ae090 10.20.30.44#59777 (www.example.com): view 3: query: www.example.com IN A + (10.0.0.53)'
+      expect:
+        out: 1
   - title: Parse and strip BIND boilerplate
     saving: 20–35 %
     fn: Parser → Serialize
     how: Extract the fields with Regex Extract, drop the client @0x pointer, the duplicated qname in parentheses, class IN and PRI, then serialise to compact JSON or KV for the SIEM.
     expr: "remove: client_ptr, qname_echo, qclass, pri, pid"
+    stream:
+      log: DNS query
+      functions:
+        - id: eval
+          filter: category == 'queries'
+          description: Rewrite _raw without the PRI, pid, client pointer, echoed qname and class IN
+          conf:
+            add:
+              - name: _raw
+                value: 'syslog_time + '' '' + host + '' named: queries: client '' + src_ip + ''#'' + src_port + '' view '' + view + '' query: '' + query + '' '' + qtype + '' '' + flags + '' ('' + dns_server_ip + '')'''
+        - id: eval
+          filter: 'true'
+          description: Remove the boilerplate fields
+          conf:
+            remove:
+              - client_ptr
+              - qname_echo
+              - qclass
+              - pri
+              - pid
+      expect:
+        out: 1
+        absent:
+          - client_ptr
+          - qname_echo
+          - qclass
+          - pri
+          - pid
+        present:
+          - query
+          - src_ip
+        smaller: true
   - title: Aggregate DHCP DORA to one record per lease
     saving: 50–70 % of DHCP volume
     fn: Drop
     how: DISCOVER, OFFER and REQUEST are steps towards the ACK. Keeping DHCPACK, RELEASE, DECLINE and NAK preserves IP-to-MAC attribution at a fraction of the volume.
     expr: '/dhcpd\[\d+\]: DHCP(DISCOVER|OFFER|REQUEST|INFORM) /.test(_raw)'
+    stream:
+      log: DHCP lease
+      parse: false
+      functions:
+        - id: drop
+          filter: '/dhcpd\[\d+\]: DHCP(DISCOVER|OFFER|REQUEST|INFORM) /.test(_raw)'
+          description: Drop DORA steps before the ACK; keep ACK, RELEASE, DECLINE and NAK
+          conf: {}
+      test:
+        - '<30>Nov 12 09:14:24 dhcp1.example.com dhcpd[2567]: DHCPREQUEST for 10.20.30.44 from 00:50:56:aa:bb:cc (LAPTOP-JDOE) via eth1'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: RPZ/CEF hits, audit lines and DHCPACK go to the SIEM at full fidelity. Raw query logs go to Cribl Lake, and a filtered or suppressed copy goes to the SIEM. Replay from Lake during investigations.
     expr: "/CEF:|httpd:|DHCPACK/.test(_raw) → SIEM  |  queries → Lake + SIEM(optimised)"
+    stream:
+      routes:
+        - name: Infoblox RPZ/CEF, audit and DHCPACK → SIEM
+          filter: '/CEF:| httpd: |DHCPACK /.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: Infoblox query logs → Lake raw, SIEM optimised
+          filter: '/named\[\d+\]: queries: /.test(_raw)'
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the CEF marker, httpd audit tag, DHCPACK or the queries category. Put the SIEM route first.
 references:
   - title: Using a Syslog Server — Infoblox NIOS 8.6 (logging categories, samples, transport)
     url: https://infoblox-docs.atlassian.net/wiki/spaces/nios86/pages/1105004250/Using+a+Syslog+Server

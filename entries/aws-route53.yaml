@@ -264,21 +264,124 @@ optimizations:
     fn: Drop
     how: "Workloads constantly resolve AWS service endpoints (*.amazonaws.com), EC2 internal names (*.ec2.internal, *.compute.internal) and PTR records. Drop or send to Lake only — but never drop records carrying firewall_rule_action."
     expr: "!firewall_rule_action && (/\\.(amazonaws\\.com|ec2\\.internal|compute\\.internal|in-addr\\.arpa)\\.$/.test(query_name))"
+    stream:
+      log: Resolver query log
+      functions:
+        - id: drop
+          filter: '!firewall_rule_action && /\.(amazonaws\.com|ec2\.internal|compute\.internal|in-addr\.arpa)\.$/.test(query_name)'
+          description: Drop AWS-internal, EC2-internal and reverse lookups; never drop DNS Firewall matches
+          conf: {}
+      test:
+        - '{"version":"1.100000","account_id":"111122223333","region":"us-east-1","vpc_id":"vpc-0123abcd4567ef890","query_timestamp":"2026-11-12T09:14:22Z","query_name":"ec2.us-east-1.amazonaws.com.","query_type":"A","query_class":"IN","rcode":"NOERROR","answers":[{"Rdata":"203.0.113.20","Type":"A","Class":"IN"}],"srcaddr":"10.40.12.7","srcport":"48701","transport":"UDP","srcids":{"instance":"i-0abc123def4567890"}}'
+      expect:
+        out: 1
   - title: Suppress repeated identical queries
     saving: 20–50 %
     fn: Suppress
     how: Applications without local caching resolve the same name many times a minute. Keep one record per instance + name + type + rcode per 5 minutes with a count.
     expr: "key: `${srcids && srcids.instance}:${query_name}:${query_type}:${rcode}`  allow 1 / 300s"
+    stream:
+      log: Resolver query log
+      functions:
+        - id: suppress
+          filter: 'true'
+          description: Keep one query per instance, name, type and rcode per 5 minutes
+          conf:
+            keyExpr: (srcids || {}).instance + ':' + query_name + ':' + query_type + ':' + rcode
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"version":"1.100000","account_id":"111122223333","region":"us-east-1","vpc_id":"vpc-0123abcd4567ef890","query_timestamp":"2026-11-12T09:14:22Z","query_name":"api.example.com.","query_type":"A","query_class":"IN","rcode":"NOERROR","answers":[{"Rdata":"203.0.113.10","Type":"A","Class":"IN"}],"srcaddr":"10.40.12.7","srcport":"48701","transport":"UDP","srcids":{"instance":"i-0abc123def4567890"}}'
+        - '{"version":"1.100000","account_id":"111122223333","region":"us-east-1","vpc_id":"vpc-0123abcd4567ef890","query_timestamp":"2026-11-12T09:14:22Z","query_name":"api.example.com.","query_type":"A","query_class":"IN","rcode":"NOERROR","answers":[{"Rdata":"203.0.113.10","Type":"A","Class":"IN"}],"srcaddr":"10.40.12.7","srcport":"48701","transport":"UDP","srcids":{"instance":"i-0abc123def4567890"}}'
+      expect:
+        out: 1
   - title: Flatten answers and strip constants
     saving: 15–30 %
     fn: Parser → Serialize
     how: Replace answers[] with a comma-joined answer_ips string; remove version, query_class, answers[].Class, account_id and region (constant per object, add back as metadata).
     expr: "answer_ips = answers.map(a => a.Rdata).join(',') (in a Code function); remove: version, query_class, account_id, region"
+    stream:
+      log: Resolver query log
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Flatten answers[] to a comma-joined answer_ips string
+          conf:
+            add:
+              - name: answer_ips
+                value: (JSON.stringify(answers || []).match(/"Rdata":"[^"]*"/g) || []).join(',').replace(/"Rdata":"|"/g, '')
+        - id: eval
+          filter: 'true'
+          description: Remove answers[] and per-object constants
+          conf:
+            remove:
+              - answers
+              - version
+              - query_class
+              - account_id
+              - region
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - answers
+          - version
+          - query_class
+          - account_id
+          - region
+        present:
+          - answer_ips
+        smaller: true
   - title: Unwrap CloudWatch Logs subscription envelopes
     saving: 5–15 %
     fn: Unroll → Eval
     how: Via a CloudWatch subscription each event is wrapped in {messageType, owner, logGroup, logStream, logEvents[]}. Unroll logEvents and parse message so both delivery paths share one schema.
     expr: "unroll: logEvents → evt; _raw = evt.message; remove: messageType, owner, subscriptionFilters"
+    stream:
+      log: Resolver query log
+      functions:
+        - id: unroll
+          filter: Array.isArray(logEvents)
+          description: Split the CloudWatch Logs envelope into one event per logEvents entry
+          conf:
+            srcExpr: logEvents
+            dstField: evt
+        - id: eval
+          filter: evt && evt.message
+          description: Make the inner message the raw event and drop the envelope fields
+          conf:
+            add:
+              - name: _raw
+                value: evt.message
+            remove:
+              - messageType
+              - owner
+              - logGroup
+              - logStream
+              - subscriptionFilters
+              - logEvents
+              - evt
+        - id: serde
+          filter: 'true'
+          description: Parse the unwrapped query record so both delivery paths share one schema
+          conf:
+            mode: extract
+            type: json
+            srcField: _raw
+      test:
+        - '{"messageType":"DATA_MESSAGE","owner":"111122223333","logGroup":"/aws/route53/resolver","logStream":"vpc-0123abcd4567ef890","subscriptionFilters":["to-cribl"],"logEvents":[{"id":"1","timestamp":1794474862000,"message":"{\"query_name\":\"api.example.com.\",\"query_type\":\"A\",\"rcode\":\"NOERROR\",\"srcaddr\":\"10.40.12.7\"}"},{"id":"2","timestamp":1794474863000,"message":"{\"query_name\":\"www.example.com.\",\"query_type\":\"AAAA\",\"rcode\":\"NOERROR\",\"srcaddr\":\"10.40.12.8\"}"}]}'
+      expect:
+        out: 3
+        absent:
+          - messageType
+          - owner
+          - logEvents
+        present:
+          - query_name
 references:
   - title: Public DNS query logging
     url: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/query-logs.html

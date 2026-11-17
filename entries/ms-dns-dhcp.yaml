@@ -340,21 +340,81 @@ optimizations:
     fn: Drop
     how: Every resolved query produces a 256 (received) and a 257 (response). For hunting, one is enough — keep 257 if you want RCODE, 256 otherwise; always keep 258 failures.
     expr: EventID==256 && keep_responses  // or EventID==257 && !keep_responses
+    stream:
+      log: DNS analytic query event
+      parse: false
+      functions:
+        - id: drop
+          filter: /<EventID>256<[/]EventID>/.test(_raw)
+          description: Drop 256 query-received events and keep the 257 responses, which carry RCODE; 258 failures are never touched
+          conf: {}
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-DNSServer' Guid='{EB79061A-A566-4698-9119-3ED2807060E7}'/><EventID>257</EventID><Version>0</Version><Level>4</Level><Task>2</Task><Opcode>0</Opcode><Keywords>0x8000000000000001</Keywords><TimeCreated SystemTime='2026-11-12T09:14:22.4195123Z'/><Execution ProcessID='2312' ThreadID='3740'/><Channel>Microsoft-Windows-DNSServer/Analytical</Channel><Computer>DC01.corp.example.com</Computer></System><EventData><Data Name='TCP'>0</Data><Data Name='InterfaceIP'>192.0.2.53</Data><Data Name='Destination'>192.0.2.44</Data><Data Name='AA'>0</Data><Data Name='AD'>0</Data><Data Name='QNAME'>www.example.com.</Data><Data Name='QTYPE'>1</Data><Data Name='XID'>41394</Data><Data Name='DNSSEC'>0</Data><Data Name='RCODE'>0</Data><Data Name='Port'>51544</Data><Data Name='Flags'>33152</Data><Data Name='Scope'>Default</Data><Data Name='Zone'>..Cache</Data><Data Name='PacketData'>0xA1B281800001000100000000</Data></EventData></Event>
+      expect:
+        out: 1
+        smaller: true
   - title: Drop internal and infrastructure lookups
     saving: 20–40 %
     fn: Drop
     how: AD SRV lookups (_ldap._tcp, _kerberos._tcp), PTR for internal ranges and the DC's own queries are the bulk of volume and rarely searched.
     expr: /^_(ldap|kerberos|gc|kpasswd)\.|in-addr\.arpa\.?$/.test(QNAME)
+    stream:
+      log: DNS analytic query event
+      parse: false
+      functions:
+        - id: drop
+          filter: /<Data Name='QNAME'>(_(ldap|kerberos|gc|kpasswd)[.][^<]*|[^<]*in-addr[.]arpa[.]?)<[/]Data>/.test(_raw)
+          description: Drop AD SRV lookups and reverse PTR lookups
+          conf: {}
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-DNSServer' Guid='{EB79061A-A566-4698-9119-3ED2807060E7}'/><EventID>256</EventID><Version>0</Version><Level>4</Level><Task>1</Task><Opcode>0</Opcode><Keywords>0x8000000000000001</Keywords><TimeCreated SystemTime='2026-11-12T09:14:22.4185123Z'/><Execution ProcessID='2312' ThreadID='3740'/><Channel>Microsoft-Windows-DNSServer/Analytical</Channel><Computer>DC01.corp.example.com</Computer></System><EventData><Data Name='TCP'>0</Data><Data Name='InterfaceIP'>192.0.2.53</Data><Data Name='Source'>192.0.2.44</Data><Data Name='RD'>1</Data><Data Name='QNAME'>_ldap._tcp.dc._msdcs.corp.example.com.</Data><Data Name='QTYPE'>33</Data><Data Name='XID'>41395</Data><Data Name='Port'>51545</Data><Data Name='Flags'>256</Data><Data Name='ServerScope'>Default</Data><Data Name='CacheScope'>Default</Data><Data Name='PacketData'>0xA1B3</Data></EventData></Event>
+      expect:
+        out: 1
+        smaller: true
   - title: XML to compact JSON, drop PacketData
     saving: 50–70 %
     fn: Parser → Serialize
     how: Windows event XML is verbose; extract EventData into fields, drop PacketData, Keywords, Version, Opcode and the namespace, serialise as JSON.
     expr: "remove: PacketData, Keywords, Version, Opcode, Execution*"
+    stream:
+      log: DNS analytic query event
+      parse: false
+      functions:
+        - id: eval
+          filter: /Microsoft-Windows-DNSServer/.test(_raw)
+          description: Strip PacketData, Keywords, Version, Opcode, Execution and the XML namespace
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/<Data Name='PacketData'>[^<]*<[/]Data>/g, '').replace(/<Keywords>[^<]*<[/]Keywords>/g, '').replace(/<Version>[^<]*<[/]Version>/g, '').replace(/<Opcode>[^<]*<[/]Opcode>/g, '').replace(/<Execution [^>]*[/]>/g, '').replace(/ xmlns='[^']*'/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress DHCP renewals
     saving: 30–60 % of DHCP volume
     fn: Suppress
     how: Clients renew at half the lease time; one Renew per IP/MAC per day is enough to keep the IP→device history.
     expr: "key: `${ip_address}:${mac_address}`  allow 1 / 86400s  when id=='11'"
+    stream:
+      log: DHCP audit log
+      functions:
+        - id: suppress
+          filter: id == '11'
+          description: Keep one DHCP Renew per IP and MAC per day
+          conf:
+            keyExpr: ip_address + ':' + mac_address
+            allow: 1
+            suppressPeriodSec: 86400
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 11,11/12/26,09:14:22,Renew,192.0.2.150,LAPTOP-JDOE.corp.example.com,A4BB6D112233,,2864529813,0,,,,0x4D53465420352E30,MSFT 5.0,,,,0
+        - 11,11/12/26,13:14:22,Renew,192.0.2.150,LAPTOP-JDOE.corp.example.com,A4BB6D112233,,2864529814,0,,,,0x4D53465420352E30,MSFT 5.0,,,,0
+        - 11,11/12/26,17:14:22,Renew,192.0.2.150,LAPTOP-JDOE.corp.example.com,A4BB6D112233,,2864529815,0,,,,0x4D53465420352E30,MSFT 5.0,,,,0
+      expect:
+        out: 2
 references:
   - title: DNS logging and diagnostics (audit and analytic events)
     url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/dn800669(v=ws.11)

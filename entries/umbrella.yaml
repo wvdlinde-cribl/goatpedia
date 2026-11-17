@@ -371,21 +371,97 @@ optimizations:
     fn: Aggregations
     how: Allowed queries to common, well-categorized domains are the bulk of volume and rarely queried one by one. Roll them up to counts per identity, domain and query type per 5 minutes; keep raw in Lake.
     expr: action=='Allowed' && !/Newly Seen|Uncategorized|Malware|Command and Control|Phishing/.test(categories)
+    stream:
+      log: DNS
+      functions:
+        - id: aggregation
+          filter: action == 'Allowed' && !/Newly Seen|Uncategorized|Malware|Command and Control|Phishing/.test(categories)
+          description: Roll allowed, well-categorised DNS queries up to counts per identity, domain and query type per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(queries)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - most_granular_identity
+              - domain
+              - query_type
+      test:
+        - '"2026-11-12 09:14:22","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Allowed","1 (A)","NOERROR","www.example.com.","Software/Technology","Roaming Computers","Roaming Computers,Networks","","1482901","NL","8209150"'
+        - '"2026-11-12 09:14:23","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Allowed","1 (A)","NOERROR","www.example.com.","Software/Technology","Roaming Computers","Roaming Computers,Networks","","1482901","NL","8209150"'
+        - '"2026-11-12 09:14:24","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Allowed","1 (A)","NOERROR","www.example.com.","Software/Technology","Roaming Computers","Roaming Computers,Networks","","1482901","NL","8209150"'
+      expect:
+        out: 2
+        smaller: true
   - title: Suppress repeated identical lookups
     saving: 10–25 %
     fn: Suppress
     how: Short TTLs and chatty apps re-query the same name constantly. Keep one line per identity, domain and action per 60 s with a count.
     expr: "key: `${most_granular_identity}:${domain}:${action}`  allow 1 / 60s"
+    stream:
+      log: DNS
+      functions:
+        - id: suppress
+          filter: 'true'
+          description: Keep one lookup per identity, domain and action per minute
+          conf:
+            keyExpr: most_granular_identity + ':' + domain + ':' + action
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '"2026-11-12 09:14:22","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Blocked","1 (A)","NOERROR","update.example-cdn.net.","Command and Control,Malware","Roaming Computers","Roaming Computers,Networks","Command and Control","1482901","NL","8209150"'
+        - '"2026-11-12 09:14:22","LT-JDOE-01","LT-JDOE-01,Example HQ","10.20.30.44","203.0.113.45","Blocked","1 (A)","NOERROR","update.example-cdn.net.","Command and Control,Malware","Roaming Computers","Roaming Computers,Networks","Command and Control","1482901","NL","8209150"'
+      expect:
+        out: 1
   - title: Drop redundant columns
     saving: 15–25 %
     fn: Parser → Serialize
     how: identities and identity_types repeat the most granular values plus parents, organization_id is constant per tenant, and empty columns are quoted empty strings. Remove them and re-serialise.
     expr: "remove: identities, identity_types, organization_id, destination_list_ids; drop empty"
+    stream:
+      log: DNS
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove parent identity lists and the constant organization id
+          conf:
+            remove:
+              - identities
+              - identity_types
+              - organization_id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - identities
+          - identity_types
+          - organization_id
+        smaller: true
   - title: Route by verdict
     saving: SIEM licence
     fn: Routes
     how: Blocked DNS, proxy and firewall lines plus allowed lines in risky categories go to the SIEM. Everything else goes to Cribl Lake straight from the S3 collector for replay.
     expr: action!='Allowed' || /Newly Seen|Uncategorized/.test(categories) → SIEM ; else → Lake
+    stream:
+      routes:
+        - name: Umbrella allowed, low-risk DNS → Lake
+          filter: /^(?:"[^"]*",){5}"Allowed",/.test(_raw) && !/Newly Seen|Uncategorized|Malware|Command and Control|Phishing/.test(_raw)
+          to: Cribl Lake only, for replay
+          final: true
+        - name: Umbrella blocked and risky lines → SIEM
+          filter: 'true'
+          to: The SIEM
+          final: true
+      note: Routes see the raw CSV, so the first route matches Allowed in the DNS action column and excludes risky categories; everything else (blocked DNS, proxy, firewall) falls through to the SIEM.
 references:
   - title: Cisco Secure Access — Log Formats and Versioning (shared Umbrella CSV schemas)
     url: https://www.cisco.com/c/en/us/td/docs/security/secure-access/secure-access-help/CiscoSecureAccessHelp/logging-intro/log_formats_and_versioning.html
