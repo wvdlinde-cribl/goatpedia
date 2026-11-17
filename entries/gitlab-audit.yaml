@@ -384,21 +384,100 @@ optimizations:
     fn: Suppress
     how: GitLab can stream the same event more than once. Suppress on the event id over a short window so the SIEM counts each change once.
     expr: "key: `${id}`  allow 1 / 300s"
+    stream:
+      log: Streamed audit event
+      functions:
+        - id: suppress
+          filter: id != null
+          description: Keep one delivery per audit event id per 5 minutes
+          conf:
+            keyExpr: String(id)
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"id":"184522","author_id":412,"entity_id":29,"entity_type":"Project","details":{"author_name":"jdoe","author_class":"User","target_id":29,"target_type":"Project","target_details":"platform/payments-api","custom_message":{"protocol":"http","action":"git-upload-pack","written_bytes":734003200},"ip_address":"203.0.113.77","entity_path":"platform/payments-api"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"platform/payments-api","target_details":"platform/payments-api","created_at":"2026-11-12T09:14:22.318Z","target_type":"Project","target_id":29,"event_type":"repository_git_operation"}'
+        - '{"id":"184523","author_id":412,"entity_id":29,"entity_type":"Project","details":{"author_name":"jdoe","author_class":"User","target_id":29,"target_type":"Project","target_details":"platform/payments-api","custom_message":{"protocol":"http","action":"git-upload-pack","written_bytes":734003200},"ip_address":"203.0.113.77","entity_path":"platform/payments-api"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"platform/payments-api","target_details":"platform/payments-api","created_at":"2026-11-12T09:14:23.318Z","target_type":"Project","target_id":29,"event_type":"repository_git_operation"}'
+      expect:
+        out: 2
   - title: Strip duplicated details.* copies
     saving: 20–35 %
     fn: Eval
     how: details repeats author_name, target_id, target_type, target_details, ip_address and entity_path from the top level. Remove the copies and keep details.custom_message, author_class and human_author_*.
     expr: "remove: details.author_name, details.target_id, details.target_type, details.target_details, details.ip_address, details.entity_path"
+    stream:
+      log: Streamed audit event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove details.* copies of top-level fields
+          conf:
+            remove:
+              - details.author_name
+              - details.target_id
+              - details.target_type
+              - details.target_details
+              - details.ip_address
+              - details.entity_path
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - details
+          - author_name
+          - ip_address
+        smaller: true
   - title: Aggregate Git read operations
     saving: 30–70 % (when Git operation streaming is on)
     fn: Aggregations
     how: Developer and CI fetches (git-upload-pack) are the bulk of volume. Roll up to count and sum(written_bytes) per author, project and IP per 5 minutes for the SIEM; send raw events to the lake for investigations. Keep git-receive-pack (pushes) raw.
     expr: event_type=='repository_git_operation' && details.custom_message.action=='git-upload-pack'
+    stream:
+      log: Streamed audit event
+      functions:
+        - id: aggregation
+          filter: event_type == 'repository_git_operation' && ((details || {}).custom_message || {}).action == 'git-upload-pack'
+          description: Roll Git fetches up per author, project and IP per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(fetches)
+              - sum(details.custom_message.written_bytes).as(written_bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - author_name
+              - entity_path
+              - ip_address
+      test:
+        - '{"id":"184524","author_id":412,"entity_id":29,"entity_type":"Project","details":{"author_name":"jdoe","author_class":"User","target_id":29,"target_type":"Project","target_details":"platform/payments-api","custom_message":{"protocol":"http","action":"git-upload-pack","written_bytes":1000},"ip_address":"203.0.113.77","entity_path":"platform/payments-api"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"platform/payments-api","target_details":"platform/payments-api","created_at":"2026-11-12T09:15:22.318Z","target_type":"Project","target_id":29,"event_type":"repository_git_operation"}'
+        - '{"id":"184525","author_id":412,"entity_id":29,"entity_type":"Project","details":{"author_name":"jdoe","author_class":"User","target_id":29,"target_type":"Project","target_details":"platform/payments-api","custom_message":{"protocol":"http","action":"git-receive-pack","written_bytes":1000},"ip_address":"203.0.113.77","entity_path":"platform/payments-api"},"ip_address":"203.0.113.77","author_name":"jdoe","entity_path":"platform/payments-api","target_details":"platform/payments-api","created_at":"2026-11-12T09:16:22.318Z","target_type":"Project","target_id":29,"event_type":"repository_git_operation"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: Admin, token, member, CI variable, branch protection, visibility and streaming-destination events → SIEM at full fidelity. Git operations and routine settings → lake, replay on demand.
     expr: event_type=='repository_git_operation' → Lake + metrics  |  else → SIEM
+    stream:
+      routes:
+        - name: GitLab Git operations → Lake + metrics
+          filter: /"event_type":"repository_git_operation"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM as aggregated metrics
+          final: true
+        - name: GitLab other audit events → SIEM
+          filter: /"event_type":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw JSON, so they match event_type in _raw. Put the Git operations route first.
 references:
   - title: GitLab — Audit event streaming for instances
     url: https://docs.gitlab.com/administration/compliance/audit_event_streaming/

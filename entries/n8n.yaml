@@ -282,21 +282,95 @@ optimizations:
     fn: Aggregations
     how: n8n.node.* events are two per node per execution. Roll up to counts and failures per workflow and node type per minute; keep workflow failed events raw.
     expr: eventName.startsWith('n8n.node.')
+    stream:
+      log: Node / workflow execution event
+      functions:
+        - id: aggregation
+          filter: /^n8n\.node\./.test(eventName)
+          description: Roll node started/finished events up to counts per workflow and event per minute; workflow failed events pass through raw
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - payload.workflowId
+              - eventName
+      test:
+        - '{"__type":"$$EventMessageNode","id":"5d1c8e2a-7b3f-4a9e-8c6d-0f1e2a3b4c51","ts":"2026-11-12T09:14:22.318+00:00","eventName":"n8n.node.finished","message":"n8n.node.finished","payload":{"executionId":"48211","workflowId":"Xk3Pq9LmT2vR8sYw","workflowName":"Sync CRM to billing","nodeName":"HTTP Request"}}'
+        - '{"__type":"$$EventMessageNode","id":"5d1c8e2a-7b3f-4a9e-8c6d-0f1e2a3b4c52","ts":"2026-11-12T09:14:22.318+00:00","eventName":"n8n.node.finished","message":"n8n.node.finished","payload":{"executionId":"48212","workflowId":"Xk3Pq9LmT2vR8sYw","workflowName":"Sync CRM to billing","nodeName":"HTTP Request"}}'
+        - '{"__type":"$$EventMessageNode","id":"5d1c8e2a-7b3f-4a9e-8c6d-0f1e2a3b4c53","ts":"2026-11-12T09:14:22.318+00:00","eventName":"n8n.node.finished","message":"n8n.node.finished","payload":{"executionId":"48213","workflowId":"Xk3Pq9LmT2vR8sYw","workflowName":"Sync CRM to billing","nodeName":"HTTP Request"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Subscribe only what you need at the source
     saving: 30–70 %
     fn: Routes
     how: Destinations subscribe by prefix. Stream n8n.audit and n8n.workflow to the SIEM destination; send n8n.node, n8n.ai and n8n.queue to a separate Cribl route bound for the lake.
     expr: eventName.startsWith('n8n.audit') || eventName.startsWith('n8n.workflow') → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: n8n audit and workflow events → SIEM
+          filter: /"eventName":"n8n\.(audit|workflow)\./.test(_raw)
+          to: The SIEM
+          final: true
+        - name: n8n node, ai and queue events → Lake
+          filter: /"eventName":"n8n\./.test(_raw)
+          to: Cribl Lake
+          final: true
+      note: Routes see the raw event, so they match eventName inside the JSON text. Put the SIEM route first; in n8n you can also limit each log streaming destination's subscribed prefixes.
   - title: Drop redundant envelope fields
     saving: 10–15 %
     fn: Eval
     how: message always equals eventName and __type is implied by the event prefix. Remove both after parsing.
     expr: "remove: message, __type"
+    stream:
+      log: Node / workflow execution event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove message (equals eventName) and __type (implied by the event prefix)
+          conf:
+            remove:
+              - message
+              - __type
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - message
+          - __type
+        present:
+          - eventName
+        smaller: true
   - title: Mask personal data in transit
     saving: Compliance
     fn: Mask
     how: If anonymizeAuditMessages is off at the source, hash _email and drop _firstName/_lastName in Stream; keep userId for correlation.
     expr: "payload._email → sha256; remove: payload._firstName, payload._lastName"
+    stream:
+      log: Audit event
+      functions:
+        - id: eval
+          filter: payload && payload._email
+          description: Hash the email and remove first and last name; keep userId for correlation
+          conf:
+            add:
+              - name: payload._email
+                value: C.Mask.sha256(String(payload._email))
+            remove:
+              - payload._firstName
+              - payload._lastName
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - payload
 references:
   - title: n8n — Stream logs to external systems (events, destinations)
     url: https://docs.n8n.io/log-streaming/

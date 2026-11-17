@@ -306,11 +306,57 @@ optimizations:
     fn: Suppress
     how: GitHub streaming is at-least-once; drop repeats of the same _document_id within a window.
     expr: "key: _document_id  allow 1 / 3600s"
+    stream:
+      log: Web / API audit event
+      functions:
+        - id: suppress
+          filter: _document_id
+          description: Drop repeated deliveries of the same _document_id within an hour
+          conf:
+            keyExpr: _document_id
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"@timestamp":1762935262517,"_document_id":"Xk3fP0aBcDeFgHiJkLmNoQ","action":"org.update_member","actor":"jdoe","actor_id":1012345,"actor_ip":"203.0.113.45","actor_is_bot":false,"actor_location":{"country_code":"NL"},"business":"example-corp","business_id":4567,"created_at":1762935262517,"old_permission":"read","operation_type":"modify","org":"example-org","org_id":89012345,"permission":"admin","request_access_security_header":null,"user":"asmith","user_id":1023456,"user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6)"}'
+        - '{"@timestamp":1762935262517,"_document_id":"Xk3fP0aBcDeFgHiJkLmNoQ","action":"org.update_member","actor":"jdoe","actor_id":1012345,"actor_ip":"203.0.113.45","actor_is_bot":false,"actor_location":{"country_code":"NL"},"business":"example-corp","business_id":4567,"created_at":1762935262517,"old_permission":"read","operation_type":"modify","org":"example-org","org_id":89012345,"permission":"admin","request_access_security_header":null,"user":"asmith","user_id":1023456,"user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6)"}'
+      expect:
+        out: 1
   - title: Aggregate CI git.fetch / git.clone
     saving: 30–60 %
     fn: Aggregations
     how: Build bots fetch the same repos hundreds of times a day. Roll up git.fetch/git.clone per actor + repo + IP per 15 minutes; keep raw events for humans and new IPs.
     expr: "['git.fetch','git.clone'].includes(action) && actor_is_bot  → count by actor, repo, actor_ip per 15m"
+    stream:
+      log: Git event (clone / fetch / push)
+      functions:
+        - id: aggregation
+          filter: (action == 'git.fetch' || action == 'git.clone') && actor_is_bot === true
+          description: Roll up bot git fetch/clone per actor, repo and IP per 15 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 900s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - actor
+              - repo
+              - actor_ip
+              - action
+      test:
+        - '{"@timestamp":1762937011204,"_document_id":"Qa9sT2uVwXyZ0123456781","action":"git.clone","actor":"svc-build","actor_id":1034567,"actor_ip":"198.51.100.23","actor_is_bot":true,"actor_location":{"country_code":"US"},"business":"example-corp","business_id":4567,"created_at":1762937011204,"external_id":"","hashed_token":"EXAMPLEHASHEDTOKEN0000000000000000000000000=","operation_type":"access","org":"example-org","org_id":89012345,"programmatic_access_type":"Personal access token (classic)","repo":"example-org/payments-api","repo_id":512345678,"repository_public":false,"transport_protocol":1,"transport_protocol_name":"http","user_agent":"git/2.47.1"}'
+        - '{"@timestamp":1762937011204,"_document_id":"Qa9sT2uVwXyZ0123456782","action":"git.clone","actor":"svc-build","actor_id":1034567,"actor_ip":"198.51.100.23","actor_is_bot":true,"actor_location":{"country_code":"US"},"business":"example-corp","business_id":4567,"created_at":1762937011204,"external_id":"","hashed_token":"EXAMPLEHASHEDTOKEN0000000000000000000000000=","operation_type":"access","org":"example-org","org_id":89012345,"programmatic_access_type":"Personal access token (classic)","repo":"example-org/payments-api","repo_id":512345678,"repository_public":false,"transport_protocol":1,"transport_protocol_name":"http","user_agent":"git/2.47.1"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop constant and duplicate fields
     saving: 10–15 %
     fn: Eval
@@ -321,6 +367,21 @@ optimizations:
     fn: Routes
     how: Configuration, membership, security-setting and bypass events → SIEM; bulk git.* and workflow job events → lake (but keep workflows.prepared_workflow_job searchable for supply-chain incident scoping).
     expr: "!action.startsWith('git.') && action!='api.request' → SIEM"
+    stream:
+      routes:
+        - name: GitHub prepared workflow jobs → SIEM
+          filter: /"action":"workflows\.prepared_workflow_job"/.test(_raw)
+          to: The SIEM (kept searchable for supply-chain scoping), and Cribl Lake
+          final: true
+        - name: GitHub bulk git, API and workflow events → Lake
+          filter: /"action":"(git\.|api\.request"|workflows\.)/.test(_raw)
+          to: Cribl Lake only; replay on demand
+          final: true
+        - name: GitHub config, membership, security and bypass events → SIEM
+          filter: /"action":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw JSON, so they match the action key in _raw. Keep this order so prepared workflow jobs reach the SIEM before the bulk Lake route.
 references:
   - title: Audit log events for your enterprise (GitHub Docs)
     url: https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/audit-log-events-for-your-enterprise

@@ -247,21 +247,102 @@ optimizations:
     fn: Aggregations
     how: Job scheduled/start/finish events are the bulk of the audit stream. Roll them up to jobs and failures per project and workflow per 5 minutes for the SIEM; keep raw copies in the lake.
     expr: action.startsWith('workflow-job') || action.startsWith('workflow.job')
+    stream:
+      log: Audit log event
+      functions:
+        - id: aggregation
+          filter: typeof action == 'string' && (action.indexOf('workflow-job') == 0 || action.indexOf('workflow.job') == 0)
+          description: Roll workflow-job lifecycle events up to jobs and failures per project and workflow per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(jobs)
+              - 'sum(success === false ? 1 : 0).as(failures)'
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - payload.project.name
+              - payload.workflow.name
+      test:
+        - '{"id":"3f8e2a41-6c7d-4b90-a1e2-5d6f7a8b9c02","version":1,"action":"workflow-job.finished","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"target":{"id":"9c8b7a6d-1111-4f2e-8d3c-aabbccddeeff","type":"job","name":"deploy-prod"},"payload":{"job":{"id":"aa1e394f-42c8-4809-93fc-7ba9f8fc51d2","name":"deploy-prod"},"workflow":{"id":"6a1bd1c8-e3c4-4d7a-b3e4-16cc726cc0ca","name":"release"},"project":{"name":"payments-api"}},"occurred_at":"2026-11-12T09:14:22.318Z","metadata":{},"success":true,"request":{"id":"7d6c5b4a-3333-4e2f-9a1b-ffeeddccbbaa","ip_address":"203.0.113.77","client_trace_id":""}}'
+        - '{"id":"3f8e2a41-6c7d-4b90-a1e2-5d6f7a8b9c03","version":1,"action":"workflow-job.finished","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"target":{"id":"9c8b7a6d-1111-4f2e-8d3c-aabbccddeeff","type":"job","name":"deploy-prod"},"payload":{"job":{"id":"aa1e394f-42c8-4809-93fc-7ba9f8fc51d2","name":"deploy-prod"},"workflow":{"id":"6a1bd1c8-e3c4-4d7a-b3e4-16cc726cc0ca","name":"release"},"project":{"name":"payments-api"}},"occurred_at":"2026-11-12T09:14:25.318Z","metadata":{},"success":false,"request":{"id":"7d6c5b4a-3333-4e2f-9a1b-ffeeddccbbab","ip_address":"203.0.113.77","client_trace_id":""}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop duplicated common_fields and empty blobs
     saving: 10–20 %
     fn: Eval
     how: common_fields duplicates success, request.ip_address and occurred_at; metadata and client_trace_id are usually empty. Keep one copy — or keep common_fields only if the SIEM mapping uses it.
     expr: "remove: common_fields, metadata (when {}), request.client_trace_id (when '')"
+    stream:
+      log: Audit log event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove duplicated common_fields, empty metadata and empty client_trace_id
+          conf:
+            remove:
+              - common_fields
+            add:
+              - name: metadata
+                value: 'metadata && typeof metadata == ''object'' && Object.keys(metadata).length == 0 ? undefined : metadata'
+              - name: request.client_trace_id
+                value: '(request || {}).client_trace_id === '''' ? undefined : (request || {}).client_trace_id'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - common_fields
+          - metadata
+        present:
+          - request
+          - id
+        smaller: true
   - title: Dedupe streamed deliveries
     saving: 1–5 %
     fn: Suppress
     how: CircleCI documents id as the key for duplicate deliveries. Suppress repeats of the same id.
     expr: "key: `${id}`  allow 1 / 600s"
+    stream:
+      log: Audit log event
+      functions:
+        - id: suppress
+          filter: id
+          description: Drop duplicate deliveries of the same audit event id
+          conf:
+            keyExpr: id
+            allow: 1
+            suppressPeriodSec: 600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"id":"3f8e2a41-6c7d-4b90-a1e2-5d6f7a8b9c01","version":1,"action":"context.secrets.accessed","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"occurred_at":"2026-11-12T09:14:22.318Z","metadata":{},"success":true,"request":{"id":"7d6c5b4a-3333-4e2f-9a1b-ffeeddccbbaa","ip_address":"203.0.113.77","client_trace_id":""}}'
+        - '{"id":"3f8e2a41-6c7d-4b90-a1e2-5d6f7a8b9c01","version":1,"action":"context.secrets.accessed","actor":{"id":"6a1b2c3d-0000-4e5f-8a9b-112233445566","type":"user","name":"jdoe"},"occurred_at":"2026-11-12T09:14:22.318Z","metadata":{},"success":true,"request":{"id":"7d6c5b4a-3333-4e2f-9a1b-ffeeddccbbaa","ip_address":"203.0.113.77","client_trace_id":""}}'
+      expect:
+        out: 1
+        smaller: true
   - title: Route secrets and identity events at full fidelity
     saving: SIEM licence
     fn: Routes
     how: context.*, *token*, *key*, org_member.*, group*, orb.* → SIEM. Workflow lifecycle and project.follow → lake + metrics.
     expr: /^(context|project\.(api_token|ssh_key|env_var)|checkout-key|org_member|group|orb|role_grant)/.test(action)
+    stream:
+      routes:
+        - name: CircleCI secrets and identity events → SIEM
+          filter: /"action":"(context|project\.(api_token|ssh_key|env_var)|checkout-key|org_member|group|orb|role_grant)/.test(_raw) || /"action":"[^"]*(token|key)/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: CircleCI workflow lifecycle and other events → Lake + metrics
+          filter: /"action":"/.test(_raw)
+          to: Cribl Lake (raw), plus the aggregation pipeline for metrics
+          final: true
+      note: Routes see the raw event, so they match the action key in the JSON text. Put the SIEM route first.
 references:
   - title: CircleCI — Audit logs (events, fields, streaming)
     url: https://circleci.com/docs/guides/security/audit-logs/

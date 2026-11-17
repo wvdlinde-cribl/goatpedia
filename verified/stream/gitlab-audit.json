@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Deduplicate repeated deliveries",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2b1126ec83b0f391",
+    "in": {
+      "events": 3,
+      "bytes": 1824
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1216
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip duplicated details.* copies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "23e7cc63ac4ee7a6",
+    "in": {
+      "events": 1,
+      "bytes": 608
+    },
+    "out": {
+      "events": 1,
+      "bytes": 441
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate Git read operations",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a4527efd4e583d3a",
+    "in": {
+      "events": 3,
+      "bytes": 1815
+    },
+    "out": {
+      "events": 2,
+      "bytes": 854
+    },
+    "ok": true
+  }
+}
