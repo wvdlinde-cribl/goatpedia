@@ -330,26 +330,121 @@ optimizations:
     fn: Drop
     how: stats, netflow (unidirectional duplicates of flow) and anomaly events for decoder noise are rarely searched. Keep alert, flow, dns, http, tls and fileinfo. Send the rest to Lake.
     expr: event_type=='stats' || event_type=='netflow' || (event_type=='anomaly' && anomaly.type=='decode')
+    stream:
+      log: Flow
+      functions:
+        - id: drop
+          filter: event_type == 'stats' || event_type == 'netflow' || (event_type == 'anomaly' && (anomaly || {}).type == 'decode')
+          description: Drop stats, netflow duplicates and decoder anomaly noise
+          conf: {}
+      test:
+        - '{"timestamp":"2026-11-12T09:15:01.004312+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"netflow","src_ip":"10.20.30.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","app_proto":"http","community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","flow":{"pkts_toserver":9,"pkts_toclient":7,"bytes_toserver":1342,"bytes_toclient":2210,"start":"2026-11-12T09:14:22.401201+0000","end":"2026-11-12T09:14:23.110402+0000","age":1,"state":"closed","reason":"timeout","alerted":true},"tcp":{"tcp_flags":"1b","tcp_flags_ts":"1b","tcp_flags_tc":"1b","syn":true,"fin":true,"psh":true,"ack":true,"state":"closed"}}'
+      expect:
+        out: 1
   - title: Remove verbose alert payload and metadata
     saving: 30–60 % of alert bytes
     fn: Eval
     how: payload, payload_printable, packet and large rule metadata arrays can triple alert size. Keep signature, category, severity and MITRE metadata, and drop the rest before the SIEM.
     expr: "remove: payload, payload_printable, packet, packet_info, alert.metadata.created_at, alert.metadata.updated_at"
+    stream:
+      log: Alert
+      functions:
+        - id: eval
+          filter: event_type == 'alert'
+          description: Remove payload, packet data and rule date metadata
+          conf:
+            remove:
+              - payload
+              - payload_printable
+              - packet
+              - packet_info
+              - alert.metadata.created_at
+              - alert.metadata.updated_at
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - alert
+        smaller: true
   - title: Suppress repeated alerts per flow
     saving: 10–30 % of alerts
     fn: Suppress
     how: Noisy signatures (policy, info, scan) fire many times per flow or per source. Keep one per signature, source and destination per 5 minutes, with a count.
     expr: "key: `${alert.signature_id}:${src_ip}:${dest_ip}`  allow 1 / 300s  when event_type=='alert' && alert.severity>=3"
+    stream:
+      log: Alert
+      functions:
+        - id: suppress
+          filter: event_type == 'alert' && (alert || {}).severity >= 3
+          description: Keep one low-severity alert per signature, source and destination per 5 minutes
+          conf:
+            keyExpr: (alert || {}).signature_id + ':' + src_ip + ':' + dest_ip
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"timestamp":"2026-11-12T09:14:22.512031+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"alert","src_ip":"192.0.2.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2013028,"rev":4,"signature":"ET POLICY curl User-Agent Outbound","category":"Attempted Information Leak","severity":3},"app_proto":"http","direction":"to_server"}'
+        - '{"timestamp":"2026-11-12T09:14:22.512031+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"alert","src_ip":"192.0.2.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2013028,"rev":4,"signature":"ET POLICY curl User-Agent Outbound","category":"Attempted Information Leak","severity":3},"app_proto":"http","direction":"to_server"}'
+        - '{"timestamp":"2026-11-12T09:14:22.512031+0000","flow_id":1187442290181339,"in_iface":"eth1","event_type":"alert","src_ip":"192.0.2.44","src_port":51544,"dest_ip":"203.0.113.50","dest_port":80,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2013028,"rev":4,"signature":"ET POLICY curl User-Agent Outbound","category":"Attempted Information Leak","severity":3},"app_proto":"http","direction":"to_server"}'
+      expect:
+        out: 2
   - title: Aggregate flows to metrics
     saving: 40–70 % of flow volume
     fn: Aggregations
     how: Roll internal and well-known-service flows up to bytes and counts per src/dest/app_proto per minute. Keep raw flows in Lake for incident replay. Keep flows with flow.alerted=true raw.
     expr: event_type=='flow' && !flow.alerted && app_proto in ('dns','ntp','smb')
+    stream:
+      log: Flow
+      functions:
+        - id: aggregation
+          filter: event_type == 'flow' && !(flow || {}).alerted && (app_proto == 'dns' || app_proto == 'ntp' || app_proto == 'smb')
+          description: Roll non-alerted DNS, NTP and SMB flows up per source, destination and app_proto per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(flows)
+              - sum(flow.bytes_toserver).as(bytes_toserver)
+              - sum(flow.bytes_toclient).as(bytes_toclient)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dest_ip
+              - app_proto
+      test:
+        - '{"timestamp":"2026-11-12T09:15:01.004312+0000","flow_id":1187442290181340,"in_iface":"eth1","event_type":"flow","src_ip":"192.0.2.44","src_port":61022,"dest_ip":"198.51.100.53","dest_port":53,"proto":"UDP","app_proto":"dns","flow":{"pkts_toserver":1,"pkts_toclient":1,"bytes_toserver":80,"bytes_toclient":120,"start":"2026-11-12T09:14:22.401201+0000","end":"2026-11-12T09:14:23.110402+0000","age":1,"state":"established","reason":"timeout","alerted":false}}'
+        - '{"timestamp":"2026-11-12T09:15:01.004312+0000","flow_id":1187442290181341,"in_iface":"eth1","event_type":"flow","src_ip":"192.0.2.44","src_port":61023,"dest_ip":"198.51.100.53","dest_port":53,"proto":"UDP","app_proto":"dns","flow":{"pkts_toserver":1,"pkts_toclient":1,"bytes_toserver":82,"bytes_toclient":130,"start":"2026-11-12T09:14:22.401201+0000","end":"2026-11-12T09:14:23.110402+0000","age":1,"state":"established","reason":"timeout","alerted":false}}'
+        - '{"timestamp":"2026-11-12T09:15:01.004312+0000","flow_id":1187442290181342,"in_iface":"eth1","event_type":"flow","src_ip":"192.0.2.44","src_port":61024,"dest_ip":"198.51.100.53","dest_port":53,"proto":"UDP","app_proto":"dns","flow":{"pkts_toserver":1,"pkts_toclient":1,"bytes_toserver":78,"bytes_toclient":110,"start":"2026-11-12T09:14:22.401201+0000","end":"2026-11-12T09:14:23.110402+0000","age":1,"state":"established","reason":"timeout","alerted":false}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route by event_type
     saving: SIEM licence
     fn: Routes
     how: Alerts and fileinfo go to the SIEM at full fidelity. dns, http and tls get optimised copies in the SIEM. Raw flow goes to Lake only. community_id lets you join with Zeek or EDR data later.
     expr: event_type=='alert' → SIEM  |  dns/http/tls → SIEM(optimised) + Lake  |  flow → Lake
+    stream:
+      routes:
+        - name: Suricata alert and fileinfo → SIEM
+          filter: /"event_type":"(alert|fileinfo)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Suricata dns/http/tls → SIEM optimised + Lake
+          filter: /"event_type":"(dns|http|tls)"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+        - name: Suricata flow → Lake
+          filter: /"event_type":"flow"/.test(_raw)
+          to: Cribl Lake only; replay on demand
+          final: true
+      note: Routes see the raw event, so they match event_type inside the JSON text. Keep community_id so you can join with Zeek or EDR data later.
 references:
   - title: Suricata docs — EVE JSON format
     url: https://docs.suricata.io/en/latest/output/eve/eve-json-format.html

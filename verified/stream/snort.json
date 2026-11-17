@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Convert multi-line alert_full to one compact JSON event",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "492d0f05ccb9299f",
+    "in": {
+      "events": 1,
+      "bytes": 319
+    },
+    "out": {
+      "events": 1,
+      "bytes": 296
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated alerts per signature and pair",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "463732231801232f",
+    "in": {
+      "events": 4,
+      "bytes": 810
+    },
+    "out": {
+      "events": 2,
+      "bytes": 426
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop informational / policy noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "97ab4af7e665a486",
+    "in": {
+      "events": 2,
+      "bytes": 412
+    },
+    "out": {
+      "events": 1,
+      "bytes": 234
+    },
+    "ok": true
+  }
+}

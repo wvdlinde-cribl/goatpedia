@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop or sample low-value event types",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "00b41b64906bea13",
+    "in": {
+      "events": 2,
+      "bytes": 1261
+    },
+    "out": {
+      "events": 1,
+      "bytes": 629
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Remove verbose alert payload and metadata",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c8aac0cd1bda64d9",
+    "in": {
+      "events": 1,
+      "bytes": 822
+    },
+    "out": {
+      "events": 1,
+      "bytes": 766
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated alerts per flow",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "526982b30c3c1552",
+    "in": {
+      "events": 4,
+      "bytes": 2079
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1241
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate flows to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "18a09b37bc381f7d",
+    "in": {
+      "events": 4,
+      "bytes": 2000
+    },
+    "out": {
+      "events": 2,
+      "bytes": 872
+    },
+    "ok": true
+  }
+}
