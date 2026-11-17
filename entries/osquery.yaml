@@ -285,21 +285,83 @@ optimizations:
     fn: Unroll + Suppress
     how: Snapshot arrays repeat identical inventory every interval. Unroll into one event per row, then suppress rows whose hash didn't change since the last interval (or switch the query to differential).
     expr: "unroll snapshot → key: `${hostIdentifier}:${name}:${C.Crypto.md5(JSON.stringify(_row))}`  allow 1 / 24h"
+    stream:
+      log: Snapshot result
+      functions:
+        - id: unroll
+          filter: Array.isArray(snapshot)
+          description: Explode the snapshot array into one event per row
+          conf:
+            srcExpr: snapshot
+            dstField: _row
+        - id: suppress
+          filter: _row !== undefined
+          description: Keep one copy of each unchanged inventory row per host and query per 24 hours
+          conf:
+            keyExpr: hostIdentifier + ':' + name + ':' + JSON.stringify(_row)
+            allow: 1
+            suppressPeriodSec: 86400
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"name":"pack_inventory_listening_ports","hostIdentifier":"web01.corp.example.com","calendarTime":"Thu Nov 12 09:20:00 2026 UTC","unixTime":1794558000,"epoch":0,"counter":97,"numerics":false,"action":"snapshot","snapshot":[{"pid":"1022","port":"22","address":"0.0.0.0","protocol":"6","name":"sshd","path":"/usr/sbin/sshd"},{"pid":"28451","port":"4444","address":"0.0.0.0","protocol":"6","name":"nc","path":"/tmp/.x/nc"}]}'
+      expect:
+        out: 2
+        present:
+          - _row
   - title: Drop envelope noise
     saving: 10–20 %
     fn: Eval
     how: calendarTime duplicates unixTime; epoch, counter and numerics are only needed for gap analysis — keep counter in Lake, drop elsewhere. Flatten columns.* to top level.
     expr: "remove: calendarTime, epoch, numerics, decorations.host_uuid"
+    stream:
+      log: Differential result (process_events)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove envelope fields that duplicate unixTime or are only needed for gap analysis
+          conf:
+            remove:
+              - calendarTime
+              - epoch
+              - numerics
+              - decorations.host_uuid
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - calendarTime
+          - epoch
+          - numerics
+        present:
+          - unixTime
+          - columns
+        smaller: true
   - title: Filter benign process events
     saving: 40–70 % of process_events
     fn: Drop
     how: Monitoring agents, package managers and cron-run scripts produce most process events. Drop known paths/parents from an allow-list lookup.
     expr: name.includes('process_events') && C.Lookup('osq_benign.csv','path').match(columns.path)
+    stream:
+      note: 'This needs an allow-list file you supply: upload osq_benign.csv (a path column of known monitoring agents, package managers and cron scripts) as a Cribl lookup. Then add a Drop function with filter name.includes(''process_events'') && C.Lookup(''osq_benign.csv'',''path'').match((columns || {}).path).'
   - title: Route by query pack
     saving: SIEM licence
     fn: Routes
     how: Security packs (process, socket, persistence) → SIEM; inventory/compliance packs → Lake or a CMDB destination.
     expr: /^pack_(ir|security)_/.test(name) → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: osquery security packs → SIEM
+          filter: /"name":"pack_(ir|security)_/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: osquery inventory/compliance packs → Lake
+          filter: /"name":"pack_/.test(_raw)
+          to: Cribl Lake or a CMDB destination
+          final: true
+      note: Routes see the raw event, so they match the pack name inside the JSON text. Put the security route first.
 references:
   - title: osquery logging (results, differential and snapshot formats)
     url: https://osquery.readthedocs.io/en/stable/deployment/logging/

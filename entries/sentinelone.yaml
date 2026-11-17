@@ -408,21 +408,63 @@ optimizations:
     fn: Drop + Routes
     how: Use Cloud Funnel query filters to stop exporting categories nobody uses; in Stream, route module loads, cross-process handle duplication and registry reads to the lake only.
     expr: event.category in ('module','cross_process') || (event.category=='registry' && event.type=='Registry Value Read')
+    stream:
+      log: DNS (Cloud Funnel 2.0)
+      functions:
+        - id: drop
+          filter: __e['event.category'] == 'module' || __e['event.category'] == 'cross_process' || (__e['event.category'] == 'registry' && __e['event.type'] == 'Registry Value Read')
+          description: Drop module loads, cross-process handle events and registry reads before the SIEM; send the raw copy to the lake on a separate route
+          conf: {}
+      test:
+        - '{"event.category":"module","event.type":"DNS Resolved","meta.event.name":"DNS","event.id":"01JCX3M8Q7Z5D2K9W1T4H6B8NB_3","event.time":1762938863102,"timestamp":"2026-11-12T09:14:23.102Z","account.id":"1450129248765485585","site.id":"1450129249210081821","site.name":"Default site","agent.uuid":"a1b2c3d4e5f60718293a4b5c6d7e8f90","endpoint.name":"WS-FIN-042","endpoint.os":"windows","mgmt.url":"usea1-example.sentinelone.net","i.scheme":"edr","i.version":"preprocess-lib-1.0","sca:atlantisIngestTime":1762938868100,"sca:ingestTime":1762938868,"event.dns.request":"cdn.update-check.example.org","event.dns.response":"IP: 198.51.100.77;","src.process.name":"powershell.exe","src.process.pid":7412,"src.process.user":"CORP\\jdoe","src.process.cmdline":"powershell.exe -nop -w hidden -enc SQBFAFgA","src.process.storyline.id":"3178760C0D18489D","src.process.moduleCount":61}'
+      expect:
+        out: 1
   - title: Remove counters and ingest metadata
     saving: 25–40 %
     fn: Eval (remove fields)
     how: Every 2.0 event repeats dozens of src.process.*Count counters, osSrc.* duplicates and pipeline metadata (i.scheme, i.version, sca:*, mgmt.url). Remove them before the SIEM.
     expr: "remove: src.process.*Count, src.process.parent.*Count, osSrc.*, i.*, sca:*, mgmt.url"
+    stream:
+      log: Process creation (Cloud Funnel 2.0)
+      parse: false
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove process counters, osSrc duplicates and pipeline metadata (i.*, sca:*, mgmt.url) from the raw JSON
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/,"(i\.[A-Za-z]+|sca:[A-Za-z]+|mgmt\.url|osSrc\.[A-Za-z.]+|src\.process\.(parent\.)?[A-Za-z]*Count)":("[^"]*"|-?\d+)/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Drop DNS to top domains
     saving: 10–20 %
     fn: Lookup + Drop
     how: Most DNS events are OS, browser and SaaS lookups. Drop event.dns.request values in a top-domains list; keep everything from scripting hosts.
     expr: meta.event.name=='DNS' && C.Lookup('top_domains.csv','domain').match(event.dns.request) && !/powershell|wscript|rundll32/i.test(src.process.name)
+    stream:
+      note: This needs a top-domains lookup file you supply (e.g. top_domains.csv with a domain column). Upload it to Stream, add a Lookup on event.dns.request for DNS events, then Drop matches unless src.process.name matches powershell, wscript or rundll32.
   - title: Normalise v1 and v2 to one schema
     saving: Detection reuse
     fn: Eval + Serialize
     how: Detect the version (meta.traceId → v1, meta.event.name → v2) and map both to one schema (OCSF or your SIEM model) so detections are written once.
     expr: "__ver = meta && meta.traceId ? 'v1' : 'v2'"
+    stream:
+      log: Process (Cloud Funnel 1.0)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Tag the Cloud Funnel schema version so v1 and v2 can be mapped to one model
+          conf:
+            add:
+              - name: schema_version
+                value: '(meta || {}).traceId ? ''v1'' : (__e[''meta.event.name''] ? ''v2'' : ''unknown'')'
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - schema_version
 references:
   - title: SentinelOne — Singularity Cloud Funnel
     url: https://www.sentinelone.com/platform/singularity-cloud-funnel/

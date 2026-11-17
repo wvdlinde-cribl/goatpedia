@@ -282,21 +282,95 @@ optimizations:
     fn: Drop
     how: With start and periodic reporting enabled each long flow produces several records; the end record (fsg=0) carries the totals.
     expr: fsg=='1' || fsg=='2'
+    stream:
+      log: Flow record
+      functions:
+        - id: drop
+          filter: fsg == '1' || fsg == '2'
+          description: Drop flow start and periodic records; the end record (fsg=0) carries the totals
+          conf: {}
+      test:
+        - '{"fv":"nvzFlow_v11","pr":"6","sa":"10.20.30.44","sp":"51544","da":"203.0.113.50","dp":"443","fd":"1","fss":"1794557662","fst":"Thu Nov 12 09:14:22 2026","fes":"1794558262","fet":"Thu Nov 12 09:24:22 2026","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","liuid":"CORP\\jdoe","liuida":"CORP","liuidp":"jdoe","liuat":"2","pa":"CORP\\jdoe","puat":"2","pn":"rclone.exe","ph":"5A1F0C1E6A3B4D2F8E7C9B0A1D2E3F4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E","pid":"9132","ppath":"C:\\Users\\jdoe\\AppData\\Local\\Temp\\rclone.exe","parg":"copy C:\\Finance remote:backup --transfers 16","ppn":"cmd.exe","ppid":"8840","pppath":"C:\\Windows\\System32\\cmd.exe","ibc":"0","obc":"0","ds":"corp.example.com","dh":"files.example.net","iid":"50","fsms":"1794557662120","fems":"1794558262877","pil":"8192","ppil":"8192","fsg":"1","puid":"E89CC0DBD1F48055BB4FA09268E9B51D","eveuuid":"00000000000000000000000000000000"}'
+      expect:
+        out: 1
   - title: Drop duplicated time and module fields
     saving: 20–35 %
     fn: Eval
     how: fst/fet duplicate fss/fes (and fsms/fems), mhl repeats per-flow module hashes, eveuuid is zeros when EVE is off. Keep ms epochs, drop the rest.
     expr: "remove: fst, fet, fss, fes, eveuuid (when all zeros), mhl"
+    stream:
+      log: Flow record
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove duplicated second-epoch and text times and module hash list; keep ms epochs
+          conf:
+            remove:
+              - fst
+              - fet
+              - fss
+              - fes
+              - mhl
+        - id: eval
+          filter: eveuuid == '00000000000000000000000000000000'
+          description: Remove eveuuid when it is all zeros (EVE off)
+          conf:
+            remove:
+              - eveuuid
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - fst
+          - fet
+          - fss
+          - fes
+          - eveuuid
+        present:
+          - fsms
+          - fems
+        smaller: true
   - title: Aggregate high-volume benign flows
     saving: 25–50 %
     fn: Aggregations
     how: OS updates, browser telemetry, Teams/Zoom media and DNS dominate counts. Roll up per udid/pn/dh per 5 min with summed bytes; send raw to Lake.
     expr: pn in ('svchost.exe','msedge.exe','chrome.exe','Teams.exe','Zoom.exe') && dp in ('443','53','3478')
+    stream:
+      log: Flow record
+      functions:
+        - id: aggregation
+          filter: (pn == 'svchost.exe' || pn == 'msedge.exe' || pn == 'chrome.exe' || pn == 'Teams.exe' || pn == 'Zoom.exe') && (dp == '443' || dp == '53' || dp == '3478')
+          description: Roll benign high-volume flows up per endpoint, process and destination host per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(flows)
+              - sum(ibc).as(ibc)
+              - sum(obc).as(obc)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - udid
+              - pn
+              - dh
+      test:
+        - '{"fv":"nvzFlow_v11","pr":"6","sa":"10.20.30.44","sp":"51544","da":"203.0.113.60","dp":"443","fd":"1","fss":"1794557662","fst":"Thu Nov 12 09:14:22 2026","fes":"1794558262","fet":"Thu Nov 12 09:24:22 2026","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","liuid":"CORP\\jdoe","liuida":"CORP","liuidp":"jdoe","liuat":"2","pa":"CORP\\jdoe","puat":"2","pn":"chrome.exe","ph":"5A1F","pid":"9132","ppath":"C:\\Program Files\\chrome.exe","parg":"","ppn":"explorer.exe","ppid":"8840","pppath":"C:\\Windows\\explorer.exe","ibc":"1000","obc":"200","ds":"corp.example.com","dh":"www.example.com","iid":"50","fsms":"1794557662120","fems":"1794558262877","pil":"8192","ppil":"8192","fsg":"0","puid":"E89CC0DBD1F48055BB4FA09268E9B51D","eveuuid":"00000000000000000000000000000000"}'
+        - '{"fv":"nvzFlow_v11","pr":"6","sa":"10.20.30.44","sp":"51545","da":"203.0.113.60","dp":"443","fd":"1","fss":"1794557662","fst":"Thu Nov 12 09:14:22 2026","fes":"1794558262","fet":"Thu Nov 12 09:24:22 2026","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","liuid":"CORP\\jdoe","liuida":"CORP","liuidp":"jdoe","liuat":"2","pa":"CORP\\jdoe","puat":"2","pn":"chrome.exe","ph":"5A1F","pid":"9132","ppath":"C:\\Program Files\\chrome.exe","parg":"","ppn":"explorer.exe","ppid":"8840","pppath":"C:\\Windows\\explorer.exe","ibc":"3000","obc":"400","ds":"corp.example.com","dh":"www.example.com","iid":"50","fsms":"1794557662120","fems":"1794558262877","pil":"8192","ppil":"8192","fsg":"0","puid":"E89CC0DBD1F48055BB4FA09268E9B51D","eveuuid":"00000000000000000000000000000000"}'
+        - '{"fv":"nvzFlow_v11","pr":"6","sa":"10.20.30.44","sp":"51546","da":"203.0.113.60","dp":"443","fd":"1","fss":"1794557662","fst":"Thu Nov 12 09:14:22 2026","fes":"1794558262","fet":"Thu Nov 12 09:24:22 2026","udid":"0A1B2C3D4E5F60718293A4B5C6D7E8F901234567","liuid":"CORP\\jdoe","liuida":"CORP","liuidp":"jdoe","liuat":"2","pa":"CORP\\jdoe","puat":"2","pn":"chrome.exe","ph":"5A1F","pid":"9132","ppath":"C:\\Program Files\\chrome.exe","parg":"","ppn":"explorer.exe","ppid":"8840","pppath":"C:\\Windows\\explorer.exe","ibc":"5000","obc":"600","ds":"corp.example.com","dh":"www.example.com","iid":"50","fsms":"1794557662120","fems":"1794558262877","pil":"8192","ppil":"8192","fsg":"0","puid":"E89CC0DBD1F48055BB4FA09268E9B51D","eveuuid":"00000000000000000000000000000000"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Enrich flows with endpoint identity
     saving: Query speed
     fn: Lookup
     how: Keep a lookup of the latest sysdata record per udid (hostname, OS, agent version) and add vsn/osv to each flow so the SIEM doesn't need a join.
     expr: lookup nvm_endpoints.csv on udid → vsn, osv, agv
+    stream:
+      note: 'This needs a lookup file you maintain: build nvm_endpoints.csv (udid, vsn, osv, agv) from the latest endpoint identity record per udid. Then add a Lookup function on the flow pipeline matching udid and outputting vsn, osv and agv.'
 references:
   - title: NVM Collector installation and configuration guide 5.1.x (field reference)
     url: https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/nvm-collector-5-1-1-admin-guide.html

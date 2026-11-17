@@ -89,6 +89,19 @@ optimizations:
     fn: Drop
     how: Safe and Likely Safe grades are the collector deciding the process is ordinary. Keep Malicious, Suspicious, PUP, and Inconclusive.
     expr: Classification == 'Safe' || Classification == 'Likely Safe'
+    stream:
+      log: Security event
+      parse: false
+      functions:
+        - id: drop
+          filter: /Classification=(Safe|Likely Safe)( [A-Za-z0-9_]+=|$)/.test(_raw)
+          description: Drop Safe and Likely Safe classifications; keep Malicious, Suspicious, PUP and Inconclusive
+          conf: {}
+      test:
+        - CEF:0|Fortinet|FortiEDR|7.2|security|Security event|5|cs1=example-org cs1Label=Organization eventid=1002 cs6=9002 cs6Label=RawDataId Shost=win11-01 fname=notepad.exe act=allowed Classification=Safe src=192.0.2.20 dst=203.0.113.10 suser=ada
+        - CEF:0|Fortinet|FortiEDR|7.2|security|Security event|5|cs1=example-org cs1Label=Organization eventid=1003 cs6=9003 cs6Label=RawDataId Shost=win11-01 fname=notepad.exe act=allowed Classification=Suspicious src=192.0.2.20 dst=203.0.113.10 suser=ada
+      expect:
+        out: 2
 references:
   - title: FortiEDR — Syslog
     url: https://docs.fortinet.com/document/fortiedr/7.2.5/administration-guide/109591/syslog

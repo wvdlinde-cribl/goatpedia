@@ -1,0 +1,32 @@
+{
+  "1": {
+    "title": "Drop links and constant fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3a90af63ab31a2bb",
+    "in": {
+      "events": 1,
+      "bytes": 1125
+    },
+    "out": {
+      "events": 1,
+      "bytes": 784
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate netconn",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "35b55d6315da2c9c",
+    "in": {
+      "events": 3,
+      "bytes": 2022
+    },
+    "out": {
+      "events": 1,
+      "bytes": 345
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Explode snapshots into rows, drop unchanged inventory",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "65402a43ef212e43",
+    "in": {
+      "events": 2,
+      "bytes": 842
+    },
+    "out": {
+      "events": 2,
+      "bytes": 842
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop envelope noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "98e77ae2fe6669b4",
+    "in": {
+      "events": 1,
+      "bytes": 549
+    },
+    "out": {
+      "events": 1,
+      "bytes": 425
+    },
+    "ok": true
+  }
+}

@@ -82,6 +82,18 @@ optimizations:
     fn: Drop
     how: Periodic snapshots repeat every Passed and Skipped control. Keep Failed assessments, recommendations and alerts in the SIEM.
     expr: properties.state == 'Passed' || properties.state == 'Skipped'
+    stream:
+      log: Continuous export records
+      functions:
+        - id: drop
+          filter: (properties || {}).state == 'Passed' || (properties || {}).state == 'Skipped'
+          description: Drop Passed and Skipped compliance snapshot records; keep Failed assessments, recommendations and alerts
+          conf: {}
+      test:
+        - '{"securityEventDataEnrichment":{"action":"Write","apiVersion":"2019-01-01-preview","isSnapshot":false,"interval":"00:00:00"},"id":"/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/Microsoft.Security/regulatoryComplianceStandards/Microsoft-cloud-security-benchmark/regulatoryC...","name":"45cfe080-ceb1-a91e-9743-71551ed24e94","type":"Microsoft.Security/regulatoryComplianceStandards/regulatoryComplianceControls/regulatoryComplianceAssessments","properties":{"description":"Log Analytics agent should be installed on virtual machine scale sets","state":"Failed","passedResources":0,"failedResources":1,"skippedResources":0,"assessmentType":"AssessmentResult","assessmentDetailsLink":"https://portal.azure.com/#blade/Microsoft_Azure_Security/RecommendationsBlade/assessmentKey/45cfe080-ceb1-a91e-9743-71551ed24e94/initiativeId/Microsoft-cloud..."}}'
+        - '{"securityEventDataEnrichment":{"action":"Write","apiVersion":"2019-01-01-preview","isSnapshot":false,"interval":"00:00:00"},"id":"/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/Microsoft.Security/regulatoryComplianceStandards/Microsoft-cloud-security-benchmark/regulatoryC...","name":"45cfe080-ceb1-a91e-9743-71551ed24e94","type":"Microsoft.Security/regulatoryComplianceStandards/regulatoryComplianceControls/regulatoryComplianceAssessments","properties":{"description":"Log Analytics agent should be installed on virtual machine scale sets","state":"Passed","passedResources":1,"failedResources":0,"skippedResources":0,"assessmentType":"AssessmentResult","assessmentDetailsLink":"https://portal.azure.com/#blade/Microsoft_Azure_Security/RecommendationsBlade/assessmentKey/45cfe080-ceb1-a91e-9743-71551ed24e94/initiativeId/Microsoft-cloud..."}}'
+      expect:
+        out: 1
 references:
   - title: Microsoft Defender for Cloud overview
     url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-cloud-introduction

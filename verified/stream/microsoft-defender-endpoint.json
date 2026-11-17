@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop compliant assessment rows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f4bc3c0327924bce",
+    "in": {
+      "events": 2,
+      "bytes": 1101
+    },
+    "out": {
+      "events": 1,
+      "bytes": 551
+    },
+    "ok": true
+  }
+}

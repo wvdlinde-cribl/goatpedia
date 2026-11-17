@@ -1,0 +1,32 @@
+{
+  "1": {
+    "title": "Remove config and flag fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1064fb84c1e0f816",
+    "in": {
+      "events": 1,
+      "bytes": 1202
+    },
+    "out": {
+      "events": 1,
+      "bytes": 974
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate network connections",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1c5a816eab96e8e4",
+    "in": {
+      "events": 4,
+      "bytes": 2913
+    },
+    "out": {
+      "events": 2,
+      "bytes": 937
+    },
+    "ok": true
+  }
+}
