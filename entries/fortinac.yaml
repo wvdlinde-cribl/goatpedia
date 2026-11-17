@@ -83,6 +83,20 @@ optimizations:
     fn: Drop
     how: Fortinet's examples include a line for every host logon, logoff, lock, and unlock. Those are presence, not an access decision. Keep admin sign-in and events whose name says Failure.
     expr: event == 'User Logged onto Host' || event == 'User Logged off Host' || event == 'User Locked Session' || event == 'User Unlocked Session'
+    stream:
+      log: Event
+      parse: false
+      functions:
+        - id: drop
+          filter: /^[^,]*,[^,]*,[^,]*,(User Logged onto Host|User Logged off Host|User Locked Session|User Unlocked Session),/.test(_raw)
+          description: Drop workstation logon, logoff, lock and unlock presence events by matching the event name column in _raw; keep admin sign-in and failures
+          conf: {}
+      test:
+        - 2026/11/16 08:41:00 UTC,1,1002,User Logged onto Host,0,12,,,,,User ada logged onto host ws-01.example.com.
+        - 2026/11/16 08:42:00 UTC,1,1003,User Locked Session,0,12,,,,,User ada locked session on host ws-01.example.com.
+        - 2026/11/16 08:43:00 UTC,1,1004,Login Failure,0,12,,,,,User ada login failed.
+      expect:
+        out: 2
 references:
   - title: FortiNAC — Log events to an external log host
     url: https://docs.fortinet.com/document/fortinac/9.4.0/fortinac-manager/499308/log-events-to-an-external-log-host

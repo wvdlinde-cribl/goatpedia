@@ -360,16 +360,94 @@ optimizations:
     fn: Eval
     how: access_device.flash_version / java_version are almost always "uninstalled", ood_software and alias are usually empty, and model/features versions never change. Remove them and null values.
     expr: "remove: access_device.flash_version, access_device.java_version, ood_software, alias, *.features_version, *.model_version"
+    stream:
+      log: Authentication
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove deprecated plugin versions, usually-empty fields and static model/features versions
+          conf:
+            remove:
+              - access_device.flash_version
+              - access_device.java_version
+              - ood_software
+              - alias
+              - adaptive_trust_assessments.more_secure_auth.features_version
+              - adaptive_trust_assessments.more_secure_auth.model_version
+        - id: eval
+          filter: 'true'
+          description: Remove null device values
+          conf:
+            add:
+              - name: access_device.hostname
+                value: '(access_device || {}).hostname === null ? undefined : (access_device || {}).hostname'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - ood_software
+          - alias
+        present:
+          - access_device
+          - result
+        smaller: true
   - title: Aggregate remembered-device and trusted-network successes
     saving: 15–35 %
     fn: Aggregations
     how: Successes with reason remembered_device or trusted_network involve no user challenge and repeat all day. Roll them up to count per user, application and access IP per hour; keep every denial, fraud and push event raw.
     expr: result=='success' && ['remembered_device','trusted_network'].includes(reason)
+    stream:
+      log: Authentication
+      functions:
+        - id: aggregation
+          filter: result == 'success' && (reason == 'remembered_device' || reason == 'trusted_network')
+          description: Roll routine no-challenge successes up to a count per user, application and access IP per hour
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 3600s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - user.name
+              - application.name
+              - access_device.ip
+              - reason
+      test:
+        - '{"access_device":{"browser":"Chrome","browser_version":"130.0.0.0","epkey":"EPA1B2C3D4E5F6G7H8I9","flash_version":"uninstalled","hostname":null,"ip":"198.51.100.88","is_encryption_enabled":"unknown","is_firewall_enabled":"unknown","is_password_set":"unknown","java_version":"uninstalled","location":{"city":"Bucharest","country":"Romania","state":"Bucuresti"},"os":"Windows","os_version":"10"},"alias":"","application":{"key":"DIA1B2C3D4E5F6G7H8I9","name":"Corp VPN (RADIUS)"},"email":"jdoe@example.com","event_type":"authentication","factor":"remembered_device","isotimestamp":"2026-11-12T07:58:31.204118+00:00","ood_software":null,"reason":"remembered_device","result":"success","timestamp":1762934311,"trusted_endpoint_status":"unknown","txid":"5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b","user":{"groups":["Duo Users","VPN Users"],"key":"DUA1B2C3D4E5F6G7H8I9","name":"jdoe"}}'
+        - '{"access_device":{"browser":"Chrome","browser_version":"130.0.0.0","epkey":"EPA1B2C3D4E5F6G7H8I9","flash_version":"uninstalled","hostname":null,"ip":"198.51.100.88","is_encryption_enabled":"unknown","is_firewall_enabled":"unknown","is_password_set":"unknown","java_version":"uninstalled","location":{"city":"Bucharest","country":"Romania","state":"Bucuresti"},"os":"Windows","os_version":"10"},"alias":"","application":{"key":"DIA1B2C3D4E5F6G7H8I9","name":"Corp VPN (RADIUS)"},"email":"jdoe@example.com","event_type":"authentication","factor":"remembered_device","isotimestamp":"2026-11-12T08:28:31.204118+00:00","ood_software":null,"reason":"remembered_device","result":"success","timestamp":1762936111,"trusted_endpoint_status":"unknown","txid":"6e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b","user":{"groups":["Duo Users","VPN Users"],"key":"DUA1B2C3D4E5F6G7H8I9","name":"jdoe"}}'
+        - '{"access_device":{"browser":"Chrome","browser_version":"130.0.0.0","epkey":"EPA1B2C3D4E5F6G7H8I9","flash_version":"uninstalled","hostname":null,"ip":"198.51.100.88","is_encryption_enabled":"unknown","is_firewall_enabled":"unknown","is_password_set":"unknown","java_version":"uninstalled","location":{"city":"Bucharest","country":"Romania","state":"Bucuresti"},"os":"Windows","os_version":"10"},"alias":"","application":{"key":"DIA1B2C3D4E5F6G7H8I9","name":"Corp VPN (RADIUS)"},"email":"jdoe@example.com","event_type":"authentication","factor":"remembered_device","isotimestamp":"2026-11-12T08:48:31.204118+00:00","ood_software":null,"reason":"remembered_device","result":"success","timestamp":1762937311,"trusted_endpoint_status":"unknown","txid":"7e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b","user":{"groups":["Duo Users","VPN Users"],"key":"DUA1B2C3D4E5F6G7H8I9","name":"jdoe"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route by log type
     saving: SIEM licence
     fn: Routes
     how: Fraud, denied, activity and administrator events → SIEM at full fidelity; aggregated routine successes → SIEM; full raw authentication log and telephony → Lake for investigations and billing review.
     expr: result!='success' || __collector=='activity' || __collector=='administrator' → SIEM
+    stream:
+      routes:
+        - name: Duo telephony → Lake
+          filter: /"credits":/.test(_raw) && /"phone":/.test(_raw)
+          to: Cribl Lake only, for billing review
+          final: true
+        - name: Duo activity and administrator events → SIEM
+          filter: /"activity_id":/.test(_raw) || (/"action":/.test(_raw) && /"username":/.test(_raw))
+          to: The SIEM, full fidelity
+          final: true
+        - name: Duo non-success authentications → SIEM
+          filter: /"event_type":"authentication"/.test(_raw) && !/"result":"success"/.test(_raw)
+          to: The SIEM, full fidelity, and Cribl Lake raw
+          final: true
+        - name: Duo successful authentications → Lake raw, SIEM aggregated
+          filter: /"event_type":"authentication"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline above
+          final: true
+      note: Routes see the raw JSON, so they match keys and result values in _raw. Keep this order so telephony and admin events are caught before authentication routes.
 references:
   - title: Duo Admin API (authentication, activity, administrator, telephony logs)
     url: https://duo.com/docs/adminapi

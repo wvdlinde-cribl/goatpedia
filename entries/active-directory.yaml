@@ -315,21 +315,78 @@ optimizations:
     fn: Drop
     how: Most 4769s are computer accounts renewing tickets to themselves or krbtgt TGS renewals with AES. Drop 4769 where ServiceName ends with $ AND TicketEncryptionType is 0x12 AND Status is 0x0 — keep every RC4 and every failure.
     expr: EventID=='4769' && ServiceName.endsWith('$') && TicketEncryptionType=='0x12' && Status=='0x0'
+    stream:
+      log: Kerberos service ticket (4769)
+      parse: false
+      functions:
+        - id: drop
+          filter: /<EventID>4769<.EventID>/.test(_raw) && /<Data Name='ServiceName'>[^<]*[$]<.Data>/.test(_raw) && /<Data Name='TicketEncryptionType'>0x12</.test(_raw) && /<Data Name='Status'>0x0</.test(_raw)
+          description: Drop successful AES 4769 tickets for machine accounts; keep RC4 and failures
+          conf: {}
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4769</EventID><Version>0</Version><Level>0</Level><Task>14337</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T09:31:05.442133700Z'/><EventRecordID>88123457</EventRecordID><Correlation/><Execution ProcessID='668' ThreadID='2140'/><Channel>Security</Channel><Computer>DC01.corp.example.com</Computer><Security/></System><EventData><Data Name='TargetUserName'>FS01$@CORP.EXAMPLE.COM</Data><Data Name='TargetDomainName'>CORP.EXAMPLE.COM</Data><Data Name='ServiceName'>FS01$</Data><Data Name='ServiceSid'>S-1-5-21-1111111111-2222222222-3333333333-1107</Data><Data Name='TicketOptions'>0x40810000</Data><Data Name='TicketEncryptionType'>0x12</Data><Data Name='IpAddress'>::ffff:192.0.2.44</Data><Data Name='IpPort'>51544</Data><Data Name='Status'>0x0</Data><Data Name='LogonGuid'>{6b2c1d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e}</Data><Data Name='TransmittedServices'>-</Data></EventData></Event>
+      expect:
+        out: 1
   - title: Strip XML boilerplate
     saving: 30–50 %
     fn: Parser → Serialize
     how: Parse EventData to fields and drop the static System block (Provider Guid, Version, Opcode, Keywords, ThreadID, Correlation) and placeholder values ('-', '0x0' LogonGuid). Serialize to JSON or KV. The Cribl XML Events to JSON pack does this.
     expr: "remove: Provider.Guid, Version, Opcode, Keywords, Execution.ThreadID, LogonGuid, TransmittedServices when '-'"
+    stream:
+      log: Kerberos service ticket (4769)
+      parse: false
+      functions:
+        - id: eval
+          filter: /<Event /.test(_raw)
+          description: Strip static System elements and placeholder EventData values
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ Guid='[^']*'/g, '').replace(/<Version>[^<]*<.Version>|<Opcode>[^<]*<.Opcode>|<Keywords>[^<]*<.Keywords>|<Correlation.>/g, '').replace(/ ThreadID='[^']*'/g, '').replace(/<Data Name='LogonGuid'>[^<]*<.Data>/g, '').replace(/<Data Name='TransmittedServices'>-<.Data>/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress repetitive 4662 object reads
     saving: 5–20 %
     fn: Suppress
     how: With Directory Service Access auditing on, monitoring tools generate floods of identical 4662s. Keep one per SubjectUserName/ObjectName/AccessMask per 5 minutes — but never suppress the replication-right GUIDs.
     expr: "key: `${SubjectUserName}:${ObjectName}:${AccessMask}`  allow 1 / 300s  when EventID=='4662' && !/1131f6a[ad]/.test(Properties)"
+    stream:
+      log: Directory service change (5136)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /<EventID>4662<.EventID>/.test(_raw) && !/1131f6a[ad]/.test(_raw)
+          description: Keep one 4662 per user, object and access mask per 5 minutes; never suppress replication rights
+          conf:
+            keyExpr: (_raw.match(/'SubjectUserName'>([^<]*)/) || [])[1] + ':' + (_raw.match(/'ObjectName'>([^<]*)/) || [])[1] + ':' + (_raw.match(/'AccessMask'>([^<]*)/) || [])[1]
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4662</EventID><Version>0</Version><Level>0</Level><Task>14080</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T10:02:17.118274300Z'/><EventRecordID>88130022</EventRecordID><Correlation/><Execution ProcessID='668' ThreadID='3312'/><Channel>Security</Channel><Computer>DC01.corp.example.com</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-5-21-1111111111-2222222222-3333333333-1190</Data><Data Name='SubjectUserName'>svc-monitor</Data><Data Name='SubjectDomainName'>CORP</Data><Data Name='SubjectLogonId'>0x2a7f31c</Data><Data Name='ObjectServer'>DS</Data><Data Name='ObjectType'>%{bf967a86-0de6-11d0-a285-00aa003049e2}</Data><Data Name='ObjectName'>%{9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d}</Data><Data Name='OperationType'>Object Access</Data><Data Name='AccessMask'>0x10</Data><Data Name='Properties'>%%7684 {bf967a86-0de6-11d0-a285-00aa003049e2}</Data></EventData></Event>
+        - <Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4662</EventID><Version>0</Version><Level>0</Level><Task>14080</Task><Opcode>0</Opcode><Keywords>0x8020000000000000</Keywords><TimeCreated SystemTime='2026-11-12T10:02:17.118274300Z'/><EventRecordID>88130022</EventRecordID><Correlation/><Execution ProcessID='668' ThreadID='3312'/><Channel>Security</Channel><Computer>DC01.corp.example.com</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-5-21-1111111111-2222222222-3333333333-1190</Data><Data Name='SubjectUserName'>svc-monitor</Data><Data Name='SubjectDomainName'>CORP</Data><Data Name='SubjectLogonId'>0x2a7f31c</Data><Data Name='ObjectServer'>DS</Data><Data Name='ObjectType'>%{bf967a86-0de6-11d0-a285-00aa003049e2}</Data><Data Name='ObjectName'>%{9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d}</Data><Data Name='OperationType'>Object Access</Data><Data Name='AccessMask'>0x10</Data><Data Name='Properties'>%%7684 {bf967a86-0de6-11d0-a285-00aa003049e2}</Data></EventData></Event>
+      expect:
+        out: 2
   - title: Route by event class
     saving: SIEM licence
     fn: Routes
     how: Account/group management (47xx), 4662 replication, 5136, 4768/4769 RC4 or failures, Netlogon 5827–5829 → SIEM. Bulk successful AES ticket traffic → Lake, replayed during an investigation.
     expr: "EventID in ('4720','4724','4728','4732','4756','4781','5136','4662') || TicketEncryptionType=='0x17' → SIEM"
+    stream:
+      routes:
+        - name: AD high-value events → SIEM
+          filter: /<EventID>(4720|4724|4728|4732|4756|4781|5136|4662|5827|5828|5829)<.EventID>/.test(_raw) || /<Data Name='TicketEncryptionType'>0x17</.test(_raw) || (/<EventID>476[89]<.EventID>/.test(_raw) && !/<Data Name='Status'>0x0</.test(_raw))
+          to: The SIEM, full fidelity
+          final: true
+        - name: AD bulk ticket traffic → Lake
+          filter: /<EventID>/.test(_raw)
+          to: Cribl Lake only; replay during an investigation
+          final: true
+      note: Routes see the raw XML, so they match the EventID element and EventData values. Put the SIEM route first.
 references:
   - title: Microsoft — Event 4769 A Kerberos service ticket was requested
     url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4769

@@ -90,6 +90,17 @@ optimizations:
     fn: Drop
     how: A successful SSO line is an ordinary sign-in. Keep authentication failures, session revocation, and OAuth failures.
     expr: event == 'SSO' && status == 'success'
+    stream:
+      log: Security audit
+      functions:
+        - id: drop
+          filter: event == 'SSO' && status == 'success'
+          description: Drop successful SSO lines; keep failures, revocations and OAuth failures
+          conf: {}
+      test:
+        - 2026-11-16 08:42:00,000|tid-1002|txn-2003|SSO|ada@example.com|192.0.2.60|app.example.com|sp-example|SAML20|pf.example.com|IdP|success|htmlform|Single sign-on|9
+      expect:
+        out: 1
 references:
   - title: PingFederate — Security audit logging
     url: https://docs.pingidentity.com/pingfederate/13.1/administrators_reference_guide/pf_security_audit_logging.html

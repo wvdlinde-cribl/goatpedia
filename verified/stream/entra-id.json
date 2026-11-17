@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Aggregate non-interactive sign-ins",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6d4718c1383021ae",
+    "in": {
+      "events": 4,
+      "bytes": 4650
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2045
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop envelope duplicates",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "66d5eb7f19968d62",
+    "in": {
+      "events": 1,
+      "bytes": 1749
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1564
+    },
+    "ok": true
+  }
+}

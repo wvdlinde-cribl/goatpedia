@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Drop deprecated and empty device fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7ad7a1e23434a49d",
+    "in": {
+      "events": 1,
+      "bytes": 1384
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1220
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate remembered-device and trusted-network successes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "032b3662bde0ba9c",
+    "in": {
+      "events": 4,
+      "bytes": 4003
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1642
+    },
+    "ok": true
+  }
+}

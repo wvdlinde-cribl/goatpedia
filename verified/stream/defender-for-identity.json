@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Keep failures and unusual protocols",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f9a59e6bac9b4cb8",
+    "in": {
+      "events": 3,
+      "bytes": 1020
+    },
+    "out": {
+      "events": 2,
+      "bytes": 683
+    },
+    "ok": true
+  }
+}

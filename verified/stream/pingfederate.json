@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop successful SSO",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "af4c1edcaac60dae",
+    "in": {
+      "events": 2,
+      "bytes": 329
+    },
+    "out": {
+      "events": 1,
+      "bytes": 170
+    },
+    "ok": true
+  }
+}

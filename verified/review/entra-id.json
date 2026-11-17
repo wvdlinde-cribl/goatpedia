@@ -1,0 +1,8 @@
+{
+  "1": {
+    "title": "Trim heavy nested arrays",
+    "problems": [
+      "output (2980 B) is not smaller than input (2980 B)"
+    ]
+  }
+}
