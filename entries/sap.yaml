@@ -288,21 +288,99 @@ optimizations:
     fn: Drop
     how: AUK (successful RFC call) and AU5 (successful RFC logon) from known interface users are most of the SAL volume. Keep failures (AUL, AU6) and every call by dialog users.
     expr: msg_id in ('AUK','AU5') && /^(RFC_|WF-BATCH|SAPSYS)/.test(user.trim())
+    stream:
+      log: Security Audit Log record (.aud file)
+      functions:
+        - id: drop
+          filter: (msg_id == 'AUK' || msg_id == 'AU5') && /^(RFC_|WF-BATCH|SAPSYS)/.test((user || '').trim())
+          description: Drop successful RFC calls and RFC logons by technical interface users; failures and dialog users stay
+          conf: {}
+      test:
+        - 2AUK20261112091422000505200009D910.20.4.RFC_                            SAPMSYST                                1000A&1&A                                                           10.20.4.17
+      expect:
+        out: 1
   - title: Trim fixed-width padding
     saving: 30–45 %
     fn: Eval
     how: Every SAL field is space-padded to its width. Trim each extracted field and drop empty ones so a 200-character record shrinks to its real content.
     expr: "user = user.trim(), tcode = tcode.trim(), program = program.trim(), msg_data = msg_data.trim()"
+    stream:
+      log: Security Audit Log record (.aud file)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Trim the fixed-width padding from every field and drop fields that are empty after trimming
+          conf:
+            add:
+              - name: user
+                value: (user || '').trim() || undefined
+              - name: tcode
+                value: (tcode || '').trim() || undefined
+              - name: program
+                value: (program || '').trim() || undefined
+              - name: msg_data
+                value: (msg_data || '').trim() || undefined
+              - name: terminal
+                value: (terminal || '').trim() || undefined
+              - name: os_pid
+                value: (os_pid || '').trim() || undefined
+              - name: task
+                value: (task || '').trim() || undefined
+              - name: proc_type
+                value: (proc_type || '').trim() || undefined
+              - name: client
+                value: (client || '').trim() || undefined
+              - name: terminal_long
+                value: (terminal_long || '').trim() || undefined
+      expect:
+        out: 1
+        absent:
+          - tcode
+        present:
+          - user
+          - msg_id
   - title: Drop empty HANA XS/XSA columns
     saving: 20–40 %
     fn: Eval
     how: The HANA trail carries 20+ XS/XSA columns that are empty on most systems. Keep the first 30 named columns and remove extra_columns when it contains only separators.
     expr: "extra_columns = /^;*$/.test(extra_columns) ? undefined : extra_columns"
+    stream:
+      log: HANA audit trail (syslog)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove extra_columns when it holds only empty XS/XSA separators
+          conf:
+            add:
+              - name: extra_columns
+                value: '/^;*$/.test(extra_columns || '''') ? undefined : extra_columns'
+      expect:
+        out: 1
+        absent:
+          - extra_columns
+        present:
+          - session_id
+          - action_status
   - title: Route security classes to the SIEM, the rest to Lake
     saving: SIEM licence
     fn: Routes
     how: Logons, failures, user/audit changes and sensitive transactions → SIEM. Transaction and report starts by ordinary users and HANA INFO-level events → Cribl Lake for investigations and audits.
     expr: "/^(AU[1-2]|AU[6-9]|AU[A-E]|AUM|AUL|CUZ|BU4)$/.test(msg_id) || action_status=='UNSUCCESSFUL' → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: SAP SAL security classes → SIEM
+          filter: /^[q2](AU[1-2]|AU[6-9]|AU[A-E]|AUM|AUL|CUZ|BU4)/.test(_raw) || /MSGID=(AU[1-2]|AU[6-9]|AU[A-E]|AUM|AUL|CUZ|BU4)\b/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: HANA unsuccessful actions → SIEM
+          filter: '/HDB_\w+\[\d+\]: /.test(_raw) && /;UNSUCCESSFUL;/.test(_raw)'
+          to: The SIEM, full fidelity
+          final: true
+        - name: SAP other audit events → Lake
+          filter: 'true'
+          to: Cribl Lake for investigations and audits
+          final: true
+      note: Routes see the raw event, so they match the message id at the start of the .aud record, MSGID= in the key=value export, and the action status column in the HANA trail. Keep the SIEM routes first.
 references:
   - title: SAP Community — Analysis and recommended settings of the Security Audit Log (SM19/RSAU)
     url: https://community.sap.com/t5/application-development-and-automation-blog-posts/analysis-and-recommended-settings-of-the-security-audit-log-sm19-rsau/ba-p/13297094

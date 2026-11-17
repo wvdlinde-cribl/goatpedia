@@ -277,21 +277,121 @@ optimizations:
     fn: Eval
     how: Templates send every csN and csNLabel even when empty, and both raw and parsed query. Rename used csN fields to their labels, remove the labels, empty fields and the raw query when the parsed one is kept.
     expr: "Policy = cs1, Database = cs13, ParsedQuery = cs16, AffectedRows = cs21  (then remove cs*Label, empty cs*, cs15)"
+    stream:
+      log: DAM audit record (CEF)
+      parse: false
+      functions:
+        - id: eval
+          filter: / cat=Audit /.test(_raw)
+          description: Name the used custom strings by their labels, then strip the labels, empty custom strings and the raw query from _raw
+          conf:
+            add:
+              - name: Policy
+                value: (_raw.match(/ cs1=(.*?) cs1Label=/) || [])[1]
+              - name: Database
+                value: (_raw.match(/ cs13=(.*?) cs13Label=/) || [])[1]
+              - name: ParsedQuery
+                value: (_raw.match(/ cs16=(.*?) cs16Label=/) || [])[1]
+              - name: AffectedRows
+                value: (_raw.match(/ cs21=(\S*) cs21Label=/) || [])[1]
+              - name: _raw
+                value: _raw.replace(/ cs15=.*? cs15Label=\w+/, '').replace(/ cs\d+= (?=cs\d+Label=)/g, ' ').replace(/ cs\d+Label=\w+/g, '')
+      expect:
+        out: 1
+        present:
+          - Policy
+          - Database
+          - ParsedQuery
+          - AffectedRows
   - title: Aggregate repetitive application queries
     saving: 60–90 %
     fn: Aggregations
     how: Application accounts send the same parameterised statement thousands of times a minute. Aggregate by duser, src, cs13 and cs16 with count and sum(cs21) per minute for those accounts; keep individual events for humans.
     expr: "count(), sum(cs21) by duser, src, cs13, cs16 every 60s  when duser startsWith 'app_'"
+    stream:
+      log: DAM audit record (CEF)
+      parse: false
+      functions:
+        - id: eval
+          filter: / cat=Audit /.test(_raw) && / duser=app_/.test(_raw)
+          description: Extract the grouping fields from the raw audit record
+          conf:
+            add:
+              - name: agg_duser
+                value: (_raw.match(/ duser=(\S+)/) || [])[1]
+              - name: agg_src
+                value: (_raw.match(/ src=(\S+)/) || [])[1]
+              - name: agg_db
+                value: (_raw.match(/ cs13=(.*?) cs13Label=/) || [])[1]
+              - name: agg_query
+                value: (_raw.match(/ cs16=(.*?) cs16Label=/) || [])[1]
+              - name: agg_rows
+                value: Number((_raw.match(/ cs21=(\d+)/) || [])[1] || 0)
+        - id: aggregation
+          filter: / cat=Audit /.test(_raw) && / duser=app_/.test(_raw)
+          description: Roll application-account queries up per user, source, database and statement per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(queries)
+              - sum(agg_rows).as(affected_rows)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - agg_duser
+              - agg_src
+              - agg_db
+              - agg_query
+      test:
+        - 2026-11-12T09:14:22.948+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Audit|Audit.DAM|Informative|dst=10.20.30.15 dpt=1433 duser=app_hr src=10.20.4.17 spt=52607 proto=TCP rt=Nov 12 2026 09:14:22 cat=Audit cs1=Sensitive Tables Audit cs1Label=Policy cs2=SQL-PROD cs2Label=ServerGroup cs3=MSSQL-HR cs3Label=ServiceName cs4=Default MsSql Application cs4Label=ApplicationName cs5=6954029700745976148 cs5Label=EventId cs6=Query cs6Label=EventType cs7= cs7Label=UserGroup cs8=True cs8Label=UserAuthenticated cs9= cs9Label=ApplicationUser cs10=HRApp cs10Label=SourceApplication cs11=svc cs11Label=OSUser cs12=app-01 cs12Label=HostName cs13=hr_prod cs13Label=Database cs14=dbo cs14Label=Schema cs15=SELECT name FROM dbo.employees WHERE emp_id = @p1 cs15Label=RawQuery cs16=select name from dbo.employees where emp_id = ? cs16Label=ParsedQuery cs17= cs17Label=BindVariables cs18= cs18Label=SQLError cs19=512 cs19Label=ResponseSize cs20=2 cs20Label=ResponseTime cs21=1 cs21Label=AffectedRows
+        - 2026-11-12T09:14:22.948+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Audit|Audit.DAM|Informative|dst=10.20.30.15 dpt=1433 duser=app_hr src=10.20.4.17 spt=52607 proto=TCP rt=Nov 12 2026 09:14:22 cat=Audit cs1=Sensitive Tables Audit cs1Label=Policy cs2=SQL-PROD cs2Label=ServerGroup cs3=MSSQL-HR cs3Label=ServiceName cs4=Default MsSql Application cs4Label=ApplicationName cs5=6954029700745976149 cs5Label=EventId cs6=Query cs6Label=EventType cs7= cs7Label=UserGroup cs8=True cs8Label=UserAuthenticated cs9= cs9Label=ApplicationUser cs10=HRApp cs10Label=SourceApplication cs11=svc cs11Label=OSUser cs12=app-01 cs12Label=HostName cs13=hr_prod cs13Label=Database cs14=dbo cs14Label=Schema cs15=SELECT name FROM dbo.employees WHERE emp_id = @p1 cs15Label=RawQuery cs16=select name from dbo.employees where emp_id = ? cs16Label=ParsedQuery cs17= cs17Label=BindVariables cs18= cs18Label=SQLError cs19=512 cs19Label=ResponseSize cs20=2 cs20Label=ResponseTime cs21=1 cs21Label=AffectedRows
+        - 2026-11-12T09:14:22.948+00:00 imperva-mx01 CEF:0|Imperva Inc.|SecureSphere|15.4.0.10_0|Audit|Audit.DAM|Informative|dst=10.20.30.15 dpt=1433 duser=app_hr src=10.20.4.17 spt=52607 proto=TCP rt=Nov 12 2026 09:14:22 cat=Audit cs1=Sensitive Tables Audit cs1Label=Policy cs2=SQL-PROD cs2Label=ServerGroup cs3=MSSQL-HR cs3Label=ServiceName cs4=Default MsSql Application cs4Label=ApplicationName cs5=6954029700745976150 cs5Label=EventId cs6=Query cs6Label=EventType cs7= cs7Label=UserGroup cs8=True cs8Label=UserAuthenticated cs9= cs9Label=ApplicationUser cs10=HRApp cs10Label=SourceApplication cs11=svc cs11Label=OSUser cs12=app-01 cs12Label=HostName cs13=hr_prod cs13Label=Database cs14=dbo cs14Label=Schema cs15=SELECT name FROM dbo.employees WHERE emp_id = @p1 cs15Label=RawQuery cs16=select name from dbo.employees where emp_id = ? cs16Label=ParsedQuery cs17= cs17Label=BindVariables cs18= cs18Label=SQLError cs19=512 cs19Label=ResponseSize cs20=2 cs20Label=ResponseTime cs21=1 cs21Label=AffectedRows
+      expect:
+        out: 2
+        smaller: true
   - title: Drop bind variables
     saving: 5–15 %
     fn: Eval
     how: Bind variable values (cs17) repeat data the query already shows in parsed form and can carry personal data. Remove or hash them before the SIEM.
     expr: "cs17 = undefined"
+    stream:
+      log: DAM audit record (CEF)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove bind variable values
+          conf:
+            remove:
+              - cs17
+              - cs17Label
+      expect:
+        out: 1
+        absent:
+          - cs17
   - title: Route alerts and privileged activity to the SIEM, bulk audit to Lake
     saving: SIEM licence
     fn: Routes
     how: Alerts, system events, logins, DCL/DDL and anything from interactive tools → SIEM. Routine application DML audit → Cribl Lake for compliance retention and investigations.
     expr: "cat!='Audit' || /\\b(grant|create|alter|drop)\\b/i.test(cs16) → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: Imperva alerts and system events → SIEM
+          filter: /CEF:0\|Imperva/.test(_raw) && !/ cat=Audit /.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Imperva DCL/DDL and interactive-tool audit → SIEM
+          filter: / cat=Audit /.test(_raw) && (/ cs16=[^=]*\b(grant|revoke|create|alter|drop)\b/i.test(_raw) || / cs6=Login /.test(_raw) || / cs10=(Microsoft SQL Server Management Studio|sqlcmd|DBeaver|Toad|SQL Developer)/i.test(_raw))
+          to: The SIEM
+          final: true
+        - name: Imperva routine audit → Lake
+          filter: /CEF:0\|Imperva/.test(_raw) && / cat=Audit /.test(_raw)
+          to: Cribl Lake for compliance retention and investigations
+          final: true
+      note: Routes see the raw CEF text, so they match cat= and the query in cs16. Keep this order.
 references:
   - title: Imperva — SecureSphere CEF certification guide (placeholders and templates)
     url: https://www.imperva.com/docs/SB_Imperva_SecureSphere_CEF_guide.pdf

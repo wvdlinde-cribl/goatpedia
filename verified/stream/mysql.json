@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Audit connections + DDL/DCL, not every DML statement",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3cae92a79eb28c9d",
+    "in": {
+      "events": 3,
+      "bytes": 226
+    },
+    "out": {
+      "events": 2,
+      "bytes": 150
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated failed connects",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b35b6ac940948424",
+    "in": {
+      "events": 3,
+      "bytes": 228
+    },
+    "out": {
+      "events": 1,
+      "bytes": 76
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Normalise and truncate query text",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e7e495c070748dcf",
+    "in": {
+      "events": 1,
+      "bytes": 76
+    },
+    "out": {
+      "events": 1,
+      "bytes": 76
+    },
+    "ok": true
+  }
+}
