@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop passing posture results",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1be289599325de4c",
+    "in": {
+      "events": 2,
+      "bytes": 3414
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2191
+    },
+    "ok": true
+  }
+}

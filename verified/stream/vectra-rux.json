@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop platform health",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "085f6e86006d5281",
+    "in": {
+      "events": 1,
+      "bytes": 4172
+    },
+    "out": {
+      "events": 0,
+      "bytes": 0
+    },
+    "ok": true
+  }
+}

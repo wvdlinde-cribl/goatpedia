@@ -136,6 +136,18 @@ optimizations:
     fn: Drop
     how: Asset updates fire for ordinary resource churn and dwarf findings. Keep findings, sources and audit events. Asset history is context. Keep it in cheaper storage.
     expr: sourcetype == 'google_scc_asset'
+    stream:
+      log: Asset change
+      functions:
+        - id: drop
+          filter: asset !== undefined && finding === undefined && protoPayload === undefined
+          description: Drop asset change events; keep findings, sources and audit events in the SIEM and send asset history to cheaper storage
+          conf: {}
+      test:
+        - '{"finding":{"name":"organizations/515665165161/sources/98481484454154454545/findings/414rfrhjebhrbhjbr444454hv54545","parent":"organizations/515665165161/sources/98481484454154454545","resourceName":"//cloudresourcemanager.googleapis.com/projects/45455445554","state":"ACTIVE","category":"application","externalUri":"http://www.example.com","sourceProperties":{},"eventTime":"2023-06-02T05:17:41.936Z","createTime":"2020-02-19T13:37:43.858Z","severity":"CRITICAL","mute":"UNMUTED"},"resource":{"name":"//cloudresourcemanager.googleapis.com/projects/45455445554"}}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Security Command Center
     url: https://cloud.google.com/security-command-center/docs

@@ -87,6 +87,17 @@ optimizations:
     fn: Drop
     how: Every request through a busy ingress is an access event, and almost all of them succeed. Keep status 400 and above, where the client saw an error or the route was missing. Drop the successful requests before the SIEM.
     expr: "DownstreamStatus < 400"
+    stream:
+      log: Access
+      functions:
+        - id: drop
+          filter: Number(DownstreamStatus) < 400
+          description: Drop successful proxy requests; keep client and routing errors (status 400 and above)
+          conf: {}
+      test:
+        - '{"BackendAddr":"","BackendName":"Traefik","BackendURL":{"Scheme":"","Opaque":"","User":null,"Host":"","Path":"/","RawPath":"","ForceQuery":false,"RawQuery":"","Fragment":""},"ClientAddr":"203.0.113.40:48658","ClientHost":"192.0.2.10","ClientPort":"48658","ClientUsername":"-","DownstreamContentSize":19,"DownstreamStatus":200,"DownstreamStatusLine":"200 OK","Duration":40356,"FrontendName":"backend not found","OriginContentSize":19,"OriginDuration":4086,"OriginStatus":200,"OriginStatusLine":"200 OK","Overhead":36270,"RequestAddr":"backend.elastic-package-service.docker.localhost","RequestContentSize":0,"RequestCount":7,"RequestHost":"backend.elastic-package-service.docker.localhost","RequestLine":"GET / HTTP/1.1","RequestMethod":"GET","RequestPath":"/","RequestPort":"-","RequestProtocol":"HTTP/1.1","RetryAttempts":0,"StartLocal":"2021-03-16T18:56:54.735539596Z","StartUTC":"2021-03-16T18:56:54.735539596Z","downstream_Content-Type":"text/plain; charset=utf-8"}'
+      expect:
+        out: 1
 references:
   - title: Traefik access logs
     url: https://doc.traefik.io/traefik/observability/access-logs/

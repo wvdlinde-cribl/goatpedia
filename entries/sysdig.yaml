@@ -146,6 +146,17 @@ optimizations:
     fn: Routes
     how: Activity-log policies describe themselves as very noisy and useful for threat hunting. Their alerts arrive at severity 7. Send them to cheaper storage and keep lower-numbered (more severe) alerts in the SIEM.
     expr: severity == 7
+    stream:
+      routes:
+        - name: Sysdig informational activity alerts (severity 7) → storage
+          filter: /"severity":7[,}]/.test(_raw)
+          to: Cribl Lake or other low-cost storage for threat hunting
+          final: true
+        - name: Sysdig other alerts → SIEM
+          filter: /"severity":[0-6][,}]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the numeric severity key in the JSON text. Put the severity 7 route first.
 references:
   - title: Sysdig documentation
     url: https://docs.sysdig.com/

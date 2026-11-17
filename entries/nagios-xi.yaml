@@ -92,4 +92,16 @@ optimizations:
     fn: Drop
     how: Polling status returns every healthy host and service each time. Keep records that are not OK, and the engine log entries for state changes.
     expr: current_state == '0'
+    stream:
+      log: Service status
+      functions:
+        - id: drop
+          filter: current_state == '0'
+          description: Drop healthy (OK) status records; keep non-OK states and engine log entries
+          conf: {}
+      test:
+        - '{"host_name":"vs1.example.com","service_description":"SSH","display_name":"SSH","host_object_id":"120","host_address":"vs1.example.com","host_alias":"","icon_image":"","icon_image_alt":"","notes":"","notes_url":"","action_url":"","servicestatus_id":"872","instance_id":"1","service_object_id":"123","status_update_time":"2022-03-16 22:12:34","output":"CRITICAL - Socket timeout after 10 seconds","long_output":"","perfdata":"","current_state":"2","has_been_checked":"1","should_be_scheduled":"1","current_check_attempt":"1","max_check_attempts":"5","last_check":"2022-03-16 22:12:34","next_check":"2022-03-16 22:17:34","check_type":"0","check_options":"0","last_state_change":"2022-03-16 22:12:34","last_hard_state_change":"2010-06-13 07:55:36","last_hard_state":"0"}'
+      expect:
+        out: 1
+        smaller: true
 references: []

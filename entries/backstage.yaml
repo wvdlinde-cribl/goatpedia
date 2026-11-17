@@ -85,6 +85,18 @@ optimizations:
     fn: Drop
     how: Each action is logged at initiation and again at the end. For low-severity reads such as catalog fetches the final record holds everything the initiated one does. Drop the initiated copy and keep every failed or higher-severity event.
     expr: "status == 'initiated' && severityLevel == 'low'"
+    stream:
+      log: Audit event
+      functions:
+        - id: drop
+          filter: status == 'initiated' && severityLevel == 'low'
+          description: Drop initiated copies of low-severity audit events; the final record carries the same detail
+          conf: {}
+      test:
+        - '{"actor":{"hostname":"localhost","ip":"192.0.2.10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36"},"eventId":"entity-fetch","isAuditEvent":true,"level":"info","message":"catalog.entity-fetch","meta":{"query":{"fields":["metadata","kind"],"filter":["kind=group,relations.hasMember=user:default/guest"]},"queryType":"all"},"plugin":"catalog","request":{"method":"GET","url":"/api/catalog/entities?fields=metadata,kind,spec.profile&filter=kind%3Dgroup%2Crelations.hasMember%3Duser%3Adefault%2Fguest"},"service":"backstage","severityLevel":"low","status":"succeeded","timestamp":"2026-05-22T20:30:05.231Z"}'
+        - '{"actor":{"hostname":"localhost","ip":"192.0.2.10","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.0.2.20 Safari/537.36"},"eventId":"entity-fetch","isAuditEvent":true,"level":"info","message":"catalog.entity-fetch","meta":{"query":{"fields":["metadata","kind"],"filter":["kind=group,relations.hasMember=user:default/guest"]},"queryType":"all"},"plugin":"catalog","request":{"method":"GET","url":"/api/catalog/entities?fields=metadata,kind,spec.profile&filter=kind%3Dgroup%2Crelations.hasMember%3Duser%3Adefault%2Fguest"},"service":"backstage","severityLevel":"medium","status":"initiated","timestamp":"2026-05-22T20:30:05.131Z"}'
+      expect:
+        out: 2
 references:
   - title: What is Backstage?
     url: https://backstage.io/docs/overview/what-is-backstage

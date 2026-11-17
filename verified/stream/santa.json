@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop critical system binary allows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3d0c6582684042bc",
+    "in": {
+      "events": 2,
+      "bytes": 840
+    },
+    "out": {
+      "events": 1,
+      "bytes": 405
+    },
+    "ok": true
+  }
+}

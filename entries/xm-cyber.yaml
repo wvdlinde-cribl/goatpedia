@@ -149,4 +149,13 @@ optimizations:
     fn: Drop
     how: Entity inventory is a full snapshot of every agent and it repeats on each poll. Audit failures and vulnerabilities that reach critical assets are the security-relevant subset. Drop or sample the entity inventory before the SIEM.
     expr: "sourcetype == 'xm_cyber_entity_inventory'"
+    stream:
+      log: Entity inventory
+      functions:
+        - id: drop
+          filter: installationId !== undefined && agentVersionStr !== undefined && customProperties !== undefined
+          description: Drop the repeating entity inventory snapshot before the SIEM; audit and vulnerability events pass
+          conf: {}
+      expect:
+        out: 0
 references: []

@@ -318,6 +318,16 @@ optimizations:
     fn: Drop
     how: CPU, disk, volume, adapter, hardware, feature and software rows repeat for every host on every scan, and they are most of the volume. CVE matches, expired certificates, listening services and failed device-control results are the security-relevant subset. Drop or sample the inventory streams before the SIEM.
     expr: "sourcetype == 'tychon_cpu' || sourcetype == 'tychon_harddrive' || sourcetype == 'tychon_volume' || sourcetype == 'tychon_networkadapter' || sourcetype == 'tychon_hardware' || sourcetype == 'tychon_features' || sourcetype == 'tychon_softwareinventory'"
+    stream:
+      log: CPU
+      functions:
+        - id: drop
+          filter: (typeof sourcetype !== 'undefined' && /^tychon_(cpu|harddrive|volume|networkadapter|hardware|features|softwareinventory)$/.test(sourcetype)) || __e['host.cpu.clockspeed'] !== undefined || __e['disk.id'] !== undefined || __e['host.adapter.id'] !== undefined || __e['device.id'] !== undefined || __e['host.os.feature.name'] !== undefined || __e['package.cpe'] !== undefined || __e['script.name'] == 'Get-TychonVolumeInfo.ps1'
+          description: Drop repetitive hardware and software inventory rows (CPU, disk, volume, adapter, device, feature, software) before the SIEM; CVE, certificate, listening service and policy events pass
+          conf: {}
+      expect:
+        out: 0
+        smaller: true
 references:
   - title: TYCHON Enterprise
     url: https://tychon.io/products/tychon/

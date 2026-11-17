@@ -189,6 +189,17 @@ optimizations:
     fn: Drop
     how: Web control writes a row for URLs the sensor saw, and observer mode logs them without blocking. That is most of the volume next to threat events and DLP incidents. Keep threats and DLP in full. Drop the web-control stream before the SIEM, or keep only the rows where ObserverMode is false.
     expr: "sourcetype == 'trellix_epo_on_prem_web_control'"
+    stream:
+      log: Web control
+      functions:
+        - id: drop
+          filter: __e['WP_EventInfo.ObserverMode'] === true
+          description: Drop web-control rows logged in observer mode (seen, not blocked); keep enforced rows
+          conf: {}
+      test:
+        - '{"WP_EventInfo.ActionID":4,"WP_EventInfo.BadLinkRatingID":4,"WP_EventInfo.ContentID":0,"WP_EventInfo.Count":1,"WP_EventInfo.DomainName":"www.example.com","WP_EventInfo.DownloadRatingID":4,"WP_EventInfo.EventAutoID":495,"WP_EventInfo.ExploitRatingID":4,"WP_EventInfo.ListID":1,"WP_EventInfo.ObserverMode":false,"WP_EventInfo.PhishingRatingID":4,"WP_EventInfo.PopupRatingID":4,"WP_EventInfo.RatingID":6,"WP_EventInfo.ReasonID":7,"WP_EventInfo.SpamRatingID":4,"WP_EventInfo.URL":"www.example.com","WP_EventInfo.UserName":null}'
+      expect:
+        out: 1
 references:
   - title: Trellix documentation
     url: https://docs.trellix.com/

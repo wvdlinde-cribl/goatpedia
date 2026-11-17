@@ -96,6 +96,18 @@ optimizations:
     fn: Drop
     how: LSASS and other services running as SYSTEM, LOCAL SERVICE or NETWORK SERVICE produce a steady stream of 4674 events. Drop 4674 from those SIDs and keep the ones made by user accounts.
     expr: EventID == '4674' && (SubjectUserSid == 'S-1-5-18' || SubjectUserSid == 'S-1-5-19' || SubjectUserSid == 'S-1-5-20')
+    stream:
+      log: Security events
+      parse: false
+      functions:
+        - id: drop
+          filter: /<EventID>4674<\/EventID>/.test(_raw) && /Name="SubjectUserSid">S-1-5-(18|19|20)</.test(_raw)
+          description: Drop 4674 privileged object operations made by SYSTEM, LOCAL SERVICE or NETWORK SERVICE; keep those made by user accounts
+          conf: {}
+      test:
+        - <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Security-Auditing" Guid="{54849625-5478-4994-A5BA-3E3B0328C30D}" /><EventID>4674</EventID><Version>0</Version><Level>0</Level><Task>13056</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime="2015-10-09T00:22:36.237816000Z" /><EventRecordID>1099681</EventRecordID><Correlation /><Execution ProcessID="496" ThreadID="504" /><Channel>Security</Channel><Computer>DC01.contoso.local</Computer><Security /></System><EventData><Data Name="SubjectUserSid">S-1-5-21-1111111111-2222222222-3333333333-1104</Data><Data Name="SubjectUserName">jdoe</Data><Data Name="SubjectDomainName">EXAMPLE</Data><Data Name="SubjectLogonId">0x5a12f</Data><Data Name="ObjectServer">LSA</Data><Data Name="ObjectType">-</Data><Data Name="ObjectName">-</Data><Data Name="HandleId">0x0</Data><Data Name="AccessMask">16777216</Data><Data Name="PrivilegeList">SeSecurityPrivilege</Data><Data Name="ProcessId">0x1f0</Data><Data Name="ProcessName">C:\\Windows\\System32\\lsass.exe</Data></EventData></Event>
+      expect:
+        out: 1
 references:
   - title: 'Event 4674: An operation was attempted on a privileged object'
     url: https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4674

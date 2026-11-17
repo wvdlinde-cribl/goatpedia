@@ -115,6 +115,17 @@ optimizations:
     fn: Routes
     how: Info findings (severity 0) are inventory — service banners, OS detection, open ports. They far outnumber real vulnerabilities. Keep Low and above in the SIEM and send Info to cheaper storage.
     expr: severity.id == '0'
+    stream:
+      routes:
+        - name: Tenable SC Info findings → storage
+          filter: /"severity":\{"id":"0"/.test(_raw)
+          to: Cribl Lake or other low-cost storage
+          final: true
+        - name: Tenable SC Low and above findings → SIEM
+          filter: /"pluginID":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the severity id inside the JSON text. Put the Info route first so only Low and above reach the SIEM.
 references:
   - title: Tenable Security Center documentation
     url: https://docs.tenable.com/security-center/

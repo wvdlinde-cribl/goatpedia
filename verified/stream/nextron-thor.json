@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Keep findings, sample progress lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2d93ef5f3c9ce9b4",
+    "in": {
+      "events": 3,
+      "bytes": 952
+    },
+    "out": {
+      "events": 2,
+      "bytes": 636
+    },
+    "ok": true
+  }
+}

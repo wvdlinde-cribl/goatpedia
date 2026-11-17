@@ -116,4 +116,15 @@ optimizations:
     fn: Routes
     how: KnowledgeBase entries are reference data that change slowly. Store them as a lookup keyed by QID and enrich detections from it instead of indexing them as events.
     expr: sourcetype == 'qualys_vmdr_knowledge_base'
+    stream:
+      routes:
+        - name: Qualys KnowledgeBase → lookup store
+          filter: /"VULN_TYPE":"/.test(_raw) && !/"DETECTION_LIST":/.test(_raw)
+          to: A lookup store keyed by QID (e.g. Cribl Lake or a lookup file), not the SIEM index
+          final: true
+        - name: Qualys detections and activity → SIEM
+          filter: /"DETECTION_LIST":|"Action":"/.test(_raw)
+          to: The SIEM, enriched with KnowledgeBase fields by QID through a Lookup function
+          final: true
+      note: Routes see the raw event, so KnowledgeBase entries are matched as JSON that has VULN_TYPE but no DETECTION_LIST. Put the KnowledgeBase route first. Then export them to a lookup file keyed by QID and enrich detections with a Lookup function on KNOWLEDGE_BASE.QID or DETECTION_LIST.QID.
 references: []

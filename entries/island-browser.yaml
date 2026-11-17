@@ -153,4 +153,18 @@ optimizations:
     fn: Drop
     how: Allowed navigation is the bulk of the browser audit. Keep verdicts that are not Allowed, plus admin actions and unresolved compromised credentials. Allowed browsing is context. Keep it in cheaper storage if you still want the history.
     expr: verdict == 'Allowed'
+    stream:
+      log: Browser activity
+      functions:
+        - id: drop
+          filter: verdict == 'Allowed'
+          description: Drop allowed browser activity; keep blocked and other verdicts
+          conf: {}
+      test:
+        - '{"id":"0554e3ab-618a-4171-a5d7-33555ac4476c","createdDate":"2025-09-09T09:24:36.278692Z","updatedDate":"2025-09-09T09:24:36.278693Z","tenantId":"elastic-testing","userId":"auth0|cbbf1398-e567-4e6f-8929-5a786ffc2486","deviceId":"7748cf6a-1a23-4572-b5ee-129962616b25","clientEventId":"d14e7489-e627-4cf8-bf89-daeb6c4b6a56","userName":"John Doe","email":"user@example.com","type":"Navigation","verdict":"Blocked","verdictReason":"Navigation blocked by policy","timestamp":"2025-09-09T13:29:38.000Z","processedDate":"2025-09-09T13:29:39.123456Z","topLevelUrl":"https://bad.example.com","country":"India","region":"Asia","urlWebCategories":["Malware"],"saasApplicationName":"Microsoft 365","saasApplicationCategory":"Productivity","urlWebReputation":5,"tabId":935959881,"ruleId":"rule-12345","ruleName":"Standard Navigation Policy","screenshotFileName":"screenshot_20250909_132938.png","keystrokes":"example search query","details":"{}","incognito":false,"submittedUrl":"https://bad.example.com/page","sourceIp":"192.0.2.20"}'
+      expect:
+        out: 1
+        present:
+          - verdict
+        smaller: true
 references: []

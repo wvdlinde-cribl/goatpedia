@@ -82,6 +82,17 @@ optimizations:
     fn: Drop
     how: Santa allows Apple's critical system binaries by a built-in rule and logs each launch. These lines carry reason=BINARY and explain=critical system binary and say nothing new. Drop them and keep denies and other allows.
     expr: message.indexOf('decision=ALLOW|reason=BINARY|explain=critical system binary') > -1
+    stream:
+      log: Execution decisions
+      functions:
+        - id: drop
+          filter: message.indexOf('decision=ALLOW|reason=BINARY|explain=critical system binary') > -1
+          description: Drop allows of Apple critical system binaries; keep denies and other allows
+          conf: {}
+      test:
+        - '[2022-05-12T11:38:05.101Z] I santad: action=EXEC|decision=DENY|reason=BINARY|explain=blocklisted binary|sha256=43158bf397bf52001067319c591249307e2862daf8690828c15cdcc1ddf6166d|cert_sha256=d84db96af8c2e60ac4c851a21ec460f6f84e0235beb17d24a78712b9b021ed57|cert_cn=Software Signing|pid=71994|pidversion=1097733|ppid=1|uid=501|user=jdoe|gid=20|group=staff|mode=M|path=/Users/jdoe/Downloads/tool|args=tool --run'
+      expect:
+        out: 1
 references:
   - title: Santa on GitHub
     url: https://github.com/google/santa

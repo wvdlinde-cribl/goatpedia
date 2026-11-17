@@ -116,6 +116,18 @@ optimizations:
     fn: Drop
     how: Every meeting start, join and in-meeting action is a meeting-activity event, and that is most of the volume from a busy account. Security monitoring needs operation logs, where administrators change users and settings, and sign-in activity when the question is who authenticated. Drop or sample meeting activity before the SIEM.
     expr: "sourcetype == 'zoom_meeting_activity'"
+    stream:
+      log: Meeting activity
+      functions:
+        - id: drop
+          filter: meeting_number !== undefined && activity_category !== undefined
+          description: Drop Zoom meeting-activity events before the SIEM; keep operation logs and sign-in activity
+          conf: {}
+      test:
+        - '{"meeting_number":"982 610 0286","activity_time":"2024-03-21 07:10:03:216","operator":"Jill Chill","operator_email":"user@example.com","activity_category":"Participant Joined","activity_detail":"Participant Joined"}'
+      expect:
+        out: 0
+        smaller: true
 references:
   - title: Zoom REST API
     url: https://developers.zoom.us/docs/api/

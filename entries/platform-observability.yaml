@@ -101,6 +101,17 @@ optimizations:
     fn: Drop
     how: DEBUG lines trace internal processing and are only useful while troubleshooting. Keep INFO and above, and all audit events.
     expr: log.level == 'DEBUG'
+    stream:
+      log: Kibana application log
+      functions:
+        - id: drop
+          filter: (log || {}).level == 'DEBUG' && (log || {}).logger != 'plugins.security.audit.ecs'
+          description: Drop DEBUG application log lines; keep INFO and above and all audit events
+          conf: {}
+      test:
+        - '{"ecs":{"version":"8.0.0"},"@timestamp":"2022-06-29T11:24:18.002+00:00","message":"Authentication succeeded for request to /login.","log":{"level":"INFO","logger":"plugins.security.http"},"process":{"pid":7},"trace":{"id":"e6e1c25936546ec690b11a3b78b2a8db"},"transaction":{"id":"3be6994d7f6d5465"}}'
+      expect:
+        out: 1
 references:
   - title: Kibana audit logging
     url: https://www.elastic.co/guide/en/kibana/current/xpack-security-audit-logging.html

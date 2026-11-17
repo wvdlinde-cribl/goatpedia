@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop initiated records of low-severity reads",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "f2050132b3fb0af4",
+    "in": {
+      "events": 3,
+      "bytes": 2067
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1379
+    },
+    "ok": true
+  }
+}

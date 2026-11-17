@@ -234,16 +234,84 @@ optimizations:
     fn: Aggregations
     how: AccessLog records every URL fetch. Roll up per user, IP and user agent per 10 minutes (request count, distinct URLs) for the SIEM; keep raw in Cribl Lake for 14-day-plus look-back.
     expr: logType=='AccessLog' → count(), dc(logRecord.url) by userEmailAddress, logRecord.ipAddress
+    stream:
+      log: Access log
+      functions:
+        - id: aggregation
+          filter: logType == 'AccessLog'
+          description: Roll AccessLog navigation up to one event per user, IP and user agent per 10 minutes with request count and distinct URLs
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 600s
+            aggregations:
+              - count().as(requests)
+              - distinct_count(logRecord.url).as(distinct_urls)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - userEmailAddress
+              - logRecord.ipAddress
+              - logRecord.userAgent
+      test:
+        - '{"logType":"AccessLog","userId":"234599484848423","userEmailAddress":"jdoe@example.com","userFullName":"John Doe","eventTime":"2026-11-12T08:14:02.004Z","logRecord":{"url":"https://app.gong.io/deals","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"}}'
+        - '{"logType":"AccessLog","userId":"234599484848423","userEmailAddress":"jdoe@example.com","userFullName":"John Doe","eventTime":"2026-11-12T08:14:09.004Z","logRecord":{"url":"https://app.gong.io/call?id=6512398845120039","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"}}'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop empty impersonator fields
     saving: 5–15 %
     fn: Eval
     how: impersonator* are null/empty on almost every entry; userId duplicates the email. Remove them when empty and derive a boolean impersonated flag.
     expr: "impersonated = !!impersonatorEmailAddress; remove empty impersonator*, userId"
+    stream:
+      log: User activity (sensitive operations)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Add an impersonated flag, remove empty impersonator fields and the userId that duplicates the email
+          conf:
+            add:
+              - name: impersonated
+                value: '!!impersonatorEmailAddress'
+              - name: impersonatorUserId
+                value: 'impersonatorUserId ? impersonatorUserId : undefined'
+              - name: impersonatorEmailAddress
+                value: 'impersonatorEmailAddress ? impersonatorEmailAddress : undefined'
+              - name: impersonatorFullName
+                value: 'impersonatorFullName ? impersonatorFullName : undefined'
+              - name: impersonatorCompanyId
+                value: 'impersonatorCompanyId ? impersonatorCompanyId : undefined'
+            remove:
+              - userId
+      serialize: true
+      test:
+        - '{"logType":"UserActivityLog","userId":"234599484848423","userEmailAddress":"jdoe@example.com","userFullName":"John Doe","impersonatorUserId":"","impersonatorEmailAddress":"","impersonatorFullName":"","impersonatorCompanyId":"","eventTime":"2026-11-12T08:14:22.517Z","logRecord":{"activity":"ShareCallExternally","callId":"6512398845120039","ipAddress":"203.0.113.77","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","sharedWith":"buyer@example.org"}}'
+      expect:
+        out: 2
+        absent:
+          - userId
+        present:
+          - impersonated
+        smaller: true
   - title: Route sensitive log types at full fidelity
     saving: SIEM licence
     fn: Routes
     how: UserActivityLog, ExternallySharedCall* and anything with an impersonator → SIEM raw. AccessLog and UserCallPlay → aggregated metrics + Lake.
     expr: "logType=='UserActivityLog' || logType.startsWith('ExternallyShared') || impersonatorEmailAddress → SIEM"
+    stream:
+      routes:
+        - name: Gong sensitive types and impersonation → SIEM
+          filter: /"logType":"(UserActivityLog|ExternallyShared[^"]*)"/.test(_raw) || /"impersonatorEmailAddress":"[^"]+"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Gong AccessLog and UserCallPlay → aggregated metrics + Lake
+          filter: /"logType":"(AccessLog|UserCallPlay)"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the AccessLog aggregation pipeline
+          final: true
+      note: Routes see the raw event, so they match logType and a non-empty impersonatorEmailAddress in the JSON text. Put the sensitive route first.
 references:
   - title: Gong Auditing API overview
     url: https://help.gong.io/apidocs/auditing

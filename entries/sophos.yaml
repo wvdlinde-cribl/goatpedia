@@ -90,6 +90,17 @@ optimizations:
     fn: Routes
     how: Most proxy lines are allowed requests to trusted sites. Keep blocks and non-trusted reputations in the SIEM and send allowed, trusted requests to cheaper storage for investigations.
     expr: action == 'pass' && reputation == 'trusted'
+    stream:
+      routes:
+        - name: Sophos allowed trusted web requests → storage
+          filter: / httpproxy\[/.test(_raw) && / action="pass" /.test(_raw) && / reputation="trusted" /.test(_raw)
+          to: Cribl Lake or low-cost storage for investigations
+          final: true
+        - name: Sophos blocks and non-trusted web requests → SIEM
+          filter: / httpproxy\[/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the action and reputation key-value pairs in _raw. Put the storage route first so only allowed, trusted requests leave the SIEM path.
 references:
   - title: Sophos documentation
     url: https://docs.sophos.com/

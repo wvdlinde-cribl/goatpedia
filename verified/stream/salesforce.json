@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Drop performance-only ELF columns",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "276e582ced6fdac1",
+    "in": {
+      "events": 1,
+      "bytes": 398
+    },
+    "out": {
+      "events": 1,
+      "bytes": 291
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate small, repetitive integration calls",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ccdeab73834b2a9c",
+    "in": {
+      "events": 4,
+      "bytes": 1583
+    },
+    "out": {
+      "events": 2,
+      "bytes": 653
+    },
+    "ok": true
+  }
+}

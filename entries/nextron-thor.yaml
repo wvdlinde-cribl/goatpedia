@@ -95,6 +95,18 @@ optimizations:
     fn: Drop
     how: Info lines report scan progress. The findings are Alert, Warning and Notice, plus the Report summary. Drop Info lines that are not from the Report module.
     expr: level == 'Info' && module != 'Report'
+    stream:
+      log: THOR scan log
+      functions:
+        - id: drop
+          filter: level == 'Info' && module != 'Report'
+          description: Drop Info progress lines that are not the Report summary; keep Alert, Warning and Notice findings
+          conf: {}
+      test:
+        - '{"campaign_id":"2b054111-bad7-4bac-a14e-8fa8a88f1111","time":"2025-12-10T17:58:42Z","hostname":"mymachinename","level":"Info","module":"FileScan","message":"Scanning directory","scanid":"S-VavZi0stuDo","end_time":"2025-11-10T17:58:42.4290563Z","alerts":0,"warnings":16,"notices":30,"errors":0,"log_version":"v2.0.0"}'
+        - '{"campaign_id":"2b054111-bad7-4bac-a14e-8fa8a88f1111","time":"2025-12-10T17:58:42Z","hostname":"mymachinename","level":"Warning","module":"FileScan","message":"Suspicious file found","scanid":"S-VavZi0stuDo","end_time":"2025-11-10T17:58:42.4290563Z","alerts":0,"warnings":16,"notices":30,"errors":0,"log_version":"v2.0.0"}'
+      expect:
+        out: 2
 references:
   - title: THOR manual
     url: https://thor-manual.nextron-systems.com/

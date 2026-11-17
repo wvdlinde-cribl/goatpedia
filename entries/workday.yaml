@@ -277,21 +277,94 @@ optimizations:
     fn: Drop
     how: Most activity is READ on home, inbox, worklets and navigation. Keep READ only for a watch-list of sensitive tasks (worker profile, compensation, payment elections, reports); keep all WRITE and DOWNLOAD.
     expr: activityAction=='READ' && !C.Lookup('workday_sensitive_tasks.csv','taskDisplayName').match(taskDisplayName)
+    stream:
+      log: User activity
+      functions:
+        - id: drop
+          filter: activityAction == 'READ' && !/(Worker|Compensation|Payment Election|Report|Export)/i.test(taskDisplayName || '')
+          description: Drop READ activity unless the task is on the sensitive watch-list (inline list; replace with a lookup file if preferred)
+          conf: {}
+      test:
+        - '{"sessionId":"a81c4f","target":{"descriptor":"Home","id":"4b7e2c19d05a4f6e8a3b1c9d0e7f2a45"},"taskDisplayName":"Home","requestTime":"2026-11-12T08:14:22.517Z","taskId":"c2d9e8f7a6b54c3d2e1f0a9b8c7d6e5f","ipAddress":"203.0.113.77","deviceType":"Desktop","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","activityAction":"READ","systemAccount":"jdoe"}'
+        - '{"sessionId":"a81c4f","target":{"descriptor":"Payment Election: Jane Doe (Checking)","id":"4b7e2c19d05a4f6e8a3b1c9d0e7f2a45"},"taskDisplayName":"Manage Payment Elections","requestTime":"2026-11-12T08:14:22.517Z","taskId":"c2d9e8f7a6b54c3d2e1f0a9b8c7d6e5f","ipAddress":"203.0.113.77","deviceType":"Desktop","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36","activityAction":"READ","systemAccount":"jdoe"}'
+      expect:
+        out: 2
   - title: Remove repeated session context
     saving: 15–25 %
     fn: Eval
     how: userAgent and deviceType are identical for every event of a session. Keep them on the first event per sessionId (or on the signon record) and drop elsewhere; drop taskId and target.id when names are present.
     expr: "remove: userAgent, deviceType, taskId, target.id (keep in signon)"
+    stream:
+      log: User activity
+      functions:
+        - id: eval
+          filter: sessionId !== undefined
+          description: Remove repeated session context and IDs that duplicate the display names
+          conf:
+            remove:
+              - userAgent
+              - deviceType
+              - taskId
+              - target.id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - userAgent
+          - deviceType
+          - taskId
+        present:
+          - sessionId
+          - taskDisplayName
+        smaller: true
   - title: Aggregate READ activity to session summaries
     saving: 20–40 %
     fn: Aggregations
     how: For the READ events you keep, roll up per sessionId per 10 minutes (count, distinct tasks) for the SIEM; send raw to Cribl Lake for incident look-back beyond Workday's 30 days.
     expr: activityAction=='READ' → count(), dc(taskDisplayName) by systemAccount, sessionId
+    stream:
+      log: User activity
+      functions:
+        - id: aggregation
+          filter: activityAction == 'READ'
+          description: Roll READ activity up to one summary per account and session per 10 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 600s
+            aggregations:
+              - count().as(events)
+              - distinct_count(taskDisplayName).as(distinct_tasks)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - systemAccount
+              - sessionId
+      test:
+        - '{"sessionId":"a81c4f","target":{"descriptor":"Home","id":"4b7e2c19d05a4f6e8a3b1c9d0e7f2a45"},"taskDisplayName":"Home","requestTime":"2026-11-12T08:14:22.517Z","taskId":"c2d9e8f7a6b54c3d2e1f0a9b8c7d6e5f","ipAddress":"203.0.113.77","deviceType":"Desktop","userAgent":"Mozilla/5.0","activityAction":"READ","systemAccount":"jdoe"}'
+        - '{"sessionId":"a81c4f","target":{"descriptor":"Inbox","id":"4b7e2c19d05a4f6e8a3b1c9d0e7f2a45"},"taskDisplayName":"Inbox","requestTime":"2026-11-12T08:14:22.517Z","taskId":"c2d9e8f7a6b54c3d2e1f0a9b8c7d6e5f","ipAddress":"203.0.113.77","deviceType":"Desktop","userAgent":"Mozilla/5.0","activityAction":"READ","systemAccount":"jdoe"}'
+        - '{"sessionId":"a81c4f","target":{"descriptor":"Home","id":"4b7e2c19d05a4f6e8a3b1c9d0e7f2a45"},"taskDisplayName":"Home","requestTime":"2026-11-12T08:14:22.517Z","taskId":"c2d9e8f7a6b54c3d2e1f0a9b8c7d6e5f","ipAddress":"203.0.113.77","deviceType":"Desktop","userAgent":"Mozilla/5.0","activityAction":"READ","systemAccount":"jdoe"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route the payroll subset at full fidelity
     saving: SIEM licence
     fn: Routes
     how: WRITE + DOWNLOAD + signon failures + proxy/security tasks → SIEM raw; everything → Lake.
     expr: activityAction!='READ' || Failed_Signon=='1' → SIEM
+    stream:
+      routes:
+        - name: Workday WRITE/DOWNLOAD and signon failures → SIEM
+          filter: /"activityAction":"(WRITE|DOWNLOAD)"/.test(_raw) || /"Failed_Signon":"1"/.test(_raw)
+          to: The SIEM, full fidelity (raw)
+          final: false
+        - name: Workday everything → Lake
+          filter: /"(activityAction|Signon|Session_Start|User_Name)"/.test(_raw)
+          to: Cribl Lake (raw)
+          final: true
+      note: Routes see the raw JSON, so they match the activityAction and Failed_Signon keys in _raw. The first route is not final so those events also reach the Lake route.
 references:
   - title: Workday User Activity Logging REST API
     url: https://developer.workday.com/documentation/mhr1626995534900/UserActivityLoggingRESTAPI

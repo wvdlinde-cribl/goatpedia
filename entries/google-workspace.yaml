@@ -582,26 +582,118 @@ optimizations:
     fn: Drop / Sampling
     how: Drive view and edit events from owners on their own files are the bulk of volume. Keep ACL, visibility and download events in the SIEM; send the rest to Lake.
     expr: name=='view' || name=='edit'
+    stream:
+      log: Drive activity
+      functions:
+        - id: drop
+          filter: (id || {}).applicationName == 'drive' && (name == 'view' || name == 'edit')
+          description: Drop high-volume Drive view and edit events; ACL, visibility and download events stay (send the full stream to Lake)
+          conf: {}
+      test:
+        - '{"type":"access","name":"view","actor":{"email":"jdoe@example.com"},"ipAddress":"198.51.100.23","id":{"time":"2026-11-12T09:22:10.000Z","applicationName":"drive"},"parameters":{"primary_event":true,"billable":true,"doc_id":"1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789","doc_type":"spreadsheet","doc_title":"Payroll 2026","owner":"jdoe@example.com","owner_is_shared_drive":false,"originating_app_id":"691301496089"}}'
+      expect:
+        out: 1
   - title: Flatten the parameters array
     saving: 10–20 %
     fn: Eval / Code
     how: Turn events[].parameters[] name/value pairs into top-level fields (login_failure_type, is_suspicious) and drop the original array, so SIEM fields and detections do not depend on array position.
     expr: Array.isArray(events) && events[0].parameters
+    stream:
+      log: Login activity
+      functions:
+        - id: eval
+          filter: Array.isArray(events) && events.length > 0
+          description: Lift the parameters name/value pairs to top-level fields and drop the original array
+          conf:
+            add:
+              - name: event_type
+                value: events[0].type
+              - name: event_name
+                value: events[0].name
+              - name: login_type
+                value: (JSON.stringify(events).match(/"name":"login_type","value":"([^"]*)"/) || [])[1]
+              - name: login_failure_type
+                value: (JSON.stringify(events).match(/"name":"login_failure_type","value":"([^"]*)"/) || [])[1]
+              - name: is_suspicious
+                value: (JSON.stringify(events).match(/"name":"is_suspicious","boolValue":(true|false)/) || [])[1] == 'true'
+            remove:
+              - events
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - events
+        present:
+          - login_failure_type
+          - is_suspicious
+          - event_name
   - title: Remove constant envelope fields
     saving: 5–15 %
     fn: Eval
     how: kind, etag, id.customerId and actor.profileId are identical or useless for detection on every record.
     expr: "remove: kind, etag, id.customerId, actor.profileId"
+    stream:
+      log: Login activity
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant envelope fields
+          conf:
+            remove:
+              - kind
+              - etag
+              - id.customerId
+              - actor.profileId
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - kind
+          - etag
+        present:
+          - id
+          - actor
+        smaller: true
   - title: De-duplicate re-read windows
     saving: 1–10 %
     fn: Suppress
     how: Collectors re-read a lag window to catch late Drive events; suppress on id.uniqueQualifier + id.time.
     expr: "key: `${id.uniqueQualifier}:${id.time}`  allow 1 / 12h"
+    stream:
+      log: Login activity
+      functions:
+        - id: suppress
+          filter: id && id.uniqueQualifier
+          description: Drop records re-read in the collector lag window, keyed on uniqueQualifier and time
+          conf:
+            keyExpr: id.uniqueQualifier + ':' + id.time
+            allow: 1
+            suppressPeriodSec: 43200
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"kind":"admin#reports#activity","id":{"time":"2026-11-12T09:05:35.119Z","uniqueQualifier":"720229394436","applicationName":"login","customerId":"C00abc123"},"etag":"\"abcDEF123/xyz\"","actor":{"email":"jdoe@example.com","profileId":"114679690119000000001"},"ipAddress":"198.51.100.23","events":[{"type":"login","name":"login_failure","parameters":[{"name":"login_type","value":"google_password"},{"name":"login_failure_type","value":"login_failure_invalid_password"},{"name":"is_suspicious","boolValue":true}]}]}'
+        - '{"kind":"admin#reports#activity","id":{"time":"2026-11-12T09:05:35.119Z","uniqueQualifier":"720229394436","applicationName":"login","customerId":"C00abc123"},"etag":"\"abcDEF123/xyz\"","actor":{"email":"jdoe@example.com","profileId":"114679690119000000001"},"ipAddress":"198.51.100.23","events":[{"type":"login","name":"login_failure","parameters":[{"name":"login_type","value":"google_password"},{"name":"login_failure_type","value":"login_failure_invalid_password"},{"name":"is_suspicious","boolValue":true}]}]}'
+      expect:
+        out: 1
   - title: Route by application
     saving: SIEM licence
     fn: Routes
     how: login, admin, token, saml and alerts → SIEM at full fidelity. Drive and Gmail BigQuery → Lake, with only sharing, download and phishing verdicts to the SIEM.
     expr: id.applicationName in ('login','admin','token','saml') || alertId
+    stream:
+      routes:
+        - name: Workspace login, admin, token, SAML and alerts → SIEM
+          filter: /"applicationName":"(login|admin|token|saml)"/.test(_raw) || /"alertId":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Workspace Drive and Gmail → Lake, sharing/download/phishing to SIEM
+          filter: /"applicationName":"(drive|gmail)"/.test(_raw) || /"rfc2822_message_id":/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM only for sharing, download and phishing verdict events through the pipelines above
+          final: true
+      note: Routes see the raw JSON, so they match applicationName or alertId in _raw. Put the SIEM route first.
 references:
   - title: Reports API activities resource
     url: https://developers.google.com/workspace/admin/reports/reference/rest/v1/activities

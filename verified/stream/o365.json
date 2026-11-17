@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop or sample MailItemsAccessed and FileAccessed noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "77af188e95c9f31e",
+    "in": {
+      "events": 2,
+      "bytes": 1955
+    },
+    "out": {
+      "events": 1,
+      "bytes": 998
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Remove constant tenant fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "2bf687c9b63daeaf",
+    "in": {
+      "events": 1,
+      "bytes": 797
+    },
+    "out": {
+      "events": 1,
+      "bytes": 602
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "De-duplicate overlapping content blobs",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4de324f59ece457f",
+    "in": {
+      "events": 3,
+      "bytes": 2391
+    },
+    "out": {
+      "events": 1,
+      "bytes": 797
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Flatten Parameters arrays",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "846482d01e3d3401",
+    "in": {
+      "events": 1,
+      "bytes": 797
+    },
+    "out": {
+      "events": 1,
+      "bytes": 727
+    },
+    "ok": true
+  }
+}

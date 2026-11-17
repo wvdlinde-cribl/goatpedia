@@ -129,4 +129,15 @@ optimizations:
     fn: Routes
     how: Monitoring agents and service roles make constant read calls. Keep write calls and failures in the SIEM and send successful reads to cheaper storage.
     expr: actionType == 'Read' && errorCode == '0'
+    stream:
+      routes:
+        - name: Tencent CloudAudit successful reads → storage
+          filter: /"actionType":"Read"/.test(_raw) && /"errorCode":"0"/.test(_raw)
+          to: Cribl Lake or cheaper object storage only; replay on demand
+          final: true
+        - name: Tencent CloudAudit writes and failures → SIEM
+          filter: /"eventType":"/.test(_raw) && /"actionType":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match actionType and errorCode inside the JSON text. Put the successful-read route first so the writes and failures fall through to the SIEM route.
 references: []

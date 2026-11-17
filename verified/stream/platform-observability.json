@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop debug lines from the application log",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e206e4052e5ea7c9",
+    "in": {
+      "events": 2,
+      "bytes": 596
+    },
+    "out": {
+      "events": 1,
+      "bytes": 298
+    },
+    "ok": true
+  }
+}

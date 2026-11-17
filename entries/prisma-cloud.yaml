@@ -174,4 +174,15 @@ optimizations:
     fn: Routes
     how: Misconfiguration records and host profiles are inventory that is refreshed on every scan. Alerts, audit entries, runtime incidents and exploitable vulnerabilities are the security subset for the SIEM.
     expr: sourcetype == 'prisma_cloud_misconfiguration' || sourcetype == 'prisma_cloud_host_profile'
+    stream:
+      routes:
+        - name: Prisma Cloud posture inventory → Lake
+          filter: /"scannedPolicy":|"overallPassed":|"sshEvents":|"startupProcess":/.test(_raw)
+          to: Cribl Lake or other low-cost storage
+          final: true
+        - name: Prisma Cloud alerts, audit, incidents, vulnerabilities → SIEM
+          filter: /"policyId":|"actionType":|"audits":|"CVE_ID":/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw event, so they match keys that only the misconfiguration (asset posture) and host profile records carry; if your source sets sourcetype, use sourcetype == 'prisma_cloud_misconfiguration' || sourcetype == 'prisma_cloud_host_profile' instead. Put the inventory route first.
 references: []

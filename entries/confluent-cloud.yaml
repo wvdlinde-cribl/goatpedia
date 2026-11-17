@@ -272,21 +272,103 @@ optimizations:
     fn: Eval
     how: specversion, datacontenttype, serviceName (duplicates source) and the request.remote_logical_cluster_id are constant per cluster. Remove them; keep id, type, time, subject.
     expr: "remove: specversion, datacontenttype, data.serviceName, data.request.remote_logical_cluster_id"
+    stream:
+      log: Kafka authentication
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove envelope constants that repeat per cluster; keep id, type, time and subject
+          conf:
+            remove:
+              - specversion
+              - datacontenttype
+              - data.serviceName
+              - data.request.remote_logical_cluster_id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - specversion
+          - datacontenttype
+        present:
+          - id
+          - type
+          - time
+          - subject
+        smaller: true
   - title: Suppress repeated successful authentications
     saving: 30–60 %
     fn: Suppress
     how: Long-running clients reconnect constantly and log the same successful kafka.Authentication. Keep one per principal + IP + key per 15 minutes with a count; always keep failures.
     expr: "key: `${data.authenticationInfo.principal}:${data.requestMetadata.clientAddress[0].ip}`  allow 1 / 900s  when data.result.status=='SUCCESS'"
+    stream:
+      log: Kafka authentication
+      functions:
+        - id: suppress
+          filter: type == 'io.confluent.kafka.server/authentication' && ((data || {}).result || {}).status == 'SUCCESS'
+          description: Keep one successful authentication per principal, client IP and API key per 15 minutes; failures always pass
+          conf:
+            keyExpr: ((data || {}).authenticationInfo || {}).principal + ':' + ((((data || {}).requestMetadata || {}).clientAddress || [{}])[0] || {}).ip + ':' + (((data || {}).authenticationInfo || {}).metadata || {}).identifier
+            allow: 1
+            suppressPeriodSec: 900
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"specversion":"1.0","id":"5d1e2a7c-3f4b-4c8d-9e0a-1b2c3d4e5f60","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authentication","datacontenttype":"application/json","subject":"crn://confluent.cloud/kafka=lkc-a1b2c","time":"2026-11-12T08:14:22.517Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Authentication","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c","authenticationInfo":{"principal":"User:sa-q8r7s6","metadata":{"mechanism":"SASL_SSL/PLAIN","identifier":"EXAMPLEKEY4ABCD12"}},"request":{"remote_logical_cluster_id":"lkc-a1b2c"},"requestMetadata":{"clientAddress":[{"ip":"203.0.113.77","port":53122}]},"result":{"status":"SUCCESS","message":""}}}'
+        - '{"specversion":"1.0","id":"5d1e2a7c-3f4b-4c8d-9e0a-1b2c3d4e5f60","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authentication","datacontenttype":"application/json","subject":"crn://confluent.cloud/kafka=lkc-a1b2c","time":"2026-11-12T08:14:22.517Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Authentication","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c","authenticationInfo":{"principal":"User:sa-q8r7s6","metadata":{"mechanism":"SASL_SSL/PLAIN","identifier":"EXAMPLEKEY4ABCD12"}},"request":{"remote_logical_cluster_id":"lkc-a1b2c"},"requestMetadata":{"clientAddress":[{"ip":"203.0.113.77","port":53122}]},"result":{"status":"SUCCESS","message":""}}}'
+        - '{"specversion":"1.0","id":"5d1e2a7c-3f4b-4c8d-9e0a-1b2c3d4e5f60","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authentication","datacontenttype":"application/json","subject":"crn://confluent.cloud/kafka=lkc-a1b2c","time":"2026-11-12T08:14:22.517Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Authentication","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c","authenticationInfo":{"principal":"User:sa-q8r7s6","metadata":{"mechanism":"SASL_SSL/PLAIN","identifier":"EXAMPLEKEY4ABCD12"}},"request":{"remote_logical_cluster_id":"lkc-a1b2c"},"requestMetadata":{"clientAddress":[{"ip":"203.0.113.77","port":53122}]},"result":{"status":"SUCCESS","message":""}}}'
+      expect:
+        out: 2
   - title: Aggregate allowed authorization checks
     saving: 15–30 %
     fn: Aggregations
     how: Successful authorization events for routine operations (Describe, DescribeConfigs, metadata) roll up per principal/resource per 5 minutes; denials and admin operations stay raw.
     expr: data.authorizationInfo.granted==true && ['Describe','DescribeConfigs'].includes(data.authorizationInfo.operation)
+    stream:
+      log: Kafka authorization
+      functions:
+        - id: aggregation
+          filter: ((data || {}).authorizationInfo || {}).granted === true && (((data || {}).authorizationInfo || {}).operation == 'Describe' || ((data || {}).authorizationInfo || {}).operation == 'DescribeConfigs')
+          description: Roll granted Describe/DescribeConfigs checks up per principal, resource and operation every 5 minutes; denials stay raw
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(checks)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - data.authenticationInfo.principal
+              - data.resourceName
+              - data.authorizationInfo.operation
+      test:
+        - '{"specversion":"1.0","id":"9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authorization","datacontenttype":"application/json","subject":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/environment=env-x1y2z/cloud-cluster=lkc-a1b2c/kafka=lkc-a1b2c/topic=payments","time":"2026-11-12T08:15:03.204Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Metadata","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c/topic=payments","authenticationInfo":{"principal":"User:sa-q8r7s6","principalResourceId":"sa-q8r7s6"},"authorizationInfo":{"granted":true,"operation":"Describe","resourceType":"Topic","resourceName":"payments","patternType":"LITERAL","rbacAuthorization":{"role":"DeveloperRead","scope":{"outerScope":["organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","environment=env-x1y2z","cloud-cluster=lkc-a1b2c"]}}},"request":{"correlationId":"118","clientId":"invoice-processor"},"requestMetadata":{"clientAddress":[{"ip":"192.0.2.44","port":40122}]},"result":{"status":"SUCCESS"}}}'
+        - '{"specversion":"1.0","id":"9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6e","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authorization","datacontenttype":"application/json","subject":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/environment=env-x1y2z/cloud-cluster=lkc-a1b2c/kafka=lkc-a1b2c/topic=payments","time":"2026-11-12T08:15:04.204Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Metadata","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c/topic=payments","authenticationInfo":{"principal":"User:sa-q8r7s6","principalResourceId":"sa-q8r7s6"},"authorizationInfo":{"granted":true,"operation":"Describe","resourceType":"Topic","resourceName":"payments","patternType":"LITERAL","rbacAuthorization":{"role":"DeveloperRead","scope":{"outerScope":["organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","environment=env-x1y2z","cloud-cluster=lkc-a1b2c"]}}},"request":{"correlationId":"119","clientId":"invoice-processor"},"requestMetadata":{"clientAddress":[{"ip":"192.0.2.44","port":40122}]},"result":{"status":"SUCCESS"}}}'
+        - '{"specversion":"1.0","id":"9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6f","source":"crn://confluent.cloud/kafka=lkc-a1b2c","type":"io.confluent.kafka.server/authorization","datacontenttype":"application/json","subject":"crn://confluent.cloud/organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b/environment=env-x1y2z/cloud-cluster=lkc-a1b2c/kafka=lkc-a1b2c/topic=payments","time":"2026-11-12T08:15:05.204Z","data":{"serviceName":"crn://confluent.cloud/kafka=lkc-a1b2c","methodName":"kafka.Metadata","resourceName":"crn://confluent.cloud/kafka=lkc-a1b2c/topic=payments","authenticationInfo":{"principal":"User:sa-q8r7s6","principalResourceId":"sa-q8r7s6"},"authorizationInfo":{"granted":true,"operation":"Describe","resourceType":"Topic","resourceName":"payments","patternType":"LITERAL","rbacAuthorization":{"role":"DeveloperRead","scope":{"outerScope":["organization=0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","environment=env-x1y2z","cloud-cluster=lkc-a1b2c"]}}},"request":{"correlationId":"120","clientId":"invoice-processor"},"requestMetadata":{"clientAddress":[{"ip":"192.0.2.44","port":40122}]},"result":{"status":"SUCCESS"}}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route control-plane events at full fidelity
     saving: SIEM licence
     fn: Routes
     how: io.confluent.cloud/* and all failures/denials → SIEM; successful data-plane authentication → Lake + metrics. Export within 7 days or lose the records.
     expr: "type.startsWith('io.confluent.cloud/') || data.result.status!='SUCCESS' → SIEM"
+    stream:
+      routes:
+        - name: Confluent control plane and failures/denials → SIEM
+          filter: /"type":"io\.confluent\.cloud\//.test(_raw) || /"result":\{"status":"(?!SUCCESS")/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Confluent successful data-plane events → Lake + metrics
+          filter: /"type":"io\.confluent\.kafka\.server\//.test(_raw)
+          to: Cribl Lake (raw) and metrics through the aggregation pipelines above
+          final: true
+      note: Routes see the raw JSON, so they match the type and result status text. Put the SIEM route first, and export audit logs within Confluent's 7-day retention.
 references:
   - title: Audit log event schema on Confluent Cloud
     url: https://docs.confluent.io/cloud/current/monitoring/audit-logging/audit-log-schema.html

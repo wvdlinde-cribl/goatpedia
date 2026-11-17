@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Sample the entity inventory",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "93c0493bb775fb17",
+    "in": {
+      "events": 1,
+      "bytes": 1673
+    },
+    "out": {
+      "events": 0,
+      "bytes": 0
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Sample the device inventory",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ba952cbd1a8139cf",
+    "in": {
+      "events": 2,
+      "bytes": 2209
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1105
+    },
+    "ok": true
+  }
+}

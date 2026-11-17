@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop high-volume Drive view events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e1bbad01bd4e8575",
+    "in": {
+      "events": 2,
+      "bytes": 934
+    },
+    "out": {
+      "events": 1,
+      "bytes": 525
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Flatten the parameters array",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d6f6dccac0f1333f",
+    "in": {
+      "events": 1,
+      "bytes": 513
+    },
+    "out": {
+      "events": 1,
+      "bytes": 442
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Remove constant envelope fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "99723d7f69f8b444",
+    "in": {
+      "events": 1,
+      "bytes": 513
+    },
+    "out": {
+      "events": 1,
+      "bytes": 393
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "De-duplicate re-read windows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "9361832aaefa765b",
+    "in": {
+      "events": 3,
+      "bytes": 1539
+    },
+    "out": {
+      "events": 1,
+      "bytes": 513
+    },
+    "ok": true
+  }
+}

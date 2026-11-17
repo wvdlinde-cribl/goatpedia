@@ -114,6 +114,17 @@ optimizations:
     fn: Routes
     how: Vulnerability definitions are a slowly changing catalogue. Store them as a lookup keyed by id and enrich asset findings from it instead of indexing them as events.
     expr: sourcetype == 'rapid7_insightvm_vulnerability'
+    stream:
+      routes:
+        - name: InsightVM vulnerability definitions → lookup store
+          filter: /^\{"added":/.test(_raw) && /"cvss_v2_vector":/.test(_raw) && !/"vulnerability":\{/.test(_raw) && !/"last_scan_end":/.test(_raw)
+          to: A lookup file or KV store keyed by id (for example Cribl Lake or a CSV lookup refreshed on a schedule), not the SIEM index
+          final: true
+        - name: InsightVM assets and asset vulnerabilities → SIEM
+          filter: /"last_scan_end":/.test(_raw)
+          to: The SIEM, enriched from the vulnerability definitions lookup on vulnerability.vulnerability_id
+          final: true
+      note: Routes see the raw event, so the definitions route matches the catalogue shape (top-level added and CVSS keys with no scan fields); if the source sets sourcetype rapid7_insightvm_vulnerability, you can match on that instead. Put the definitions route first, and use a Lookup function on the asset findings to enrich them from the stored catalogue.
 references:
   - title: InsightVM API
     url: https://help.rapid7.com/insightvm/en-us/api/index.html

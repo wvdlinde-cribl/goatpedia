@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop web-control observations",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c34f8de226e5a39d",
+    "in": {
+      "events": 2,
+      "bytes": 1069
+    },
+    "out": {
+      "events": 1,
+      "bytes": 523
+    },
+    "ok": true
+  }
+}

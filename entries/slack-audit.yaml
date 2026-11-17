@@ -283,21 +283,81 @@ optimizations:
     fn: Eval
     how: For user_login / user_logout the entity is the actor itself. Remove entity.user.* when it equals actor.user.*, and drop the constant context.location.type/name (one value per org).
     expr: "action.startsWith('user_log') && entity.user.id==actor.user.id → remove entity, context.location.name"
+    stream:
+      log: User login / session
+      functions:
+        - id: eval
+          filter: typeof action == 'string' && action.indexOf('user_log') == 0 && ((entity || {}).user || {}).id == ((actor || {}).user || {}).id
+          description: Remove the entity copy of the actor and the constant location name on login/logout events
+          conf:
+            remove:
+              - entity
+              - context.location.name
+              - context.location.type
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - entity
+        present:
+          - actor
+          - action
+        smaller: true
   - title: Aggregate file views and channel joins
     saving: 20–40 %
     fn: Aggregations
     how: file_downloaded (which includes in-client views) and user_channel_join are the bulk of volume. Roll up per actor/IP/action per 10 minutes for the SIEM and keep raw in Cribl Lake for investigations.
     expr: action in ('file_downloaded','user_channel_join','canvas_opened')
+    stream:
+      log: File public link / download
+      functions:
+        - id: aggregation
+          filter: action == 'file_downloaded' || action == 'user_channel_join' || action == 'canvas_opened'
+          description: Roll file views, channel joins and canvas opens up per actor, IP and action per 10 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 600s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - actor.user.id
+              - context.ip_address
+              - action
+      test:
+        - '{"id":"3d7e5a19-8b2c-4f61-a0e4-9c1b3d5f7a83","date_create":1794478010,"action":"file_downloaded","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"file","file":{"id":"F09ABCDEF12","name":"customer-pricing-2027.xlsx","filetype":"xlsx","title":"customer-pricing-2027"}},"context":{"location":{"type":"workspace","id":"T078STUVWX","name":"Example Sales","domain":"example-sales"},"ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Slack/4.41.105","ip_address":"203.0.113.77","session_id":"8472881900921"},"details":{"team":"T078STUVWX"}}'
+        - '{"id":"3d7e5a19-8b2c-4f61-a0e4-9c1b3d5f7a84","date_create":1794478020,"action":"file_downloaded","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"file","file":{"id":"F09ABCDEF13","name":"notes.txt","filetype":"text","title":"notes"}},"context":{"location":{"type":"workspace","id":"T078STUVWX","name":"Example Sales","domain":"example-sales"},"ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Slack/4.41.105","ip_address":"203.0.113.77","session_id":"8472881900921"},"details":{"team":"T078STUVWX"}}'
+        - '{"id":"3d7e5a19-8b2c-4f61-a0e4-9c1b3d5f7a85","date_create":1794478030,"action":"file_downloaded","actor":{"type":"user","user":{"id":"W012ABCDEF","name":"jdoe","email":"jdoe@example.com","team":"E012ABCD3"}},"entity":{"type":"file","file":{"id":"F09ABCDEF14","name":"plan.pdf","filetype":"pdf","title":"plan"}},"context":{"location":{"type":"workspace","id":"T078STUVWX","name":"Example Sales","domain":"example-sales"},"ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Slack/4.41.105","ip_address":"203.0.113.77","session_id":"8472881900921"},"details":{"team":"T078STUVWX"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route high-value actions at full fidelity
     saving: SIEM licence
     fn: Routes
     how: anomaly, app_*, role_change_*, pref.*, file_public_link_created and user_login_failed go to the SIEM raw; everything else to Lake + metrics.
     expr: "action=='anomaly' || /^(app_|role_change|pref\\.|auth_policy)/.test(action) → SIEM"
+    stream:
+      routes:
+        - name: Slack high-value actions → SIEM
+          filter: /"action":"(anomaly|app_[^"]*|role_change[^"]*|pref\.[^"]*|auth_policy[^"]*|file_public_link_created|user_login_failed)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Slack other actions → Lake + metrics
+          filter: /"action":"/.test(_raw)
+          to: Cribl Lake (raw), and metrics through the aggregation pipeline
+          final: true
+      note: Routes see the raw JSON, so they match the top-level action key; the first action key in the text is the top-level one. Put the SIEM route first.
   - title: Enrich IPs once
     saving: Analyst time
     fn: Lookup
     how: Add ASN / geo / known-office flags to context.ip_address in Stream so detections don't need per-query enrichment.
     expr: lookup asn_db on context.ip_address
+    stream:
+      note: Upload an ASN/geo database (e.g. a MaxMind GeoLite2 ASN/City .mmdb) and a CSV of known office ranges to Cribl, then add a GeoIP and Lookup function on context.ip_address in the Slack pipeline. This needs files you supply, so it is not generated here.
 references:
   - title: Using the Audit Logs API (Slack)
     url: https://docs.slack.dev/admins/audit-logs-api/

@@ -360,6 +360,21 @@ optimizations:
     fn: Routes
     how: The http_request dataset has one record per request and dwarfs the rest. Security monitoring needs firewall events, Access, Gateway blocks and audit records in full. Send cache hits to cheaper storage.
     expr: sourcetype == 'cloudflare_logpush_http_request' && CacheCacheStatus == 'hit'
+    stream:
+      routes:
+        - name: Cloudflare HTTP request cache hits → cheap storage
+          filter: /"CacheCacheStatus":"hit"/.test(_raw)
+          to: Cribl Lake or other low-cost storage only
+          final: true
+        - name: Cloudflare security datasets → SIEM
+          filter: /"(RuleID|AppUUID|ActionType|PolicyID|SignatureID|FindingTypeID|AlertID)":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Cloudflare other datasets → Lake + SIEM
+          filter: 'true'
+          to: Cribl Lake (raw), and the SIEM through optimisation pipelines
+          final: true
+      note: Routes see the raw event, so the HTTP requests cache-hit route matches the CacheCacheStatus key in the JSON text; put it first. If the Logpush source sets a sourcetype field, you can add sourcetype == 'cloudflare_logpush_http_request' to that filter.
 references:
   - title: Cloudflare Logs
     url: https://developers.cloudflare.com/logs/
