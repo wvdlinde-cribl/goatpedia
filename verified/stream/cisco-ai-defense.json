@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop or truncate message content",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "14bbe161e63894ac",
+    "in": {
+      "events": 1,
+      "bytes": 1307
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1307
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Flatten guardrail associations",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "6f536ffe612f435a",
+    "in": {
+      "events": 1,
+      "bytes": 1307
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1111
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Remove empty fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8a2717218ec874ce",
+    "in": {
+      "events": 1,
+      "bytes": 348
+    },
+    "out": {
+      "events": 1,
+      "bytes": 331
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate allowed low-severity events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7912fd64e5991686",
+    "in": {
+      "events": 3,
+      "bytes": 3571
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1550
+    },
+    "ok": true
+  }
+}

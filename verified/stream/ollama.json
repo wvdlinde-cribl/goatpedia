@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop health-check and listing calls",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "36b5895caaba598d",
+    "in": {
+      "events": 2,
+      "bytes": 179
+    },
+    "out": {
+      "events": 1,
+      "bytes": 90
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Summarise offload / memory detail",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4f02555e8fd4637d",
+    "in": {
+      "events": 1,
+      "bytes": 447
+    },
+    "out": {
+      "events": 1,
+      "bytes": 311
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate inference requests to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "31056516f22521b2",
+    "in": {
+      "events": 4,
+      "bytes": 360
+    },
+    "out": {
+      "events": 2,
+      "bytes": 274
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop debug output",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4d2a8a0219e62108",
+    "in": {
+      "events": 2,
+      "bytes": 496
+    },
+    "out": {
+      "events": 1,
+      "bytes": 290
+    },
+    "ok": true
+  }
+}

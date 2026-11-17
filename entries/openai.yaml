@@ -310,21 +310,116 @@ optimizations:
     fn: Unroll + Eval
     how: Each bucket holds results[]. Unroll into one event per result, copy start_time onto it, and drop the bucket wrapper and empty buckets (results=[]), which are common at 1m/1h granularity.
     expr: results.length > 0 → unroll results; remove start_time_iso, end_time_iso, object
+    stream:
+      log: Completions usage bucket
+      functions:
+        - id: drop
+          filter: object == 'bucket' && (!results || results.length == 0)
+          description: Drop empty usage buckets
+          conf: {}
+        - id: unroll
+          filter: object == 'bucket'
+          description: One event per usage result; bucket fields like start_time are copied onto each
+          conf:
+            srcExpr: results
+            dstField: result
+        - id: eval
+          filter: 'true'
+          description: Remove the bucket wrapper fields
+          conf:
+            remove:
+              - results
+              - start_time_iso
+              - end_time_iso
+              - object
+      serialize: true
+      test:
+        - '{"object":"bucket","start_time":1762938000,"end_time":1762941600,"start_time_iso":"2026-11-12T09:00:00+00:00","end_time_iso":"2026-11-12T10:00:00+00:00","results":[]}'
+      expect:
+        out: 1
+        absent:
+          - start_time_iso
+          - end_time_iso
+          - object
+        present:
+          - result
+          - start_time
   - title: Send usage and costs as metrics
     saving: 60–90 % of usage volume in the SIEM
     fn: Aggregations → Metrics
     how: Usage and costs are numeric time series. Convert to metrics (tokens, requests, cost by project/key/model) for a TSDB or Cribl Lake; keep only anomalies in the SIEM.
     expr: sourcetype in ('openai_completions','openai_costs')
+    stream:
+      log: Completions usage bucket
+      functions:
+        - id: eval
+          filter: object == 'bucket' && results && results.length > 0
+          description: Lift the first result's dimensions and counters to top level
+          conf:
+            add:
+              - name: project_id
+                value: (results[0] || {}).project_id
+              - name: api_key_id
+                value: (results[0] || {}).api_key_id
+              - name: model
+                value: (results[0] || {}).model
+              - name: input_tokens
+                value: (results[0] || {}).input_tokens
+              - name: output_tokens
+                value: (results[0] || {}).output_tokens
+              - name: num_model_requests
+                value: (results[0] || {}).num_model_requests
+        - id: aggregation
+          filter: object == 'bucket' && results && results.length > 0
+          description: Roll usage up to token and request metrics per project, key and model
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - sum(input_tokens).as(input_tokens)
+              - sum(output_tokens).as(output_tokens)
+              - sum(num_model_requests).as(requests)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - project_id
+              - api_key_id
+              - model
+      expect:
+        out: 1
+        smaller: true
   - title: Turn inventories into lookups
     saving: 90 %+ of inventory volume
     fn: Lookup / Routes
     how: openai_users and openai_projects are snapshots that repeat every poll. Write them to a lookup to enrich audit and usage events (email, role, project name) and only emit diffs.
     expr: sourcetype in ('openai_users','openai_projects') → lookup
+    stream:
+      note: Write the users and projects inventory polls to a Cribl lookup file (id, email, role, project name) and enrich audit and usage events with a Lookup function on user and project ids. Only forward inventory records that changed since the previous poll.
   - title: Trim geo precision in audit events
     saving: 5–10 %
     fn: Eval
     how: Keep country, city and ASN; drop latitude, longitude and region_code from actor.session.ip_address_details.
     expr: "remove: actor.session.ip_address_details.latitude, actor.session.ip_address_details.longitude, actor.session.ip_address_details.region_code"
+    stream:
+      log: Audit log
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Drop latitude, longitude and region_code; keep country, city and ASN
+          conf:
+            remove:
+              - actor.session.ip_address_details.latitude
+              - actor.session.ip_address_details.longitude
+              - actor.session.ip_address_details.region_code
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - actor
+        smaller: true
 references:
   - title: OpenAI API reference — Audit logs
     url: https://platform.openai.com/docs/api-reference/audit-logs

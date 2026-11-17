@@ -198,4 +198,15 @@ optimizations:
     fn: Routes
     how: Conversation messages and connector requests are the bulk of the data and are needed for compliance review, not for real-time detection. Route them to retention storage and send sign-ins, audit, Codex and agent events to the SIEM.
     expr: sourcetype == 'openai_chatgpt_enterprise_conversation_message' || sourcetype == 'openai_chatgpt_enterprise_app_log'
+    stream:
+      routes:
+        - name: ChatGPT conversation messages and connector requests → retention
+          filter: /"type":"(CONVERSATION_MESSAGE|APP_LOG)"/.test(_raw)
+          to: Retention storage (Cribl Lake or object store) for compliance review
+          final: true
+        - name: ChatGPT sign-ins, audit, Codex, agent and app-auth events → SIEM
+          filter: /"type":"(AUTH_LOG|AUDIT_LOG|CODEX_LOG|CODEX_SECURITY_LOG|CUSTOM_AGENTS_LOG|APP_AUTH_LOG)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the top-level type key in the JSON text instead of a sourcetype. Put the retention route first.
 references: []

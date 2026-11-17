@@ -277,21 +277,99 @@ optimizations:
     fn: Drop
     how: Load balancers and UIs poll GET / , /api/tags, /api/ps and /api/version constantly. Drop successful polls (or sample 1 in 100).
     expr: method=='GET' && ['/','/api/tags','/api/ps','/api/version','/api/show'].includes(path) && status=='200'
+    stream:
+      log: API access (Gin)
+      parse: false
+      functions:
+        - id: drop
+          filter: /^\[GIN\] \S+ - \S+ \| 200 \|.*\| GET\s+"\/(api\/(tags|ps|version|show))?"$/.test(_raw)
+          description: Drop successful GET health-check and listing polls (/, /api/tags, /api/ps, /api/version, /api/show)
+          conf: {}
+      test:
+        - '[GIN] 2026/11/12 - 09:14:22 | 200 |      0.512ms |    203.0.113.77 | GET      "/api/tags"'
+      expect:
+        out: 1
   - title: Summarise offload / memory detail
     saving: 30–60 % of slog volume
     fn: Eval
     how: Each model load prints large offload and memory lines. Keep model, library, layers.offload and memory.required.full; drop the graph and weight breakdowns.
     expr: "remove: memory.graph.*, memory.weights.*, memory.required.partial, memory.required.kv"
+    stream:
+      log: Server / scheduler event (slog)
+      parse: false
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove graph, weight and partial/kv memory breakdowns; keep model, library, layers.offload and memory.required.full
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ memory\.(graph\.\w+|weights\.\w+|required\.(partial|kv))=("[^"]*"|\S+)/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Aggregate inference requests to metrics
     saving: 40–70 %
     fn: Aggregations
     how: Roll /api/chat and /api/generate lines up to count, error count and p95 latency per client_ip and path per minute; keep model-management and non-2xx lines raw.
     expr: path in ['/api/chat','/api/generate','/api/embed','/v1/chat/completions'] && status.startsWith('2')
+    stream:
+      log: API access (Gin)
+      parse: false
+      functions:
+        - id: regex_extract
+          filter: 'true'
+          description: Extract status, latency, client_ip, method and path from the Gin line
+          conf:
+            source: _raw
+            regex: /\| (?<status>\d{3}) \|\s+(?<latency>\S+) \|\s+(?<client_ip>\S+) \| (?<method>[A-Z]+)\s+"(?<path>[^"]+)"/
+        - id: eval
+          filter: latency
+          description: Convert Gin latency to seconds
+          conf:
+            add:
+              - name: latency_s
+                value: 'latency.slice(-2) == ''ms'' ? parseFloat(latency) / 1000 : (latency.slice(-2) == ''ns'' ? parseFloat(latency) / 1000000000 : (/s$/.test(latency) && !/[0-9]s$/.test(latency) ? parseFloat(latency) / 1000000 : parseFloat(latency)))'
+        - id: aggregation
+          filter: '[''/api/chat'',''/api/generate'',''/api/embed'',''/v1/chat/completions''].indexOf(path) > -1 && /^2/.test(status)'
+          description: Roll successful inference requests up to count and p95 latency per client and path per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+              - perc(95, latency_s).as(p95_latency_s)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - client_ip
+              - path
+      test:
+        - '[GIN] 2026/11/12 - 09:14:23 | 200 |  3.100000000s |    203.0.113.77 | POST     "/api/chat"'
+        - '[GIN] 2026/11/12 - 09:14:24 | 200 |  2.500000000s |    203.0.113.77 | POST     "/api/chat"'
+        - '[GIN] 2026/11/12 - 09:14:25 | 500 |  0.900000000s |    203.0.113.77 | POST     "/api/chat"'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop debug output
     saving: Large when OLLAMA_DEBUG=1
     fn: Drop
     how: Debug-level lines and runner tensor dumps are only useful during troubleshooting.
     expr: level=='DEBUG'
+    stream:
+      log: Runner error / warning
+      functions:
+        - id: drop
+          filter: level == 'DEBUG'
+          description: Drop debug-level lines
+          conf: {}
+      test:
+        - time=2026-11-12T09:20:41.552+01:00 level=DEBUG source=sched.go:489 msg="loading tensors" model=/root/.ollama/models/blobs/sha256-9c41b2e3a8f7d6c5b4a3928170fedcba9876543210fedcba9876543210fedcba error="none"
+      expect:
+        out: 1
 references:
   - title: Ollama — Troubleshooting (log locations)
     url: https://docs.ollama.com/troubleshooting

@@ -308,21 +308,99 @@ optimizations:
     fn: Eval
     how: File reads and API results can be tens of KB. Keep the first 1–2 KB of content text plus its length and a hash; keep isError and the error message in full.
     expr: "message.result.content[0].text = message.result.content[0].text.substring(0, 2048)"
+    stream:
+      log: Tool call result / error
+      functions:
+        - id: eval
+          filter: message && message.result && message.result.content && message.result.content[0] && typeof message.result.content[0].text == 'string' && message.result.isError !== true && message.result.content[0].text.length > 2048
+          description: Keep the first 2 KB of large successful tool results and record the original length; errors stay in full
+          conf:
+            add:
+              - name: message.result.text_length
+                value: message.result.content[0].text.length
+              - name: message.result.content
+                value: '[{type: message.result.content[0].type, text: message.result.content[0].text.substring(0, 2048)}]'
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - message
   - title: Drop pings and progress notifications
     saving: 10–30 %
     fn: Drop
     how: ping requests/responses and notifications/progress carry no security value.
     expr: "['ping','notifications/progress','notifications/initialized'].includes(message.method)"
+    stream:
+      log: Server notification (list_changed / log message)
+      functions:
+        - id: drop
+          filter: (message || {}).method == 'ping' || (message || {}).method == 'notifications/progress' || (message || {}).method == 'notifications/initialized'
+          description: Drop pings and progress/initialized notifications
+          conf: {}
+      test:
+        - '{"timestamp":"2026-11-12T09:44:12.318Z","direction":"server_to_client","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","server":"filesystem","message":{"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"t1","progress":50,"total":100}}}'
+      expect:
+        out: 1
   - title: Sample repetitive discovery calls
     saving: 5–20 %
     fn: Sampling
     how: Clients re-issue tools/list, resources/list and prompts/list often. Keep the first per session (to diff tool descriptions) and sample the rest.
     expr: message.method && message.method.endsWith('/list')
+    stream:
+      log: Session initialize
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 repeated list discovery calls
+          conf:
+            rules:
+              - filter: typeof (message || {}).method == 'string' && /\/list$/.test(message.method)
+                rate: 10
+      test:
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+        - '{"timestamp":"2026-11-12T09:30:58.002Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","server":"filesystem","message":{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}}'
+      expect:
+        outMin: 2
+        outMax: 3
+        smaller: true
   - title: Mask secrets in arguments and results
     saving: Compliance, not volume
     fn: Mask
     how: Tool arguments and results can contain tokens, keys and file contents. Mask provider key shapes and bearer tokens before routing to long-term storage.
     expr: "Mask on message.params.arguments and message.result.content[0].text — patterns for sk-…, ghp_…, AKIA…, Bearer …"
+    stream:
+      log: Tool call request (tools/call)
+      parse: false
+      functions:
+        - id: mask
+          filter: 'true'
+          description: Mask provider API keys, GitHub tokens, AWS access keys and bearer tokens
+          conf:
+            rules:
+              - matchRegex: /sk-[A-Za-z0-9_-]{20,}/g
+                replaceExpr: '''sk-***'''
+              - matchRegex: /ghp_[A-Za-z0-9]{36}/g
+                replaceExpr: '''ghp_***'''
+              - matchRegex: /AKIA[0-9A-Z]{16}/g
+                replaceExpr: '''AKIA***'''
+              - matchRegex: /Bearer [A-Za-z0-9._~+=-]+/g
+                replaceExpr: '''Bearer ***'''
+            fields:
+              - _raw
+            depth: 5
+      test:
+        - '{"timestamp":"2026-11-12T09:31:07.412Z","direction":"client_to_server","transport":"streamable_http","session_id":"4f6c2a1e-7b9d-4e3a-9c51-0d8e2f7a6b13","user":"jdoe@example.com","client_ip":"192.0.2.41","client":"claude-code/2.1.4","server":"fetch","message":{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"http_get","arguments":{"url":"https://api.example.com/v1","auth":"Bearer abcdefEXAMPLEtoken1234567890","aws_key":"AKIAIOSFODNN7EXAMPLE"}}}}'
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: MCP specification (2025-11-25)
     url: https://modelcontextprotocol.io/specification/2025-11-25

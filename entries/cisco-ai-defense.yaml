@@ -238,21 +238,107 @@ optimizations:
     fn: Eval
     how: The conversation content is the bulk of each event and may itself be sensitive. Keep the first 512 characters (or a hash) for triage; route full content only to a restricted store.
     expr: "event_messages[0].event_conversation.event_messages[0].content = String(event_messages[0].event_conversation.event_messages[0].content).substring(0, 512)"
+    stream:
+      log: Runtime policy violation event
+      functions:
+        - id: eval
+          filter: event_messages && event_messages[0] && event_messages[0].event_conversation && event_messages[0].event_conversation.event_messages && event_messages[0].event_conversation.event_messages[0]
+          description: Keep only the first 512 characters of the conversation content
+          conf:
+            add:
+              - name: event_messages[0].event_conversation.event_messages[0].content
+                value: String(event_messages[0].event_conversation.event_messages[0].content).substring(0, 512)
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - event_messages
   - title: Flatten guardrail associations
     saving: 20–40 %
     fn: Eval
     how: Pull ruleset type, entity name and guardrail type to top-level fields, then remove the deeply nested association arrays and empty-string ids.
     expr: "guardrail_ruleset_type = event_policy_guardrail_assocs[0].policy_guardrail_assoc.guardrail_avail_ruleset.guardrail_ruleset_type, then remove event_policy_guardrail_assocs"
+    stream:
+      log: Runtime policy violation event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Pull guardrail ruleset type, entity name and guardrail type to top level and remove the nested association array
+          conf:
+            add:
+              - name: guardrail_ruleset_type
+                value: ((((event_policy_guardrail_assocs || [])[0] || {}).policy_guardrail_assoc || {}).guardrail_avail_ruleset || {}).guardrail_ruleset_type
+              - name: guardrail_entity_name
+                value: ((((event_policy_guardrail_assocs || [])[0] || {}).policy_guardrail_assoc || {}).guardrail_avail_entity || {}).guardrail_entity_name
+              - name: guardrails_type
+                value: (((((event_policy_guardrail_assocs || [])[0] || {}).policy_guardrail_assoc || {}).guardrail_avail_ruleset || {}).guardrail || {}).guardrails_type
+            remove:
+              - event_policy_guardrail_assocs
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - event_policy_guardrail_assocs
+        present:
+          - guardrail_ruleset_type
+          - guardrail_entity_name
+          - guardrails_type
+        smaller: true
   - title: Remove empty fields
     saving: 5–15 %
     fn: Eval
     how: Events carry many empty-string ids (event_ext_message_id, related_event_message_id, configured_* fields). Strip empty values before routing.
     expr: "Eval with remove on fields whose value is ''"
+    stream:
+      log: Inspection API verdict
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove fields whose value is an empty string
+          conf:
+            add:
+              - name: explanation
+                value: 'explanation === '''' ? undefined : explanation'
+              - name: client_transaction_id
+                value: 'client_transaction_id === '''' ? undefined : client_transaction_id'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - explanation
+        present:
+          - event_id
+        smaller: true
   - title: Aggregate allowed low-severity events
     saving: 10–30 %
     fn: Aggregations
     how: Count Allow + Relevance/Toxicity events per application, policy and hour; keep every Block and every security/privacy violation raw.
     expr: event_action=='Allow' && ['Toxicity','Relevance'].includes(guardrail_ruleset_type)
+    stream:
+      log: Runtime policy violation event
+      functions:
+        - id: aggregation
+          filter: event_action == 'Allow' && ['Toxicity','Relevance'].indexOf(((((event_policy_guardrail_assocs || [])[0] || {}).policy_guardrail_assoc || {}).guardrail_avail_ruleset || {}).guardrail_ruleset_type) > -1
+          description: Count allowed Toxicity and Relevance events per application and policy per hour
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 3600s
+            aggregations:
+              - count().as(events)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - application_id
+              - policy_id
+      test:
+        - '{"user_id":"jdoe@example.com","application_id":"5d1c2b7e-0a4f-4c3e-9b21-7e6f5a4d3c21","genai_application":{"application_name":"support-assistant","connection_type":"API"},"connection_id":"8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d","connection":{"connection_name":"support-assistant-bedrock"},"policy_id":"3c2b1a0f-9e8d-4c7b-a6f5-e4d3c2b1a0f9","policy":{"policy_name":"Production guardrails"},"model":{"model_name":"claude-sonnet","model_provider_name":"Amazon Bedrock"},"event_action":"Allow","resource_type":"LLM","event_date":"2026-11-12T10:02:41Z","event_id":"0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f1","event_message_type":"Prompt","event_messages":[{"event_conversation":{"event_messages":[{"content":"You are useless.","direction":"Prompt","metadata":[{"standards":[],"policy_guardrail_assoc_id":"6e5d4c3b-2a19-4f08-8e7d-6c5b4a392817"}]}]}}],"event_policy_guardrail_assocs":[{"policy_guardrail_assoc":{"guardrail_avail_entity":{"guardrail_entity_name":"Toxicity"},"guardrail_avail_ruleset":{"guardrail":{"guardrails_type":"Safety"},"guardrail_ruleset_type":"Toxicity"},"pol_guardrail_assoc_id":"6e5d4c3b-2a19-4f08-8e7d-6c5b4a392817"}}]}'
+        - '{"user_id":"jdoe@example.com","application_id":"5d1c2b7e-0a4f-4c3e-9b21-7e6f5a4d3c21","genai_application":{"application_name":"support-assistant","connection_type":"API"},"connection_id":"8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d","connection":{"connection_name":"support-assistant-bedrock"},"policy_id":"3c2b1a0f-9e8d-4c7b-a6f5-e4d3c2b1a0f9","policy":{"policy_name":"Production guardrails"},"model":{"model_name":"claude-sonnet","model_provider_name":"Amazon Bedrock"},"event_action":"Allow","resource_type":"LLM","event_date":"2026-11-12T10:03:41Z","event_id":"0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f2","event_message_type":"Prompt","event_messages":[{"event_conversation":{"event_messages":[{"content":"You are useless.","direction":"Prompt","metadata":[{"standards":[],"policy_guardrail_assoc_id":"6e5d4c3b-2a19-4f08-8e7d-6c5b4a392817"}]}]}}],"event_policy_guardrail_assocs":[{"policy_guardrail_assoc":{"guardrail_avail_entity":{"guardrail_entity_name":"Toxicity"},"guardrail_avail_ruleset":{"guardrail":{"guardrails_type":"Safety"},"guardrail_ruleset_type":"Toxicity"},"pol_guardrail_assoc_id":"6e5d4c3b-2a19-4f08-8e7d-6c5b4a392817"}}]}'
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: Cisco AI Defense product page
     url: https://www.cisco.com/site/us/en/products/security/ai-defense/index.html
