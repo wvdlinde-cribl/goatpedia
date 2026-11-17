@@ -1,0 +1,13 @@
+{
+  "1": {
+    "title": "Split detail.findings[] and unwrap the envelope",
+    "problems": [
+      "field version is still in the output",
+      "field id is still in the output",
+      "field source is still in the output",
+      "field detail-type is still in the output",
+      "field resources is still in the output",
+      "output (1635 B) is not smaller than input (1635 B)"
+    ]
+  }
+}

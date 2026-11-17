@@ -69,6 +69,17 @@ optimizations:
     fn: Drop
     how: Accepted flows are the bulk of VPC traffic. Rejected flows and flows to sensitive ports are the security-relevant subset. Keep REJECT records and send accepted flows to cheaper storage or aggregate them.
     expr: message.indexOf(' ACCEPT ') >= 0
+    stream:
+      log: VPC flow records via Firehose
+      functions:
+        - id: drop
+          filter: typeof message == 'string' && message.indexOf(' ACCEPT ') >= 0
+          description: Drop accepted flows; keep REJECT records for the SIEM (send accepted flows to cheaper storage or aggregate them)
+          conf: {}
+      test:
+        - '{"message":"2 123456789010 eni-1235b8ca123456789 203.0.113.12 198.51.100.25 49152 3389 6 20 4249 1418530010 1418530070 REJECT OK"}'
+      expect:
+        out: 1
 references:
   - title: What is Amazon Data Firehose?
     url: https://docs.aws.amazon.com/firehose/latest/dev/what-is-this-service.html

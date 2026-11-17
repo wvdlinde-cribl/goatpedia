@@ -270,21 +270,73 @@ optimizations:
     fn: Drop
     how: ConfigurationSnapshotDeliveryCompleted / ConfigurationHistoryDeliveryCompleted messages carry no resource state, and relationship-only updates (an ENI attached somewhere) repeat on every related resource. Keep them in S3 history only.
     expr: /Delivery(Completed|Started)$/.test(messageType) || (messageType=='ConfigurationItemChangeNotification' && !/"Configuration\./.test(JSON.stringify(configurationItemDiff.changedProperties)))
+    stream:
+      log: Configuration item change
+      functions:
+        - id: drop
+          filter: /Delivery(Completed|Started)$/.test(messageType) || (messageType == 'ConfigurationItemChangeNotification' && !/"Configuration\./.test(JSON.stringify((configurationItemDiff || {}).changedProperties || {})))
+          description: Drop delivery status messages and relationship-only configuration changes; they stay in the S3 history
+          conf: {}
+      test:
+        - '{"configurationItemDiff":{"changedProperties":{"Configuration.IpPermissions.0":{"previousValue":null,"updatedValue":{"ipProtocol":"tcp","fromPort":22,"toPort":22,"userIdGroupPairs":[],"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipv6Ranges":[],"prefixListIds":[],"ipRanges":["0.0.0.0/0"]},"changeType":"CREATE"}},"changeType":"UPDATE"},"configurationItem":{"relatedEvents":["7f2e9c1a-3b4d-4e5f-8a9b-0c1d2e3f4a5b"],"relationships":[{"resourceId":"vpc-0123456789abcdef0","resourceName":null,"resourceType":"AWS::EC2::VPC","name":"Is contained in Vpc"}],"configuration":{"description":"web tier","groupName":"sg-web","ipPermissions":[{"ipProtocol":"tcp","fromPort":22,"toPort":22,"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipRanges":["0.0.0.0/0"]}],"ownerId":"111122223333","groupId":"sg-0a1b2c3d4e5f67890","vpcId":"vpc-0123456789abcdef0"},"supplementaryConfiguration":{"Tags":[{"key":"env","value":"prod"}]},"tags":{"env":"prod"},"configurationItemVersion":"1.3","configurationItemCaptureTime":"2026-11-12T09:14:31.210Z","configurationStateId":1762938871210,"awsAccountId":"111122223333","configurationItemStatus":"OK","resourceType":"AWS::EC2::SecurityGroup","resourceId":"sg-0a1b2c3d4e5f67890","resourceName":"sg-web","ARN":"arn:aws:ec2:eu-west-1:111122223333:security-group/sg-0a1b2c3d4e5f67890","awsRegion":"eu-west-1","availabilityZone":"Not Applicable","configurationStateMd5Hash":""},"notificationCreationTime":"2026-11-12T09:14:33.004Z","messageType":"ConfigurationHistoryDeliveryCompleted","recordVersion":"1.3"}'
+      expect:
+        out: 1
   - title: Keep the diff, drop the full configuration for the SIEM
     saving: 50–80 % per event
     fn: Parser → Serialize
     how: The diff says what changed; the full configuration and supplementaryConfiguration can be several KB. Send the diff plus identity fields to the SIEM and the full CI to Lake.
     expr: "remove: configurationItem.configuration, configurationItem.supplementaryConfiguration, configurationItem.configurationStateMd5Hash"
+    stream:
+      log: Configuration item change
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Keep the diff and identity fields; remove the full configuration, supplementary configuration and state hash
+          conf:
+            remove:
+              - configurationItem.configuration
+              - configurationItem.supplementaryConfiguration
+              - configurationItem.configurationStateMd5Hash
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - configurationItemDiff
+          - configurationItem
+          - messageType
+        smaller: true
   - title: Filter ephemeral resource types
     saving: 10–30 %
     fn: Drop
     how: Network interfaces, ECS tasks and auto-scaled instances churn constantly. Record them periodically (daily) in Config, or drop their CIs in Stream unless the change touches a security group.
     expr: configurationItem.resourceType=='AWS::EC2::NetworkInterface' && !/Groups/.test(JSON.stringify(configurationItemDiff))
+    stream:
+      log: Configuration item change
+      functions:
+        - id: drop
+          filter: (configurationItem || {}).resourceType == 'AWS::EC2::NetworkInterface' && !/Groups/.test(JSON.stringify(configurationItemDiff || {}))
+          description: Drop network interface CIs unless the change touches security groups
+          conf: {}
+      test:
+        - '{"configurationItemDiff":{"changedProperties":{"Configuration.IpPermissions.0":{"previousValue":null,"updatedValue":{"ipProtocol":"tcp","fromPort":22,"toPort":22,"userIdGroupPairs":[],"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipv6Ranges":[],"prefixListIds":[],"ipRanges":["0.0.0.0/0"]},"changeType":"CREATE"}},"changeType":"UPDATE"},"configurationItem":{"relatedEvents":["7f2e9c1a-3b4d-4e5f-8a9b-0c1d2e3f4a5b"],"relationships":[{"resourceId":"vpc-0123456789abcdef0","resourceName":null,"resourceType":"AWS::EC2::VPC","name":"Is contained in Vpc"}],"configuration":{"description":"web tier","groupName":"sg-web","ipPermissions":[{"ipProtocol":"tcp","fromPort":22,"toPort":22,"ipv4Ranges":[{"cidrIp":"0.0.0.0/0"}],"ipRanges":["0.0.0.0/0"]}],"ownerId":"111122223333","groupId":"sg-0a1b2c3d4e5f67890","vpcId":"vpc-0123456789abcdef0"},"supplementaryConfiguration":{"Tags":[{"key":"env","value":"prod"}]},"tags":{"env":"prod"},"configurationItemVersion":"1.3","configurationItemCaptureTime":"2026-11-12T09:14:31.210Z","configurationStateId":1762938871210,"awsAccountId":"111122223333","configurationItemStatus":"OK","resourceType":"AWS::EC2::NetworkInterface","resourceId":"eni-0a1b2c3d4e5f67890","resourceName":"sg-web","ARN":"arn:aws:ec2:eu-west-1:111122223333:network-interface/eni-0a1b2c3d4e5f67890","awsRegion":"eu-west-1","availabilityZone":"Not Applicable","configurationStateMd5Hash":""},"notificationCreationTime":"2026-11-12T09:14:33.004Z","messageType":"ConfigurationItemChangeNotification","recordVersion":"1.3"}'
+      expect:
+        out: 1
   - title: Route compliance to SIEM, state to Lake
     saving: SIEM licence
     fn: Routes
     how: ComplianceChangeNotification and changes on IAM, security groups, S3, KMS and CloudTrail go to the SIEM; everything else (inventory, relationships, compute) goes to Lake for audit queries.
     expr: messageType=='ComplianceChangeNotification' || /IAM|SecurityGroup|S3::Bucket|KMS|CloudTrail/.test(configurationItem.resourceType) → SIEM | else → Lake
+    stream:
+      routes:
+        - name: AWS Config compliance and security resource changes → SIEM
+          filter: /"messageType":"ComplianceChangeNotification"/.test(_raw) || /"resourceType":"AWS::(IAM|EC2::SecurityGroup|S3::Bucket|KMS|CloudTrail)/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: AWS Config other state → Lake
+          filter: /"(configurationItem|messageType)"/.test(_raw)
+          to: Cribl Lake for audit queries
+          final: true
+      note: Routes see the raw event, so they match messageType and resourceType in the JSON text. Put the SIEM route first.
 references:
   - title: What is AWS Config?
     url: https://docs.aws.amazon.com/config/latest/developerguide/WhatIsConfig.html

@@ -74,6 +74,85 @@ optimizations:
     saving: most of the flow log volume
     fn: Aggregations
     how: Most tuples are allowed flows on default or broad allow rules. Split the tuples into one event per flow, keep denied flows and flows to sensitive ports in full, and aggregate allowed flows to counts per source, destination and port before the SIEM.
+    stream:
+      log: NSG flow record
+      functions:
+        - id: unroll
+          filter: 'true'
+          description: One event per rule entry
+          conf:
+            srcExpr: (properties || {}).flows
+            dstField: rf
+        - id: unroll
+          filter: 'true'
+          description: One event per MAC entry
+          conf:
+            srcExpr: (rf || {}).flows
+            dstField: mf
+        - id: unroll
+          filter: 'true'
+          description: One event per flow tuple
+          conf:
+            srcExpr: (mf || {}).flowTuples
+            dstField: tuple
+        - id: eval
+          filter: typeof tuple == 'string'
+          description: Split the flow tuple into named fields and drop the nested arrays
+          conf:
+            add:
+              - name: rule
+                value: (rf || {}).rule
+              - name: mac
+                value: (mf || {}).mac
+              - name: src_ip
+                value: tuple.split(',')[1]
+              - name: dst_ip
+                value: tuple.split(',')[2]
+              - name: src_port
+                value: tuple.split(',')[3]
+              - name: dst_port
+                value: tuple.split(',')[4]
+              - name: protocol
+                value: tuple.split(',')[5]
+              - name: direction
+                value: tuple.split(',')[6]
+              - name: decision
+                value: tuple.split(',')[7]
+              - name: bytes_out
+                value: Number(tuple.split(',')[10] || 0)
+              - name: bytes_in
+                value: Number(tuple.split(',')[12] || 0)
+            remove:
+              - properties
+              - rf
+              - mf
+        - id: aggregation
+          filter: decision == 'A' && ['22','23','445','1433','3306','3389','5985','5986'].indexOf(dst_port) < 0
+          description: Roll allowed flows to non-sensitive ports up to counts per source, destination and port per minute; denies and sensitive ports pass in full
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(flows)
+              - sum(bytes_out).as(bytes_out)
+              - sum(bytes_in).as(bytes_in)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dst_ip
+              - dst_port
+      test:
+        - '{"time":"2018-11-13T12:00:35.3899262Z","systemId":"a0fca5ce-022c-47b1-9735-89943b42f2fa","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_AllowInternetOutBound","flows":[{"mac":"000D3AF87856","flowTuples":["1542110380,203.0.113.40,192.0.2.10,59933,443,T,O,A,E,1,66,1,66","1542110381,203.0.113.40,192.0.2.10,59934,443,T,O,A,E,1,66,1,66"]}]}]}}'
+        - '{"time":"2018-11-13T12:00:35.3899262Z","systemId":"a0fca5ce-022c-47b1-9735-89943b42f2fa","category":"NetworkSecurityGroupFlowEvent","resourceId":"/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/FABRIKAMRG/PROVIDERS/MICROSOFT.NETWORK/NETWORKSECURITYGROUPS/FABRIAKMVM1-NSG","operationName":"NetworkSecurityGroupFlowEvents","properties":{"Version":2,"flows":[{"rule":"DefaultRule_DenyAllInBound","flows":[{"mac":"000D3AF87856","flowTuples":["1542110382,198.51.100.7,192.0.2.10,40122,3389,T,I,D,B,,,,"]}]}]}}'
+      expect:
+        out: 2
+        absent:
+          - properties
+        smaller: true
 references:
   - title: Flow logging for network security groups
     url: https://learn.microsoft.com/en-us/azure/network-watcher/nsg-flow-logs-overview

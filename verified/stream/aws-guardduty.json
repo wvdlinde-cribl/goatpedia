@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Deduplicate finding updates",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0fd5ab5814c772c1",
+    "in": {
+      "events": 3,
+      "bytes": 4692
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1564
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop sample findings",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3a05dc1e9b95efd3",
+    "in": {
+      "events": 2,
+      "bytes": 3152
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1564
+    },
+    "ok": true
+  }
+}

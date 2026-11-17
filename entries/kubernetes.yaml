@@ -112,6 +112,18 @@ optimizations:
     fn: Drop
     how: Controllers and nodes running as system identities get, list and watch objects all the time. Keep writes, any access to secrets, and every request by a human or workload identity.
     expr: (verb == 'get' || verb == 'list' || verb == 'watch') && user.username.startsWith('system:') && objectRef.resource != 'secrets'
+    stream:
+      log: API server audit events
+      functions:
+        - id: drop
+          filter: (verb == 'get' || verb == 'list' || verb == 'watch') && String((user || {}).username || '').indexOf('system:') == 0 && (objectRef || {}).resource != 'secrets'
+          description: Drop get/list/watch by system identities, except on secrets; keep writes and every human or workload request
+          conf: {}
+      test:
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"abcde12346","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/default/secrets","verb":"get","user":{"username":"system:serviceaccounts:default:default","uid":"12345678","groups":["system:authenticated"]},"sourceIPs":["192.0.2.20"],"userAgent":"kubectl/v1.26.1","objectRef":{"resource":"secrets","namespace":"default","name":"my-secret","apiGroup":"","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2025-03-04T06:22:18.819232Z","stageTimestamp":"2025-03-04T06:22:18.822532Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":""}}'
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"abcde12347","stage":"ResponseComplete","requestURI":"/api/v1/namespaces/default/pods","verb":"get","user":{"username":"jdoe@example.com","uid":"12345679","groups":["system:authenticated"]},"sourceIPs":["198.51.100.30"],"userAgent":"kubectl/v1.26.1","objectRef":{"resource":"pods","namespace":"default","name":"my-pod","apiGroup":"","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2025-03-04T06:22:18.819232Z","stageTimestamp":"2025-03-04T06:22:18.822532Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":""}}'
+      expect:
+        out: 2
 references:
   - title: Kubernetes auditing
     url: https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/

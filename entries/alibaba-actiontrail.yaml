@@ -273,21 +273,94 @@ optimizations:
     fn: Drop
     how: Describe/List/Get calls by Alibaba services (sourceIpAddress = *.aliyuncs.com) and monitoring tools dominate. Keep every write, every error, all RAM/STS/sign-in events and anything marked SensitiveAction.
     expr: eventRW=='Read' && !errorCode && /aliyuncs\.com$/.test(sourceIpAddress) && !['Ram','Sts','AasSub'].includes(serviceName)
+    stream:
+      log: API call (ApiCall)
+      functions:
+        - id: drop
+          filter: eventRW == 'Read' && !errorCode && /aliyuncs\.com$/.test(sourceIpAddress) && ['Ram','Sts','AasSub'].indexOf(serviceName) == -1 && (eventAttributes || {}).SensitiveAction != 'true'
+          description: Drop successful read calls made by Alibaba services, except RAM/STS/sign-in and sensitive actions
+          conf: {}
+      test:
+        - '{"eventId":"92b33345-0cef-47be-821f-fb9914d3a1b3","eventVersion":1,"eventSource":"ecs.aliyuncs.com","eventCategory":"Management","acsRegion":"cn-hangzhou","eventType":"ApiCall","eventRW":"Read","apiVersion":"2014-05-26","serviceName":"Ecs","eventName":"DescribeInstances","eventTime":"2026-11-12T09:14:22Z","requestId":"32B7EB75-62EE-511E-9449-E19EBF67C2EE","sourceIpAddress":"cms.aliyuncs.com","userAgent":"cms.aliyuncs.com","userIdentity":{"type":"ram-user","principalId":"203456789012345678","accountId":"1234567890123456","accessKeyId":"LTAIexampleKEY1234","userName":"jdoe"},"requestParameters":{"RegionId":"cn-hangzhou","AcsProduct":"Ecs","ClientPort":51544},"responseElements":{},"eventAttributes":{},"isGlobal":false}'
+      expect:
+        out: 1
   - title: Normalise SLS and OSS shapes
     saving: 5–15 %
     fn: Eval
     how: SLS delivers flattened event.* keys; OSS delivers nested JSON. Strip the event. prefix (or unflatten) so one set of detections works for both, and drop __topic__/__source__/owner_id duplicates.
     expr: "rename: event.* → *; remove: __topic__, __source__, owner_id"
+    stream:
+      log: Sensitive action via SLS trail
+      functions:
+        - id: rename
+          filter: 'true'
+          description: Strip the event. prefix from SLS flattened keys
+          conf:
+            rename: []
+            renameExpr: 'name.indexOf(''event.'') == 0 ? name.substr(6) : name'
+        - id: eval
+          filter: 'true'
+          description: Remove SLS envelope duplicates
+          conf:
+            remove:
+              - __topic__
+              - __source__
+              - owner_id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - __topic__
+          - owner_id
+        present:
+          - eventName
+        smaller: true
   - title: Strip low-value fields
     saving: 10–20 %
     fn: Parser → Serialize
     how: eventVersion, eventId, requestId, apiVersion, requestParameters.ClientPort/AcsProduct and large responseElements are rarely searched; keep requestParameters (the evidence).
     expr: "remove: eventVersion, eventId, requestId, apiVersion, requestParameters.ClientPort, requestParameters.AcsProduct; drop empty"
+    stream:
+      log: API call (ApiCall)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove rarely searched fields; keep requestParameters evidence
+          conf:
+            remove:
+              - eventVersion
+              - eventId
+              - requestId
+              - apiVersion
+              - requestParameters.ClientPort
+              - requestParameters.AcsProduct
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - eventVersion
+          - eventId
+          - requestId
+          - apiVersion
+        present:
+          - requestParameters
+        smaller: true
   - title: Route sensitive and identity events to the SIEM
     saving: SIEM licence
     fn: Routes
     how: SensitiveAction, RAM/STS, ConsoleSignin, ActionTrail changes and all errors to the SIEM at full fidelity; remaining reads and service events to Lake.
     expr: eventAttributes.SensitiveAction=='true' || ['Ram','Sts','Actiontrail'].includes(serviceName) || eventType=='ConsoleSignin' || errorCode → SIEM | else → Lake
+    stream:
+      routes:
+        - name: ActionTrail sensitive, identity and error events → SIEM
+          filter: /"SensitiveAction":"true"|"(event\.)?serviceName":"(Ram|Sts|Actiontrail)"|"(event\.)?eventType":"ConsoleSignin"|"(event\.)?errorCode":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ActionTrail other events → Lake
+          filter: /"(event\.)?eventSource":"/.test(_raw)
+          to: Cribl Lake only
+          final: true
+      note: Routes see the raw JSON, so they match keys in both nested (OSS) and flattened event.* (SLS) shapes. Put the SIEM route first.
 references:
   - title: ActionTrail management event structure
     url: https://www.alibabacloud.com/help/en/actiontrail/user-guide/management-event-structure

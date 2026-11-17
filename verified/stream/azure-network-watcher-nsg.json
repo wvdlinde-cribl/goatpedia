@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Summarise allowed flows, keep denies in full",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c3234058f59a52cf",
+    "in": {
+      "events": 3,
+      "bytes": 1658
+    },
+    "out": {
+      "events": 2,
+      "bytes": 752
+    },
+    "ok": true
+  }
+}

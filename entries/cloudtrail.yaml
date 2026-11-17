@@ -316,26 +316,127 @@ optimizations:
     fn: Drop
     how: "Describe/List/Get calls made by AWS services and monitoring tools (Config, Trusted Advisor, CSPM scanners) dominate volume and are rarely searched. Drop or route them to Lake only; keep every write call, every error, and all IAM/STS/sign-in events."
     expr: readOnly===true && !errorCode && /^(Describe|List|Get)/.test(eventName) && !['iam.amazonaws.com','sts.amazonaws.com','signin.amazonaws.com'].includes(eventSource)
+    stream:
+      log: Management event
+      functions:
+        - id: drop
+          filter: readOnly === true && !__e['errorCode'] && /^(Describe|List|Get)/.test(eventName) && ['iam.amazonaws.com','sts.amazonaws.com','signin.amazonaws.com'].indexOf(eventSource) == -1
+          description: Drop successful read-only Describe/List/Get calls outside IAM, STS and sign-in
+          conf: {}
+      test:
+        - '{"eventVersion":"1.09","userIdentity":{"type":"AssumedRole","principalId":"AROAEXAMPLEID1234:jdoe","arn":"arn:aws:sts::111122223333:assumed-role/AdminRole/jdoe","accountId":"111122223333","accessKeyId":"ASIAEXAMPLEKEY12345","sessionContext":{"sessionIssuer":{"type":"Role","principalId":"AROAEXAMPLEID1234","arn":"arn:aws:iam::111122223333:role/AdminRole","accountId":"111122223333","userName":"AdminRole"},"attributes":{"creationDate":"2026-11-12T08:55:02Z","mfaAuthenticated":"true"}}},"eventTime":"2026-11-12T09:14:22Z","eventSource":"ec2.amazonaws.com","eventName":"DescribeInstances","awsRegion":"us-east-1","sourceIPAddress":"203.0.113.45","userAgent":"aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0","requestParameters":{"userName":"svc-backup"},"responseElements":null,"requestID":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","eventID":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5e","readOnly":true,"eventType":"AwsApiCall","managementEvent":true,"recipientAccountId":"111122223333","eventCategory":"Management","tlsDetails":{"tlsVersion":"TLSv1.3","cipherSuite":"TLS_AES_128_GCM_SHA256","clientProvidedHostHeader":"ec2.amazonaws.com"}}'
+      expect:
+        out: 1
   - title: Strip low-value fields
     saving: 10–20 %
     fn: Parser → Serialize
     how: "Remove eventVersion, eventID, requestID, tlsDetails.*, sessionContext.sessionIssuer.principalId and empty responseElements; keep requestParameters (that is where the evidence is)."
     expr: "remove: eventVersion, eventID, requestID, tlsDetails, managementEvent, eventCategory; drop null/empty"
+    stream:
+      log: Management event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove low-value CloudTrail fields; keep requestParameters
+          conf:
+            remove:
+              - eventVersion
+              - eventID
+              - requestID
+              - tlsDetails
+              - managementEvent
+              - eventCategory
+              - userIdentity.sessionContext.sessionIssuer.principalId
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - eventVersion
+          - eventID
+          - requestID
+          - tlsDetails
+          - managementEvent
+          - eventCategory
+        present:
+          - requestParameters
+        smaller: true
   - title: Aggregate S3 data events
     saving: 50–90 % of data events
     fn: Aggregations
     how: "Roll GetObject/PutObject up to count and bytes per principal, bucket, source IP and operation per minute for the SIEM; keep the raw data events in Lake for investigations."
     expr: eventCategory=='Data' && eventSource=='s3.amazonaws.com'
+    stream:
+      log: S3 data event
+      functions:
+        - id: aggregation
+          filter: eventCategory == 'Data' && eventSource == 's3.amazonaws.com'
+          description: Roll S3 data events up to count and bytes per principal, bucket, source IP and operation per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(events)
+              - sum(additionalEventData.bytesTransferredOut).as(bytes_out)
+              - sum(additionalEventData.bytesTransferredIn).as(bytes_in)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - userIdentity.arn
+              - requestParameters.bucketName
+              - sourceIPAddress
+              - eventName
+      test:
+        - '{"eventVersion":"1.10","userIdentity":{"type":"IAMUser","principalId":"AIDAEXAMPLEUSER5678","arn":"arn:aws:iam::111122223333:user/svc-backup","accountId":"111122223333","accessKeyId":"AKIAEXAMPLEKEY67890","userName":"svc-backup"},"eventTime":"2026-11-12T09:31:58Z","eventSource":"s3.amazonaws.com","eventName":"GetObject","awsRegion":"eu-west-1","sourceIPAddress":"203.0.113.45","userAgent":"[aws-cli/2.17.20]","requestParameters":{"bucketName":"example-finance-reports","Host":"example-finance-reports.s3.eu-west-1.amazonaws.com","key":"2026/q3/other.csv"},"responseElements":null,"additionalEventData":{"SignatureVersion":"SigV4","CipherSuite":"TLS_AES_128_GCM_SHA256","bytesTransferredIn":0,"AuthenticationMethod":"AuthHeader","x-amz-id-2":"EXAMPLEid2value","bytesTransferredOut":1200},"requestID":"EXAMPLE9A8B7C6D6","eventID":"c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e80","readOnly":true,"resources":[{"type":"AWS::S3::Object","ARN":"arn:aws:s3:::example-finance-reports/2026/q3/other.csv"},{"accountId":"111122223333","type":"AWS::S3::Bucket","ARN":"arn:aws:s3:::example-finance-reports"}],"eventType":"AwsApiCall","managementEvent":false,"recipientAccountId":"111122223333","eventCategory":"Data"}'
+        - '{"eventVersion":"1.10","userIdentity":{"type":"IAMUser","principalId":"AIDAEXAMPLEUSER5678","arn":"arn:aws:iam::111122223333:user/svc-backup","accountId":"111122223333","accessKeyId":"AKIAEXAMPLEKEY67890","userName":"svc-backup"},"eventTime":"2026-11-12T09:31:59Z","eventSource":"s3.amazonaws.com","eventName":"GetObject","awsRegion":"eu-west-1","sourceIPAddress":"203.0.113.45","userAgent":"[aws-cli/2.17.20]","requestParameters":{"bucketName":"example-finance-reports","Host":"example-finance-reports.s3.eu-west-1.amazonaws.com","key":"2026/q3/third.csv"},"responseElements":null,"additionalEventData":{"SignatureVersion":"SigV4","CipherSuite":"TLS_AES_128_GCM_SHA256","bytesTransferredIn":0,"AuthenticationMethod":"AuthHeader","x-amz-id-2":"EXAMPLEid2value","bytesTransferredOut":900},"requestID":"EXAMPLE9A8B7C6D7","eventID":"c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e81","readOnly":true,"resources":[{"type":"AWS::S3::Object","ARN":"arn:aws:s3:::example-finance-reports/2026/q3/third.csv"},{"accountId":"111122223333","type":"AWS::S3::Bucket","ARN":"arn:aws:s3:::example-finance-reports"}],"eventType":"AwsApiCall","managementEvent":false,"recipientAccountId":"111122223333","eventCategory":"Data"}'
+      expect:
+        out: 1
+        smaller: true
   - title: Route digests and high-value events
     saving: SIEM licence
     fn: Routes
     how: "Send cloudtrail_digest only to object storage for integrity checks. Send IAM, STS, sign-in, CloudTrail/GuardDuty/Config changes and all errors to the SIEM at full fidelity; send the rest to Lake."
     expr: "eventSource in (iam, sts, signin, cloudtrail, organizations) || errorCode → SIEM | else → Lake"
+    stream:
+      routes:
+        - name: CloudTrail digests → object storage
+          filter: /"digestS3Object":/.test(_raw)
+          to: Object storage only, for integrity validation
+          final: true
+        - name: CloudTrail high-value events and errors → SIEM
+          filter: /"eventSource":"(iam|sts|signin|cloudtrail|organizations|guardduty|config)\.amazonaws\.com"/.test(_raw) || /"errorCode":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: CloudTrail other events → Lake
+          filter: /"eventSource":/.test(_raw)
+          to: Cribl Lake; replay on demand
+          final: true
+      note: Routes see the raw JSON, so they match keys and eventSource in _raw. Put the digest route first, then the SIEM route.
   - title: Deduplicate overlapping trails
     saving: 0–50 %
     fn: Suppress
     how: An org trail plus account-level trails deliver the same record twice. Suppress on eventID within a short window.
     expr: "key: eventID  allow 1 / 900s"
+    stream:
+      log: Management event
+      functions:
+        - id: suppress
+          filter: '!!eventID'
+          description: Drop duplicate records delivered by overlapping trails, keyed on eventID
+          conf:
+            keyExpr: eventID
+            allow: 1
+            suppressPeriodSec: 900
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"eventVersion":"1.09","userIdentity":{"type":"AssumedRole","principalId":"AROAEXAMPLEID1234:jdoe","arn":"arn:aws:sts::111122223333:assumed-role/AdminRole/jdoe","accountId":"111122223333","accessKeyId":"ASIAEXAMPLEKEY12345","sessionContext":{"sessionIssuer":{"type":"Role","principalId":"AROAEXAMPLEID1234","arn":"arn:aws:iam::111122223333:role/AdminRole","accountId":"111122223333","userName":"AdminRole"},"attributes":{"creationDate":"2026-11-12T08:55:02Z","mfaAuthenticated":"true"}}},"eventTime":"2026-11-12T09:14:22Z","eventSource":"iam.amazonaws.com","eventName":"CreateAccessKey","awsRegion":"us-east-1","sourceIPAddress":"203.0.113.45","userAgent":"aws-cli/2.17.20 md/awscrt#0.20.11 ua/2.0 os/linux#6.8.0","requestParameters":{"userName":"svc-backup"},"responseElements":{"accessKey":{"userName":"svc-backup","accessKeyId":"AKIAEXAMPLEKEY67890","status":"Active","createDate":"Nov 12, 2026 9:14:22 AM"}},"requestID":"0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b","eventID":"a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d","readOnly":false,"eventType":"AwsApiCall","managementEvent":true,"recipientAccountId":"111122223333","eventCategory":"Management","tlsDetails":{"tlsVersion":"TLSv1.3","cipherSuite":"TLS_AES_128_GCM_SHA256","clientProvidedHostHeader":"iam.amazonaws.com"}}'
+      expect:
+        out: 1
 references:
   - title: CloudTrail record contents for management, data, and network activity events
     url: https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html

@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop service-initiated read calls",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a6da11fd9274f70d",
+    "in": {
+      "events": 2,
+      "bytes": 1677
+    },
+    "out": {
+      "events": 1,
+      "bytes": 952
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Normalise SLS and OSS shapes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "eba9ace333f6acbd",
+    "in": {
+      "events": 1,
+      "bytes": 1131
+    },
+    "out": {
+      "events": 1,
+      "bytes": 925
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip low-value fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7b9b0e9c6e51717e",
+    "in": {
+      "events": 1,
+      "bytes": 952
+    },
+    "out": {
+      "events": 1,
+      "bytes": 771
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop accepted flows outside a watch list",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "950d1f4a295df853",
+    "in": {
+      "events": 2,
+      "bytes": 259
+    },
+    "out": {
+      "events": 1,
+      "bytes": 130
+    },
+    "ok": true
+  }
+}

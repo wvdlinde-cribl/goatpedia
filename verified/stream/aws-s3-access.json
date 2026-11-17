@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Sample successful GETs on public content",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c8b4569009e7bc43",
+    "in": {
+      "events": 12,
+      "bytes": 6264
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1044
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate reads to per-principal metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "62e130b831f2d1a2",
+    "in": {
+      "events": 3,
+      "bytes": 1561
+    },
+    "out": {
+      "events": 1,
+      "bytes": 293
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop lifecycle and internal service operations",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "93959a279b7c5ecf",
+    "in": {
+      "events": 2,
+      "bytes": 817
+    },
+    "out": {
+      "events": 1,
+      "bytes": 520
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Parse and drop low-value fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "522090df7e521110",
+    "in": {
+      "events": 1,
+      "bytes": 522
+    },
+    "out": {
+      "events": 1,
+      "bytes": 375
+    },
+    "ok": true
+  }
+}

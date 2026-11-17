@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Drop Lambda platform lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "60e0d3f3af43cdd8",
+    "in": {
+      "events": 3,
+      "bytes": 258
+    },
+    "out": {
+      "events": 1,
+      "bytes": 137
+    },
+    "ok": true
+  }
+}

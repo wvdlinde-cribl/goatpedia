@@ -309,21 +309,85 @@ optimizations:
     fn: Drop
     how: Health checks, monitoring agents and CI service accounts generate millions of ADMIN_READ/DATA_READ entries. Prefer a Log Router exclusion; otherwise drop in Stream by principal and method, keeping Secret Manager, IAM and sensitive buckets.
     expr: /data_access$/.test(logName) && /^(storage\.objects\.(get|list)|google\.monitoring)/.test(protoPayload.methodName) && /monitoring|ci-runner/.test(protoPayload.authenticationInfo.principalEmail) && !/finance|secret/.test(protoPayload.resourceName)
+    stream:
+      log: Data Access — Cloud Storage read
+      functions:
+        - id: drop
+          filter: /data_access$/.test(logName) && /^(storage\.objects\.(get|list)|google\.monitoring)/.test((protoPayload || {}).methodName) && /monitoring|ci-runner/.test(((protoPayload || {}).authenticationInfo || {}).principalEmail) && !/finance|secret/.test((protoPayload || {}).resourceName)
+          description: Drop routine Data Access reads by monitoring and CI principals, keeping sensitive buckets and secrets
+          conf: {}
+      test:
+        - '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","status":{},"authenticationInfo":{"principalEmail":"monitoring-agent@example-prod.iam.gserviceaccount.com"},"requestMetadata":{"callerIp":"198.51.100.23","callerSuppliedUserAgent":"gcloud-golang-storage/20241001,gzip(gfe)","requestAttributes":{"time":"2026-11-12T09:31:57.004Z","auth":{}},"destinationAttributes":{}},"serviceName":"storage.googleapis.com","methodName":"storage.objects.list","authorizationInfo":[{"resource":"projects/_/buckets/example-static-assets","permission":"storage.objects.list","granted":true,"resourceAttributes":{}}],"resourceName":"projects/_/buckets/example-static-assets","resourceLocation":{"currentLocations":["europe-west4"]}},"insertId":"7f8e9d0c1b2b","resource":{"type":"gcs_bucket","labels":{"bucket_name":"example-static-assets","project_id":"example-prod","location":"europe-west4"}},"timestamp":"2026-11-12T09:31:57.001Z","severity":"INFO","logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Fdata_access","receiveTimestamp":"2026-11-12T09:31:58.320Z"}'
+      expect:
+        out: 1
   - title: Drop GKE read-only noise
     saving: 20–50 % of k8s.io
     fn: Drop
     how: Controllers watch and list resources constantly (io.k8s.*.get/list/watch by system:* principals). Keep all writes, exec/attach/portforward and any secrets access.
     expr: protoPayload.serviceName=='k8s.io' && /\.(get|list|watch)$/.test(protoPayload.methodName) && /^system:(kube-|node|serviceaccount:kube-system)/.test(protoPayload.authenticationInfo.principalEmail) && !/secrets/.test(protoPayload.methodName)
+    stream:
+      log: GKE Kubernetes API audit
+      functions:
+        - id: drop
+          filter: (protoPayload || {}).serviceName == 'k8s.io' && /\.(get|list|watch)$/.test((protoPayload || {}).methodName) && /^system:(kube-|node|serviceaccount:kube-system)/.test(((protoPayload || {}).authenticationInfo || {}).principalEmail) && !/secrets/.test((protoPayload || {}).methodName)
+          description: Drop get/list/watch calls by system controllers; keep writes, exec and secrets access
+          conf: {}
+      test:
+        - '{"protoPayload":{"@type":"type.googleapis.com/google.cloud.audit.AuditLog","authenticationInfo":{"principalEmail":"system:kube-controller-manager"},"authorizationInfo":[{"granted":true,"permission":"io.k8s.core.v1.pods.list","resource":"core/v1/namespaces/payments/pods"}],"methodName":"io.k8s.core.v1.pods.list","requestMetadata":{"callerIp":"10.12.0.17","callerSuppliedUserAgent":"kube-controller-manager/v1.31.2"},"resourceName":"core/v1/namespaces/payments/pods","serviceName":"k8s.io","status":{"code":0}},"insertId":"3e4d5c6b-7a89-4b0c-9d1e-2f3a4b5c6d7f","resource":{"type":"k8s_cluster","labels":{"cluster_name":"prod-gke-01","location":"europe-west4","project_id":"example-prod"}},"timestamp":"2026-11-12T09:45:02.774Z","severity":"NOTICE","labels":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"RBAC: allowed"},"logName":"projects/example-prod/logs/cloudaudit.googleapis.com%2Factivity","receiveTimestamp":"2026-11-12T09:45:04.101Z"}'
+      expect:
+        out: 1
   - title: Strip type URLs and request echoes
     saving: 15–30 %
     fn: Parser → Serialize
     how: "@type fields, empty requestAttributes/destinationAttributes, receiveTimestamp and large response bodies repeat on every entry. Remove them; keep request (the evidence) and serviceData.policyDelta."
     expr: "remove: protoPayload.@type, *.@type, protoPayload.requestMetadata.requestAttributes, protoPayload.requestMetadata.destinationAttributes, receiveTimestamp, protoPayload.response"
+    stream:
+      log: Admin Activity — IAM policy change
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove empty request/destination attributes, response bodies and receiveTimestamp; keep request and policyDelta
+          conf:
+            remove:
+              - receiveTimestamp
+              - protoPayload.response
+              - protoPayload.requestMetadata.requestAttributes
+              - protoPayload.requestMetadata.destinationAttributes
+        - id: eval
+          filter: 'true'
+          description: Write the trimmed event back to _raw and strip the @type URLs
+          conf:
+            add:
+              - name: _raw
+                value: 'JSON.stringify({protoPayload: protoPayload, insertId: insertId, resource: resource, timestamp: timestamp, severity: severity, labels: labels, logName: logName}).replace(/"@type":"[^"]*",?/g, '''')'
+      expect:
+        out: 1
+        absent:
+          - receiveTimestamp
+        present:
+          - protoPayload
+          - insertId
+        smaller: true
   - title: Route by log type
     saving: SIEM licence
     fn: Routes
     how: Admin Activity and Policy Denied to the SIEM in full; Data Access to Lake with only sensitive services forwarded; System Event to an ops destination.
     expr: /%2F(activity|policy)$/.test(logName) → SIEM | /data_access$/ → Lake (+ sensitive to SIEM) | system_event → ops
+    stream:
+      routes:
+        - name: Admin Activity and Policy Denied → SIEM
+          filter: /"logName":"[^"]*cloudaudit\.googleapis\.com%2F(activity|policy)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Data Access → Lake (+ sensitive to SIEM)
+          filter: /"logName":"[^"]*cloudaudit\.googleapis\.com%2Fdata_access"/.test(_raw)
+          to: Cribl Lake; forward sensitive services (Secret Manager, IAM, sensitive buckets) to the SIEM
+          final: true
+        - name: System Event → ops
+          filter: /"logName":"[^"]*cloudaudit\.googleapis\.com%2Fsystem_event"/.test(_raw)
+          to: Operations destination
+          final: true
+      note: Routes see the raw JSON, so they match the logName suffix in _raw. Put the activity/policy route first.
 references:
   - title: Cloud Audit Logs overview
     url: https://cloud.google.com/logging/docs/audit

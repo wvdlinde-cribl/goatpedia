@@ -1,0 +1,62 @@
+{
+  "1": {
+    "title": "Aggregate accepted internal flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "70de69f62acdefc2",
+    "in": {
+      "events": 3,
+      "bytes": 4074
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1607
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop read-only API Activity from AWS services",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "fe3fde322200181d",
+    "in": {
+      "events": 2,
+      "bytes": 2530
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1313
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Strip OCSF descriptors and raw payloads",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "82f863fc47adcb5c",
+    "in": {
+      "events": 1,
+      "bytes": 1313
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1127
+    },
+    "ok": true
+  },
+  "4": {
+    "title": "Sample successful DNS responses for common domains",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "dbba9074e1114356",
+    "in": {
+      "events": 11,
+      "bytes": 12335
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2246
+    },
+    "ok": true
+  }
+}
