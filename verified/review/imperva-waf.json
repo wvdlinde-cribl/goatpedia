@@ -1,0 +1,9 @@
+{
+  "3": {
+    "title": "Aggregate cache hits and static assets",
+    "problems": [
+      "expected 2 event(s) out, got 3",
+      "output (3008 B) is not smaller than input (3008 B)"
+    ]
+  }
+}

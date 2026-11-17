@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop the raw request, or truncate it",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1473b239fce6eeed",
+    "in": {
+      "events": 2,
+      "bytes": 1995
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1884
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Do not ship legal requests to the SIEM",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "26cbed9295501a92",
+    "in": {
+      "events": 2,
+      "bytes": 1917
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1077
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip constant and N/A fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "15b336c566bf38fd",
+    "in": {
+      "events": 1,
+      "bytes": 1077
+    },
+    "out": {
+      "events": 1,
+      "bytes": 817
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress scanner noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1712d5f46fad332d",
+    "in": {
+      "events": 4,
+      "bytes": 3654
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1936
+    },
+    "ok": true
+  }
+}
