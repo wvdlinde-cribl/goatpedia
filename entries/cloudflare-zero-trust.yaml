@@ -305,21 +305,103 @@ optimizations:
     fn: Aggregations
     how: allowedOnNoPolicyMatch queries for well-categorized domains are most of Gateway DNS volume. Roll them up per user, device, domain and type per 5 minutes; keep every block, override and security category raw.
     expr: ResolverDecision=='allowedOnNoPolicyMatch' && !/Security Risks|Malware|Phishing|New Domains|Newly Seen/.test(JSON.stringify(QueryCategoryNames))
+    stream:
+      log: Gateway DNS
+      functions:
+        - id: aggregation
+          filter: ResolverDecision == 'allowedOnNoPolicyMatch' && !/Security Risks|Malware|Phishing|New Domains|Newly Seen/.test(JSON.stringify(QueryCategoryNames))
+          description: Roll allowed no-policy-match DNS queries up per user, device, domain and type per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(queries)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - Email
+              - DeviceID
+              - QueryName
+              - QueryTypeName
+      test:
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60718","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"www.example.com","QueryNameReversed":"com.example.www","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.10"],"IsResponseCached":false,"ResponseTimeMs":2,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60718","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"www.example.com","QueryNameReversed":"com.example.www","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.10"],"IsResponseCached":false,"ResponseTimeMs":2,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60718","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"www.example.com","QueryNameReversed":"com.example.www","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.10"],"IsResponseCached":false,"ResponseTimeMs":2,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop redundant and reversed fields
     saving: 15–30 %
     fn: Eval (remove)
     how: QueryNameReversed and CNAMEsReversed duplicate names, ResourceRecordsJSON duplicates ResolvedIPs, and continent codes, timezone and duration fields rarely matter. Remove them, or better, leave them out of the Logpush job field list.
     expr: "remove: QueryNameReversed, CNAMEsReversed, ResourceRecordsJSON, *ContinentCode, TimeZone*, *DurationMs"
+    stream:
+      log: Gateway DNS
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove reversed names, duplicate records, continent codes, timezone and duration fields
+          conf:
+            remove:
+              - QueryNameReversed
+              - CNAMEsReversed
+              - ResourceRecordsJSON
+              - '*ContinentCode'
+              - TimeZone*
+              - '*DurationMs'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - QueryNameReversed
+          - TimeZoneInferredMethod
+        present:
+          - QueryName
+        smaller: true
   - title: Suppress repeated identical lookups
     saving: 10–20 %
     fn: Suppress
     how: Apps and OS telemetry re-query the same name every few seconds. Keep one event per device, query name and decision per 60 s with a count.
     expr: "key: `${DeviceID}:${QueryName}:${ResolverDecision}`  allow 1 / 60s"
+    stream:
+      log: Gateway DNS
+      functions:
+        - id: suppress
+          filter: DeviceID && QueryName
+          description: Keep one lookup per device, query name and decision per minute
+          conf:
+            keyExpr: DeviceID + ':' + QueryName + ':' + ResolverDecision
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60719","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"telemetry.example.com","QueryNameReversed":"com.example.telemetry","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.11"],"IsResponseCached":true,"ResponseTimeMs":1,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60719","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"telemetry.example.com","QueryNameReversed":"com.example.telemetry","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.11"],"IsResponseCached":true,"ResponseTimeMs":1,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+        - '{"Datetime":"2026-11-12T09:40:03Z","AccountID":"3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a87","QueryID":"a1b2c3d4e5f60719","Email":"jdoe@example.com","UserID":"5e4d3c2b-1a09-4f8e-9d7c-6b5a4f3e2d1c","DeviceID":"9f8e7d6c-5b4a-4321-8a9b-0c1d2e3f4a5b","DeviceName":"LT-JDOE-01","Location":"Example HQ","LocationID":"0a1b2c3d4e5f","Protocol":"https","SrcIP":"203.0.113.45","SrcPort":0,"SrcIPCountryCode":"NL","DstIP":"172.64.36.1","DstPort":443,"QueryName":"telemetry.example.com","QueryNameReversed":"com.example.telemetry","QueryType":1,"QueryTypeName":"A","QuerySize":61,"RCode":0,"ResolverDecision":"allowedOnNoPolicyMatch","PolicyID":"","PolicyName":"","QueryCategoryIDs":[26],"QueryCategoryNames":["Technology"],"ResolvedIPs":["192.0.2.11"],"IsResponseCached":true,"ResponseTimeMs":1,"ColoCode":"AMS","ColoID":21,"TimeZoneInferredMethod":"fromLocalTime"}'
+      expect:
+        out: 2
   - title: Route by decision
     saving: SIEM licence
     fn: Routes
     how: Blocks, DLP matches, AV blocks, Access denials and network sessions to private apps go to the SIEM. Allowed DNS and HTTP go to Cribl Lake or R2 for hunting and replay.
     expr: /^blocked/.test(ResolverDecision) || Action=='block' || UploadMatchedDlpProfiles || Allowed===false → SIEM ; else → Lake
+    stream:
+      routes:
+        - name: Cloudflare blocks, DLP, Access denials, network sessions → SIEM
+          filter: /"ResolverDecision":"blocked/.test(_raw) || /"Action":"block"/.test(_raw) || /"UploadMatchedDlpProfiles":\["/.test(_raw) || /"Allowed":false/.test(_raw) || /"SessionStartTime":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Cloudflare allowed DNS and HTTP → Lake
+          filter: /"(QueryID|RequestID|RayID)":/.test(_raw)
+          to: Cribl Lake or R2 for hunting and replay
+          final: true
+      note: Routes see the raw JSON, so they match the decision keys in _raw. Put the SIEM route first.
 references:
   - title: Cloudflare Logpush — Gateway DNS dataset fields
     url: https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/account/gateway_dns/

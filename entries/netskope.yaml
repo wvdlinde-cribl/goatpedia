@@ -358,21 +358,125 @@ optimizations:
     fn: Parser → Serialize
     how: API events carry dozens of geo fields (lat/long/zip/timezone for both ends) and many empty strings, zeros and empty lists. Remove them and keep src_country/dst_country. This is what the Netskope Pack's reduction does.
     expr: "remove: *_latitude, *_longitude, *_zipcode, *_timezone, *_region; drop '', 0, [] values"
+    stream:
+      log: Application event
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove geo detail fields and keep src_country/dst_country
+          conf:
+            remove:
+              - src_latitude
+              - src_longitude
+              - src_zipcode
+              - src_timezone
+              - dst_latitude
+              - dst_longitude
+              - dst_zipcode
+              - dst_timezone
+              - src_region
+              - dst_region
+        - id: eval
+          filter: organization_unit === ''
+          description: Remove empty organization_unit
+          conf:
+            remove:
+              - organization_unit
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - src_latitude
+          - src_longitude
+          - src_zipcode
+          - src_timezone
+          - dst_latitude
+          - dst_longitude
+          - dst_zipcode
+          - dst_timezone
+          - organization_unit
+        present:
+          - src_country
+          - dst_country
+        smaller: true
   - title: Route page events to Lake
     saving: 30–50 % SIEM licence
     fn: Routes
     how: Page / connection events are high-volume web history. Send them to Cribl Lake and keep application events, alerts, audit and network events in the SIEM.
     expr: type=='connection' → Lake ; alert=='yes' || type!='connection' → SIEM
+    stream:
+      routes:
+        - name: Netskope alerts → SIEM
+          filter: /"alert":"yes"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Netskope page events → Lake
+          filter: /"type":"connection"/.test(_raw)
+          to: Cribl Lake only
+          final: true
+        - name: Netskope other events → SIEM
+          filter: /"type":"/.test(_raw)
+          to: The SIEM
+          final: true
+      note: Routes see the raw JSON, so they match the type and alert keys in _raw. Put the alert route first so alerts never go to Lake only.
   - title: Aggregate allowed CDN and telemetry page events
     saving: 10–20 %
     fn: Aggregations
     how: Content-delivery, software-update and analytics domains generate repetitive page events. Roll up bytes and counts per user, domain and category per 5 minutes.
     expr: type=='connection' && ['Content Delivery','Software Updates','Web Analytics'].includes(category)
+    stream:
+      log: Page event
+      functions:
+        - id: aggregation
+          filter: type == 'connection' && (category == 'Content Delivery' || category == 'Software Updates' || category == 'Web Analytics')
+          description: Roll up CDN, update and analytics page events per user, domain and category per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(events)
+              - sum(client_bytes).as(client_bytes)
+              - sum(server_bytes).as(server_bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - user
+              - domain
+              - category
+      test:
+        - '{"_id":"4ec61988f060fab4eaece27e","type":"connection","timestamp":1794474871,"access_method":"Client","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.33","dstport":443,"domain":"cdn.example.net","page":"cdn.example.net","site":"example","category":"Content Delivery","other_categories":["Content Delivery","Technology"],"bypass_traffic":"no","bypass_reason":"","ssl_decrypt_policy":"yes","client_bytes":1200,"server_bytes":50000,"netskope_pop":"NL-AMS1","dst_country":"US","dst_latitude":39.04,"dst_longitude":-77.49,"dst_zipcode":"20147","src_latitude":52.37,"src_longitude":4.89,"count":1}'
+        - '{"_id":"4ec61988f060fab4eaece27f","type":"connection","timestamp":1794474872,"access_method":"Client","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.34","dstport":443,"domain":"www.example.com","page":"www.example.com","site":"example","category":"Business","other_categories":["Business"],"bypass_traffic":"no","bypass_reason":"","ssl_decrypt_policy":"yes","client_bytes":1200,"server_bytes":50000,"netskope_pop":"NL-AMS1","dst_country":"US","dst_latitude":39.04,"dst_longitude":-77.49,"dst_zipcode":"20147","src_latitude":52.37,"src_longitude":4.89,"count":1}'
+      expect:
+        out: 2
+        smaller: true
   - title: Suppress duplicate alerts
     saving: 5–10 %
     fn: Suppress
     how: The same DLP or policy alert can fire for every retry of the same upload. Keep one per user, policy and object per 10 minutes.
     expr: "key: `${user}:${policy}:${object}`  allow 1 / 600s  when alert=='yes'"
+    stream:
+      log: DLP alert
+      functions:
+        - id: suppress
+          filter: alert == 'yes'
+          description: Keep one alert per user, policy and object per 10 minutes
+          conf:
+            keyExpr: user + ':' + policy + ':' + object
+            allow: 1
+            suppressPeriodSec: 600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"_id":"7860a4881fb78b560a46a255","type":"nspolicy","alert":"yes","alert_type":"DLP","alert_name":"[DLP] Financial Data - Alert and Block","timestamp":1794474880,"access_method":"Client","acked":"false","action":"block","activity":"Upload","app":"WeTransfer","appcategory":"Cloud Storage","ccl":"low","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.88","dlp_profile":"DLP-PCI","dlp_rule":"Credit Card Numbers","dlp_rule_count":214,"dlp_rule_severity":"High","dlp_incident_id":3348811920472,"dlp_is_unique_count":"true","dlp_parent_id":0,"object":"cards_export.csv","file_size":120334,"sha256":"5f2b0a9c1e7d3b4a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e","policy":"DLP Block PCI to unsanctioned","hostname":"LT-JDOE-01","suppression_key":""}'
+        - '{"_id":"7860a4881fb78b560a46a256","type":"nspolicy","alert":"yes","alert_type":"DLP","alert_name":"[DLP] Financial Data - Alert and Block","timestamp":1794474885,"access_method":"Client","acked":"false","action":"block","activity":"Upload","app":"WeTransfer","appcategory":"Cloud Storage","ccl":"low","user":"jdoe@example.com","srcip":"203.0.113.45","dstip":"198.51.100.88","dlp_profile":"DLP-PCI","dlp_rule":"Credit Card Numbers","dlp_rule_count":214,"dlp_rule_severity":"High","dlp_incident_id":3348811920473,"dlp_is_unique_count":"true","dlp_parent_id":0,"object":"cards_export.csv","file_size":120334,"sha256":"5f2b0a9c1e7d3b4a6c8e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e","policy":"DLP Block PCI to unsanctioned","hostname":"LT-JDOE-01","suppression_key":""}'
+      expect:
+        out: 1
+        smaller: true
 references:
   - title: Netskope — Using the REST API v2 dataexport iterator endpoints
     url: https://docs.netskope.com/en/using-the-rest-api-v2-dataexport-iterator-endpoints

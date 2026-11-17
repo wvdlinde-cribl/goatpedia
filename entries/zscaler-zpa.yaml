@@ -388,21 +388,134 @@ optimizations:
     fn: Drop
     how: Long sessions emit periodic active records with incremental byte counters. The close record carries the totals. Drop ConnectionStatus=active unless you need near-real-time byte accounting.
     expr: ConnectionStatus=='active'
+    stream:
+      log: User Activity
+      functions:
+        - id: drop
+          filter: ConnectionStatus == 'active'
+          description: Drop periodic active refresh records; the close record carries the totals
+          conf: {}
+      test:
+        - '{"LogTimestamp":"Thu Nov 12 09:31:07 2026","Customer":"Example Corp","SessionID":"Kq7wP2mZx9TbLc4RvnA1","ConnectionID":"Kq7wP2mZx9TbLc4RvnA1,Hd8sQ1kLp0XyWe3NvbM2","InternalReason":"","ConnectionStatus":"active","IPProtocol":6,"DoubleEncryption":0,"Username":"jdoe@example.com","ServicePort":445,"ClientPublicIP":"203.0.113.45","ClientPrivateIP":"192.168.1.23","ClientLatitude":52.37,"ClientLongitude":4.89,"ClientCountryCode":"NL","ClientZEN":"broker2a.ams1","Policy":"Allow_Finance_Shares","Connector":"ac-dc1-01","ConnectorZEN":"broker2a.ams1","ConnectorIP":"198.51.100.14","ConnectorPort":50211,"Host":"fs01.corp.example.com","Application":"Finance File Shares","AppGroup":"Finance","Server":"0","ServerIP":"192.0.2.10","ServerPort":445,"PolicyProcessingTime":31,"CAProcessingTime":402,"ConnectorZENSetupTime":0,"ConnectionSetupTime":0,"ServerSetupTime":0,"AppLearnTime":0,"TimestampConnectionStart":"2026-11-12T09:31:07.112Z","TimestampConnectionEnd":"","TimestampCATx":"2026-11-12T09:31:07.113Z","TimestampCARx":"2026-11-12T09:31:07.114Z","TimestampAppLearnStart":"","TimestampZENFirstRxClient":"","TimestampZENFirstTxClient":"","TimestampZENFirstRxConnector":"","ZENTotalBytesRxClient":1200,"ZENTotalBytesTxClient":3400,"ZENTotalBytesRxConnector":3400,"ZENTotalBytesTxConnector":1200,"Idp":"Okta","Platform":"windows","Hostname":"LT-JDOE-01"}'
+      expect:
+        out: 1
   - title: Strip timing and empty fields
     saving: 25–40 %
     fn: Parser → Serialize
     how: User Activity carries more than a dozen Timestamp*/ProcessingTime fields used for troubleshooting latency, plus many empty strings. Remove them and empty values before the SIEM; keep the full record in Lake.
     expr: "remove: Timestamp* (except TimestampConnectionStart/End), *ProcessingTime, *SetupTime, AppLearnTime; drop empty"
+    stream:
+      log: User Activity
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove troubleshooting timing fields; keep connection start and end
+          conf:
+            remove:
+              - TimestampCATx
+              - TimestampCARx
+              - TimestampAppLearnStart
+              - TimestampZENFirstRxClient
+              - TimestampZENFirstTxClient
+              - TimestampZENFirstRxConnector
+              - PolicyProcessingTime
+              - CAProcessingTime
+              - ConnectorZENSetupTime
+              - ConnectionSetupTime
+              - ServerSetupTime
+              - AppLearnTime
+        - id: eval
+          filter: 'true'
+          description: Remove empty string values
+          conf:
+            add:
+              - name: Connector
+                value: 'Connector === '''' ? undefined : Connector'
+              - name: ConnectorZEN
+                value: 'ConnectorZEN === '''' ? undefined : ConnectorZEN'
+              - name: ConnectorIP
+                value: 'ConnectorIP === '''' ? undefined : ConnectorIP'
+              - name: ServerIP
+                value: 'ServerIP === '''' ? undefined : ServerIP'
+              - name: InternalReason
+                value: 'InternalReason === '''' ? undefined : InternalReason'
+              - name: TimestampConnectionEnd
+                value: 'TimestampConnectionEnd === '''' ? undefined : TimestampConnectionEnd'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - TimestampCATx
+          - TimestampCARx
+          - PolicyProcessingTime
+          - CAProcessingTime
+          - AppLearnTime
+          - Connector
+          - ServerIP
+        present:
+          - TimestampConnectionStart
+          - TimestampConnectionEnd
+        smaller: true
   - title: Turn connector metrics into metrics
     saving: 5–10 %
     fn: Aggregations
     how: App Connector status records are periodic health telemetry. Convert CPU, memory and interface counters to metrics per connector and keep only state changes as events.
     expr: sourcetype=='zpa_app_connector' && SessionStatus=='ZPN_STATUS_AUTHENTICATED'
+    stream:
+      log: App Connector Status
+      functions:
+        - id: aggregation
+          filter: SessionStatus == 'ZPN_STATUS_AUTHENTICATED'
+          description: Roll periodic connector health records into per-connector metrics; state changes pass as events
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(reports)
+              - avg(CPUUtilization).as(cpu_avg)
+              - max(CPUUtilization).as(cpu_max)
+              - avg(MemUtilization).as(mem_avg)
+              - max(BytesRxInterface).as(bytes_rx_interface)
+              - max(BytesTxInterface).as(bytes_tx_interface)
+              - max(ServiceCount).as(service_count)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - Connector
+              - ConnectorGroup
+      test:
+        - '{"LogTimestamp":"Thu Nov 12 09:00:00 2026","Customer":"Example Corp","SessionID":"Zx1Lk9Pq2Wm8Rt7Yh6Ub","SessionType":"ZPN_ASSISTANT_BROKER_CONTROL","SessionStatus":"ZPN_STATUS_AUTHENTICATED","Version":"26.57.3","Platform":"el9","ZEN":"broker2a.ams1","Connector":"ac-dc1-01","ConnectorGroup":"DC1 Connectors","PrivateIP":"10.10.5.21","PublicIP":"198.51.100.14","Latitude":52.37,"Longitude":4.89,"CountryCode":"NL","TimestampAuthentication":"2026-11-01T02:10:44.000Z","TimestampUnAuthentication":"","CPUUtilization":3,"MemUtilization":24,"ServiceCount":42,"InterfaceDefRoute":"eth0","DefRouteGW":"10.10.5.1","PrimaryDNSResolver":"10.10.0.53","HostStartTime":"1761963000","ConnectorStartTime":"1761963044","NumOfInterfaces":1,"BytesRxInterface":918273645,"PacketsRxInterface":1203344,"BytesTxInterface":812736451,"PacketsTxInterface":1100223,"TotalBytesRx":5120334,"TotalBytesTx":4980112}'
+        - '{"LogTimestamp":"Thu Nov 12 09:00:30 2026","Customer":"Example Corp","SessionID":"Zx1Lk9Pq2Wm8Rt7Yh6Ub","SessionType":"ZPN_ASSISTANT_BROKER_CONTROL","SessionStatus":"ZPN_STATUS_AUTHENTICATED","Version":"26.57.3","Platform":"el9","ZEN":"broker2a.ams1","Connector":"ac-dc1-01","ConnectorGroup":"DC1 Connectors","PrivateIP":"10.10.5.21","PublicIP":"198.51.100.14","Latitude":52.37,"Longitude":4.89,"CountryCode":"NL","TimestampAuthentication":"2026-11-01T02:10:44.000Z","TimestampUnAuthentication":"","CPUUtilization":5,"MemUtilization":25,"ServiceCount":42,"InterfaceDefRoute":"eth0","DefRouteGW":"10.10.5.1","PrimaryDNSResolver":"10.10.0.53","HostStartTime":"1761963000","ConnectorStartTime":"1761963044","NumOfInterfaces":1,"BytesRxInterface":918373645,"PacketsRxInterface":1203444,"BytesTxInterface":812836451,"PacketsTxInterface":1100323,"TotalBytesRx":5130334,"TotalBytesTx":4990112}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: Audit, User Status and refused / failed User Activity go to the SIEM. Successful User Activity goes to Lake with an optimised copy to the SIEM for investigations.
     expr: InternalReason!='' || sourcetype!='zpa_user_activity' → SIEM ; else → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: ZPA Audit → SIEM
+          filter: /"(auditOperationType|AuditOperationType)":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ZPA User Status → SIEM
+          filter: /"ClientType":"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ZPA refused/failed User Activity → SIEM
+          filter: /"ConnectionStatus":"/.test(_raw) && /"InternalReason":"[^"]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ZPA successful User Activity → Lake raw, SIEM optimised
+          filter: /"ConnectionStatus":"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw JSON, so they match keys and values in _raw. Keep this order so failed activity is caught before the successful-activity route.
 references:
   - title: Zscaler — About the Log Streaming Service
     url: https://help.zscaler.com/zpa/about-log-streaming-service

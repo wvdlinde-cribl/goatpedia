@@ -119,6 +119,18 @@ optimizations:
     fn: Drop
     how: A successful authentication with nothing in PosturesMiss is an ordinary connect. Keep failures and rows that missed a posture profile.
     expr: SessionStatus == 'ZPN_STATUS_AUTHENTICATED' && PosturesMiss == ''
+    stream:
+      log: User status
+      functions:
+        - id: drop
+          filter: SessionStatus == 'ZPN_STATUS_AUTHENTICATED' && (PosturesMiss == '' || PosturesMiss === undefined)
+          description: Drop successful sessions that missed no posture profile
+          conf: {}
+      test:
+        - '{"LogTimestamp":"2026-11-16T08:45:00Z","Username":"ada@example.com","SessionStatus":"ZPN_STATUS_AUTHENTICATED","Version":"4.6.0","ClientType":"Zscaler Client Connector","Hostname":"win11-01","Platform":"Windows","PublicIP":"203.0.113.20","PrivateIP":"192.0.2.70","PosturesHit":"disk-encryption","PosturesMiss":""}'
+        - '{"LogTimestamp":"2026-11-16T08:45:00Z","Username":"ada@example.com","SessionStatus":"ZPN_STATUS_AUTHENTICATED","Version":"4.6.0","ClientType":"Zscaler Client Connector","Hostname":"win11-01","Platform":"Windows","PublicIP":"203.0.113.20","PrivateIP":"192.0.2.70","PosturesHit":"","PosturesMiss":"disk-encryption"}'
+      expect:
+        out: 2
 references:
   - title: Zscaler — Client Connector audit logs
     url: https://help.zscaler.com/client-connector/about-audit-logs

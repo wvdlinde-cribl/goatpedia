@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Strip geo, empty and default-value fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "228ec91fd6e93e74",
+    "in": {
+      "events": 1,
+      "bytes": 973
+    },
+    "out": {
+      "events": 1,
+      "bytes": 716
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate allowed CDN and telemetry page events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b050d98f5c99102d",
+    "in": {
+      "events": 3,
+      "bytes": 1807
+    },
+    "out": {
+      "events": 2,
+      "bytes": 844
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Suppress duplicate alerts",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "331dd4cb8682955a",
+    "in": {
+      "events": 3,
+      "bytes": 2301
+    },
+    "out": {
+      "events": 1,
+      "bytes": 767
+    },
+    "ok": true
+  }
+}

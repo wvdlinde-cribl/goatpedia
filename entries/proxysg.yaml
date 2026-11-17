@@ -79,4 +79,39 @@ optimizations:
     fn: Aggregation
     how: Web ads and analytics beacons are a high share of web requests and rarely matter for security. Summarise them per user and host and keep the rest in full.
     expr: message.includes('Web Ads/Analytics')
+    stream:
+      log: Proxy access
+      functions:
+        - id: eval
+          filter: message.includes('Web Ads/Analytics')
+          description: Pull the host (11th field) and user (15th field) out of the access line for ad and analytics requests
+          conf:
+            add:
+              - name: cs_host
+                value: (message.match(/^(?:\S+ ){10}(\S+) (?:\S+ ){3}(\S+)/) || [])[1]
+              - name: cs_username
+                value: (message.match(/^(?:\S+ ){10}(\S+) (?:\S+ ){3}(\S+)/) || [])[2]
+        - id: aggregation
+          filter: message.includes('Web Ads/Analytics')
+          description: Summarise ad and analytics requests to one event per user and host per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - cs_username
+              - cs_host
+      test:
+        - 2024-03-22 16:16:02 51 198.51.100.15 302 TCP_NC_MISS 1242 969 GET https pixel.tapad.com 443 /idsync/ex/push ?partner_id=2499 aeinstein - pixel.tapad.com - https://vid.example.com/ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36" OBSERVED "FastwebRes_CallCntr;Web Ads/Analytics" - 203.0.113.8
+        - 2024-03-22 16:16:03 40 198.51.100.15 302 TCP_NC_MISS 1242 969 GET https pixel.tapad.com 443 /idsync/ex/push ?partner_id=2499 aeinstein - pixel.tapad.com - https://vid.example.com/ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36" OBSERVED "FastwebRes_CallCntr;Web Ads/Analytics" - 203.0.113.8
+        - 2024-03-22 16:16:04 48 198.51.100.15 200 TCP_NC_MISS 5242 969 GET https www.example.com 443 /index.html - aeinstein - www.example.com - https://www.example.com/ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/198.51.100.25 Safari/537.36" OBSERVED "FastwebRes_CallCntr;Technology/Internet" - 203.0.113.8
+      expect:
+        out: 2
+        smaller: true
 references: []
