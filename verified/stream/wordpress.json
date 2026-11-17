@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop empty post columns on non-post events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a855b98b6afefb86",
+    "in": {
+      "events": 1,
+      "bytes": 367
+    },
+    "out": {
+      "events": 1,
+      "bytes": 311
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Sample routine content and WooCommerce events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ea9ae716086871e1",
+    "in": {
+      "events": 11,
+      "bytes": 4097
+    },
+    "out": {
+      "events": 2,
+      "bytes": 740
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repeated failed logins per IP",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "3fa1c62ad69dffb1",
+    "in": {
+      "events": 3,
+      "bytes": 1101
+    },
+    "out": {
+      "events": 1,
+      "bytes": 367
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Parse the mirrored metadata JSON",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7ab71545ca8e3c51",
+    "in": {
+      "events": 1,
+      "bytes": 376
+    },
+    "out": {
+      "events": 1,
+      "bytes": 376
+    },
+    "ok": true
+  }
+}

@@ -264,21 +264,98 @@ optimizations:
     fn: Drop
     how: The #Software, #Version, #Date and #Fields lines repeat at every log roll and restart. Keep #Fields only for header-driven parsing at the edge.
     expr: "/^#/.test(_raw)"
+    stream:
+      log: W3C Extended access log
+      parse: false
+      functions:
+        - id: drop
+          filter: /^#/.test(_raw)
+          description: 'Drop W3C directive and header lines (#Software, #Version, #Date, #Fields)'
+          conf: {}
+      test:
+        - '#Fields: date time s-ip cs-method cs-uri-stem cs-uri-query s-port cs-username c-ip cs(User-Agent) cs(Referer) sc-status sc-substatus sc-win32-status time-taken'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop static content and NTLM handshake noise
     saving: 30–50 %
     fn: Drop
     how: 2xx/304 for images, CSS and JS, plus the 401.2 first leg of every NTLM handshake, are most of the volume on intranet and Exchange servers.
     expr: "(/^(2\\d\\d|304)$/.test(sc_status) && /\\.(png|gif|jpe?g|css|js|woff2?|ico)$/i.test(cs_uri_stem || '')) || (sc_status == '401' && sc_substatus == '2')"
+    stream:
+      log: W3C Extended access log
+      functions:
+        - id: drop
+          filter: (/^(2\d\d|304)$/.test(sc_status) && /\.(png|gif|jpe?g|css|js|woff2?|ico)$/i.test(cs_uri_stem || '')) || (sc_status == '401' && sc_substatus == '2')
+          description: Drop successful static content requests and the 401.2 first leg of NTLM handshakes
+          conf: {}
+      test:
+        - 2026-11-12 02:14:22 10.0.5.30 GET /images/logo.png - 443 - 203.0.113.45 Mozilla/5.0 - 304 0 0 3
+        - 2026-11-12 02:14:22 10.0.5.30 POST /ews/exchange.asmx - 443 - 203.0.113.45 ExchangeServicesClient/0.0.0.0 - 401 2 5 2
+        - 2026-11-12 02:14:22 10.0.5.30 POST /owa/auth.owa - 443 - 203.0.113.45 Mozilla/5.0 - 302 0 0 120
+      expect:
+        out: 1
+        smaller: true
   - title: Drop health and monitoring probes
     saving: 5–15 %
     fn: Drop
     how: Load balancers and Exchange Managed Availability probes (HealthMailbox users, /healthcheck.htm) hit every server all the time.
     expr: "/healthcheck\\.htm$/i.test(cs_uri_stem || '') || /^HealthMailbox/i.test(cs_username || '')"
+    stream:
+      log: W3C Extended access log
+      functions:
+        - id: drop
+          filter: /healthcheck\.htm$/i.test(cs_uri_stem || '') || /^HealthMailbox/i.test(cs_username || '')
+          description: Drop load balancer health checks and Exchange Managed Availability probes
+          conf: {}
+      test:
+        - 2026-11-12 02:14:22 10.0.5.30 GET /owa/healthcheck.htm - 443 - 198.51.100.10 LB-Probe/1.0 - 200 0 0 2
+        - 2026-11-12 02:14:22 10.0.5.30 POST /ews/exchange.asmx - 443 HealthMailbox0a1b2c3d@example.com 198.51.100.11 AMProbe/Local - 200 0 0 15
+      expect:
+        out: 1
   - title: Trim and type fields
     saving: 10–20 %
     fn: Eval
     how: After parsing, merge date + time into _time and remove _raw, the constant s_port, and fields that are always "-". Decode + to spaces in cs_user_agent only if your SIEM needs it.
     expr: "_time = Date.parse(date + 'T' + time + 'Z') / 1000; remove: _raw, s_port, date, time (when '-')"
+    stream:
+      log: W3C Extended access log
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Set _time from date and time, rewrite _raw without date, time and the constant s_port, and remove the parsed copies so each event is stored only once
+          conf:
+            add:
+              - name: _time
+                value: Date.parse(date + 'T' + time + 'Z') / 1000
+              - name: _raw
+                value: '[s_ip, cs_method, cs_uri_stem, cs_uri_query, cs_username, c_ip, cs_user_agent, cs_referer, sc_status, sc_substatus, sc_win32_status, time_taken].join('' '')'
+            remove:
+              - date
+              - time
+              - s_port
+              - s_ip
+              - cs_method
+              - cs_uri_stem
+              - cs_uri_query
+              - cs_username
+              - c_ip
+              - cs_user_agent
+              - cs_referer
+              - sc_status
+              - sc_substatus
+              - sc_win32_status
+              - time_taken
+      expect:
+        out: 1
+        absent:
+          - s_port
+          - date
+          - time
+        present:
+          - _time
+          - _raw
+        smaller: true
 references:
   - title: W3C logging — IIS log file formats (Microsoft Learn)
     url: https://learn.microsoft.com/en-us/windows/win32/http/w3c-logging

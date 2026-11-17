@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop W3C header lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ef3a0a38c81f60e0",
+    "in": {
+      "events": 2,
+      "bytes": 269
+    },
+    "out": {
+      "events": 1,
+      "bytes": 110
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop static content and NTLM handshake noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "de099ffb38dc8fbb",
+    "in": {
+      "events": 4,
+      "bytes": 417
+    },
+    "out": {
+      "events": 1,
+      "bytes": 95
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop health and monitoring probes",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "bb2d77e47d87a264",
+    "in": {
+      "events": 3,
+      "bytes": 345
+    },
+    "out": {
+      "events": 1,
+      "bytes": 110
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Trim and type fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "8e65eace084a09a8",
+    "in": {
+      "events": 1,
+      "bytes": 110
+    },
+    "out": {
+      "events": 1,
+      "bytes": 86
+    },
+    "ok": true
+  }
+}

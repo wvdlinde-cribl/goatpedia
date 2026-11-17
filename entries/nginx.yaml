@@ -309,21 +309,112 @@ optimizations:
     fn: Drop
     how: 2xx/304 requests for images, CSS, JS and load-balancer health URLs dominate volume and are rarely needed for security.
     expr: "/^(2\\d\\d|304)$/.test(status) && (/\\.(png|jpe?g|gif|css|js|woff2?|ico|svg)$/i.test(request_uri || '') || ['/health','/healthz','/nginx_status'].includes(request_uri))"
+    stream:
+      log: Access log (combined)
+      parse: false
+      functions:
+        - id: drop
+          filter: /" (2\d\d|304) \d+ "/.test(_raw) && /"[A-Z]+ (\S+\.(png|jpe?g|gif|css|js|woff2?|ico|svg)(\?\S*)?|\/health|\/healthz|\/nginx_status) HTTP/i.test(_raw)
+          description: Drop successful static asset requests and load-balancer health checks
+          conf: {}
+      test:
+        - 203.0.113.45 - - [12/Nov/2026:02:14:22 +0000] "GET /static/app.css HTTP/1.1" 200 153 "-" "Mozilla/5.0 (compatible; Nuclei - Open-source project (github.com/projectdiscovery/nuclei))"
+        - 192.0.2.10 - - [12/Nov/2026:02:14:22 +0000] "GET /healthz HTTP/1.1" 200 2 "-" "ELB-HealthChecker/2.0"
+      expect:
+        out: 1
   - title: Drop placeholder and constant kv fields
     saving: 10–20 %
     fn: Eval
     how: The kv format logs many fields as "-" (cookie, category, http_x_header). Remove dash-only values and the constant nginx_version.
     expr: "remove: nginx_version, http_x_header, category, cookie  and any field == '-'"
+    stream:
+      log: Access log (NGINX Plus key=value)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant and placeholder fields
+          conf:
+            remove:
+              - nginx_version
+              - http_x_header
+              - category
+              - cookie
+        - id: eval
+          filter: 'true'
+          description: Remove fields whose value is only a dash
+          conf:
+            add:
+              - name: src_user
+                value: 'src_user === ''-'' ? undefined : src_user'
+              - name: http_referer
+                value: 'http_referer === ''-'' ? undefined : http_referer'
+              - name: http_x_forwarded_for
+                value: 'http_x_forwarded_for === ''-'' ? undefined : http_x_forwarded_for'
+              - name: uri_query
+                value: 'uri_query === ''-'' ? undefined : uri_query'
+              - name: bytes_in
+                value: 'bytes_in === ''-'' ? undefined : bytes_in'
+              - name: response_time
+                value: 'response_time === ''-'' ? undefined : response_time'
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - nginx_version
+          - http_x_header
+          - category
+          - cookie
+          - src_user
+          - http_referer
+        present:
+          - status
+          - uri_path
+        smaller: true
   - title: Suppress repeated error-log lines
     saving: 5–15 %
     fn: Suppress
     how: Missing-file and upstream-timeout errors repeat for every scanner request; keep one per client and message per minute.
     expr: "key: `${client}:${message}`  allow 1 / 60s"
+    stream:
+      log: Error log
+      parse: false
+      functions:
+        - id: suppress
+          filter: /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} \[\w+\]/.test(_raw)
+          description: Keep one error line per client and message per minute
+          conf:
+            keyExpr: '_raw.replace(/^\S+ \S+ \[\w+\] \d+#\d+: (\*\d+ )?/, '''')'
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '2026/11/12 02:14:22 [error] 2104#2104: *1834 open() "/usr/share/nginx/html/.env" failed (2: No such file or directory), client: 203.0.113.45, server: www.example.com, request: "GET /.env HTTP/1.1", host: "www.example.com"'
+        - '2026/11/12 02:14:22 [error] 2104#2104: *1834 open() "/usr/share/nginx/html/.env" failed (2: No such file or directory), client: 203.0.113.45, server: www.example.com, request: "GET /.env HTTP/1.1", host: "www.example.com"'
+      expect:
+        out: 1
   - title: Route by value
     saving: SIEM licence
     fn: Routes
     how: 4xx/5xx, POSTs, auth endpoints and error-log lines → SIEM; successful GETs → Cribl Lake for investigations and metrics.
     expr: "!/^[23]/.test(status) || request_method == 'POST' || sourcetype == 'nginx:plus:error' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: NGINX error log → SIEM
+          filter: /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2} \[\w+\]/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: NGINX 4xx/5xx, POSTs and auth endpoints → SIEM
+          filter: /" [45]\d\d \d+ "/.test(_raw) || /status="[45]\d\d"/.test(_raw) || /"POST /.test(_raw) || /http_method="POST"/.test(_raw) || /(login|auth|signin)/i.test(_raw)
+          to: The SIEM
+          final: true
+        - name: NGINX successful requests → Lake
+          filter: /" [23]\d\d \d+ "/.test(_raw) || /status="[23]\d\d"/.test(_raw)
+          to: Cribl Lake for investigations and metrics
+          final: true
+      note: Routes see the raw event, so they match the status, method and error-log header in _raw. Keep the SIEM routes before the Lake route.
 references:
   - title: nginx security advisories
     url: https://nginx.org/en/security_advisories.html
