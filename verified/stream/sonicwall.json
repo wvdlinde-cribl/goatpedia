@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop Connection Opened (m=98)",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b360f7497950530c",
+    "in": {
+      "events": 2,
+      "bytes": 913
+    },
+    "out": {
+      "events": 1,
+      "bytes": 462
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop broadcast and NTP noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0266ef3aec4e9d11",
+    "in": {
+      "events": 2,
+      "bytes": 919
+    },
+    "out": {
+      "events": 1,
+      "bytes": 462
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip MACs, sequence and constant fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "51fce7ca93e55c01",
+    "in": {
+      "events": 1,
+      "bytes": 462
+    },
+    "out": {
+      "events": 1,
+      "bytes": 374
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate WAN drops",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "79a4abb66bdfab07",
+    "in": {
+      "events": 4,
+      "bytes": 1770
+    },
+    "out": {
+      "events": 2,
+      "bytes": 675
+    },
+    "ok": true
+  }
+}

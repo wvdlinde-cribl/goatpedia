@@ -300,21 +300,88 @@ optimizations:
     fn: Drop
     how: Access-control rules can log at beginning and end; the end event has everything plus bytes and duration. Set rules to "log at end" or drop 430002 / start events in Stream.
     expr: message_id=='430002'
+    stream:
+      log: Intrusion event (430001)
+      parse: false
+      functions:
+        - id: drop
+          filter: /%FTD-\d-430002:/.test(_raw)
+          description: Drop connection-start (430002) events; the end event carries the same data plus bytes and duration
+          conf: {}
+      test:
+        - '<185>2026-11-12T08:02:41Z FTD-EDGE-01 : %FTD-1-430002: DeviceUUID: 7d0c3a52-8f33-11ef-9a1b-005056aa0101, InstanceID: 1, FirstPacketSecond: 2026-11-12T08:02:40Z, ConnectionID: 51244, SrcIP: 198.51.100.23, DstIP: 10.30.1.25, SrcPort: 43218, DstPort: 443, Protocol: tcp, IngressInterface: outside, EgressInterface: dmz, IngressZone: OUTSIDE, EgressZone: DMZ, Priority: 1, GID: 1, SID: 58722, Revision: 4, Message: SERVER-OTHER Apache Log4j logging remote code execution attempt, Classification: Attempted User Privilege Gain, Client: cURL, ApplicationProtocol: HTTP, IntrusionPolicy: Balanced-Plus, ACPolicy: Edge-ACP, AccessControlRuleName: allow-dmz-web, NAPPolicy: Balanced Security and Connectivity, InlineResult: Block, IngressVRF: Global, EgressVRF: Global, HTTP_Hostname: app.example.com, HTTP_URI: /api/login'
+      expect:
+        out: 1
   - title: Do not log fastpathed and trusted flows
     saving: 10–30 %
     fn: Drop
     how: Connection events for Trust/Fastpath rules (backup, replication, monitoring) add volume without detection value. Drop by FirewallRule via a lookup, keep in Lake.
     expr: C.Lookup('ftd_quiet_rules.csv','FirewallRule').match(FirewallRule)
+    stream:
+      note: Upload a lookup file ftd_quiet_rules.csv listing the Trust/Fastpath rule names (backup, replication, monitoring), then add a Drop function with filter C.Lookup('ftd_quiet_rules.csv','FirewallRule').match(FirewallRule) on the SIEM path while still sending those events to Lake. Better still, disable connection logging on those rules in FMC.
   - title: Strip eStreamer bulk fields
     saving: 20–35 %
     fn: Parser → Serialize
     how: Remove DeviceUUID (map to device name), InstanceID, VRF names, EVE_Fingerprint and certificate fingerprints, and empty or "Unknown" values before the SIEM.
     expr: "remove: DeviceUUID, InstanceID, *VRF, EVE_Fingerprint, SSL_CertFingerprint; drop values 'Unknown' / ''"
+    stream:
+      log: Connection event (eStreamer JSON)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: 'Remove eStreamer bulk fields: device UUID, instance, VRF names and fingerprints'
+          conf:
+            remove:
+              - DeviceUUID
+              - InstanceID
+              - IngressVRF
+              - EgressVRF
+              - EVE_Fingerprint
+              - SSL_CertFingerprint
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - DeviceUUID
+          - InstanceID
+          - IngressVRF
+          - EgressVRF
+          - EVE_Fingerprint
+          - SSL_CertFingerprint
+        present:
+          - ConnectionID
+        smaller: true
   - title: Suppress repeated LINA denies and teardowns
     saving: 5–20 %
     fn: Suppress
     how: LINA still emits ASA-style 106023/302014 messages next to Snort connection events. Keep one deny per src/dst/port per minute and drop LINA teardowns when Snort connection events are collected.
     expr: "key: `${src_ip}:${dest_ip}:${dest_port}`  allow 1 / 60s  when message_id=='106023'"
+    stream:
+      log: LINA VPN authentication (113015)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /%FTD-\d-106023:/.test(_raw)
+          description: Keep one LINA deny per source, destination and port per minute
+          conf:
+            keyExpr: (_raw.match(/src \S+:([\d.]+)\/\d+ dst \S+:([\d.]+)\/(\d+)/) || []).slice(1).join(':')
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+        - id: drop
+          filter: /%FTD-\d-302014:/.test(_raw)
+          description: Drop LINA TCP teardowns when Snort connection events are collected
+          conf: {}
+      test:
+        - '<164>2026-11-12T08:05:10Z FTD-EDGE-01 : %FTD-4-106023: Deny tcp src outside:198.51.100.23/43218 dst inside:192.0.2.10/23 by access-group "OUTSIDE_IN" [0x0, 0x0]'
+        - '<164>2026-11-12T08:05:10Z FTD-EDGE-01 : %FTD-4-106023: Deny tcp src outside:198.51.100.23/43218 dst inside:192.0.2.10/23 by access-group "OUTSIDE_IN" [0x0, 0x0]'
+        - '<166>2026-11-12T08:05:10Z FTD-EDGE-01 : %FTD-6-302014: Teardown TCP connection 48211 for outside:203.0.113.80/443 to inside:192.0.2.10/51544 duration 0:00:31 bytes 59952 TCP FINs'
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: FTD Syslog Messages — Security event syslog messages (430001–430005 field reference)
     url: https://www.cisco.com/c/en/us/td/docs/security/firepower/Syslogs/fptd_syslog_guide/security-event-syslog-messages.html

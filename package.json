@@ -2,7 +2,7 @@
   "name": "goatpedia",
   "version": "0.1.0",
   "private": true,
-  "description": "Goatpedia \u2014 a searchable library of security devices and the logs they produce",
+  "description": "Goatpedia — a searchable library of security devices and the logs they produce",
   "type": "module",
   "scripts": {
     "validate": "node scripts/build.js --check",
@@ -13,9 +13,11 @@
     "verify:stream": "node scripts/stream-verify.mjs"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "acorn": "^8.19.0",
     "ajv": "^8.17.1",
     "js-yaml": "^4.1.0",
-    "simple-icons": "^16.38.0"
+    "simple-icons": "^16.38.0",
+    "zod": "^4.6.7"
   }
 }

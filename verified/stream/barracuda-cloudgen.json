@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop local loopback and box housekeeping",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "783e44f84325a394",
+    "in": {
+      "events": 2,
+      "bytes": 767
+    },
+    "out": {
+      "events": 1,
+      "bytes": 391
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated host-firewall blocks",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "05ba30804168675c",
+    "in": {
+      "events": 3,
+      "bytes": 1173
+    },
+    "out": {
+      "events": 1,
+      "bytes": 391
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip MACs, empty keys and NAT duplicates",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "60b05a859b74405e",
+    "in": {
+      "events": 1,
+      "bytes": 391
+    },
+    "out": {
+      "events": 1,
+      "bytes": 234
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate allowed internal flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5e1317d9e53ac884",
+    "in": {
+      "events": 3,
+      "bytes": 1529
+    },
+    "out": {
+      "events": 2,
+      "bytes": 796
+    },
+    "ok": true
+  }
+}

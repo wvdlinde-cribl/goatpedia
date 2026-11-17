@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop session-start records",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "03db6ec5784fbfce",
+    "in": {
+      "events": 2,
+      "bytes": 848
+    },
+    "out": {
+      "events": 1,
+      "bytes": 430
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip future_use, empty and duplicate fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "55bd82abbc8c5d33",
+    "in": {
+      "events": 1,
+      "bytes": 430
+    },
+    "out": {
+      "events": 1,
+      "bytes": 357
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repetitive denies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b5424866c1fa0ee6",
+    "in": {
+      "events": 4,
+      "bytes": 1753
+    },
+    "out": {
+      "events": 2,
+      "bytes": 871
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate high-volume allowed flows to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "040603747d38ae20",
+    "in": {
+      "events": 4,
+      "bytes": 1708
+    },
+    "out": {
+      "events": 2,
+      "bytes": 652
+    },
+    "ok": true
+  }
+}

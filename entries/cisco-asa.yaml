@@ -308,21 +308,107 @@ optimizations:
     fn: Drop
     how: 302013/302015 (built) carry the same 5-tuple as 302014/302016 (teardown) minus bytes and duration. Keep built only if you need the NAT mapping and do not log 305011; otherwise drop or disable with "no logging message 302013".
     expr: /%ASA-\d-30201[35]:/.test(_raw)
+    stream:
+      log: Connection (302013 / 302014)
+      parse: false
+      functions:
+        - id: drop
+          filter: /%ASA-\d-30201[35]:/.test(_raw)
+          description: Drop connection-built messages; the teardown carries the same 5-tuple plus bytes and duration
+          conf: {}
+      test:
+        - '<166>Nov 12 2026 09:13:51: %ASA-6-302013: Built outbound TCP connection 48211907 for outside:203.0.113.80/443 (203.0.113.80/443) to inside:10.20.30.44/51544 (203.0.113.10/31544)'
+      expect:
+        out: 1
   - title: Suppress repeated ACL denies
     saving: 5–20 %
     fn: Suppress
     how: Keep one 106023 per src_ip/dest_ip/dest_port per 60 s with a count. Scanner floods compress dramatically.
     expr: "key: `${src_ip}:${dest_ip}:${dest_port}`  allow 1 / 60s  when message_id=='106023'"
+    stream:
+      log: Access-list deny (106023)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /%ASA-\d-106023:/.test(_raw)
+          description: Keep one ACL deny per source, destination and port per minute
+          conf:
+            keyExpr: (_raw.match(/src [^:]+:([\d.]+)\/\d+ dst [^:]+:([\d.]+)\/(\d+)/) || []).slice(1).join(':')
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '<164>Nov 12 2026 08:02:41: %ASA-4-106023: Deny tcp src outside:198.51.100.77/43218 dst inside:10.20.40.15/3389 by access-group "outside_access_in" [0x0, 0x0]'
+        - '<164>Nov 12 2026 08:02:41: %ASA-4-106023: Deny tcp src outside:198.51.100.77/43218 dst inside:10.20.40.15/3389 by access-group "outside_access_in" [0x0, 0x0]'
+      expect:
+        out: 1
   - title: Drop low-value message IDs
     saving: 5–15 %
     fn: Drop
     how: 305011/305012 (xlate build/teardown), 302020/302021 (ICMP), 110002/110003 (routing) and 609001/609002 (local host) are high-volume and rarely queried. Drop or route to Lake via a lookup of message IDs, as the cribl-cisco-asa-cleanup pack does.
     expr: C.Lookup('asa_drop_ids.csv','message_id').match(message_id)
+    stream:
+      log: Connection (302013 / 302014)
+      parse: false
+      functions:
+        - id: drop
+          filter: /%ASA-\d-(305011|305012|302020|302021|110002|110003|609001|609002):/.test(_raw)
+          description: Drop high-volume, low-value message IDs (xlate, ICMP, routing, local host); a lookup of IDs can replace this list
+          conf: {}
+      test:
+        - '<166>Nov 12 2026 09:14:22: %ASA-6-305012: Teardown dynamic TCP translation from inside:10.20.30.44/51544 to outside:203.0.113.10/31544 duration 0:00:31'
+      expect:
+        out: 1
   - title: Aggregate teardowns to flow metrics
     saving: 15–30 %
     fn: Aggregations
     how: Roll internal-to-internal teardowns up to bytes and connection counts per src/dest/port per minute; send full-fidelity copies to Cribl Lake.
     expr: message_id=='302014' && src_interface=='inside' && dest_interface!='outside'
+    stream:
+      log: Connection (302013 / 302014)
+      parse: false
+      functions:
+        - id: eval
+          filter: /%ASA-\d-302014:/.test(_raw) && / to inside:/.test(_raw) && !/ for outside:/.test(_raw)
+          description: Extract flow fields from internal teardowns
+          conf:
+            add:
+              - name: dest_ip
+                value: (_raw.match(/ for [^:]+:([\d.]+)\//) || [])[1]
+              - name: src_ip
+                value: (_raw.match(/ to [^:]+:([\d.]+)\//) || [])[1]
+              - name: dest_port
+                value: (_raw.match(/ for [^:]+:[\d.]+\/(\d+)/) || [])[1]
+              - name: bytes
+                value: Number((_raw.match(/ bytes (\d+)/) || [])[1])
+        - id: aggregation
+          filter: /%ASA-\d-302014:/.test(_raw) && / to inside:/.test(_raw) && !/ for outside:/.test(_raw)
+          description: Roll internal teardowns up to bytes and connection counts per source, destination and port per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+              - sum(bytes).as(bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dest_ip
+              - dest_port
+      test:
+        - '<166>Nov 12 2026 09:14:22: %ASA-6-302014: Teardown TCP connection 48211908 for dmz:192.0.2.80/445 to inside:10.20.30.44/51545 duration 0:00:10 bytes 1200 TCP FINs from inside'
+        - '<166>Nov 12 2026 09:14:23: %ASA-6-302014: Teardown TCP connection 48211909 for dmz:192.0.2.80/445 to inside:10.20.30.44/51546 duration 0:00:12 bytes 3400 TCP FINs from inside'
+        - '<166>Nov 12 2026 09:14:24: %ASA-6-302014: Teardown TCP connection 48211910 for dmz:192.0.2.80/445 to inside:10.20.30.44/51547 duration 0:00:08 bytes 900 TCP FINs from inside'
+      expect:
+        out: 2
+        smaller: true
 references:
   - title: Cisco Secure Firewall ASA Series Syslog Messages
     url: https://www.cisco.com/c/en/us/td/docs/security/asa/syslog/asa-syslog.pdf

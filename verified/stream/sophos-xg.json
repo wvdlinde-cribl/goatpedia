@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Keep only connection Stop records",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "36db73474e8b794c",
+    "in": {
+      "events": 2,
+      "bytes": 2249
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1129
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip constant and display-only fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "fc3e46ccb8743ace",
+    "in": {
+      "events": 1,
+      "bytes": 1129
+    },
+    "out": {
+      "events": 1,
+      "bytes": 824
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repetitive WAN denies",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "13d932e7c40eda63",
+    "in": {
+      "events": 4,
+      "bytes": 4282
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2180
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate heartbeat and Invalid Traffic noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1a7fcf5e36bc7ef3",
+    "in": {
+      "events": 4,
+      "bytes": 4288
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1348
+    },
+    "ok": true
+  }
+}

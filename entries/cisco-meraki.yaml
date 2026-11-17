@@ -280,26 +280,100 @@ optimizations:
     fn: Drop
     how: Flows matching the default allow rule are the bulk of Flows-role syslog. Disable logging on the default rule in Dashboard, or drop them in Stream and keep denies plus explicit rules.
     expr: '/\s(firewall|flows)\s/.test(_raw) && /pattern: allow all$/.test(_raw)'
+    stream:
+      log: L3 firewall (firewall / flows)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/\s(firewall|flows)\s/.test(_raw) && /pattern: allow all$/.test(_raw)'
+          description: Drop flows that matched the default allow-all rule; keep denies and explicit rules
+          conf: {}
+      test:
+        - '<134>1 1794474862.966807768 MX85_HQ firewall src=10.20.30.44 dst=203.0.113.81 mac=00:18:0A:12:34:56 protocol=tcp sport=51545 dport=23 pattern: 1 Block telnet'
+      expect:
+        out: 1
   - title: Clean up key=value with quoted values
     saving: 10–20 %
     fn: Parser → Serialize
     how: Meraki wraps many values in single quotes and puts free text after "pattern:" or "message:". Extract once, strip quotes, drop pri/aid/radio/dhost and re-serialise as JSON.
     expr: "parse kv (quote ') → remove: pri, aid, radio, dhost, ts → JSON"
+    stream:
+      log: 802.1X wireless authentication (MR)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove low-value radio and association id fields after key=value parsing
+          conf:
+            remove:
+              - pri
+              - aid
+              - radio
+              - dhost
+              - ts
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - aid
+          - radio
+        present:
+          - identity
+        smaller: true
   - title: Suppress URL role repeats
     saving: 20–40 %
     fn: Suppress
     how: The urls role logs every HTTP request (URLs truncated at 500 characters), including telemetry beacons. Keep one per client/host per minute.
     expr: "key: `${src}:${host}`  allow 1 / 60s  when log_type=='urls'"
+    stream:
+      note: The article has no urls-role sample to build fields from. Once the urls role is parsed (src and host), add a Suppress function with key src + ':' + host, allow 1 per 60 s, filtered on log_type == 'urls'.
   - title: Aggregate flows to metrics
     saving: 20–35 %
     fn: Aggregations
     how: Roll firewall / flows lines up to connections per src, dst, dport and pattern per minute for dashboards; send raw to Cribl Lake.
     expr: log_type in ('firewall','flows') → count by src_ip, dst_ip, dport, pattern per 60s
+    stream:
+      log: L3 firewall (firewall / flows)
+      functions:
+        - id: aggregation
+          filter: log_type == 'firewall' || log_type == 'flows'
+          description: Roll flow lines up to connection counts per source, destination, port and rule per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dst_ip
+              - dport
+              - pattern
+      test:
+        - '<134>1 1794474862.966807768 MX85_HQ firewall src=10.20.30.44 dst=203.0.113.80 mac=00:18:0A:12:34:56 protocol=tcp sport=51545 dport=443 pattern: allow all'
+        - '<134>1 1794474862.966807768 MX85_HQ firewall src=10.20.30.44 dst=203.0.113.80 mac=00:18:0A:12:34:56 protocol=tcp sport=51546 dport=443 pattern: allow all'
+      expect:
+        out: 1
+        smaller: true
   - title: Route security events at full fidelity
     saving: SIEM licence
     fn: Routes
     how: security_event, AnyConnect, 802.1X and Air Marshal events → SIEM. Flows and URLs → Lake + aggregated SIEM copy.
     expr: /security_event|anyconnect|8021x|airmarshal/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: Meraki security events → SIEM
+          filter: /security_event|anyconnect|8021x|airmarshal/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Meraki flows and URLs → Lake raw, SIEM optimised
+          filter: / (firewall|flows|vpn_firewall|cellular_firewall|urls) /.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline
+          final: true
+      note: Routes see the raw event, so they match the Meraki role keyword in _raw. Put the security route first.
 references:
   - title: Meraki syslog event types and log samples
     url: https://documentation.meraki.com/General_Administration/Monitoring_and_Reporting/Syslog_Event_Types_and_Log_Samples

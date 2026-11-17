@@ -1,0 +1,32 @@
+{
+  "0": {
+    "title": "Drop default-block background noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cb92da6327677c56",
+    "in": {
+      "events": 2,
+      "bytes": 327
+    },
+    "out": {
+      "events": 1,
+      "bytes": 160
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated blocks",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a3ec88a1e79f4ce3",
+    "in": {
+      "events": 3,
+      "bytes": 501
+    },
+    "out": {
+      "events": 1,
+      "bytes": 167
+    },
+    "ok": true
+  }
+}

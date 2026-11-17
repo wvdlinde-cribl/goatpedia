@@ -277,21 +277,108 @@ optimizations:
     fn: Aggregations
     how: Netflow logs each direction separately. Aggregate on flow_id over a short window to emit one bidirectional record with bytes_out / bytes_in, packets and duration.
     expr: "group by event.flow_id within 60s → bytes_out, bytes_in, pkts, start, end"
+    stream:
+      log: Flow (netflow)
+      functions:
+        - id: aggregation
+          filter: (event || {}).event_type == 'netflow'
+          description: Combine both directions of a flow into one record per flow_id per minute with total bytes, packets and record count
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(records)
+              - sum(event.netflow.bytes).as(bytes)
+              - sum(event.netflow.pkts).as(pkts)
+              - max(event.netflow.age).as(duration_sec)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - event.flow_id
+      test:
+        - '{"firewall_name":"egress-fw","availability_zone":"eu-west-1a","event_timestamp":"1794474862","event":{"tcp":{"tcp_flags":"1b","syn":true,"fin":true,"psh":true,"ack":true},"app_proto":"tls","src_ip":"203.0.113.80","src_port":443,"netflow":{"pkts":12,"bytes":9120,"start":"2026-11-12T09:13:51.104822+0000","end":"2026-11-12T09:14:22.301119+0000","age":31,"min_ttl":63,"max_ttl":63},"event_type":"netflow","flow_id":1582438383425873,"dest_ip":"10.0.2.53","proto":"TCP","dest_port":55930,"timestamp":"2026-11-12T09:14:22.301119+0000"}}'
+      expect:
+        out: 1
+        smaller: true
   - title: Drop TCP flag and TTL detail
     saving: 15–25 %
     fn: Parser → Serialize
     how: Most SIEM content never uses tcp flags or TTLs. Flatten the JSON, remove event.tcp.*, netflow.min_ttl/max_ttl/age, and the duplicate event_timestamp, then re-serialise.
     expr: "remove: event.tcp.*, event.netflow.min_ttl, event.netflow.max_ttl, event.netflow.age, event_timestamp"
+    stream:
+      log: Flow (netflow)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove TCP flags, TTL/age detail and the duplicate event_timestamp
+          conf:
+            remove:
+              - event.tcp
+              - event.netflow.min_ttl
+              - event.netflow.max_ttl
+              - event.netflow.age
+              - event_timestamp
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - event_timestamp
+        present:
+          - firewall_name
+          - event
+        smaller: true
   - title: Aggregate trusted service flows to metrics
     saving: 20–40 %
     fn: Aggregations
     how: Flows to AWS service endpoints, NTP and internal DNS resolvers are high-volume and low-value. Roll up to bytes and flows per src/dst/port per minute and keep raw in S3 / Cribl Lake.
     expr: event.event_type=='netflow' && event.dest_port in (53, 123) 
+    stream:
+      log: Flow (netflow)
+      functions:
+        - id: aggregation
+          filter: (event || {}).event_type == 'netflow' && ((event || {}).dest_port == 53 || (event || {}).dest_port == 123)
+          description: Roll DNS and NTP flows up to bytes and flows per source, destination and port per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(flows)
+              - sum(event.netflow.bytes).as(bytes)
+              - sum(event.netflow.pkts).as(pkts)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - event.src_ip
+              - event.dest_ip
+              - event.dest_port
+      test:
+        - '{"firewall_name":"egress-fw","availability_zone":"eu-west-1a","event_timestamp":"1794474862","event":{"app_proto":"dns","src_ip":"10.0.2.53","src_port":55930,"netflow":{"pkts":1,"bytes":74,"start":"2026-11-12T09:13:51.104822+0000","end":"2026-11-12T09:13:51.104822+0000","age":0,"min_ttl":63,"max_ttl":63},"event_type":"netflow","flow_id":1582438383425901,"dest_ip":"198.51.100.53","proto":"UDP","dest_port":53,"timestamp":"2026-11-12T09:14:22.301119+0000"}}'
+        - '{"firewall_name":"egress-fw","availability_zone":"eu-west-1a","event_timestamp":"1794474862","event":{"app_proto":"dns","src_ip":"10.0.2.53","src_port":55931,"netflow":{"pkts":1,"bytes":80,"start":"2026-11-12T09:13:52.104822+0000","end":"2026-11-12T09:13:52.104822+0000","age":0,"min_ttl":63,"max_ttl":63},"event_type":"netflow","flow_id":1582438383425902,"dest_ip":"198.51.100.53","proto":"UDP","dest_port":53,"timestamp":"2026-11-12T09:14:23.301119+0000"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route alerts and TLS at full fidelity
     saving: SIEM licence
     fn: Routes
     how: Alert and TLS logs → SIEM. Flow logs → Cribl Lake (or leave in S3 and replay on demand) plus aggregated metrics to the SIEM.
     expr: event.event_type=='alert' || event.revocation_check → SIEM  |  netflow → Lake + metrics
+    stream:
+      routes:
+        - name: Network Firewall alerts and TLS → SIEM
+          filter: /"event_type":"alert"/.test(_raw) || /"revocation_check":/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: Network Firewall flows → Lake + metrics
+          filter: /"event_type":"netflow"/.test(_raw)
+          to: Cribl Lake (raw), and aggregated metrics to the SIEM through the pipelines above
+          final: true
+      note: Routes see the raw event, so they match event_type or the revocation_check key in the JSON text. Put the alert/TLS route first.
 references:
   - title: Logging network traffic from AWS Network Firewall
     url: https://docs.aws.amazon.com/network-firewall/latest/developerguide/firewall-logging.html

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import yaml from 'js-yaml';
 import { parse as parseJs } from 'acorn';
 import { fingerprint } from './stream-fingerprint.mjs';
+import { loadChecks } from './verified-store.mjs';
 import '../site/stream.js';
 
 const S = globalThis.GoatpediaStream;
@@ -63,7 +64,7 @@ test('a Cribl check is tied to exactly what was checked', () => {
   assert.equal(fingerprint(e, o), f, 'stable');
   const changed = { ...o, stream: { ...o.stream, functions: [{ ...o.stream.functions[0], filter: "subtype == 'start'" }] } };
   assert.notEqual(fingerprint(e, changed), f, 'a different filter is a different check');
-  const v = JSON.parse(fs.readFileSync(new URL('../verified/stream.json', import.meta.url), 'utf8'));
+  const v = loadChecks();
   for (const id of ['pan-ngfw', 'cisco-ise', 'okta']) {
     const en = entry(id);
     for (const [i, op] of en.optimizations.entries()) {

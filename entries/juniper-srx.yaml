@@ -326,21 +326,106 @@ optimizations:
     fn: Drop
     how: RT_FLOW_SESSION_CREATE repeats the 5-tuple without counters; the close event has everything. Drop create (or set "then log session-close" only on busy policies).
     expr: "_raw.includes('RT_FLOW_SESSION_CREATE')"
+    stream:
+      log: RT_FLOW session close (sd-syslog)
+      parse: false
+      functions:
+        - id: drop
+          filter: _raw.indexOf('RT_FLOW_SESSION_CREATE') > -1
+          description: Drop session-create events; the close event carries the same 5-tuple plus counters
+          conf: {}
+      test:
+        - <14>1 2026-11-12T09:14:02.118Z srx-edge-01 RT_FLOW - RT_FLOW_SESSION_CREATE [junos@2636.1.1.1.2.129 source-address="10.20.30.44" source-port="51544" destination-address="203.0.113.80" destination-port="443" connection-tag="0" service-name="junos-https" nat-source-address="198.51.100.10" nat-source-port="23011" nat-destination-address="203.0.113.80" nat-destination-port="443" nat-connection-tag="0" src-nat-rule-type="source rule" src-nat-rule-name="internet-pat" dst-nat-rule-type="N/A" dst-nat-rule-name="N/A" protocol-id="6" policy-name="trust-to-untrust-web" source-zone-name="trust" destination-zone-name="untrust" session-id-32="40211873" username="N/A" roles="N/A" packet-incoming-interface="ge-0/0/1.0" application="UNKNOWN" nested-application="UNKNOWN" encrypted="No" src-vrf-grp="N/A"]
+      expect:
+        out: 1
   - title: Remove N/A and placeholder fields
     saving: 15–25 %
     fn: Parser → Serialize
     how: Structured SRX logs carry many fields that are N/A, 0 or 0.0.0.0 (roles, username, dst-nat-rule-name, peer-*, vrf groups, connection-tag). Strip them before the SIEM.
     expr: "remove fields where value in ('N/A','NA','0.0.0.0','UNKNOWN') plus connection-tag, nat-connection-tag, roles, src-vrf-grp, dst-vrf-grp"
+    stream:
+      log: RT_FLOW session close (sd-syslog)
+      parse: false
+      functions:
+        - id: eval
+          filter: /\[junos@/.test(_raw)
+          description: Strip placeholder keys and any key whose value is N/A, NA, 0.0.0.0 or UNKNOWN from the structured data
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ (connection-tag|nat-connection-tag|roles|username|src-vrf-grp|dst-vrf-grp)="[^"]*"/g, '').replace(/ [\w-]+="(N\/A|NA|0\.0\.0\.0|UNKNOWN)"/g, '')
+      expect:
+        out: 1
+        absent:
+          - connection-tag
+          - nat-connection-tag
+          - roles
+          - username
+          - src-vrf-grp
+        smaller: true
   - title: Aggregate internet denies
     saving: 10–30 %
     fn: Aggregations
     how: Turn RT_FLOW_SESSION_DENY from untrust into 1-minute counts per source/destination/port; keep raw in Lake.
     expr: "count() by source-address, destination-address, destination-port, policy-name  window 60s  where source-zone-name=='untrust'"
+    stream:
+      log: RT_FLOW session deny (sd-syslog)
+      functions:
+        - id: eval
+          filter: /RT_FLOW_SESSION_DENY/.test(_raw)
+          description: Copy the hyphenated keys to plain names for grouping
+          conf:
+            add:
+              - name: src_addr
+                value: __e['source-address']
+              - name: dst_addr
+                value: __e['destination-address']
+              - name: dst_port
+                value: __e['destination-port']
+              - name: policy
+                value: __e['policy-name']
+              - name: src_zone
+                value: __e['source-zone-name']
+        - id: aggregation
+          filter: src_zone == 'untrust' && /RT_FLOW_SESSION_DENY/.test(_raw)
+          description: Roll internet denies up to 1-minute counts per source, destination, port and policy
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(denies)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_addr
+              - dst_addr
+              - dst_port
+              - policy
+      test:
+        - <14>1 2026-11-12T09:14:05.402Z srx-edge-01 RT_FLOW - RT_FLOW_SESSION_DENY [junos@2636.1.1.1.2.129 source-address="198.51.100.23" source-port="44121" destination-address="192.0.2.10" destination-port="3389" connection-tag="0" service-name="None" protocol-id="6" icmp-type="0" policy-name="untrust-deny-all" source-zone-name="untrust" destination-zone-name="dmz" application="UNKNOWN" nested-application="UNKNOWN" username="N/A" roles="N/A" packet-incoming-interface="ge-0/0/0.0" encrypted="No" reason="policy deny" session-id-32="0" dst-vrf-grp="N/A"]
+        - <14>1 2026-11-12T09:14:05.402Z srx-edge-01 RT_FLOW - RT_FLOW_SESSION_DENY [junos@2636.1.1.1.2.129 source-address="198.51.100.23" source-port="44122" destination-address="192.0.2.10" destination-port="3389" connection-tag="0" service-name="None" protocol-id="6" icmp-type="0" policy-name="untrust-deny-all" source-zone-name="untrust" destination-zone-name="dmz" application="UNKNOWN" nested-application="UNKNOWN" username="N/A" roles="N/A" packet-incoming-interface="ge-0/0/0.0" encrypted="No" reason="policy deny" session-id-32="0" dst-vrf-grp="N/A"]
+      expect:
+        out: 1
+        smaller: true
   - title: Keep IDP and system logs at full fidelity
     saving: SIEM licence
     fn: Routes
     how: Route RT_IDP, RT_UTM and RE system events (sshd, mgd UI_*) unchanged to the SIEM; RT_FLOW to Lake plus an optimised copy.
     expr: /RT_IDP|RT_UTM|UI_|SSHD_/.test(_raw) → SIEM  |  else → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: SRX IDP, UTM and system events → SIEM
+          filter: /RT_IDP|RT_UTM|UI_|SSHD_/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: SRX RT_FLOW → Lake raw, SIEM optimised
+          filter: /RT_FLOW/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+      note: Routes see the raw event, so they match the Junos tag in _raw. Put the IDP/system route first.
 references:
   - title: Juniper — Configure system logging for security devices (stream mode, formats)
     url: https://www.juniper.net/documentation/en_US/junos/topics/concept/security-system-log-message-overview.html

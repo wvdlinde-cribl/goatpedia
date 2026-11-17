@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Pair unidirectional flows into one record",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "baf2e42975d6db25",
+    "in": {
+      "events": 2,
+      "bytes": 1062
+    },
+    "out": {
+      "events": 1,
+      "bytes": 214
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop TCP flag and TTL detail",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b45a0e6b4c5ec0a9",
+    "in": {
+      "events": 1,
+      "bytes": 531
+    },
+    "out": {
+      "events": 1,
+      "bytes": 396
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate trusted service flows to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d3e2917d150fad49",
+    "in": {
+      "events": 3,
+      "bytes": 1447
+    },
+    "out": {
+      "events": 2,
+      "bytes": 769
+    },
+    "ok": true
+  }
+}

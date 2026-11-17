@@ -182,4 +182,15 @@ optimizations:
     fn: Routes
     how: Informational URL filtering and threat extraction events record routine browsing and document handling. Send high and critical detections to the SIEM in full, and send informational events to cheaper storage.
     expr: "severity == 'Informational'"
+    stream:
+      routes:
+        - name: Harmony Endpoint informational events → storage
+          filter: /"product_family":"Endpoint"/.test(_raw) && /"severity":"Informational"/.test(_raw)
+          to: Cribl Lake or other low-cost storage; replay on demand
+          final: true
+        - name: Harmony Endpoint detections → SIEM
+          filter: /"product_family":"Endpoint"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the severity key inside the JSON text. Put the informational route first so everything else (High, Critical and other detections) reaches the SIEM.
 references: []

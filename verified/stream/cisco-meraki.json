@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Turn off \"allow all\" flow logging at the source",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4d0249cef2029598",
+    "in": {
+      "events": 2,
+      "bytes": 310
+    },
+    "out": {
+      "events": 1,
+      "bytes": 157
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Clean up key=value with quoted values",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "fce97fd77543343e",
+    "in": {
+      "events": 1,
+      "bytes": 131
+    },
+    "out": {
+      "events": 1,
+      "bytes": 58
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate flows to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c5a730adbbe5bcc5",
+    "in": {
+      "events": 3,
+      "bytes": 459
+    },
+    "out": {
+      "events": 1,
+      "bytes": 224
+    },
+    "ok": true
+  }
+}

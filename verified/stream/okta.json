@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Remove null and empty nested fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d29f46b20932731d",
+    "in": {
+      "events": 2,
+      "bytes": 3021
+    },
+    "out": {
+      "events": 2,
+      "bytes": 2566
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Sample or drop policy evaluation events",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "20158c6dfe48622f",
+    "in": {
+      "events": 12,
+      "bytes": 18141
+    },
+    "out": {
+      "events": 3,
+      "bytes": 4542
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip legacy and low-value keys",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "00271bd542bfe0d2",
+    "in": {
+      "events": 1,
+      "bytes": 1522
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1293
+    },
+    "ok": true
+  }
+}

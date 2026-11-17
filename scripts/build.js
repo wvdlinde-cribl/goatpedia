@@ -113,8 +113,8 @@ for (const rel of ['index.html', 'app.js']) {
 const logoOf = createLogoResolver(ROOT);
 // Cribl checks (scripts/stream-verify.mjs): attached only while the pipeline, events and
 // expectations still match what was checked.
-const verifiedFile = path.join(ROOT, 'verified', 'stream.json');
-const checks = fs.existsSync(verifiedFile) ? JSON.parse(fs.readFileSync(verifiedFile, 'utf8')) : {};
+const { loadChecks } = await import('./verified-store.mjs');
+const checks = loadChecks();
 let checked = 0, stale = 0;
 for (const e of entries) for (const [i, o] of (e.optimizations || []).entries()) {
   if (!o.stream?.functions) continue;

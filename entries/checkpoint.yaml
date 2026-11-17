@@ -292,21 +292,87 @@ optimizations:
     fn: Drop
     how: Semi-unified export repeats every update for long connections. Use Log Exporter "Last only" (R82.20+) or, in Stream, keep only the final update per loguid.
     expr: "Suppress key: loguid  allow 1 / 300s (keep latest)"
+    stream:
+      log: Firewall connection (CEF)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /loguid=\{/.test(_raw)
+          description: Keep one log update per connection (loguid) per 5 minutes; prefer Log Exporter 'Last only' on R82.20+
+          conf:
+            keyExpr: (_raw.match(/loguid=(\{[^}]*\})/) || [])[1]
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - CEF:0|Check Point|VPN-1 & FireWall-1|Check Point|Log|https|Unknown|act=Accept deviceDirection=0 rt=1762935322000 spt=51544 dpt=443 cs2Label=Rule Name cs2=allow-web-out layer_name=Network layer_uuid=8c1f5a2e-0d3b-4c7e-9a61-2f4b5c6d7e8f match_id=12 parent_rule=0 rule_action=Accept ifname=eth1 logid=0 loguid={0x6a1f2c11,0x2,0x5f00a8c0,0x2a1b} origin=192.0.2.1 originsicname=CN\=gw-edge-01,O\=mgmt.example.com.7h3k2a sequencenum=42 version=5 dst=203.0.113.80 inzone=Internal outzone=External product=VPN-1 & FireWall-1 proto=6 service_id=https src=10.20.30.44 xlatesrc=198.51.100.10
+      expect:
+        out: 1
+        smaller: true
   - title: Strip internal and empty fields
     saving: 20–35 %
     fn: Parser → Serialize
     how: Remove fields Check Point itself marks as internal (flags, ifdir, ifname, version, __policy_id_tag, db_tag) plus layer_uuid, loguid, sequencenum, originsicname and parent_rule before the SIEM; keep them in Lake.
     expr: "remove: flags, version, __policy_id_tag, db_tag, layer_uuid, loguid, sequencenum, originsicname, parent_rule, match_id"
+    stream:
+      log: Firewall connection (CEF)
+      parse: false
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove internal Check Point fields from the raw CEF before the SIEM
+          conf:
+            add:
+              - name: _raw
+                value: _raw.replace(/ (flags|version|__policy_id_tag|db_tag|layer_uuid|loguid|sequencenum|originsicname|parent_rule|match_id)=\S*/g, '')
+      expect:
+        out: 1
+        smaller: true
   - title: Suppress repetitive drops
     saving: 5–20 %
     fn: Suppress
     how: Internet scanning causes floods of identical cleanup-rule drops. Keep one per src/dst/dpt per 60 s with a count.
     expr: "key: `${src}:${dst}:${dpt}`  allow 1 / 60s  when act=='Drop'"
+    stream:
+      log: Firewall connection (CEF)
+      parse: false
+      functions:
+        - id: suppress
+          filter: /act=Drop /.test(_raw)
+          description: Keep one drop per source, destination and port per minute
+          conf:
+            keyExpr: (_raw.match(/ src=(\S+)/) || [])[1] + ':' + (_raw.match(/ dst=(\S+)/) || [])[1] + ':' + (_raw.match(/ dpt=(\S+)/) || [])[1]
+            allow: 1
+            suppressPeriodSec: 60
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - CEF:0|Check Point|VPN-1 & FireWall-1|Check Point|Log|telnet|Unknown|act=Drop deviceDirection=0 rt=1762935262000 spt=51544 dpt=23 cs2Label=Rule Name cs2=cleanup layer_name=Network layer_uuid=8c1f5a2e-0d3b-4c7e-9a61-2f4b5c6d7e8f match_id=99 parent_rule=0 rule_action=Drop ifname=eth1 logid=0 loguid={0x6a1f2c11,0x5,0x5f00a8c0,0x2a1b} origin=192.0.2.1 originsicname=CN\=gw-edge-01,O\=mgmt.example.com.7h3k2a sequencenum=50 version=5 dst=203.0.113.80 inzone=External outzone=Internal product=VPN-1 & FireWall-1 proto=6 service_id=telnet src=198.51.100.23
+        - CEF:0|Check Point|VPN-1 & FireWall-1|Check Point|Log|telnet|Unknown|act=Drop deviceDirection=0 rt=1762935262000 spt=51544 dpt=23 cs2Label=Rule Name cs2=cleanup layer_name=Network layer_uuid=8c1f5a2e-0d3b-4c7e-9a61-2f4b5c6d7e8f match_id=99 parent_rule=0 rule_action=Drop ifname=eth1 logid=0 loguid={0x6a1f2c11,0x6,0x5f00a8c0,0x2a1b} origin=192.0.2.1 originsicname=CN\=gw-edge-01,O\=mgmt.example.com.7h3k2a sequencenum=51 version=5 dst=203.0.113.80 inzone=External outzone=Internal product=VPN-1 & FireWall-1 proto=6 service_id=telnet src=198.51.100.23
+        - CEF:0|Check Point|VPN-1 & FireWall-1|Check Point|Log|telnet|Unknown|act=Drop deviceDirection=0 rt=1762935262000 spt=51544 dpt=23 cs2Label=Rule Name cs2=cleanup layer_name=Network layer_uuid=8c1f5a2e-0d3b-4c7e-9a61-2f4b5c6d7e8f match_id=99 parent_rule=0 rule_action=Drop ifname=eth1 logid=0 loguid={0x6a1f2c11,0x7,0x5f00a8c0,0x2a1b} origin=192.0.2.1 originsicname=CN\=gw-edge-01,O\=mgmt.example.com.7h3k2a sequencenum=52 version=5 dst=203.0.113.80 inzone=External outzone=Internal product=VPN-1 & FireWall-1 proto=6 service_id=telnet src=198.51.100.23
+      expect:
+        out: 2
   - title: Route blades separately
     saving: SIEM licence
     fn: Routes
     how: product in (IPS, Anti-Bot, Threat Emulation, Anti-Virus, Mobile Access) and VPN login events go to the SIEM at full fidelity; VPN-1 & FireWall-1 connection logs go raw to Lake and optimised to the SIEM.
     expr: product!='VPN-1 & FireWall-1' → SIEM  |  product=='VPN-1 & FireWall-1' → Lake + SIEM(optimised)
+    stream:
+      routes:
+        - name: Check Point firewall connections → Lake raw, SIEM optimised
+          filter: /product[=:]"?VPN-1 & FireWall-1/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the optimisation pipelines above
+          final: true
+        - name: Check Point threat blades and VPN logins → SIEM
+          filter: /product[=:]"?(IPS|Anti-Bot|Threat Emulation|Anti-Virus|Mobile Access|VPN)/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the product value in CEF, Splunk or syslog form. Put the firewall route first.
 references:
   - title: sk122323 — Log Exporter (formats, transport, filtering)
     url: https://support.checkpoint.com/results/sk/sk122323
