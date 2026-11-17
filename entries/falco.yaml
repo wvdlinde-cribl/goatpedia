@@ -293,21 +293,80 @@ optimizations:
     fn: Suppress
     how: A misbehaving workload fires the same rule for the same pod and command every few seconds. Keep one per rule/pod/cmdline per 5 minutes with a count.
     expr: "key: `${rule}:${output_fields['k8s.pod.name']}:${output_fields['proc.cmdline']}`  allow 1 / 300s"
+    stream:
+      log: Syscall rule alert (JSON)
+      functions:
+        - id: suppress
+          filter: 'true'
+          description: Keep one alert per rule, pod and command line per 5 minutes
+          conf:
+            keyExpr: rule + ':' + (output_fields || {})['k8s.pod.name'] + ':' + (output_fields || {})['proc.cmdline']
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - '{"hostname":"falco-7xk2p","output":"09:14:22.418203117: Notice A shell was spawned in a container with an attached terminal | evt_type=execve user=root user_uid=0 user_loginuid=-1 process=bash proc_exepath=/usr/bin/bash parent=runc command=bash -il terminal=34816 exe_flags=EXE_WRITABLE container_id=4f1c2a9e7b3d container_name=checkout-api container_image_repository=registry.example.com/payments/checkout-api k8s_ns=payments k8s_pod_name=checkout-api-7c9f6d5b8d-q2xkp","priority":"Notice","rule":"Terminal shell in container","source":"syscall","tags":["T1059","container","maturity_stable","mitre_execution","shell"],"time":"2026-11-12T09:14:22.418203117Z","output_fields":{"container.id":"4f1c2a9e7b3d","container.image.repository":"registry.example.com/payments/checkout-api","container.name":"checkout-api","evt.arg.flags":"EXE_WRITABLE","evt.time":1794474862418203117,"evt.type":"execve","k8s.ns.name":"payments","k8s.pod.name":"checkout-api-7c9f6d5b8d-q2xkp","proc.cmdline":"bash -il","proc.exepath":"/usr/bin/bash","proc.name":"bash","proc.pname":"runc","proc.tty":34816,"user.loginuid":-1,"user.name":"root","user.uid":0}}'
+        - '{"hostname":"falco-7xk2p","output":"09:14:22.418203117: Notice A shell was spawned in a container with an attached terminal | evt_type=execve user=root user_uid=0 user_loginuid=-1 process=bash proc_exepath=/usr/bin/bash parent=runc command=bash -il terminal=34816 exe_flags=EXE_WRITABLE container_id=4f1c2a9e7b3d container_name=checkout-api container_image_repository=registry.example.com/payments/checkout-api k8s_ns=payments k8s_pod_name=checkout-api-7c9f6d5b8d-q2xkp","priority":"Notice","rule":"Terminal shell in container","source":"syscall","tags":["T1059","container","maturity_stable","mitre_execution","shell"],"time":"2026-11-12T09:14:22.418203117Z","output_fields":{"container.id":"4f1c2a9e7b3d","container.image.repository":"registry.example.com/payments/checkout-api","container.name":"checkout-api","evt.arg.flags":"EXE_WRITABLE","evt.time":1794474862418203117,"evt.type":"execve","k8s.ns.name":"payments","k8s.pod.name":"checkout-api-7c9f6d5b8d-q2xkp","proc.cmdline":"bash -il","proc.exepath":"/usr/bin/bash","proc.name":"bash","proc.pname":"runc","proc.tty":34816,"user.loginuid":-1,"user.name":"root","user.uid":0}}'
+      expect:
+        out: 1
   - title: Drop the rendered output string
     saving: 35–50 %
     fn: Eval
     how: The output field repeats every value already present in output_fields. Remove it after parsing (keep it only if analysts read alerts in a chat tool).
     expr: "remove: output"
+    stream:
+      log: Syscall rule alert (JSON)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove the rendered output string; output_fields carries the same values
+          conf:
+            remove:
+              - output
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - output
+        present:
+          - rule
+          - output_fields
+        smaller: true
   - title: Drop low-priority rules at the pipeline
     saving: 10–30 %
     fn: Drop
     how: Debug and Informational rules are mostly for tuning. Send them to Cribl Lake for rule development and keep Notice and above in the SIEM. Better still, raise the priority threshold in falco.yaml.
     expr: priority=='Debug' || priority=='Informational'
+    stream:
+      log: Syscall rule alert (JSON)
+      functions:
+        - id: drop
+          filter: priority == 'Debug' || priority == 'Informational'
+          description: Drop Debug and Informational rule alerts before the SIEM
+          conf: {}
+      test:
+        - '{"hostname":"falco-7xk2p","output":"09:14:22.418203117: Informational A shell was spawned in a container with an attached terminal | evt_type=execve user=root","priority":"Informational","rule":"Terminal shell in container","source":"syscall","tags":["T1059","container"],"time":"2026-11-12T09:14:22.418203117Z","output_fields":{"container.id":"4f1c2a9e7b3d","evt.type":"execve","k8s.pod.name":"checkout-api-7c9f6d5b8d-q2xkp","proc.cmdline":"bash -il","proc.name":"bash","user.name":"root","user.uid":0}}'
+      expect:
+        out: 1
   - title: Route by source and priority
     saving: SIEM licence
     fn: Routes
     how: Critical/Error alerts go to the SIEM and the paging tool. Notice/Warning goes to the SIEM. Everything goes raw to Lake for rule tuning and hunting.
     expr: priority in ('Emergency','Alert','Critical','Error') → SIEM + pager  |  else → SIEM + Lake
+    stream:
+      routes:
+        - name: Falco Emergency/Alert/Critical/Error → SIEM + pager
+          filter: /"priority":"(Emergency|Alert|Critical|Error)"/.test(_raw)
+          to: The SIEM and the paging tool, plus Cribl Lake raw
+          final: true
+        - name: Falco other priorities → SIEM + Lake
+          filter: /"priority":"/.test(_raw)
+          to: The SIEM and Cribl Lake (raw)
+          final: true
+      note: Routes see the raw event, so they match the priority key in the JSON text. Put the high-priority route first; use a clone or output router so every event also reaches Lake.
 references:
   - title: Falco — Output channels and JSON output fields
     url: https://falco.org/docs/concepts/outputs/channels/

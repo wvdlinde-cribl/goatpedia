@@ -301,26 +301,112 @@ optimizations:
     fn: Drop
     how: Leader-election leases, /readyz and /livez probes, and discovery calls (/api, /apis) from controllers are high-volume and nearly never used in investigations.
     expr: objectRef.resource=='leases' || /^\/(readyz|livez|healthz|api|apis|openapi)/.test(requestURI)
+    stream:
+      log: API audit event — read (Metadata level)
+      functions:
+        - id: drop
+          filter: (objectRef || {}).resource == 'leases' || /^\/(readyz|livez|healthz|openapi)/.test(requestURI) || /^\/(api|apis)\/?(\?|$)/.test(requestURI)
+          description: Drop leader-election leases, health probes and bare discovery calls
+          conf: {}
+      test:
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"5f0a6a4e-2b1c-4d3e-9f80-1a2b3c4d5e70","stage":"ResponseComplete","requestURI":"/livez","verb":"get","user":{"username":"system:anonymous","groups":["system:unauthenticated"]},"sourceIPs":["192.0.2.10"],"userAgent":"kube-probe/1.31","responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:22.418203Z","stageTimestamp":"2026-11-12T09:14:22.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"allowed"}}'
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"5f0a6a4e-2b1c-4d3e-9f80-1a2b3c4d5e71","stage":"ResponseComplete","requestURI":"/apis/coordination.k8s.io/v1/namespaces/kube-system/leases/kube-scheduler","verb":"update","user":{"username":"system:kube-scheduler","groups":["system:authenticated"]},"sourceIPs":["192.0.2.11"],"userAgent":"kube-scheduler/v1.31.2","objectRef":{"resource":"leases","namespace":"kube-system","name":"kube-scheduler","apiVersion":"coordination.k8s.io/v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:22.418203Z","stageTimestamp":"2026-11-12T09:14:22.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"allowed"}}'
+      expect:
+        out: 1
   - title: Aggregate system get/list/watch
     saving: 30–50 %
     fn: Aggregations
     how: system:node:*, system:serviceaccount:kube-system:* and operator reads are repetitive. Count them per user/verb/resource/minute; keep full events for humans, writes and denies.
     expr: /^system:/.test(user.username) && ['get','list','watch'].includes(verb) && responseStatus.code < 400
+    stream:
+      log: API audit event — read (Metadata level)
+      functions:
+        - id: eval
+          filter: /^system:/.test((user || {}).username) && (verb == 'get' || verb == 'list' || verb == 'watch') && (responseStatus || {}).code < 400
+          description: Copy the group-by keys to top-level fields
+          conf:
+            add:
+              - name: k8s_user
+                value: (user || {}).username
+              - name: k8s_resource
+                value: (objectRef || {}).resource
+        - id: aggregation
+          filter: /^system:/.test((user || {}).username) && (verb == 'get' || verb == 'list' || verb == 'watch') && (responseStatus || {}).code < 400
+          description: Count successful system reads per user, verb and resource per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - k8s_user
+              - verb
+              - k8s_resource
+      test:
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"a1","stage":"ResponseComplete","requestURI":"/api/v1/nodes?watch=true","verb":"watch","user":{"username":"system:node:ip-192-0-2-5.example.com","groups":["system:nodes"]},"sourceIPs":["192.0.2.5"],"userAgent":"kubelet/v1.31.2","objectRef":{"resource":"nodes","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:22.418203Z","stageTimestamp":"2026-11-12T09:14:22.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"allowed"}}'
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"a2","stage":"ResponseComplete","requestURI":"/api/v1/nodes?watch=true","verb":"watch","user":{"username":"system:node:ip-192-0-2-5.example.com","groups":["system:nodes"]},"sourceIPs":["192.0.2.5"],"userAgent":"kubelet/v1.31.2","objectRef":{"resource":"nodes","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:23.418203Z","stageTimestamp":"2026-11-12T09:14:23.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"allowed"}}'
+        - '{"kind":"Event","apiVersion":"audit.k8s.io/v1","level":"Metadata","auditID":"a3","stage":"ResponseComplete","requestURI":"/api/v1/nodes?watch=true","verb":"watch","user":{"username":"system:node:ip-192-0-2-5.example.com","groups":["system:nodes"]},"sourceIPs":["192.0.2.5"],"userAgent":"kubelet/v1.31.2","objectRef":{"resource":"nodes","apiVersion":"v1"},"responseStatus":{"metadata":{},"code":200},"requestReceivedTimestamp":"2026-11-12T09:14:24.418203Z","stageTimestamp":"2026-11-12T09:14:24.431877Z","annotations":{"authorization.k8s.io/decision":"allow","authorization.k8s.io/reason":"allowed"}}'
+      expect:
+        out: 2
+        smaller: true
   - title: Trim duplicated identity and timestamp fields
     saving: 10–20 %
     fn: Eval
     how: user.extra repeats the ARN in arn and canonicalArn, requestReceivedTimestamp is within milliseconds of stageTimestamp, and kind/apiVersion are constant. Remove them and shorten managedFields in requestObject/responseObject.
     expr: "remove: kind, apiVersion, requestReceivedTimestamp, user.extra.canonicalArn, *.metadata.managedFields"
+    stream:
+      log: API audit event — read (Metadata level)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant, duplicated identity and timestamp fields and managedFields
+          conf:
+            remove:
+              - kind
+              - apiVersion
+              - requestReceivedTimestamp
+              - user.extra.canonicalArn
+              - requestObject.metadata.managedFields
+              - responseObject.metadata.managedFields
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - kind
+          - apiVersion
+          - requestReceivedTimestamp
+        present:
+          - stageTimestamp
+          - verb
+        smaller: true
   - title: Unpack CloudWatch batches before routing
     saving: Correctness
     fn: Parser → Unroll
     how: Firehose/Kinesis payloads are gzip+base64 CloudWatch envelopes with a logEvents array. Decompress, unroll logEvents, parse message as JSON and set _time from stageTimestamp, so each audit record is one event.
     expr: "unroll: logEvents → parse message as JSON; _time = stageTimestamp"
+    stream:
+      note: 'Handle this on the Firehose/Kinesis source: enable gzip decompression and use an Event Breaker or Unroll on logEvents so each CloudWatch message becomes one event, then parse message as JSON and set _time from stageTimestamp before routing.'
   - title: Route writes and denies to the SIEM
     saving: SIEM licence
     fn: Routes
     how: Writes, exec/attach, RBAC and secret access, and any 401/403 go to the SIEM. Reads by system identities go to Cribl Lake raw for replay.
     expr: "!['get','list','watch'].includes(verb) || responseStatus.code >= 400 || objectRef.resource=='secrets' → SIEM  |  else → Lake"
+    stream:
+      routes:
+        - name: EKS writes, exec, secrets and denies → SIEM
+          filter: /"verb":"(create|update|patch|delete|deletecollection)"/.test(_raw) || /"code":4\d\d/.test(_raw) || /"resource":"secrets"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: EKS other audit events → Lake
+          filter: /"auditID":"/.test(_raw)
+          to: Cribl Lake raw, replay on demand
+          final: true
+      note: Routes see the raw JSON, so they match verb, response code and resource in _raw. Put the SIEM route first.
 references:
   - title: Amazon EKS — Send control plane logs to CloudWatch Logs
     url: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html

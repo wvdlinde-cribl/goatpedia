@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Suppress repeated identical alerts",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "289c45f284b55813",
+    "in": {
+      "events": 3,
+      "bytes": 3396
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1132
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop the rendered output string",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "37fcc686b64cb658",
+    "in": {
+      "events": 1,
+      "bytes": 1132
+    },
+    "out": {
+      "events": 1,
+      "bytes": 687
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop low-priority rules at the pipeline",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b99f81fa32c619c7",
+    "in": {
+      "events": 2,
+      "bytes": 1636
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1132
+    },
+    "ok": true
+  }
+}

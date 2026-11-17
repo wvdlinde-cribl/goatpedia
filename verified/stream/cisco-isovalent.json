@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop health-probe execs at the source or in Stream",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a6d5dc6c2c4e7897",
+    "in": {
+      "events": 2,
+      "bytes": 3293
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2151
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Remove duplicated parent pod block and image digests",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1783f11f12f81022",
+    "in": {
+      "events": 1,
+      "bytes": 2151
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1356
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop process_exit, keep exec",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ba4129dde65f600b",
+    "in": {
+      "events": 2,
+      "bytes": 2579
+    },
+    "out": {
+      "events": 1,
+      "bytes": 2151
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate kube-system and node-agent connects",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1a144b1ae7955c7f",
+    "in": {
+      "events": 3,
+      "bytes": 3880
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1616
+    },
+    "ok": true
+  }
+}
