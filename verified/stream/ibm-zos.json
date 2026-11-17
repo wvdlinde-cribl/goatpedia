@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Keep only security-relevant SMF types",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d7ef9601650cf5e3",
+    "in": {
+      "events": 2,
+      "bytes": 918
+    },
+    "out": {
+      "events": 1,
+      "bytes": 459
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop successful job-step housekeeping",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e7427abedc9d9a02",
+    "in": {
+      "events": 2,
+      "bytes": 929
+    },
+    "out": {
+      "events": 1,
+      "bytes": 459
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Strip empty and decoded-duplicate fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "155cf58b588cc1ca",
+    "in": {
+      "events": 1,
+      "bytes": 459
+    },
+    "out": {
+      "events": 1,
+      "bytes": 395
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Aggregate SMF 119 sessions",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "88927057ba7db0b0",
+    "in": {
+      "events": 3,
+      "bytes": 983
+    },
+    "out": {
+      "events": 2,
+      "bytes": 546
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop read-only object access by batch profiles",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "edd1403448f4b0ca",
+    "in": {
+      "events": 3,
+      "bytes": 597
+    },
+    "out": {
+      "events": 2,
+      "bytes": 413
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Suppress repeated authority failures",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "60fe3464883be34f",
+    "in": {
+      "events": 3,
+      "bytes": 663
+    },
+    "out": {
+      "events": 1,
+      "bytes": 221
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Parse key:value payload and drop header noise",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4cba1079251a2f7b",
+    "in": {
+      "events": 1,
+      "bytes": 244
+    },
+    "out": {
+      "events": 1,
+      "bytes": 581
+    },
+    "ok": true
+  }
+}
