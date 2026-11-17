@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Turn off unused fields at the sensor, then trim in Stream",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "a39bf2a7e10e7c4e",
+    "in": {
+      "events": 1,
+      "bytes": 726
+    },
+    "out": {
+      "events": 1,
+      "bytes": 459
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Truncate raw HTTP headers",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c6d0f0ad9b5bcd34",
+    "in": {
+      "events": 2,
+      "bytes": 1682
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1600
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate internal TCP/UDP flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "c8b12f0e949a102f",
+    "in": {
+      "events": 4,
+      "bytes": 2637
+    },
+    "out": {
+      "events": 2,
+      "bytes": 997
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop stream:ip duplicates of TCP/UDP flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0f8efe16b5dde98a",
+    "in": {
+      "events": 2,
+      "bytes": 786
+    },
+    "out": {
+      "events": 1,
+      "bytes": 394
+    },
+    "ok": true
+  }
+}

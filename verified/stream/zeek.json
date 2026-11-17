@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Filter low-value logs at the source",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d4806001431031d8",
+    "in": {
+      "events": 2,
+      "bytes": 420
+    },
+    "out": {
+      "events": 1,
+      "bytes": 187
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop unanswered / scan noise from conn.log",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4c6864a3a6ff9e7f",
+    "in": {
+      "events": 2,
+      "bytes": 871
+    },
+    "out": {
+      "events": 1,
+      "bytes": 459
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate internal chatter to metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1d1fcfc1d0ac7dad",
+    "in": {
+      "events": 3,
+      "bytes": 1323
+    },
+    "out": {
+      "events": 2,
+      "bytes": 687
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Trim fields and convert TSV to JSON",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0e27196ce3d49e7f",
+    "in": {
+      "events": 1,
+      "bytes": 147
+    },
+    "out": {
+      "events": 1,
+      "bytes": 348
+    },
+    "ok": true
+  }
+}

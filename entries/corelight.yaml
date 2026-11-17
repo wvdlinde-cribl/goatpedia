@@ -309,26 +309,120 @@ optimizations:
     fn: Routes
     how: stats, capture_loss, reporter, loaded_scripts and corelight metrics logs belong in a metrics store or Lake. Route on _path.
     expr: "['stats','capture_loss','reporter','loaded_scripts','corelight_metrics_zeek_doctor'].includes(_path) → Lake"
+    stream:
+      routes:
+        - name: Corelight operational logs → Lake
+          filter: /"_path":"(stats|capture_loss|reporter|loaded_scripts|corelight_metrics_zeek_doctor)"/.test(_raw)
+          to: Cribl Lake or a metrics store, not the SIEM
+          final: true
+      note: Routes see the raw event, so they match the _path key in the JSON text. Put this route before the general Corelight routes.
   - title: Drop scan noise and zero-byte connections
     saving: 15–35 % of conn
     fn: Drop
     how: Unanswered inbound internet scans (S0/REJ/OTH with zero bytes) are the largest share of conn.log at the edge and almost never investigated individually.
     expr: _path=='conn' && !local_orig && ['S0','REJ','OTH'].includes(conn_state) && !orig_bytes && !resp_bytes
+    stream:
+      log: Connection (conn.log)
+      functions:
+        - id: drop
+          filter: _path == 'conn' && !local_orig && ['S0','REJ','OTH'].indexOf(conn_state) > -1 && !orig_bytes && !resp_bytes
+          description: Drop unanswered inbound scans with zero bytes
+          conf: {}
+      test:
+        - '{"_path":"conn","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:15:24.512031Z","ts":"2026-11-12T09:14:22.401201Z","uid":"CHhAvVGS1DHFjwGM8","id.orig_h":"198.51.100.99","id.orig_p":51544,"id.resp_h":"203.0.113.50","id.resp_p":23,"proto":"tcp","duration":0,"orig_bytes":0,"resp_bytes":0,"conn_state":"S0","local_orig":false,"local_resp":true,"missed_bytes":0,"history":"S","orig_pkts":1,"orig_ip_bytes":44,"resp_pkts":0,"resp_ip_bytes":0,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","corelight_shunted":false}'
+      expect:
+        out: 1
   - title: Strip metadata and placeholder fields
     saving: 8–15 %
     fn: Eval
     how: Remove _write_ts (≈ ts), missed_bytes, *_ip_bytes, empty tunnel_parents and corelight_shunted=false before the SIEM. Keep _system_name for sensor attribution.
     expr: "remove: _write_ts, missed_bytes, orig_ip_bytes, resp_ip_bytes, tunnel_parents, corelight_shunted"
+    stream:
+      log: Connection (conn.log)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove write timestamp, placeholder and redundant byte fields; keep _system_name
+          conf:
+            remove:
+              - _write_ts
+              - missed_bytes
+              - orig_ip_bytes
+              - resp_ip_bytes
+              - tunnel_parents
+              - corelight_shunted
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - _write_ts
+          - missed_bytes
+          - orig_ip_bytes
+          - resp_ip_bytes
+          - tunnel_parents
+          - corelight_shunted
+        present:
+          - _system_name
+        smaller: true
   - title: Aggregate internal DNS/NTP/Kerberos chatter
     saving: 30–50 % of conn
     fn: Aggregations
     how: Roll internal service flows up to per-minute counts and bytes per src/dst/service. Raw records go to Lake for uid pivots during investigations.
     expr: _path=='conn' && local_orig && local_resp && ['dns','ntp','krb','ldap'].includes(service)
+    stream:
+      log: Connection (conn.log)
+      functions:
+        - id: eval
+          filter: _path == 'conn' && local_orig && local_resp && ['dns','ntp','krb','ldap'].indexOf(service) > -1
+          description: Copy source and destination into plain group-by fields
+          conf:
+            add:
+              - name: src
+                value: __e['id.orig_h']
+              - name: dst
+                value: __e['id.resp_h']
+        - id: aggregation
+          filter: _path == 'conn' && local_orig && local_resp && ['dns','ntp','krb','ldap'].indexOf(service) > -1
+          description: Roll internal DNS/NTP/Kerberos/LDAP flows up per source, destination and service per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(connections)
+              - sum(orig_bytes).as(orig_bytes)
+              - sum(resp_bytes).as(resp_bytes)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src
+              - dst
+              - service
+      test:
+        - '{"_path":"conn","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:15:24.512031Z","ts":"2026-11-12T09:14:22.401201Z","uid":"CHhAvVGS1DHFjwGM1","id.orig_h":"10.20.30.44","id.orig_p":51544,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","service":"dns","duration":0.01,"orig_bytes":40,"resp_bytes":80,"conn_state":"SF","local_orig":true,"local_resp":true,"missed_bytes":0,"history":"Dd","orig_pkts":1,"orig_ip_bytes":68,"resp_pkts":1,"resp_ip_bytes":108,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","corelight_shunted":false}'
+        - '{"_path":"conn","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:15:24.512031Z","ts":"2026-11-12T09:14:22.401201Z","uid":"CHhAvVGS1DHFjwGM2","id.orig_h":"10.20.30.44","id.orig_p":51545,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","service":"dns","duration":0.01,"orig_bytes":42,"resp_bytes":90,"conn_state":"SF","local_orig":true,"local_resp":true,"missed_bytes":0,"history":"Dd","orig_pkts":1,"orig_ip_bytes":70,"resp_pkts":1,"resp_ip_bytes":118,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","corelight_shunted":false}'
+        - '{"_path":"conn","_system_name":"cl-sensor-dc1","_write_ts":"2026-11-12T09:15:24.512031Z","ts":"2026-11-12T09:14:22.401201Z","uid":"CHhAvVGS1DHFjwGM3","id.orig_h":"10.20.30.44","id.orig_p":51546,"id.resp_h":"10.0.0.53","id.resp_p":53,"proto":"udp","service":"dns","duration":0.01,"orig_bytes":38,"resp_bytes":70,"conn_state":"SF","local_orig":true,"local_resp":true,"missed_bytes":0,"history":"Dd","orig_pkts":1,"orig_ip_bytes":66,"resp_pkts":1,"resp_ip_bytes":98,"tunnel_parents":[],"community_id":"1:ZhG7M2Lw0q3y8Xb3f9Vb2lFQ6aE=","corelight_shunted":false}'
+      expect:
+        out: 2
+        smaller: true
   - title: Route by _path
     saving: SIEM licence
     fn: Routes
     how: notice, suricata_corelight, ldap_search, smtp_links, ssl, http, dns and files go to the SIEM. conn and conn_long go to Lake in full, with an aggregated copy in the SIEM.
     expr: _path in ('conn','conn_long') → Lake + SIEM(aggregated)  |  else → SIEM
+    stream:
+      routes:
+        - name: Corelight conn and conn_long → Lake raw, SIEM aggregated
+          filter: /"_path":"(conn|conn_long)"/.test(_raw)
+          to: Cribl Lake (raw), and the SIEM through the aggregation pipeline
+          final: true
+        - name: Corelight other logs → SIEM
+          filter: /"_path":"(notice|suricata_corelight|ldap_search|smtp_links|ssl|http|dns|files)"/.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+      note: Routes see the raw event, so they match the _path key in the JSON text. Put the conn route first.
 references:
   - title: Corelight security bulletins (sensor CVEs, EtherCAT plugin, OpenSSL, Log4j)
     url: https://corelight.com/blog/bulletins

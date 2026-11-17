@@ -321,21 +321,128 @@ optimizations:
     fn: Unroll
     how: Unroll records → flows → flowGroups/flows → flowTuples, parse each tuple with the CSV parser, keep only resourceId/targetResourceID, rule and mac from the envelope, and drop the rest. Without this each event repeats long resource IDs.
     expr: "unroll: flowRecords.flows → flowGroups → flowTuples; parser: csv on flowTuple"
+    stream:
+      log: VNet flow log record (raw)
+      functions:
+        - id: unroll
+          filter: flowRecords
+          description: One event per flow (ACL)
+          conf:
+            srcExpr: (flowRecords || {}).flows
+            dstField: _f
+        - id: unroll
+          filter: _f
+          description: One event per flow group (rule)
+          conf:
+            srcExpr: (_f || {}).flowGroups
+            dstField: _g
+        - id: unroll
+          filter: _g
+          description: One event per flow tuple
+          conf:
+            srcExpr: (_g || {}).flowTuples
+            dstField: flowTuple
+        - id: eval
+          filter: flowTuple
+          description: Keep targetResourceID, rule, mac and the tuple; drop the rest of the envelope
+          conf:
+            add:
+              - name: rule
+                value: (_g || {}).rule
+            remove:
+              - _f
+              - _g
+              - flowRecords
+              - flowLogVersion
+              - flowLogGUID
+              - category
+              - flowLogResourceID
+              - operationName
+      expect:
+        out: 3
+        absent:
+          - flowRecords
+          - flowLogResourceID
+        present:
+          - flowTuple
+          - rule
+          - targetResourceID
   - title: Aggregate denied inbound noise
     saving: 30–60 %
     fn: Aggregations
     how: Denied inbound flows from the internet are the largest and least useful records. Count them per source, destination and port per 5 minutes for the SIEM and keep raw in Lake.
     expr: (flow_state == 'D' || decision == 'D') && direction == 'I'
+    stream:
+      log: VNet flow tuple (after unroll)
+      functions:
+        - id: aggregation
+          filter: flow_state == 'D' && direction == 'I'
+          description: Count denied inbound flows per source, destination and port per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(flows)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dest_ip
+              - dest_port
+      test:
+        - 1762941602205,203.0.113.77,10.1.0.4,51545,22,6,I,D,NX,0,0,0,0
+        - 1762941603205,203.0.113.77,10.1.0.4,51546,22,6,I,D,NX,0,0,0,0
+        - 1762941604205,203.0.113.77,10.1.0.4,51547,22,6,I,D,NX,0,0,0,0
+        - 1762941605205,203.0.113.77,10.1.0.4,51548,22,6,I,D,NX,0,0,0,0
+        - 1762941606205,203.0.113.77,10.1.0.4,51549,22,6,I,D,NX,0,0,0,0
+        - 1762941607205,203.0.113.77,10.1.0.4,51550,22,6,I,D,NX,0,0,0,0
+        - 1762941608205,203.0.113.77,10.1.0.4,51551,22,6,I,D,NX,0,0,0,0
+        - 1762941609205,203.0.113.77,10.1.0.4,51552,22,6,I,D,NX,0,0,0,0
+        - 1762941610205,203.0.113.77,10.1.0.4,51553,22,6,I,D,NX,0,0,0,0
+      expect:
+        out: 1
+        smaller: true
   - title: Drop empty Begin records
     saving: 15–30 %
     fn: Drop
     how: B records with empty or zero counters are followed by C/E records for the same flow. Keep B only for denied or inbound-from-internet flows where the start matters.
     expr: flow_state == 'B' && direction == 'O' && !bytes_src_to_dest
+    stream:
+      log: NSG flow tuple v2 (after unroll)
+      functions:
+        - id: drop
+          filter: flow_state == 'B' && direction == 'O' && !bytes_src_to_dest
+          description: Drop outbound Begin records with empty counters
+          conf: {}
+      test:
+        - 1762941659,10.1.0.4,198.51.100.25,49812,443,T,O,A,B,,,,
+      expect:
+        out: 1
   - title: Normalise NSG v2 and VNet tuples
     saving: n/a (one schema)
     fn: Eval
     how: Map T/U to 6/17 and A/D to allowed/blocked so both formats share one model (CIM Network_Traffic, Sentinel ASim NetworkSession).
     expr: "protocol = protocol == 'T' ? 6 : protocol == 'U' ? 17 : Number(protocol); action = (flow_state == 'D' || decision == 'D') ? 'blocked' : 'allowed'"
+    stream:
+      log: NSG flow tuple v2 (after unroll)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Map protocol letters to numbers and decision to allowed/blocked
+          conf:
+            add:
+              - name: protocol
+                value: 'protocol == ''T'' ? 6 : protocol == ''U'' ? 17 : Number(protocol)'
+              - name: action
+                value: '(flow_state == ''D'' || decision == ''D'') ? ''blocked'' : ''allowed'''
+      expect:
+        out: 1
+        present:
+          - action
+          - protocol
 references:
   - title: Microsoft Learn — Virtual network flow logs overview
     url: https://learn.microsoft.com/en-us/azure/network-watcher/vnet-flow-logs-overview

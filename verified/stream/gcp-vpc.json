@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Trim metadata at the source, then in Cribl",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b53227dfb4309cbb",
+    "in": {
+      "events": 1,
+      "bytes": 950
+    },
+    "out": {
+      "events": 1,
+      "bytes": 810
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Keep one side of internal flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ca159b593907583f",
+    "in": {
+      "events": 2,
+      "bytes": 1935
+    },
+    "out": {
+      "events": 1,
+      "bytes": 950
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate flows for the SIEM",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "29b6a4607cbb5d98",
+    "in": {
+      "events": 3,
+      "bytes": 2846
+    },
+    "out": {
+      "events": 1,
+      "bytes": 249
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Lift jsonPayload and cast counters",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "07d41531b3c0bb82",
+    "in": {
+      "events": 1,
+      "bytes": 950
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1081
+    },
+    "ok": true
+  }
+}

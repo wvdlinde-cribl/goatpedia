@@ -289,26 +289,140 @@ optimizations:
     fn: Eval
     how: Disable src_content/dest_content and header capture in the Stream app where not needed. In Cribl, remove MAC addresses, ack/duplicate/missing packet counters, capture_hostname and network_interface — they are useful for sensor health, not detection.
     expr: "remove: src_mac, dest_mac, ack_packets_*, duplicate_packets_*, missing_packets_*, capture_hostname, network_interface"
+    stream:
+      log: TCP flow
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove MAC addresses, sensor-health packet counters, capture host and interface
+          conf:
+            remove:
+              - src_mac
+              - dest_mac
+              - ack_packets_in
+              - ack_packets_out
+              - duplicate_packets_in
+              - duplicate_packets_out
+              - missing_packets_in
+              - missing_packets_out
+              - capture_hostname
+              - network_interface
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - src_mac
+          - dest_mac
+          - ack_packets_in
+          - ack_packets_out
+          - duplicate_packets_in
+          - duplicate_packets_out
+          - missing_packets_in
+          - missing_packets_out
+          - capture_hostname
+          - network_interface
+        present:
+          - src_ip
+          - dest_ip
+          - bytes
+        smaller: true
   - title: Truncate raw HTTP headers
     saving: 15–35 % of stream:http
     fn: Eval
     how: Keep src_headers (attack strings live there) but cap it at 1–2 KB; drop dest_headers except for error status codes.
     expr: "src_headers = src_headers && src_headers.substring(0, 2048); dest_headers = status >= 400 ? dest_headers : undefined"
+    stream:
+      log: HTTP transaction
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Cap src_headers at 2 KB; keep dest_headers only for error status codes
+          conf:
+            add:
+              - name: src_headers
+                value: 'src_headers ? String(src_headers).substring(0, 2048) : src_headers'
+              - name: dest_headers
+                value: 'Number(status) >= 400 ? dest_headers : undefined'
+      serialize: true
+      test:
+        - '{"endtime":"2026-11-12T09:16:40.553018Z","timestamp":"2026-11-12T09:16:40.507391Z","bytes":2000,"bytes_in":291,"bytes_out":1709,"dest_headers":"HTTP/1.1 200 OK\r\nServer: nginx\r\nContent-Length: 1545\r\n\r\n","dest_ip":"10.0.1.16","dest_mac":"02:3C:5A:F1:02:C5","dest_port":8080,"flow_id":"db81d2cb-b684-4fac-bb2e-82f355e6de6f","http_comment":"HTTP/1.1 200 OK","http_content_length":1545,"http_method":"GET","http_user_agent":"Mozilla/5.0","packets_in":5,"packets_out":4,"protocol_stack":"ip:tcp:http","site":"app.example.com","src_headers":"GET / HTTP/1.1\r\nHost: app.example.com\r\nUser-Agent: Mozilla/5.0\r\nAccept: */*\r\n\r\n","src_ip":"198.51.100.24","src_mac":"02:95:98:C5:52:71","src_port":41133,"status":200,"time_taken":45627,"transport":"tcp","uri":"/","uri_path":"/"}'
+      expect:
+        out: 2
+        present:
+          - src_headers
+        smaller: true
   - title: Aggregate internal TCP/UDP flows
     saving: 30–60 % of stream:tcp
     fn: Aggregations
     how: East-west flows between known servers (backups, DB replication, monitoring) are repetitive. Roll up to bytes/sessions per src/dest/port/app per minute and send the raw records to Cribl Lake.
     expr: ipv4_is_private(src_ip) && ipv4_is_private(dest_ip) && sourcetype=='stream:tcp'
+    stream:
+      log: TCP flow
+      functions:
+        - id: aggregation
+          filter: transport == 'tcp' && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(src_ip) && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(dest_ip)
+          description: Roll internal east-west TCP flows up to bytes and sessions per src/dest/port/app per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(sessions)
+              - sum(bytes).as(bytes)
+              - sum(bytes_in).as(bytes_in)
+              - sum(bytes_out).as(bytes_out)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - src_ip
+              - dest_ip
+              - dest_port
+              - app
+      test:
+        - '{"endtime":"2026-11-12T09:14:52.118337Z","timestamp":"2026-11-12T09:14:22.418203Z","app":"postgresql","bytes":48213,"bytes_in":3120,"bytes_out":45093,"capture_hostname":"stream-sensor-01","dest_ip":"10.20.30.50","dest_mac":"00:1A:2B:3C:4D:5E","dest_port":5432,"duplicate_packets_in":0,"duplicate_packets_out":0,"missing_packets_in":0,"missing_packets_out":0,"ack_packets_in":31,"ack_packets_out":12,"data_packets_in":9,"data_packets_out":34,"packets_in":40,"packets_out":46,"protocol_stack":"ip:tcp","src_ip":"10.20.30.44","src_mac":"00:50:56:AA:BB:CC","src_port":51544,"time_taken":29700134,"transport":"tcp","network_interface":"ens224"}'
+        - '{"endtime":"2026-11-12T09:14:52.118337Z","timestamp":"2026-11-12T09:14:22.418203Z","app":"postgresql","bytes":1200,"bytes_in":600,"bytes_out":600,"capture_hostname":"stream-sensor-01","dest_ip":"10.20.30.50","dest_mac":"00:1A:2B:3C:4D:5E","dest_port":5432,"duplicate_packets_in":0,"duplicate_packets_out":0,"missing_packets_in":0,"missing_packets_out":0,"ack_packets_in":31,"ack_packets_out":12,"data_packets_in":9,"data_packets_out":34,"packets_in":40,"packets_out":46,"protocol_stack":"ip:tcp","src_ip":"10.20.30.44","src_mac":"00:50:56:AA:BB:CC","src_port":51545,"time_taken":29700134,"transport":"tcp","network_interface":"ens224"}'
+        - '{"endtime":"2026-11-12T09:14:52.118337Z","timestamp":"2026-11-12T09:14:22.418203Z","app":"postgresql","bytes":3400,"bytes_in":1700,"bytes_out":1700,"capture_hostname":"stream-sensor-01","dest_ip":"10.20.30.50","dest_mac":"00:1A:2B:3C:4D:5E","dest_port":5432,"duplicate_packets_in":0,"duplicate_packets_out":0,"missing_packets_in":0,"missing_packets_out":0,"ack_packets_in":31,"ack_packets_out":12,"data_packets_in":9,"data_packets_out":34,"packets_in":40,"packets_out":46,"protocol_stack":"ip:tcp","src_ip":"10.20.30.44","src_mac":"00:50:56:AA:BB:CC","src_port":51546,"time_taken":29700134,"transport":"tcp","network_interface":"ens224"}'
+      expect:
+        out: 2
+        smaller: true
   - title: Drop stream:ip duplicates of TCP/UDP flows
     saving: 5–20 %
     fn: Drop
     how: When both ip and tcp/udp streams are on, every TCP/UDP session is counted twice. Keep stream:ip only for non-TCP/UDP protocols.
     expr: sourcetype=='stream:ip' && (protoid==6 || protoid==17)
+    stream:
+      log: IP flow
+      functions:
+        - id: drop
+          filter: protoid == 6 || protoid == 17
+          description: Drop stream:ip records for TCP and UDP; the tcp/udp streams already cover them
+          conf: {}
+      test:
+        - '{"endtime":"2026-11-12T09:18:05.004211Z","timestamp":"2026-11-12T09:17:05.002118Z","app":"tcp","bytes":98304,"bytes_in":49152,"bytes_out":49152,"capture_hostname":"stream-sensor-01","dest_ip":"203.0.113.200","dest_mac":"00:1A:2B:3C:4D:5E","network_interface":"ens224","packets_in":96,"packets_out":96,"protoid":6,"protocol_stack":"ip:tcp","src_ip":"10.20.30.61","src_mac":"00:50:56:AA:BB:DD"}'
+      expect:
+        out: 1
   - title: Route by protocol
     saving: SIEM licence
     fn: Routes
     how: stream:http, stream:dns and external stream:tcp go to the SIEM. Internal flows and aggregates go to Lake for replay and hunting.
     expr: sourcetype in ('stream:http','stream:dns') || !ipv4_is_private(dest_ip) → SIEM  |  else → Lake
+    stream:
+      routes:
+        - name: Stream HTTP and DNS → SIEM
+          filter: /"protocol_stack":"[^"]*:(http|dns)"/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: Stream external flows → SIEM
+          filter: /"dest_ip":"(?!10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(_raw)
+          to: The SIEM
+          final: true
+        - name: Stream internal flows and aggregates → Lake
+          filter: /"protocol_stack":"/.test(_raw)
+          to: Cribl Lake for replay and hunting
+          final: true
+      note: Routes see the raw JSON, so they match protocol_stack and dest_ip in _raw. Keep this order.
 references:
   - title: Splunk Stream — Supported protocols
     url: https://help.splunk.com/splunk-cloud-platform/collect-stream-data/install-and-configure-splunk-stream/8.0/protocols/supported-protocols

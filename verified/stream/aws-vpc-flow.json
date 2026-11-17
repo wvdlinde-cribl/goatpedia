@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Drop NODATA / SKIPDATA and header lines",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "e169dd6eecc68b3a",
+    "in": {
+      "events": 3,
+      "bytes": 305
+    },
+    "out": {
+      "events": 1,
+      "bytes": 110
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate accepted internal flows",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4c20aa52185657c0",
+    "in": {
+      "events": 4,
+      "bytes": 434
+    },
+    "out": {
+      "events": 2,
+      "bytes": 347
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress repetitive internet-scanner rejects",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "0e9bf8b6f6a6247c",
+    "in": {
+      "events": 3,
+      "bytes": 330
+    },
+    "out": {
+      "events": 1,
+      "bytes": 110
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Trim fields and use Parquet",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "54f6951783e9be84",
+    "in": {
+      "events": 1,
+      "bytes": 252
+    },
+    "out": {
+      "events": 1,
+      "bytes": 505
+    },
+    "ok": true
+  }
+}

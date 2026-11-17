@@ -286,21 +286,130 @@ optimizations:
     fn: Eval
     how: Configure flow logs with custom metadata (keep src/dest instance and location, drop GKE/PSC/LB if unused). In Cribl, remove insertId, receiveTimestamp, resource.labels.subnetwork_id and repeated project_id fields.
     expr: "remove: insertId, receiveTimestamp, resource.labels.subnetwork_id, jsonPayload.src_vpc.project_id, jsonPayload.dest_vpc.project_id"
+    stream:
+      log: VPC flow record
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove insertId, receiveTimestamp, subnetwork_id and repeated project_id fields
+          conf:
+            remove:
+              - insertId
+              - receiveTimestamp
+              - resource.labels.subnetwork_id
+              - jsonPayload.src_vpc.project_id
+              - jsonPayload.dest_vpc.project_id
+      serialize: true
+      expect:
+        out: 1
+        absent:
+          - insertId
+          - receiveTimestamp
+        present:
+          - jsonPayload
+        smaller: true
   - title: Keep one side of internal flows
     saving: 20–45 %
     fn: Drop
     how: A flow between two logged VMs is reported by both. Keep only reporter SRC for internal-to-internal traffic.
     expr: jsonPayload.reporter == 'DEST' && jsonPayload.src_instance && jsonPayload.dest_instance
+    stream:
+      log: VPC flow record
+      functions:
+        - id: drop
+          filter: (jsonPayload || {}).reporter == 'DEST' && !!(jsonPayload || {}).src_instance && !!(jsonPayload || {}).dest_instance
+          description: Drop the DEST-side copy of internal VM-to-VM flows; keep the SRC report
+          conf: {}
+      test:
+        - '{"insertId":"1x2y3z4a5b6c7e","jsonPayload":{"connection":{"src_ip":"10.128.0.12","src_port":40512,"dest_ip":"10.128.0.21","dest_port":443,"protocol":6},"reporter":"DEST","bytes_sent":"48213","packets_sent":"62","rtt_msec":"18","start_time":"2026-11-12T10:15:02.118Z","end_time":"2026-11-12T10:15:06.904Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-a","vm_name":"web-01"},"dest_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-b","vm_name":"app-01"},"src_vpc":{"project_id":"example-prod","vpc_name":"prod-vpc","subnetwork_name":"web-subnet","subnetwork_region":"us-central1"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-b","subnetwork_name":"app-subnet","subnetwork_id":"1234567890123456789"}},"timestamp":"2026-11-12T10:15:08.512Z","receiveTimestamp":"2026-11-12T10:15:21.077Z"}'
+      expect:
+        out: 1
   - title: Aggregate flows for the SIEM
     saving: 50–80 %
     fn: Aggregations
     how: Roll records up per VM, destination, port and protocol per 5 minutes, summing bytes_sent and packets_sent. Send full records to Cribl Lake or GCS for investigations.
     expr: "group by: jsonPayload.src_instance.vm_name, jsonPayload.connection.dest_ip, jsonPayload.connection.dest_port; sum(bytes_sent)"
+    stream:
+      log: VPC flow record
+      functions:
+        - id: eval
+          filter: /vpc_flows/.test(logName) && (jsonPayload || {}).bytes_sent !== undefined
+          description: Lift group-by keys and cast counters for aggregation
+          conf:
+            add:
+              - name: vm_name
+                value: ((jsonPayload || {}).src_instance || {}).vm_name
+              - name: dest_ip
+                value: ((jsonPayload || {}).connection || {}).dest_ip
+              - name: dest_port
+                value: ((jsonPayload || {}).connection || {}).dest_port
+              - name: protocol
+                value: ((jsonPayload || {}).connection || {}).protocol
+              - name: bytes_sent
+                value: Number((jsonPayload || {}).bytes_sent)
+              - name: packets_sent
+                value: Number((jsonPayload || {}).packets_sent)
+        - id: aggregation
+          filter: /vpc_flows/.test(logName) && bytes_sent !== undefined
+          description: Roll flows up per VM, destination, port and protocol per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(flows)
+              - sum(bytes_sent).as(bytes_sent)
+              - sum(packets_sent).as(packets_sent)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - vm_name
+              - dest_ip
+              - dest_port
+              - protocol
+      test:
+        - '{"insertId":"1x2y3z4a5b6c7f","jsonPayload":{"connection":{"src_ip":"10.128.0.12","src_port":40513,"dest_ip":"203.0.113.50","dest_port":443,"protocol":6},"reporter":"SRC","bytes_sent":"1200","packets_sent":"10","rtt_msec":"18","start_time":"2026-11-12T10:15:02.118Z","end_time":"2026-11-12T10:15:06.904Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-a","vm_name":"web-01"},"src_vpc":{"project_id":"example-prod","vpc_name":"prod-vpc","subnetwork_name":"web-subnet","subnetwork_region":"us-central1"},"dest_location":{"continent":"America","country":"usa","region":"Virginia"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-a","subnetwork_name":"web-subnet","subnetwork_id":"1234567890123456789"}},"timestamp":"2026-11-12T10:15:08.512Z","receiveTimestamp":"2026-11-12T10:15:21.077Z"}'
+        - '{"insertId":"1x2y3z4a5b6c7g","jsonPayload":{"connection":{"src_ip":"10.128.0.12","src_port":40514,"dest_ip":"203.0.113.50","dest_port":443,"protocol":6},"reporter":"SRC","bytes_sent":"900","packets_sent":"8","rtt_msec":"18","start_time":"2026-11-12T10:15:02.118Z","end_time":"2026-11-12T10:15:06.904Z","src_instance":{"project_id":"example-prod","region":"us-central1","zone":"us-central1-a","vm_name":"web-01"},"src_vpc":{"project_id":"example-prod","vpc_name":"prod-vpc","subnetwork_name":"web-subnet","subnetwork_region":"us-central1"},"dest_location":{"continent":"America","country":"usa","region":"Virginia"}},"logName":"projects/example-prod/logs/compute.googleapis.com%2Fvpc_flows","resource":{"type":"gce_subnetwork","labels":{"project_id":"example-prod","location":"us-central1-a","subnetwork_name":"web-subnet","subnetwork_id":"1234567890123456789"}},"timestamp":"2026-11-12T10:15:08.512Z","receiveTimestamp":"2026-11-12T10:15:21.077Z"}'
+      expect:
+        out: 1
+        smaller: true
   - title: Lift jsonPayload and cast counters
     saving: n/a (usability)
     fn: Eval
     how: Flatten jsonPayload.connection to src_ip/dest_ip/dest_port and cast the string int64 counters to numbers so dashboards and CIM/ASIM mappings work.
     expr: "bytes_sent = Number(jsonPayload.bytes_sent); src_ip = jsonPayload.connection.src_ip; dest_ip = jsonPayload.connection.dest_ip"
+    stream:
+      log: VPC flow record
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Lift connection fields to the top level and cast string counters to numbers
+          conf:
+            add:
+              - name: src_ip
+                value: ((jsonPayload || {}).connection || {}).src_ip
+              - name: src_port
+                value: ((jsonPayload || {}).connection || {}).src_port
+              - name: dest_ip
+                value: ((jsonPayload || {}).connection || {}).dest_ip
+              - name: dest_port
+                value: ((jsonPayload || {}).connection || {}).dest_port
+              - name: protocol
+                value: ((jsonPayload || {}).connection || {}).protocol
+              - name: bytes_sent
+                value: '(jsonPayload || {}).bytes_sent === undefined ? undefined : Number(jsonPayload.bytes_sent)'
+              - name: packets_sent
+                value: '(jsonPayload || {}).packets_sent === undefined ? undefined : Number(jsonPayload.packets_sent)'
+      serialize: true
+      expect:
+        out: 1
+        present:
+          - src_ip
+          - dest_ip
+          - dest_port
+          - bytes_sent
 references:
   - title: Google Cloud — VPC Flow Logs overview
     url: https://cloud.google.com/vpc/docs/flow-logs

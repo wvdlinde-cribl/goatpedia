@@ -273,26 +273,122 @@ optimizations:
     fn: Drop
     how: NODATA records carry no 5-tuple and the S3 header line is metadata; drop both after using the header to choose field order.
     expr: log_status=='NODATA' || log_status=='SKIPDATA' || version=='version'
+    stream:
+      log: Default flow record (v2)
+      functions:
+        - id: drop
+          filter: log_status == 'NODATA' || log_status == 'SKIPDATA' || version == 'version' || /^version /.test(_raw)
+          description: Drop NODATA/SKIPDATA records and the S3 file header line
+          conf: {}
+      test:
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 - - - - - - - 1794474862 1794474922 - NODATA
+        - version account-id interface-id srcaddr dstaddr srcport dstport protocol packets bytes start end action log-status
+      expect:
+        out: 1
   - title: Aggregate accepted internal flows
     saving: 50–80 %
     fn: Aggregations
     how: "East-west ACCEPT flows between private addresses are rarely searched individually. Roll them up per srcaddr/dstaddr/dstport/protocol per 5 minutes (sum bytes and packets) for the SIEM; send raw to Lake."
     expr: action=='ACCEPT' && C.Net.isPrivate(srcaddr) && C.Net.isPrivate(dstaddr)
+    stream:
+      log: Default flow record (v2)
+      functions:
+        - id: aggregation
+          filter: action == 'ACCEPT' && C.Net.isPrivate(srcaddr) && C.Net.isPrivate(dstaddr)
+          description: Roll up accepted east-west flows per src/dst/port/protocol per 5 minutes
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(flows)
+              - sum(bytes).as(bytes)
+              - sum(packets).as(packets)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - srcaddr
+              - dstaddr
+              - dstport
+              - protocol
+      test:
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 10.40.12.7 10.40.20.9 51544 443 6 3 180 1794474862 1794474922 ACCEPT OK
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 10.40.12.7 10.40.20.9 51545 443 6 5 300 1794474862 1794474922 ACCEPT OK
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 10.40.12.7 10.40.20.9 51546 443 6 4 240 1794474862 1794474922 ACCEPT OK
+      expect:
+        out: 2
+        smaller: true
   - title: Suppress repetitive internet-scanner rejects
     saving: 10–30 %
     fn: Suppress
     how: Internet background noise produces endless REJECTs per scanner. Keep one per srcaddr/dstport per hour with a count.
     expr: "key: `${srcaddr}:${dstport}`  allow 1 / 3600s  when action=='REJECT' && !C.Net.isPrivate(srcaddr)"
+    stream:
+      log: Default flow record (v2)
+      functions:
+        - id: suppress
+          filter: action == 'REJECT' && !C.Net.isPrivate(srcaddr)
+          description: Keep one internet reject per source and destination port per hour
+          conf:
+            keyExpr: srcaddr + ':' + dstport
+            allow: 1
+            suppressPeriodSec: 3600
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 198.51.100.23 10.40.12.7 51544 22 6 3 180 1794474862 1794474922 REJECT OK
+        - 2 111122223333 eni-0a1b2c3d4e5f60718 198.51.100.23 10.40.12.7 51544 22 6 3 180 1794474862 1794474922 REJECT OK
+      expect:
+        out: 1
   - title: Trim fields and use Parquet
     saving: 20–40 %
     fn: Parser → Serialize
     how: Drop version, account_id (constant per object), log_status, sublocation_*, az_id and type; write JSON or Parquet with only the fields detections use. Choose Parquet with hourly partitions for the S3 delivery itself.
     expr: "remove: version, log_status, sublocation_type, sublocation_id, az_id, type"
+    stream:
+      log: Extended flow record (v5 custom)
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove constant and low-value fields
+          conf:
+            remove:
+              - version
+              - log_status
+              - sublocation_type
+              - sublocation_id
+              - az_id
+              - type
+        - id: eval
+          filter: 'true'
+          description: Write the kept fields as JSON
+          conf:
+            add:
+              - name: _raw
+                value: JSON.stringify({account_id:account_id,interface_id:interface_id,srcaddr:srcaddr,dstaddr:dstaddr,srcport:srcport,dstport:dstport,protocol:protocol,packets:packets,bytes:bytes,start:start,end:end,action:action,vpc_id:vpc_id,subnet_id:subnet_id,instance_id:instance_id,tcp_flags:tcp_flags,pkt_srcaddr:pkt_srcaddr,pkt_dstaddr:pkt_dstaddr,region:region,flow_direction:flow_direction,traffic_path:traffic_path})
+      expect:
+        out: 1
+        absent:
+          - version
+          - log_status
+          - sublocation_type
+          - sublocation_id
+          - az_id
+          - type
+        present:
+          - srcaddr
+          - dstaddr
   - title: Enrich with ENI / instance and threat context
     saving: faster triage
     fn: Lookup
     how: Join interface_id/instance_id to an asset lookup (owner, app, environment) and pkt_dstaddr to a threat-intel IP list, so detections can filter by environment and flag known-bad destinations without a search-time join.
     expr: "lookup eni_inventory.csv on interface_id; lookup ti_ips.csv on pkt_dstaddr"
+    stream:
+      note: Upload your own eni_inventory.csv (interface_id, owner, app, environment) and ti_ips.csv (threat-intel IPs) to Cribl Knowledge > Lookups. Then add Lookup functions matching interface_id and pkt_dstaddr after the parser.
 references:
   - title: Logging IP traffic using VPC Flow Logs
     url: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
