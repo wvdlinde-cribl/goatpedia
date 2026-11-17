@@ -248,21 +248,62 @@ optimizations:
     fn: Routes
     how: The audit log is tiny and is the only record of admin actions — send every line to the SIEM unfiltered.
     expr: sourcetype=='ivanti_vtm_audit' → SIEM
+    stream:
+      routes:
+        - name: vTM audit log → SIEM (unfiltered)
+          filter: /^\[\d{2}\/\w{3}\/\d{4}:[^\]]*\]\tUSER=/.test(_raw)
+          to: The SIEM, full fidelity, no pipeline filtering
+          final: true
+      note: Routes see the raw event, so this matches the bracketed timestamp followed by a tab and USER= that every audit line starts with. Put this route before any vTM event-log route.
   - title: Suppress repeated health flaps
     saving: 20–50 % of event log
     fn: Suppress
     how: A flapping node logs nodefail / nodeworking every monitor interval. Keep one per node/state per 5 minutes with a count.
     expr: "key: `${object}:${subobject}:${event}`  allow 1 / 300s  when event in ('nodefail','nodeworking')"
+    stream:
+      log: Event log
+      parse: false
+      functions:
+        - id: suppress
+          filter: / zeus\.eventd \d+ - - [A-Z]+ \S+ \S+ (nodefail|nodeworking) /.test(_raw)
+          description: Keep one node health change per pool, node and state per 5 minutes
+          conf:
+            keyExpr: _raw.replace(/^.* - - [A-Z]+ (\S+) (\S+) (\w+) .*$/, '$1:$2:$3')
+            allow: 1
+            suppressPeriodSec: 300
+            dropEventsMode: true
+            maxCacheSize: 50000
+            cacheIdleTimeoutPeriods: 2
+            numEventsIdleTimeoutTrigger: 10000
+      test:
+        - <11>1 2026-11-12T08:42:01Z vtm01 zeus.eventd 14176 - - SERIOUS pools/web-pool nodes/10.20.5.11:443 nodefail Node 10.20.5.11:443 has failed - A monitor has detected a failure
+        - <11>1 2026-11-12T08:42:01Z vtm01 zeus.eventd 14176 - - SERIOUS pools/web-pool nodes/10.20.5.11:443 nodefail Node 10.20.5.11:443 has failed - A monitor has detected a failure
+      expect:
+        out: 1
   - title: Drop INFO housekeeping events
     saving: 10–30 % of event log
     fn: Drop
     how: INFO-level events such as license-in-use, statistics and routine cluster sync messages rarely matter; keep WARN/SERIOUS/FATAL and anything from rules.
     expr: level=='INFO' && !/^rules\//.test(object)
+    stream:
+      log: Event log
+      parse: false
+      functions:
+        - id: drop
+          filter: / zeus\.eventd \d+ - - INFO (?!rules\/)/.test(_raw)
+          description: Drop INFO housekeeping events except those from rules
+          conf: {}
+      test:
+        - <14>1 2026-11-12T08:42:01Z vtm01 zeus.eventd 14176 - - INFO globals/licensing globals/licensekey licenseinuse License key is in use
+      expect:
+        out: 1
   - title: Parse request logs and drop static assets
     saving: 30–60 % of request logs
     fn: Parser → Serialize
     how: If per-virtual-server request logging is on, parse it, drop 2xx/3xx requests for static assets, and keep errors, auth paths and API calls.
     expr: /\.(js|css|png|jpg|gif|svg|woff2?)(\?|$)/.test(uri) && status<400
+    stream:
+      note: Per-virtual-server request logs are not among this article's logs, so there is no parsed uri or status to filter on. If you enable request logging, parse its format in Stream and add a Drop with filter /\.(js|css|png|jpg|gif|svg|woff2?)(\?|$)/.test(uri) && Number(status) < 400, keeping errors, auth paths and API calls.
 references:
   - title: Ivanti vTM Control API — System.Log (audit log fields and operation types)
     url: https://help.ivanti.com/ps/help/en_US/VTM/22.x/controlapi/ps-vtm-controlapi/system_log.htm

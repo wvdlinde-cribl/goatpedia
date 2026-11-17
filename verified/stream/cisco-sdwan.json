@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop static asset requests from the access log",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "97b8d1002d157c80",
+    "in": {
+      "events": 2,
+      "bytes": 378
+    },
+    "out": {
+      "events": 1,
+      "bytes": 194
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Strip Envoy internals",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "b1984dfeea698533",
+    "in": {
+      "events": 1,
+      "bytes": 194
+    },
+    "out": {
+      "events": 1,
+      "bytes": 134
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Suppress flapping control connections",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "1733445467d6c546",
+    "in": {
+      "events": 4,
+      "bytes": 960
+    },
+    "out": {
+      "events": 2,
+      "bytes": 480
+    },
+    "ok": true
+  }
+}

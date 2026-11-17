@@ -299,21 +299,124 @@ optimizations:
     fn: Sampling
     how: 200/304 responses for static assets and load-balancer health probes make up most lines. Sample 10:1; keep every 4xx/5xx, WAF action, authenticate error and desync classification.
     expr: (elb_status_code=='200' || elb_status_code=='304') && /\.(css|js|png|jpg|svg|woff2?|ico)(\?|$)|\/health/.test(request_url) && classification=='-'
+    stream:
+      log: ALB request
+      functions:
+        - id: sampling
+          filter: 'true'
+          description: Keep 1 in 10 successful static-asset and health-check requests; 4xx/5xx, WAF and classified requests are never sampled
+          conf:
+            rules:
+              - filter: (elb_status_code == '200' || elb_status_code == '304') && /\.(css|js|png|jpg|svg|woff2?|ico)(\?|$)|\/health/.test(request_url) && classification == '-'
+                rate: 10
+      test:
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:22.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51544 10.20.30.44:8080 0.001 0.048 0.000 200 200 312 4511 "GET https://www.example.com:443/static/app.css HTTP/2.0" "Mozilla/5.0" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234567" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:22.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+      expect:
+        outMin: 1
+        outMax: 3
+        smaller: true
   - title: Aggregate allowed requests to metrics
     saving: 50–80 %
     fn: Aggregations
     how: Roll 2xx/3xx up to count, bytes and p95 target_processing_time per domain, path template, status and client /24 per minute; raw logs go to Lake for investigations.
     expr: /^[23]/.test(elb_status_code) && actions_executed=='forward'
+    stream:
+      log: ALB request
+      functions:
+        - id: aggregation
+          filter: /^[23]/.test(elb_status_code) && actions_executed == 'forward'
+          description: Roll forwarded 2xx/3xx requests up to count, bytes and p95 target time per domain and status per minute
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 60s
+            aggregations:
+              - count().as(requests)
+              - sum(sent_bytes).as(sent_bytes)
+              - sum(received_bytes).as(received_bytes)
+              - perc(95, target_processing_time).as(p95_target_processing_time)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - domain_name
+              - elb_status_code
+      test:
+        - h2 2026-11-12T09:14:23.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51545 10.20.30.44:8080 0.001 0.052 0.000 200 200 312 4100 "GET https://www.example.com:443/api/orders?id=43 HTTP/2.0" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234568" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:23.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+        - h2 2026-11-12T09:14:24.512345Z app/web-alb/50dc6c495c0c9188 203.0.113.45:51546 10.20.30.44:8080 0.001 0.040 0.000 200 200 312 3900 "GET https://www.example.com:443/api/orders?id=44 HTTP/2.0" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" TLS_AES_128_GCM_SHA256 TLSv1.3 arn:aws:elasticloadbalancing:eu-west-1:111122223333:targetgroup/web-tg/73e2d6bc24d8a067 "Root=1-6733a9be-0123456789abcdef01234569" "www.example.com" "arn:aws:acm:eu-west-1:111122223333:certificate/12345678-1234-1234-1234-123456789012" 1 2026-11-12T09:14:24.463000Z "forward" "-" "-" "10.20.30.44:8080" "200" "-" "-" TID_0123456789abcdef0123456789abcdef "-" "-" "-" 10.0.1.15 - -
+      expect:
+        out: 1
+        smaller: true
   - title: Drop ARNs, trace IDs and - placeholders
     saving: 30–45 %
     fn: Parser → Serialize
     how: target_group_arn, chosen_cert_arn, trace_id, conn_trace_id and repeated list fields are long and rarely searched. Parse with the regex, drop them and every field equal to -.
     expr: "remove: target_group_arn, chosen_cert_arn, trace_id, conn_trace_id, target_port_list, target_status_code_list, request_creation_time; drop value=='-'"
+    stream:
+      log: ALB request
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Remove ARNs, trace IDs, list fields and placeholder '-' values
+          conf:
+            remove:
+              - target_group_arn
+              - chosen_cert_arn
+              - trace_id
+              - conn_trace_id
+              - target_port_list
+              - target_status_code_list
+              - request_creation_time
+            add:
+              - name: redirect_url
+                value: 'redirect_url == ''-'' ? undefined : redirect_url'
+              - name: error_reason
+                value: 'error_reason == ''-'' ? undefined : error_reason'
+              - name: classification
+                value: 'classification == ''-'' ? undefined : classification'
+              - name: classification_reason
+                value: 'classification_reason == ''-'' ? undefined : classification_reason'
+      expect:
+        out: 1
+        absent:
+          - target_group_arn
+          - chosen_cert_arn
+          - trace_id
+          - conn_trace_id
+          - target_port_list
+          - target_status_code_list
+          - request_creation_time
+          - redirect_url
+          - error_reason
+        present:
+          - elb_status_code
+          - request_url
   - title: Route by outcome
     saving: SIEM licence
     fn: Routes
     how: WAF blocks, 4xx/5xx from the ELB, desync classifications and authentication errors to the SIEM; everything else to Lake.
     expr: actions_executed.includes('waf') || /^[45]/.test(elb_status_code) || classification!='-' || error_reason!='-' → SIEM | else → Lake
+    stream:
+      routes:
+        - name: ELB WAF, errors, desync and auth errors → SIEM
+          filter: /^\S+ \S+ \S+ \S+ \S+ \S+ \S+ \S+ [45]\d\d /.test(_raw) || /\d \S+Z "[^"]*waf[^"]*"/.test(_raw) || / "(Ambiguous|Severe)" /.test(_raw) || / "[^"]*" "(AuthInvalid|Auth)[^"]*" /.test(_raw)
+          to: The SIEM, full fidelity
+          final: true
+        - name: ELB everything else → Lake
+          filter: /elasticloadbalancing|app\/|net\/|^\S+Z \S+ \S+:\d+ /.test(_raw)
+          to: Cribl Lake
+          final: true
+      note: Routes see the raw line, so they match the ELB status column, the quoted actions_executed value and the classification. Put the SIEM route first.
 references:
   - title: Access logs for your Application Load Balancer
     url: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html

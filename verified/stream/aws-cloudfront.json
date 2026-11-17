@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Sample cache hits for static assets",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "362abdc772dbc3cd",
+    "in": {
+      "events": 6,
+      "bytes": 2286
+    },
+    "out": {
+      "events": 1,
+      "bytes": 376
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Aggregate to traffic metrics",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "15ac1c4c415abafb",
+    "in": {
+      "events": 3,
+      "bytes": 1125
+    },
+    "out": {
+      "events": 1,
+      "bytes": 291
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Drop header lines and unused fields",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "7fa198eb0a031c09",
+    "in": {
+      "events": 2,
+      "bytes": 395
+    },
+    "out": {
+      "events": 1,
+      "bytes": 303
+    },
+    "ok": true
+  }
+}
