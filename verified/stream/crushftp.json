@@ -1,0 +1,47 @@
+{
+  "0": {
+    "title": "Drop routine response headers",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "d20bd3a4f0d81595",
+    "in": {
+      "events": 3,
+      "bytes": 331
+    },
+    "out": {
+      "events": 2,
+      "bytes": 217
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Drop static WebInterface asset requests",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "24d8587da5f4560e",
+    "in": {
+      "events": 3,
+      "bytes": 388
+    },
+    "out": {
+      "events": 1,
+      "bytes": 122
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Collapse each session to one summary event",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ee06468c81114549",
+    "in": {
+      "events": 4,
+      "bytes": 457
+    },
+    "out": {
+      "events": 2,
+      "bytes": 402
+    },
+    "ok": true
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "0": {
+    "title": "Filter NAS audit to what you detect on",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "abcfb3dcff1c3b9e",
+    "in": {
+      "events": 2,
+      "bytes": 1951
+    },
+    "out": {
+      "events": 1,
+      "bytes": 1018
+    },
+    "ok": true
+  },
+  "1": {
+    "title": "Flatten the audit XML",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "5b21ecb1b1ace17f",
+    "in": {
+      "events": 1,
+      "bytes": 1018
+    },
+    "out": {
+      "events": 1,
+      "bytes": 853
+    },
+    "ok": true
+  },
+  "2": {
+    "title": "Aggregate read activity",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "4623e416358323ac",
+    "in": {
+      "events": 4,
+      "bytes": 3814
+    },
+    "out": {
+      "events": 2,
+      "bytes": 1239
+    },
+    "ok": true
+  },
+  "3": {
+    "title": "Drop low-severity EMS chatter",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "cc0cec9f2d8ab346",
+    "in": {
+      "events": 2,
+      "bytes": 372
+    },
+    "out": {
+      "events": 1,
+      "bytes": 247
+    },
+    "ok": true
+  }
+}

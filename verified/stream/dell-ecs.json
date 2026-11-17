@@ -1,0 +1,17 @@
+{
+  "0": {
+    "title": "Collapse repeated alerts",
+    "checked": "2026-11-16",
+    "group": "default",
+    "fingerprint": "ba0aa9bf5a491a5f",
+    "in": {
+      "events": 3,
+      "bytes": 678
+    },
+    "out": {
+      "events": 1,
+      "bytes": 226
+    },
+    "ok": true
+  }
+}

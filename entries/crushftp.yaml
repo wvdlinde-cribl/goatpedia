@@ -268,21 +268,102 @@ optimizations:
     fn: Drop
     how: WROTE lines for standard headers (Content-Type, Vary, Transfer-Encoding, Date, Cache-Control) carry no security value. Keep status lines and anything with Location or Set-Cookie.
     expr: direction=='WROTE' && /^(Content-|Vary|Transfer-Encoding|Date|Cache-Control|Connection|Keep-Alive|Server|X-)/i.test(payload)
+    stream:
+      log: Server response (WROTE)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/\] WROTE: \*(Content-|Vary|Transfer-Encoding|Date|Cache-Control|Connection|Keep-Alive|Server|X-)/i.test(_raw)'
+          description: Drop routine response header lines; status lines, Location and Set-Cookie stay
+          conf: {}
+      test:
+        - 'SESSION|11/12/2026 09:14:08.032|[HTTPS:412_51834:jdoe:203.0.113.45] WROTE: *Content-Type: text/html;charset=utf-8*'
+        - 'SESSION|11/12/2026 09:14:08.033|[HTTPS:412_51834:jdoe:203.0.113.45] WROTE: *Set-Cookie: CrushAuth=abc123; path=/*'
+      expect:
+        out: 2
   - title: Drop static WebInterface asset requests
     saving: 15–35 %
     fn: Drop
     how: GETs for .js, .css, images and fonts under /WebInterface/ are page loads, not actions. Keep function/ calls and uploads.
     expr: direction=='READ' && /^GET \/WebInterface\/.*\.(js|css|png|gif|svg|woff2?|ico)(\?| )/.test(payload)
+    stream:
+      log: Client request (READ)
+      parse: false
+      functions:
+        - id: drop
+          filter: '/\] READ: \*GET \/WebInterface\/[^ *]*\.(js|css|png|gif|svg|woff2?|ico)(\?| )/.test(_raw)'
+          description: Drop static WebInterface asset requests; keep function calls and uploads
+          conf: {}
+      test:
+        - 'SESSION|11/12/2026 09:14:07.600|[HTTPS:412_51834_kQz:anonymous:203.0.113.45] READ: *GET /WebInterface/jQuery/js/jquery.min.js?v=1 HTTP/1.1*'
+        - 'SESSION|11/12/2026 09:14:07.601|[HTTPS:412_51834_kQz:anonymous:203.0.113.45] READ: *GET /WebInterface/images/logo.png HTTP/1.1*'
+      expect:
+        out: 1
   - title: Collapse each session to one summary event
     saving: 60–80 %
     fn: Aggregations
     how: Group by session_id with first/last time, user, src_ip, protocol, request count and last status. Keep raw lines only for sessions that hit /WebInterface/function/ or failed authentication.
     expr: "group by session_id, user, src_ip, protocol; window 5m"
+    stream:
+      log: Client request (READ)
+      parse: false
+      functions:
+        - id: eval
+          filter: 'true'
+          description: Extract session fields from the raw line
+          conf:
+            add:
+              - name: sess_id
+                value: (/\|\[[A-Z0-9]+:([^:\]]+):/.exec(_raw) || [])[1]
+              - name: sess_proto
+                value: (/\|\[([A-Z0-9]+):/.exec(_raw) || [])[1]
+              - name: sess_user
+                value: (/\|\[[A-Z0-9]+:[^:\]]+:([^:\]]*):/.exec(_raw) || [])[1]
+              - name: sess_ip
+                value: (/\|\[[A-Z0-9]+:[^:\]]+:[^:\]]*:([^\]]+)\]/.exec(_raw) || [])[1]
+        - id: aggregation
+          filter: sess_id && !/\/WebInterface\/function\/|530|Password/.test(_raw)
+          description: Collapse each session's routine lines to one summary per 5 minutes; function calls and auth results pass as raw
+          conf:
+            passthrough: false
+            preserveGroupBys: false
+            sufficientStatsOnly: false
+            metricsMode: false
+            timeWindow: 300s
+            aggregations:
+              - count().as(requests)
+              - earliest(_time).as(first_time)
+              - latest(_time).as(last_time)
+            cumulative: false
+            flushOnInputClose: true
+            groupbys:
+              - sess_id
+              - sess_user
+              - sess_ip
+              - sess_proto
+      test:
+        - 'SESSION|11/12/2026 09:14:07.700|[HTTPS:412_51900:jdoe:198.51.100.7] READ: *GET /WebInterface/login.html HTTP/1.1*'
+        - 'SESSION|11/12/2026 09:14:07.800|[HTTPS:412_51900:jdoe:198.51.100.7] READ: *GET /WebInterface/index.html HTTP/1.1*'
+        - 'SESSION|11/12/2026 09:14:07.900|[HTTPS:412_51900:jdoe:198.51.100.7] READ: *GET /WebInterface/files/ HTTP/1.1*'
+      expect:
+        out: 2
+        smaller: true
   - title: Archive full verbose logs to Lake
     saving: SIEM licence
     fn: Routes
     how: Send detection-relevant lines (function calls, auth results, suspicious characters) to the SIEM and every raw line to Cribl Lake for incident response.
     expr: "/function\\/|Password|530|AWS4-HMAC|[{}<>]/.test(payload) → SIEM  |  all → Lake"
+    stream:
+      routes:
+        - name: CrushFTP detection-relevant lines → SIEM (+ Lake)
+          filter: '/\] (READ|WROTE): \*.*(function\/|Password|530|AWS4-HMAC|[{}<>])/.test(_raw)'
+          to: The SIEM, and a copy to Cribl Lake
+          final: false
+        - name: CrushFTP all lines → Lake
+          filter: /^[A-Z]+\|\d{2}\/\d{2}\/\d{4} /.test(_raw)
+          to: Cribl Lake (raw) for incident response
+          final: true
+      note: Routes see the raw line, so they match the payload text after READ/WROTE. Make the SIEM route non-final so the same lines also reach the Lake route.
 references:
   - title: CrushFTP wiki — Update and vulnerability info
     url: https://www.crushftp.com/crush11wiki/Wiki.jsp?page=Update
